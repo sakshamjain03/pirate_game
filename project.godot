@@ -17,18 +17,24 @@ run/main_scene="res://scenes/core/Boot.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
+
 [autoload]
 
 GameManager="*res://scripts/managers/GameManager.gd"
 SaveManager="*res://scripts/managers/SaveManager.gd"
 SceneManager="*res://scripts/managers/SceneManager.gd"
 SettingsManager="*res://scripts/managers/SettingsManager.gd"
+AudioManager="*res://scripts/managers/AudioManager.gd"
 
 [display]
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
 
 [rendering]
 

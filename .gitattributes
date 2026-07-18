@@ -1,0 +1,17 @@
+* text=auto eol=lf
+
+*.gd text
+*.tscn text
+*.tres text
+*.shader text
+*.md text
+*.json text
+*.cfg text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ogg binary
+*.wav binary
+*.glb binary
+*.blend binary

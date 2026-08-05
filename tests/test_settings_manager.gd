@@ -1,9 +1,9 @@
-extends "res://addons/gut/test.gd"
+extends GutTest
 
 # test_settings_manager.gd
 # Property-based tests for SettingsManager.
 
-const SettingsManagerClass = preload("res://Scripts/managers/SettingsManager.gd")
+const SettingsManagerClass = preload("res://scripts/managers/SettingsManager.gd")
 
 class TestableSettingsManager extends SettingsManagerClass:
 	var display_applied: bool = false
@@ -119,17 +119,17 @@ func test_property_9_signal_emitted_on_save():
 # A better implementation for Property 9 that doesn't rely on recreating sm
 func test_property_9_signal_emitted_on_save_better():
 	var iterations = 25
-	var total_emits = 0
+	var state = {"total_emits": 0}
 	
 	# Connect to a local counter
-	sm.settings_changed.connect(func(): total_emits += 1)
+	sm.settings_changed.connect(func(): state.total_emits += 1)
 	
 	for i in range(iterations):
 		sm.master_volume = randf()
-		var before = total_emits
+		var before = state.total_emits
 		sm.save_settings()
-		if total_emits != before + 1:
-			assert_true(false, "settings_changed must be emitted exactly once per save")
+		if state.total_emits != before + 1:
+			assert_true(false, "settings_changed must be emitted exactly once per save. Emitted %d times" % (state.total_emits - before))
 			return
 			
 	assert_true(true, "settings_changed was emitted exactly once per save")

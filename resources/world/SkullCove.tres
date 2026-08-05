@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="IslandData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/IslandData.gd" id="1_id"]
+
+[resource]
+script = ExtResource("1_id")
+island_id = "skull_cove"
+island_name = "Skull Cove"
+discovered = false
+has_dock = true
+docking_speed_limit = 5.0

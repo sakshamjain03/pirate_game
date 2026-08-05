@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_w1e4v"]
+
+[resource]
+script = ExtResource("1_w1e4v")
+building_id = "academy"
+building_name = "Academy"
+description = "Produces research points."
+cost_gold = 500
+cost_wood = 100
+cost_iron = 20
+produces_resource = "research"
+production_amount = 5
+production_interval = 10.0
+icon_path = ""
+model_path = "res://assets/models/structure.glb"

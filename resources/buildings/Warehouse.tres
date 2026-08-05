@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_bd"]
+
+[resource]
+script = ExtResource("1_bd")
+building_id = "warehouse"
+building_name = "Warehouse"
+description = "Increases maximum resource storage."
+cost_gold = 100
+cost_wood = 50
+cost_iron = 10
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+icon_path = ""
+model_path = "res://assets/models/structure.glb"

@@ -1,0 +1,242 @@
+extends Node3D
+
+## Purpose: Manages the island's logic, buildings, and resource production.
+## Responsibilities: Holds IslandData, tracks built structures, generates resources over time.
+## Dependencies: IslandData, ResourceManager, BuildingData resources
+
+@export var island_data: IslandData
+
+var built_buildings: Array[BuildingData] = []
+var _production_timers: Dictionary = {}
+var _spawned_models: Dictionary = {}
+
+@onready var building_slots: Node3D = get_node_or_null("Buildings/BuildingSlots")
+@onready var dock_area: Area3D = get_node_or_null("DockArea")
+
+func _ready() -> void:
+	if not island_data:
+		island_data = IslandData.new()
+		island_data.island_name = name
+
+	add_to_group("islands")
+
+	if dock_area:
+		dock_area.body_entered.connect(_on_dock_area_body_entered)
+		dock_area.body_exited.connect(_on_dock_area_body_exited)
+		
+	if ResourceManager.has_signal("global_economy_tick"):
+		ResourceManager.global_economy_tick.connect(_on_economy_tick)
+		
+	_spawn_defenses()
+
+func _on_dock_area_body_entered(body: Node) -> void:
+	if not body.is_in_group("player_ship"):
+		return
+	var ds = get_tree().current_scene.get_node_or_null("Systems/DockingSystem")
+	if ds:
+		ds.on_dock_area_entered(dock_area, get_island_id())
+
+func _on_dock_area_body_exited(body: Node) -> void:
+	if not body.is_in_group("player_ship"):
+		return
+	var ds = get_tree().current_scene.get_node_or_null("Systems/DockingSystem")
+	if ds:
+		ds.on_dock_area_exited(dock_area, get_island_id())
+
+func _spawn_defenses() -> void:
+	if island_data and island_data.island_type == IslandData.IslandType.ENEMY:
+		var enemy_scene = load("res://scenes/world/EnemyShip.tscn")
+		if enemy_scene:
+			var enemy = enemy_scene.instantiate()
+			get_tree().current_scene.call_deferred("add_child", enemy)
+			enemy.global_position = global_position + Vector3(30, 0, 30)
+			
+			# Monitor enemy death for capture logic
+			var combat = enemy.get_node_or_null("ShipCombat")
+			if combat:
+				combat.died.connect(_on_defense_destroyed)
+
+func _on_defense_destroyed() -> void:
+	# Capture the island if the defending fleet is destroyed
+	if FactionManager.has_method("get_player_faction"):
+		capture_island(FactionManager.get_player_faction())
+
+func capture_island(new_faction: Resource) -> void:
+	if island_data:
+		island_data.owner_faction = new_faction
+		island_data.island_type = IslandData.IslandType.FRIENDLY
+		print("Island ", get_island_name(), " captured by ", new_faction.faction_name)
+		
+		# Show announcement
+		var hud = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("announce_event"):
+			hud.announce_event("Captured " + get_island_name() + "!")
+
+func _on_economy_tick() -> void:
+	# Only produce if owned by player or friendly
+	if island_data and island_data.island_type == IslandData.IslandType.ENEMY:
+		return
+		
+	# Tick production for each building
+	for building in built_buildings:
+		if building.production_amount > 0 and building.produces_resource != "":
+			_produce_resource(building.produces_resource, building.production_amount)
+
+func _produce_resource(type: String, amount: int) -> void:
+	if ResourceManager.has_method("add_resource"):
+		ResourceManager.add_resource(type, amount)
+
+func get_island_id() -> String:
+	if island_data:
+		return island_data.island_id
+	return name
+
+func get_island_name() -> String:
+	if island_data:
+		return island_data.island_name
+	return name
+
+func has_building(building_id: String) -> bool:
+	for b in built_buildings:
+		if b.building_id == building_id:
+			return true
+	return false
+
+func has_shipyard() -> bool:
+	return has_building("shipyard")
+
+func build_structure(building: BuildingData) -> bool:
+	if has_building(building.building_id):
+		return false # Already built
+		
+	# Pay cost
+	var cost = building.get_cost_dict()
+	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):
+		built_buildings.append(building)
+		
+		# Spawn visual model
+		var slot_index = built_buildings.size() - 1
+		_spawn_building_visual(building, slot_index, true)
+		
+		if ResourceManager.has_method("recalculate_storage_capacity"):
+			ResourceManager.recalculate_storage_capacity()
+		
+		print("Built ", building.building_name, " on ", get_island_name())
+		return true
+		
+	return false
+
+func upgrade_structure(old_id: String, new_building: BuildingData) -> bool:
+	var old_building_idx = -1
+	var old_slot_index = -1
+	for i in range(built_buildings.size()):
+		if built_buildings[i].building_id == old_id:
+			old_building_idx = i
+			old_slot_index = i
+			break
+			
+	if old_building_idx == -1:
+		return false
+		
+	var cost = new_building.get_cost_dict()
+	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):
+		built_buildings[old_building_idx] = new_building
+		print("Upgraded to ", new_building.building_name, " on ", get_island_name())
+		
+		# Update visuals if needed (just scale up for now)
+		if _spawned_models.has(old_id):
+			var model = _spawned_models[old_id]
+			if is_instance_valid(model):
+				var tween = create_tween()
+				tween.tween_property(model, "scale", model.scale * 1.2, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+			# Re-map the dictionary key
+			_spawned_models[new_building.building_id] = model
+			_spawned_models.erase(old_id)
+			
+		if ResourceManager.has_method("recalculate_storage_capacity"):
+			ResourceManager.recalculate_storage_capacity()
+			
+		return true
+		
+	return false
+
+func _spawn_building_visual(building: BuildingData, slot_index: int, animate: bool = false) -> void:
+	if not building_slots or building_slots.get_child_count() == 0:
+		return
+		
+	# Pick a slot (wrap around if more buildings than slots)
+	var slots = building_slots.get_children()
+	var slot = slots[slot_index % slots.size()] as Marker3D
+	if not slot:
+		return
+		
+	# Load model
+	var model_scene = load(building.model_path)
+	if not model_scene:
+		return
+		
+	var instance = model_scene.instantiate()
+	if instance is Node3D:
+		slot.add_child(instance)
+		
+		# Add material applier to colorize it like the rest of the world
+		var applier = load("res://scripts/components/KenneyMaterialApplier.gd").new()
+		instance.add_child(applier)
+		
+		# Optional: Add a roof if it's the default structure
+		if building.model_path.ends_with("structure.glb"):
+			var roof_scene = load("res://assets/models/structure-roof.glb")
+			if roof_scene:
+				var roof = roof_scene.instantiate()
+				roof.position = Vector3(0, 1, 0)
+				instance.add_child(roof)
+				var roof_applier = load("res://scripts/components/KenneyMaterialApplier.gd").new()
+				roof.add_child(roof_applier)
+		
+		if animate:
+			instance.scale = Vector3.ZERO
+			var tween = create_tween()
+			tween.tween_property(instance, "scale", Vector3.ONE, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+			
+		_spawned_models[building.building_id] = instance
+
+func get_built_building_ids() -> Array:
+	var ids = []
+	for b in built_buildings:
+		ids.append(b.building_id)
+	return ids
+
+func restore_buildings(building_ids: Array) -> void:
+	built_buildings.clear()
+	
+	# Clear spawned models
+	for key in _spawned_models:
+		if is_instance_valid(_spawned_models[key]):
+			_spawned_models[key].queue_free()
+	_spawned_models.clear()
+	
+	var slot_index = 0
+	for b_id in building_ids:
+		# Map id to path (simplified logic since we know the paths)
+		var paths = {
+			"lumber_mill": "res://resources/buildings/LumberMill.tres",
+			"mine": "res://resources/buildings/Mine.tres",
+			"farm": "res://resources/buildings/Farm.tres",
+			"market": "res://resources/buildings/Market.tres",
+			"shipyard": "res://resources/buildings/Shipyard.tres",
+			"tavern": "res://resources/buildings/Tavern.tres",
+			"watchtower": "res://resources/buildings/Watchtower.tres",
+			"fortress": "res://resources/buildings/Fortress.tres",
+			"warehouse": "res://resources/buildings/Warehouse.tres",
+			"academy": "res://resources/buildings/Academy.tres"
+		}
+		
+		if paths.has(b_id):
+			var b_res = load(paths[b_id])
+			if b_res:
+				built_buildings.append(b_res)
+				_spawn_building_visual(b_res, slot_index, false)
+				slot_index += 1
+				
+	if ResourceManager.has_method("recalculate_storage_capacity"):
+		ResourceManager.recalculate_storage_capacity()

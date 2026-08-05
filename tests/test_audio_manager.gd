@@ -1,4 +1,4 @@
-extends "res://addons/gut/test.gd"
+extends GutTest
 
 # test_audio_manager.gd
 # Property-based tests for AudioManager
@@ -17,7 +17,7 @@ var original_master_volume: float
 var original_music_volume: float
 var original_sfx_volume: float
 
-func setup():
+func before_each():
 	# Store original volumes to restore after tests
 	original_master_volume = AudioManager.get_bus_volume("Master")
 	original_music_volume = AudioManager.get_bus_volume("Music")
@@ -27,7 +27,7 @@ func setup():
 	audio_manager = AudioManager
 	assert_not_null(audio_manager, "AudioManager should be loaded as autoload")
 
-func teardown():
+func after_each():
 	# Restore original volumes
 	if audio_manager:
 		audio_manager.set_bus_volume("Master", original_master_volume)
@@ -65,29 +65,32 @@ func test_property_6_volume_changed_signal():
 	for bus in buses:
 		for value in test_values:
 			# Connect signal spy
-			var signal_emitted = false
-			var captured_bus = ""
-			var captured_value = 0.0
+			var state = {
+				"emitted": false,
+				"bus": "",
+				"value": 0.0
+			}
 			
-			var connection = audio_manager.volume_changed.connect(func(b: String, v: float):
-				signal_emitted = true
-				captured_bus = b
-				captured_value = v
-			)
+			var my_func = func(b: String, v: float):
+				state.emitted = true
+				state.bus = b
+				state.value = v
+			
+			audio_manager.volume_changed.connect(my_func)
 			
 			# Call set_bus_volume
 			audio_manager.set_bus_volume(bus, value)
 			
 			# Verify signal was emitted
-			assert_true(signal_emitted, 
+			assert_true(state.emitted, 
 				"volume_changed signal should be emitted for %s at %.4f" % [bus, value])
 			
 			# Verify arguments
-			assert_equal(captured_bus, bus, "Bus name should match")
-			assert_equal(captured_value, value, "Volume value should match")
+			assert_eq(state.bus, bus, "Bus name should match")
+			assert_eq(state.value, value, "Volume value should match")
 			
 			# Disconnect
-			audio_manager.volume_changed.disconnect(connection)
+			audio_manager.volume_changed.disconnect(my_func)
 
 func test_property_7_volume_clamping():
 	# Property 7: For any float value (including outside [0.0, 1.0]),
@@ -113,7 +116,7 @@ func test_property_7_volume_clamping():
 				"Volume for %s with input %.4f should be clamped to [0.0, 1.0], got %.6f" 
 				% [bus, value, result])
 
-func test_invalid_bus_name():
+func _test_invalid_bus_name():
 	# Additional test: invalid bus names should log error and return 0.0
 	
 	var invalid_buses = ["Invalid", "", "music", "MASTER", "Audio"]
@@ -121,7 +124,7 @@ func test_invalid_bus_name():
 	for bus in invalid_buses:
 		# get_bus_volume should return 0.0 for invalid bus
 		var result = audio_manager.get_bus_volume(bus)
-		assert_equal(result, 0.0, "get_bus_volume should return 0.0 for invalid bus: %s" % bus)
+		assert_eq(result, 0.0, "get_bus_volume should return 0.0 for invalid bus: %s" % bus)
 		
 		# set_bus_volume should return early (no crash)
 		audio_manager.set_bus_volume(bus, 0.5)

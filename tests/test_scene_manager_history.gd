@@ -1,4 +1,4 @@
-extends "res://addons/gut/test.gd"
+extends GutTest
 
 # test_scene_manager_history.gd
 # Property-based tests for SceneManager scene history behavior
@@ -106,7 +106,7 @@ var mock_tree: MockTree
 var mock_resource_loader: MockResourceLoader
 var test_scenes: Array[String]
 
-func setup():
+func before_each():
 	# Setup mock objects
 	mock_tree = MockTree.new()
 	mock_resource_loader = MockResourceLoader.new([
@@ -114,6 +114,7 @@ func setup():
 		"res://Scenes/ui/SettingsMenu.tscn",
 		"res://Scenes/ui/CreditsScreen.tscn",
 		"res://Scenes/core/BootTest.tscn",
+		"res://Scenes/ui/GameWorld.tscn",
 	])
 	
 	# Create SceneManager proxy with mocks
@@ -128,7 +129,7 @@ func setup():
 		"res://Scenes/ui/GameWorld.tscn",  # For M2+
 	]
 
-func teardown():
+func after_each():
 	# Cleanup - note: Godot objects need to be freed
 	if scene_manager:
 		scene_manager.queue_free()
@@ -154,12 +155,12 @@ func test_property_1_change_scene_pushes_to_history():
 		# Verify history was updated correctly
 		var final_length = scene_manager._scene_history.size()
 		
-		assert_equal(final_length, initial_length + 1,
+		assert_eq(final_length, initial_length + 1,
 			"History length should increase by exactly one for change_scene")
 		
 		# Verify the path is the most recent entry
 		var last_entry = scene_manager._scene_history.back()
-		assert_equal(last_entry, path,
+		assert_eq(last_entry, path,
 			"Most recent history entry should be the path passed to change_scene")
 
 
@@ -176,12 +177,12 @@ func test_property_1_change_scene_with_fade_pushes_to_history():
 		# Verify history was updated correctly
 		var final_length = scene_manager._scene_history.size()
 		
-		assert_equal(final_length, initial_length + 1,
+		assert_eq(final_length, initial_length + 1,
 			"History length should increase by exactly one for change_scene_with_fade")
 		
 		# Verify the path is the most recent entry
 		var last_entry = scene_manager._scene_history.back()
-		assert_equal(last_entry, path,
+		assert_eq(last_entry, path,
 			"Most recent history entry should be the path passed to change_scene_with_fade")
 
 
@@ -209,11 +210,11 @@ func test_property_1_random_path_generation():
 		var final_length = scene_manager._scene_history.size()
 		
 		# Verify property holds
-		assert_equal(final_length, initial_length + 1,
+		assert_eq(final_length, initial_length + 1,
 			"Property 1 should hold for randomly generated path %s" % path)
 		
 		var last_entry = scene_manager._scene_history.back()
-		assert_equal(last_entry, path,
+		assert_eq(last_entry, path,
 			"Random path %s should be most recent history entry" % path)
 
 
@@ -239,7 +240,7 @@ func test_property_1_multiple_consecutive_calls():
 		scene_manager.change_scene(path)
 		
 		var final_length = scene_manager._scene_history.size()
-		assert_equal(final_length, initial_length + 1,
+		assert_eq(final_length, initial_length + 1,
 			"Each scene change should increase history length by exactly one")
 
 
@@ -255,12 +256,12 @@ func test_property_1_history_stack_integrity():
 		scene_manager.change_scene(path)
 	
 	# Verify all entries are present in order
-	assert_equal(scene_manager._scene_history.size(), push_count,
+	assert_eq(scene_manager._scene_history.size(), push_count,
 		"History should contain %d entries" % push_count)
 	
 	# Verify last entry is most recent
 	var last_entry = scene_manager._scene_history.back()
-	assert_equal(last_entry, "res://Scenes/ui/LifoTest19.tscn",
+	assert_eq(last_entry, "res://Scenes/ui/LifoTest19.tscn",
 		"Last entry should be the most recently pushed path")
 	
 	# Verify stack discipline (LIFO) by checking each position
@@ -268,7 +269,7 @@ func test_property_1_history_stack_integrity():
 		var expected_index = push_count - 1 - i
 		var expected_path = "res://Scenes/ui/LifoTest%d.tscn" % expected_index
 		var actual_path = scene_manager._scene_history[expected_index]
-		assert_equal(actual_path, expected_path,
+		assert_eq(actual_path, expected_path,
 			"History should maintain LIFO order at index %d" % expected_index)
 	
 	# Clean up history
@@ -294,7 +295,7 @@ func test_property_1_history_length_precision():
 		var actual_increase = final_length - initial_length
 		
 		# Verify EXACTLY one was added
-		assert_equal(actual_increase, 1,
+		assert_eq(actual_increase, 1,
 			"History should increase by EXACTLY one, got %d for path %s" % [actual_increase, path])
 
 
@@ -325,8 +326,8 @@ func test_property_1_both_methods_identical_behavior():
 		var increase2 = final2 - initial2
 		
 		# Both should increase by exactly one
-		assert_equal(increase1, 1, "change_scene should increase by exactly one")
-		assert_equal(increase2, 1, "change_scene_with_fade should increase by exactly one")
+		assert_eq(increase1, 1, "change_scene should increase by exactly one")
+		assert_eq(increase2, 1, "change_scene_with_fade should increase by exactly one")
 
 
 func test_property_1_empty_history_initially():
@@ -336,7 +337,7 @@ func test_property_1_empty_history_initially():
 		"Scene history should start empty")
 	
 	var initial_length = scene_manager._scene_history.size()
-	assert_equal(initial_length, 0,
+	assert_eq(initial_length, 0,
 		"Initial history length should be 0")
 
 
@@ -353,7 +354,7 @@ func test_property_1_invalid_path_does_not_push():
 	var final_length = scene_manager._scene_history.size()
 	
 	# History should NOT change
-	assert_equal(final_length, initial_length,
+	assert_eq(final_length, initial_length,
 		"Invalid path should not push to history")
 	
 	assert_true(scene_manager._scene_history.is_empty(),
@@ -379,12 +380,12 @@ func test_property_1_path_uniqueness():
 	var length2 = scene_manager._scene_history.size()
 	
 	# Both should be in history (duplicates allowed)
-	assert_equal(length1, 1, "First push should result in length 1")
-	assert_equal(length2, 2, "Second push should result in length 2")
+	assert_eq(length1, 1, "First push should result in length 1")
+	assert_eq(length2, 2, "Second push should result in length 2")
 	
 	# Verify both entries exist
-	assert_equal(scene_manager._scene_history[0], path, "First entry should be path")
-	assert_equal(scene_manager._scene_history[1], path, "Second entry should be path")
+	assert_eq(scene_manager._scene_history[0], path, "First entry should be path")
+	assert_eq(scene_manager._scene_history[1], path, "Second entry should be path")
 
 
 func test_property_1_go_back_does_not_repush():
@@ -417,7 +418,7 @@ func test_property_1_go_back_does_not_repush():
 	var final_length = scene_manager._scene_history.size()
 	
 	# Verify length decreased by one
-	assert_equal(final_length, initial_length - 1,
+	assert_eq(final_length, initial_length - 1,
 		"go_back should decrease history length by exactly one")
 	
 	# Verify the popped path is no longer in history

@@ -1,0 +1,137 @@
+[gd_scene load_steps=3 format=3 uid="uid://c5b2a1a8c9e7f"]
+
+[ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_4n7a3"]
+[ext_resource type="Texture2D" path="res://assets/art/concept_art/island_level_max_1785440673629.jpg" id="2_bg"]
+
+[node name="MainMenu" type="CanvasLayer"]
+script = ExtResource("1_4n7a3")
+
+[node name="Control" type="Control" parent="."]
+layout_mode      = 3
+anchors_preset   = 15
+anchor_right     = 1.0
+anchor_bottom    = 1.0
+grow_horizontal  = 2
+grow_vertical    = 2
+
+[node name="Background" type="TextureRect" parent="Control"]
+layout_mode      = 1
+anchors_preset   = 15
+anchor_right     = 1.0
+anchor_bottom    = 1.0
+grow_horizontal  = 2
+grow_vertical    = 2
+expand_mode      = 1
+stretch_mode     = 6
+texture          = ExtResource("2_bg")
+modulate         = Color(0.4, 0.45, 0.55, 1.0)
+
+[node name="DarkOverlay" type="ColorRect" parent="Control"]
+layout_mode      = 1
+anchors_preset   = 15
+anchor_right     = 1.0
+anchor_bottom    = 1.0
+grow_horizontal  = 2
+grow_vertical    = 2
+color            = Color(0.02, 0.04, 0.10, 0.72)
+
+[node name="VignetteOverlay" type="ColorRect" parent="Control"]
+layout_mode      = 1
+anchors_preset   = 15
+anchor_right     = 1.0
+anchor_bottom    = 1.0
+grow_horizontal  = 2
+grow_vertical    = 2
+color            = Color(0.0, 0.0, 0.0, 0.0)
+
+[node name="TitleContainer" type="VBoxContainer" parent="Control"]
+layout_mode      = 1
+anchors_preset   = 5
+anchor_left      = 0.5
+anchor_right     = 0.5
+offset_left      = -300.0
+offset_top       = 50.0
+offset_right     = 300.0
+offset_bottom    = 200.0
+grow_horizontal  = 2
+alignment        = 1
+
+[node name="TitleLabel" type="Label" parent="Control/TitleContainer"]
+layout_mode      = 2
+text             = "PIRATE EMPIRE"
+horizontal_alignment = 1
+vertical_alignment   = 1
+label_settings   = null
+
+[node name="SubtitleLabel" type="Label" parent="Control/TitleContainer"]
+layout_mode      = 2
+text             = "Rule the Seas. Build an Empire."
+horizontal_alignment = 1
+vertical_alignment   = 1
+
+[node name="Divider" type="ColorRect" parent="Control/TitleContainer"]
+layout_mode      = 2
+custom_minimum_size = Vector2(400, 2)
+color            = Color(0.831, 0.686, 0.216, 0.6)
+
+[node name="ButtonPanel" type="PanelContainer" parent="Control"]
+layout_mode      = 1
+anchors_preset   = 8
+anchor_left      = 0.5
+anchor_top       = 0.5
+anchor_right     = 0.5
+anchor_bottom    = 0.5
+offset_left      = -130.0
+offset_top       = -30.0
+offset_right     = 130.0
+offset_bottom    = 180.0
+grow_horizontal  = 2
+grow_vertical    = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/ButtonPanel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="ContinueButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Continue"
+
+[node name="NewGameButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "New Game"
+
+[node name="SettingsButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Settings"
+
+[node name="CreditsButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+custom_minimum_size = Vector2(240, 44)
+layout_mode      = 2
+text             = "📜  CREDITS"
+size_flags_horizontal = 3
+
+[node name="QuitButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+custom_minimum_size = Vector2(240, 44)
+layout_mode      = 2
+text             = "✖  QUIT"
+size_flags_horizontal = 3
+
+[node name="VersionLabel" type="Label" parent="Control"]
+layout_mode      = 1
+anchors_preset   = 3
+anchor_left      = 1.0
+anchor_top       = 1.0
+anchor_right     = 1.0
+anchor_bottom    = 1.0
+offset_left      = -120.0
+offset_top       = -30.0
+offset_right     = -10.0
+offset_bottom    = -10.0
+grow_horizontal  = 0
+grow_vertical    = 0
+text             = "v0.1.0  Pre-Alpha"
+horizontal_alignment = 2

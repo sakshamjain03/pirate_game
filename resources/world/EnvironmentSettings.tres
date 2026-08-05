@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EnvironmentSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/EnvironmentSettings.gd" id="1_env_settings"]
+
+[resource]
+script = ExtResource("1_env_settings")
+sun_color_morning = Color(1, 0.702, 0.541, 1)
+sun_color_noon = Color(1, 0.992, 0.980, 1)
+sun_color_evening = Color(1, 0.478, 0.349, 1)
+sun_color_night = Color(0.204, 0.282, 0.478, 1)

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="IslandData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/IslandData.gd" id="1_fis"]
+
+[resource]
+script = ExtResource("1_fis")
+island_id = "frozen_island"
+island_name = "Frostbite Reef"
+island_type = 3

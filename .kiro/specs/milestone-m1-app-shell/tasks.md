@@ -181,31 +181,32 @@ Every task builds directly on the previous one so there is no orphaned code.
 - [x] 9. Checkpoint — verify wiring and static analysis
   - Verify that `project.godot` autoload order is: `GameManager`, `SaveManager`, `SceneManager`, `SettingsManager`, `AudioManager`
   - Verify that `Boot.gd` calls `SceneManager.change_scene_with_fade` (not the old `GameManager.change_state`)
-  - Confirm `run/main_scene` in `project.godot` still points to `res://Scenes/core/Boot.tscn` (note: Godot path is case-sensitive; verify it matches the actual file path `Scenes/core/Boot.tscn`)
+  - Confirm `run/main_scene` in `project.godot` still points to `res://scenes/core/Boot.tscn` (folders were renamed to lowercase `scripts/`/`scenes/` on 2026-08-02 to match every path reference in code and fix an Android case-sensitivity bug — verified via `godot --headless --check-only`)
   - Confirm no script directly calls into UI scene node methods from an autoload singleton
   - Confirm every new `.gd` file has a documentation header per AGENTS.md rules
 
-- [x] 10. Write integration tests for navigation flow
-  - [x] 10.1 Write integration test for Boot → MainMenu transition
-    - Instantiate a headless SceneTree, load Boot scene, assert that `SceneManager.scene_changed` fires with `"res://Scenes/ui/MainMenu.tscn"` within the transition duration
+- [ ] 10. Write integration tests for navigation flow
+  - Note: not actually written (tests/ only contains property tests for SceneManager/AudioManager/SettingsManager/SettingsMenu, no dedicated Boot->MainMenu/back-navigation integration suite). Previously mis-marked [x]; corrected during the M1/M2 bug-fix pass on 2026-08-02.
+  - [ ] 10.1 Write integration test for Boot → MainMenu transition
+    - Instantiate a headless SceneTree, load Boot scene, assert that `SceneManager.scene_changed` fires with `"res://scenes/ui/MainMenu.tscn"` within the transition duration
     - _Requirements: 1.1, 1.2, 1.3, 13.1_
 
-  - [x] 10.2 Write integration test for MainMenu button navigation
+  - [ ] 10.2 Write integration test for MainMenu button navigation
     - For each of Settings, Credits navigation paths: press the corresponding button programmatically; assert `SceneManager._scene_history` contains the expected path as its last entry
     - _Requirements: 5.2, 5.4, 5.5, 13.2_
 
-  - [x] 10.3 Write integration test for go_back() returning to MainMenu
-    - Push `"res://Scenes/ui/MainMenu.tscn"` onto history, call `go_back()`, assert `scene_changed` fires with `"res://Scenes/ui/MainMenu.tscn"` and history is empty
+  - [ ] 10.3 Write integration test for go_back() returning to MainMenu
+    - Push `"res://scenes/ui/MainMenu.tscn"` onto history, call `go_back()`, assert `scene_changed` fires with `"res://scenes/ui/MainMenu.tscn"` and history is empty
     - _Requirements: 4.1, 4.2, 13.5_
 
-  - [x] 10.4 Write integration test for ui_cancel back navigation
+  - [ ] 10.4 Write integration test for ui_cancel back navigation
     - In SettingsMenu and CreditsScreen scenes: inject a mock `InputEventAction` for `"ui_cancel"`, assert `SceneManager.go_back()` is called
     - _Requirements: 6.8, 7.4, 12.1, 12.2, 12.3_
 
 - [x] 11. Final checkpoint — full pass
   - Verify that `project.godot` autoload order is: `GameManager`, `SaveManager`, `SceneManager`, `SettingsManager`, `AudioManager`
   - Verify that `Boot.gd` calls `SceneManager.change_scene_with_fade` (not the old `GameManager.change_state`)
-  - Confirm `run/main_scene` in `project.godot` still points to `res://Scenes/core/Boot.tscn` (note: Godot path is case-sensitive; verify it matches the actual file path `Scenes/core/Boot.tscn`)
+  - Confirm `run/main_scene` in `project.godot` still points to `res://scenes/core/Boot.tscn` (folders were renamed to lowercase `scripts/`/`scenes/` on 2026-08-02 to match every path reference in code and fix an Android case-sensitivity bug — verified via `godot --headless --check-only`)
   - Confirm no script directly calls into UI scene node methods from an autoload singleton
   - Confirm every new `.gd` file has a documentation header per AGENTS.md rules
 
@@ -217,6 +218,16 @@ Every task builds directly on the previous one so there is no orphaned code.
 - Core functionality works without them
 - Each task references specific requirements for full traceability back to `requirements.md`
 - All scripts must follow AGENTS.md naming conventions: `PascalCase` classes, `snake_case` variables/functions, `UPPER_CASE` constants
+
+### Bug-fix pass (2026-08-02)
+
+Verified against a running Godot 4.3 instance (`--check-only`, `--import`, and GUT). Fixed:
+- `MainMenu.gd` called `set_theme()` on itself (a `CanvasLayer`, which has no such method) instead of on its `Control` child — this was a hard parse error that prevented Main Menu from ever loading.
+- `scripts/`/`scenes/` folders were tracked in git as `Scripts/`/`Scenes/` (capitalized) while every actual path reference (project.godot, scenes, scripts) used lowercase — harmless on case-insensitive Windows but would break the primary Android target outright. Renamed the git-tracked folders to lowercase to match.
+- `SceneManager.change_scene_with_fade()` skipped emitting `scene_changed` on the `duration <= 0.0` fast path.
+- `MainMenu.gd` / `CreditsScreen.gd` were missing required doc-header sections (Limitations/TODOs).
+- The bundled GUT addon was v9.6.1, which requires Godot ≥4.6; this project runs on Godot 4.3, so the entire test framework failed to load. Replaced with GUT v9.4.0 (compatible with 4.3–4.4). All 22 existing tests / 544 asserts now pass.
+- One MainMenu background asset (`island_level_max_1785440673629.png`) was actually a JPEG saved with a `.png` extension, which Godot's PNG importer rejected as corrupt, breaking the MainMenu scene. Renamed to `.jpg` and updated the reference.
 - Every new public script requires a documentation header covering: purpose, responsibilities, dependencies, limitations, TODOs
 - Nodes are never serialized directly — only pure data (per AGENTS.md Save System rules)
 - The `go_back()` implementation must NOT push the popped path back onto history (would cause infinite loop between two screens)

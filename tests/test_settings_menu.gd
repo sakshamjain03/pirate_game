@@ -1,4 +1,4 @@
-extends "res://addons/gut/test.gd"
+extends GutTest
 
 # test_settings_menu.gd
 # Property-based tests for SettingsMenu UI interactions.
@@ -66,9 +66,9 @@ func test_property_12_controls_reflect_state():
 	var iterations = 25
 	
 	for i in range(iterations):
-		mock_sm.master_volume = randf()
-		mock_sm.music_volume = randf()
-		mock_sm.sfx_volume = randf()
+		mock_sm.master_volume = snapped(randf(), 0.01)
+		mock_sm.music_volume = snapped(randf(), 0.01)
+		mock_sm.sfx_volume = snapped(randf(), 0.01)
 		mock_sm.fullscreen = (randi() % 2) == 0
 		mock_sm.vsync = (randi() % 2) == 0
 		mock_sm.resolution = resolutions[randi() % resolutions.size()]
@@ -78,21 +78,16 @@ func test_property_12_controls_reflect_state():
 		menu.audio_manager = mock_am
 		add_child(menu)
 		
-		if not is_equal_approx(menu.master_slider.value, mock_sm.master_volume): passed = false
-		if not is_equal_approx(menu.music_slider.value, mock_sm.music_volume): passed = false
-		if not is_equal_approx(menu.sfx_slider.value, mock_sm.sfx_volume): passed = false
-		if menu.fullscreen_check.button_pressed != mock_sm.fullscreen: passed = false
-		if menu.vsync_check.button_pressed != mock_sm.vsync: passed = false
-		if menu.resolution_option.get_item_text(menu.resolution_option.selected) != mock_sm.resolution: passed = false
+		assert_true(is_equal_approx(menu.master_slider.value, mock_sm.master_volume), "master slider")
+		assert_true(is_equal_approx(menu.music_slider.value, mock_sm.music_volume), "music slider")
+		assert_true(is_equal_approx(menu.sfx_slider.value, mock_sm.sfx_volume), "sfx slider")
+		assert_eq(menu.fullscreen_check.button_pressed, mock_sm.fullscreen, "fullscreen check")
+		assert_eq(menu.vsync_check.button_pressed, mock_sm.vsync, "vsync check")
+		assert_eq(menu.resolution_option.get_item_text(menu.resolution_option.selected), mock_sm.resolution, "resolution option")
 		
 		remove_child(menu)
 		menu.free()
 		menu = null
-		
-		if not passed:
-			break
-			
-	assert_true(passed, "All arbitrary valid states should reflect in controls after _ready")
 
 # 6.2 Property 13: volume slider changes propagate to AudioManager and SettingsManager
 func test_property_13_volume_slider_changes():

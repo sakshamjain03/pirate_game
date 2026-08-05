@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+[ext_resource type="Shader" path="res://resources/shaders/toon.gdshader" id="1_shader"]
+[ext_resource type="Material" path="res://resources/materials/outline.tres" id="2_outline"]
+
+[resource]
+shader = ExtResource("1_shader")
+next_pass = ExtResource("2_outline")
+shader_parameter/albedo = Color(0.8, 0.9, 1.0, 1.0)
+shader_parameter/metallic = 0.0
+shader_parameter/roughness = 0.8

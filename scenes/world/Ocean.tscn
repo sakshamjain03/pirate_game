@@ -1,0 +1,41 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/OceanController.gd" id="1_ocean"]
+[ext_resource type="Script" path="res://scripts/world/WaveGenerator.gd" id="2_wave"]
+[ext_resource type="Resource" path="res://resources/world/OceanSettings.tres" id="3_settings"]
+[ext_resource type="Shader" path="res://resources/shaders/water.gdshader" id="4_shader"]
+[ext_resource type="Texture2D" path="res://resources/shaders/wave_noise.tres" id="5_noise"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+render_priority = 0
+shader = ExtResource("4_shader")
+shader_parameter/water_color_shallow = Color(0.106, 0.651, 0.784, 1)
+shader_parameter/water_color_deep    = Color(0.027, 0.302, 0.529, 1)
+shader_parameter/foam_color          = Color(0.95, 0.98, 1.0, 1)
+shader_parameter/foam_thickness      = 2.5
+shader_parameter/depth_distance      = 8.0
+shader_parameter/wave_speed_1        = 0.03
+shader_parameter/wave_speed_2        = -0.015
+shader_parameter/wave_scale          = 150.0
+shader_parameter/wave_height         = 0.45
+shader_parameter/sparkle_intensity   = 0.35
+shader_parameter/sparkle_scale       = 60.0
+shader_parameter/sparkle_speed       = 0.08
+shader_parameter/wave_noise          = ExtResource("5_noise")
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_1"]
+material = SubResource("ShaderMaterial_1")
+size = Vector2(1000, 1000)
+subdivide_width = 120
+subdivide_depth = 120
+
+[node name="Ocean" type="Node3D"]
+script = ExtResource("1_ocean")
+ocean_settings = ExtResource("3_settings")
+
+[node name="WaterMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_1")
+
+[node name="WaveGenerator" type="Node" parent="."]
+script = ExtResource("2_wave")
+ocean_settings = ExtResource("3_settings")

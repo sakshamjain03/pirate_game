@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_bd"]
+
+[resource]
+script = ExtResource("1_bd")
+building_id = "tavern"
+building_name = "Tavern"
+description = "Boosts crew morale, generating extra Gold."
+cost_gold = 50
+cost_wood = 100
+cost_iron = 0
+cost_rum = 0
+produces_resource = "gold"
+production_amount = 5
+production_interval = 10.0
+model_path = "res://assets/models/structure.glb"

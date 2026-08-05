@@ -1,0 +1,204 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/patch-sand-foliage.glb"         id="1_sand"]
+[ext_resource type="PackedScene" path="res://assets/models/patch-grass-foliage.glb"         id="2_grass"]
+[ext_resource type="PackedScene" path="res://assets/models/structure-platform-dock.glb"     id="3_dock"]
+[ext_resource type="PackedScene" path="res://assets/models/structure.glb"                   id="4_house"]
+[ext_resource type="PackedScene" path="res://assets/models/structure-roof.glb"              id="5_roof"]
+[ext_resource type="PackedScene" path="res://assets/models/palm-detailed-bend.glb"          id="6_palm"]
+[ext_resource type="PackedScene" path="res://assets/models/palm-detailed-straight.glb"      id="7_palm2"]
+[ext_resource type="PackedScene" path="res://assets/models/rocks-sand-a.glb"                id="8_rock1"]
+[ext_resource type="PackedScene" path="res://assets/models/rocks-sand-b.glb"                id="9_rock2"]
+[ext_resource type="PackedScene" path="res://assets/models/barrel.glb"                      id="10_barrel"]
+[ext_resource type="PackedScene" path="res://assets/models/chest.glb"                       id="11_chest"]
+[ext_resource type="PackedScene" path="res://assets/models/flag-pirate.glb"                 id="12_flag"]
+[ext_resource type="Script"      path="res://scripts/components/KenneyMaterialApplier.gd"   id="13_mat"]
+
+[ext_resource type="Script"      path="res://scripts/world/Island.gd"                       id="14_isl"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_1"]
+radius = 22.0
+height = 5.0
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_dock"]
+size = Vector3(12, 5, 12)
+
+[node name="Island" type="StaticBody3D"]
+script = ExtResource("14_isl")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
+shape = SubResource("CylinderShape3D_1")
+
+[node name="Terrain" type="Node3D" parent="."]
+
+[node name="Sand1" parent="Terrain" instance=ExtResource("1_sand")]
+transform = Transform3D(14, 0, 0, 0, 1, 0, 0, 0, 14, -6, 0.1, -6)
+
+[node name="MaterialApplier" type="Node" parent="Terrain/Sand1"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/sand.tres"
+
+[node name="Sand2" parent="Terrain" instance=ExtResource("1_sand")]
+transform = Transform3D(14, 0, 0, 0, 1, 0, 0, 0, 14, 6, 0.1, -6)
+
+[node name="MaterialApplier" type="Node" parent="Terrain/Sand2"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/sand.tres"
+
+[node name="Sand3" parent="Terrain" instance=ExtResource("1_sand")]
+transform = Transform3D(14, 0, 0, 0, 1, 0, 0, 0, 14, -6, 0.1, 6)
+
+[node name="MaterialApplier" type="Node" parent="Terrain/Sand3"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/sand.tres"
+
+[node name="Sand4" parent="Terrain" instance=ExtResource("1_sand")]
+transform = Transform3D(14, 0, 0, 0, 1, 0, 0, 0, 14, 6, 0.1, 6)
+
+[node name="MaterialApplier" type="Node" parent="Terrain/Sand4"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/sand.tres"
+
+[node name="Grass1" parent="Terrain" instance=ExtResource("2_grass")]
+transform = Transform3D(10, 0, 0, 0, 2.5, 0, 0, 0, 10, -1, 1.2, -1)
+
+[node name="MaterialApplier" type="Node" parent="Terrain/Grass1"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="Grass2" parent="Terrain" instance=ExtResource("2_grass")]
+transform = Transform3D(7, 0, 0, 0, 2.0, 0, 0, 0, 7, 3, 1.0, 2)
+
+[node name="MaterialApplier" type="Node" parent="Terrain/Grass2"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="Dock" parent="." instance=ExtResource("3_dock")]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 16, 0.4, 0)
+
+[node name="MaterialApplier" type="Node" parent="Dock"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/wood_light.tres"
+
+[node name="DockArea" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 1, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DockArea"]
+shape = SubResource("BoxShape3D_dock")
+
+[node name="Buildings" type="Node3D" parent="."]
+
+[node name="House" parent="Buildings" instance=ExtResource("4_house")]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, 2, 2.2, 3)
+
+[node name="MaterialApplier" type="Node" parent="Buildings/House"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/wood_dark.tres"
+
+[node name="Roof" parent="Buildings/House" instance=ExtResource("5_roof")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="MaterialApplier" type="Node" parent="Buildings/House/Roof"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/crimson.tres"
+
+[node name="PirateFlag" parent="Buildings" instance=ExtResource("12_flag")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 7.5, 3)
+
+[node name="MaterialApplier" type="Node" parent="Buildings/PirateFlag"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/sail_black.tres"
+
+[node name="BuildingSlots" type="Node3D" parent="Buildings"]
+
+[node name="Slot1" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, -4, 2.0, -2)
+
+[node name="Slot2" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, 8, 2.0, 4)
+
+[node name="Slot3" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, 4, 1.8, -6)
+
+[node name="Slot4" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, -7, 1.8, 5)
+
+[node name="Slot5" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, 9, 2.0, -3)
+
+[node name="Slot6" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, -2, 2.0, 7)
+
+[node name="Slot7" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, 6, 1.9, 8)
+
+[node name="Slot8" type="Marker3D" parent="Buildings/BuildingSlots"]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, -9, 1.7, -4)
+
+[node name="Foliage" type="Node3D" parent="."]
+
+[node name="Palm1" parent="Foliage" instance=ExtResource("6_palm")]
+transform = Transform3D(3.5, 0, 0, 0, 3.5, 0, 0, 0, 3.5, -9, 2.5, -9)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm1"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="Palm2" parent="Foliage" instance=ExtResource("7_palm2")]
+transform = Transform3D(-2.8, 0, -1.5, 0, 3.2, 0, 1.5, 0, -2.8, -3, 2.5, -11)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm2"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="Palm3" parent="Foliage" instance=ExtResource("6_palm")]
+transform = Transform3D(2.5, 0, 1.2, 0, 3.0, 0, -1.2, 0, 2.5, 9, 2.5, -7)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm3"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="Props" type="Node3D" parent="."]
+
+[node name="Rocks1" parent="Props" instance=ExtResource("8_rock1")]
+transform = Transform3D(2.5, 0, 0, 0, 2.5, 0, 0, 0, 2.5, 8, 1.5, -8)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks1"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"
+
+[node name="Rocks2" parent="Props" instance=ExtResource("9_rock2")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, -12, 1.2, 5)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks2"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"
+
+[node name="Rocks3" parent="Props" instance=ExtResource("8_rock1")]
+transform = Transform3D(2.0, 0, 0, 0, 2.0, 0, 0, 0, 2.0, 4, 1.2, -12)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks3"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"
+
+[node name="Barrel1" parent="Props" instance=ExtResource("10_barrel")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 14, 1.5, 4)
+
+[node name="MaterialApplier" type="Node" parent="Props/Barrel1"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/wood_dark.tres"
+
+[node name="Barrel2" parent="Props" instance=ExtResource("10_barrel")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 13, 1.5, 6)
+
+[node name="MaterialApplier" type="Node" parent="Props/Barrel2"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/wood_dark.tres"
+
+[node name="TreasureChest" parent="Props" instance=ExtResource("11_chest")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -4, 1.8, 8)
+
+[node name="MaterialApplier" type="Node" parent="Props/TreasureChest"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/brass_shiny.tres"

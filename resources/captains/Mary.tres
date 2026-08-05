@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CaptainData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
+
+[resource]
+script = ExtResource("1_cd")
+captain_id = "mary"
+captain_name = "\"Lucky\" Mary"
+background = "Strikes hard and fast, but her luck runs out if cornered."
+speed_modifier = 1.1
+turn_rate_modifier = 1.1
+damage_modifier = 1.1
+health_modifier = 0.9

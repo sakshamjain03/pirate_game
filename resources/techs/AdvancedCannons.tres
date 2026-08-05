@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TechData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/TechData.gd" id="1_td"]
+
+[resource]
+script = ExtResource("1_td")
+tech_id = "advanced_cannons"
+tech_name = "Advanced Cannons"
+description = "Increases cannon damage by 25%."
+cost_gold = 1500
+cost_wood = 200
+cost_iron = 600
+health_modifier = 1.0
+damage_modifier = 1.25
+speed_modifier = 1.0
+storage_modifier = 1.0

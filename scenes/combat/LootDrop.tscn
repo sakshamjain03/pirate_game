@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/LootDrop.gd" id="1_loot"]
+[ext_resource type="PackedScene" path="res://assets/models/chest.glb" id="2_model"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
+size = Vector3(1.5, 1.0, 1.0)
+
+[node name="LootDrop" type="RigidBody3D"]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("1_loot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_loot")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, -0.3, 0)

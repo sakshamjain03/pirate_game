@@ -35,7 +35,9 @@ func _on_event_timeout() -> void:
 	var dist = randf_range(200.0, 400.0)
 	boss.global_position = Vector3(cos(angle) * dist, 0, sin(angle) * dist)
 	
-	# Announce to UI
-	var hud = get_tree().current_scene.get_node_or_null("%WorldHUD")
+	# Announce to UI. Looked up by group rather than node name/path — the
+	# WorldHUD instance in World.tscn is actually named "WorldUI" and isn't
+	# unique_name_in_owner, so a "%WorldHUD" lookup always resolved to null.
+	var hud = get_tree().get_first_node_in_group("hud")
 	if hud and hud.has_method("announce_event"):
 		hud.announce_event("WORLD EVENT:\nAn Imperial Man-O-War has entered the waters!")

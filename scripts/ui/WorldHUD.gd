@@ -30,7 +30,20 @@ signal _dummy  # ensures signals section exists
 
 var _ship_controller: ShipController
 
+# Cannon cooldown display state — ShipCombat's own cooldown timers don't
+# report progress, only a final "ready again" flip, so this tracks each
+# side's cooldown window from the moment it fires to compute a live percent.
+var _port_cooldown_total: float = 0.0
+var _port_cooldown_start_ms: int = 0
+var _stbd_cooldown_total: float = 0.0
+var _stbd_cooldown_start_ms: int = 0
+
 func _ready() -> void:
+	# Island.gd (capture announcements) and WorldEventManager (boss-spawn
+	# announcements) both look up the HUD via this group rather than a node
+	# path/name, since the WorldHUD instance is actually named "WorldUI" in
+	# World.tscn — a name-based lookup for "WorldHUD" always missed.
+	add_to_group("hud")
 	_apply_theme()
 	_find_ship()
 	# SaveManager.load_game() runs deferred and finishes after this _ready(), so
@@ -63,7 +76,9 @@ func _find_ship() -> void:
 		ship.ship_speed_changed.connect(_on_speed_changed)
 		ship.ship_health_changed.connect(_on_health_changed)
 		ship.ship_destroyed.connect(_on_ship_destroyed)
-		
+		if ship.combat and ship.combat.has_signal("fired"):
+			ship.combat.fired.connect(_on_cannon_fired)
+
 	# Connect to global systems
 	if ResourceManager.has_signal("resources_changed"):
 		ResourceManager.resources_changed.connect(_on_resources_changed)
@@ -183,6 +198,25 @@ func _on_undock_initiated() -> void:
 	if island_menu:
 		island_menu.close()
 
+func _on_cannon_fired(side: String) -> void:
+	if not _ship_controller or not _ship_controller.combat or not _ship_controller.combat.ship_stats:
+		return
+	var cooldown_time = 1.0 / max(_ship_controller.combat.ship_stats.fire_rate, 0.1)
+	if side == "port":
+		_port_cooldown_total = cooldown_time
+		_port_cooldown_start_ms = Time.get_ticks_msec()
+	else:
+		_stbd_cooldown_total = cooldown_time
+		_stbd_cooldown_start_ms = Time.get_ticks_msec()
+
+func _update_cannon_cooldown_display(side: String, total: float, start_ms: int) -> void:
+	if total <= 0.0:
+		set_cannon_cooldown(side, true, 1.0)
+		return
+	var elapsed = (Time.get_ticks_msec() - start_ms) / 1000.0
+	var pct = clamp(elapsed / total, 0.0, 1.0)
+	set_cannon_cooldown(side, pct >= 1.0, pct)
+
 func _on_ship_destroyed() -> void:
 	if death_screen and _ship_controller:
 		death_screen.open(_ship_controller)
@@ -191,6 +225,9 @@ func _on_health_changed(current: float, maximum: float) -> void:
 	set_health(current, maximum)
 
 func _process(_delta: float) -> void:
+	_update_cannon_cooldown_display("port", _port_cooldown_total, _port_cooldown_start_ms)
+	_update_cannon_cooldown_display("starboard", _stbd_cooldown_total, _stbd_cooldown_start_ms)
+
 	## Update compass needle to match ship yaw
 	if _ship_controller and compass_needle:
 		var yaw = fmod(_ship_controller.global_rotation_degrees.y, 360.0)
@@ -224,7 +261,7 @@ func set_cannon_cooldown(side: String, ready: bool, pct: float = 1.0) -> void:
 			label.text = "READY ⚓"
 			label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.3))
 		else:
-			label.text = "RELOADING ⌛"
+			label.text = "RELOADING %d%% ⌛" % int(pct * 100.0)
 			label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
 
 func show_dock_prompt(show: bool) -> void:

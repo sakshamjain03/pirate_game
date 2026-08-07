@@ -10,3 +10,5 @@ turn_rate = 0.5
 cannon_damage = 80.0
 cannon_range = 150.0
 fire_rate = 0.5
+model_path = "res://assets/models/ship-ghost.glb"
+material_path = ""

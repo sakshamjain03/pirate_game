@@ -212,14 +212,15 @@ func _process_attack(delta: float) -> void:
 	# If player is more to our right, present starboard; otherwise port
 	broadside_side = "starboard" if right_dot > 0 else "port"
 
-	# We want to sail so the player is perpendicular to us (broadside)
-	# Target position: offset perpendicular to player direction
-	var perpendicular_offset: Vector3
-	if broadside_side == "port":
-		# We want player on our left → sail so player is at -X relative to us
-		perpendicular_offset = ship_controller.global_transform.basis.x.normalized() * preferred_combat_distance
-	else:
-		perpendicular_offset = -ship_controller.global_transform.basis.x.normalized() * preferred_combat_distance
+	# We want to sail so the player is perpendicular to us (broadside).
+	# Perpendicular to the player-relative axis, in the horizontal plane —
+	# NOT the enemy's own basis.x. Using the enemy's own heading here
+	# created a feedback loop: the heading rotates as the ship steers
+	# toward the ideal position, which immediately shifts that position,
+	# which changes the heading again — a wobble/circling-of-death instead
+	# of a stable approach to broadside range.
+	var perp = Vector3(-to_player_flat.z, 0.0, to_player_flat.x)
+	var perpendicular_offset: Vector3 = (perp if broadside_side == "starboard" else -perp) * preferred_combat_distance
 
 	var ideal_position = player_ship.global_position + perpendicular_offset
 

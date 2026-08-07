@@ -55,6 +55,12 @@ func _rebuild_model() -> void:
 	add_child(_model_instance)
 	move_child(_model_instance, 0)
 
+	# `sails` was never assigned in any ship scene, so the lean-animation
+	# loop in _process() always had nothing to act on. Auto-discovering any
+	# sail-named node in the freshly loaded hull means it works the moment a
+	# model actually has one, with no per-ship scene wiring required.
+	sails = _find_sail_nodes(_model_instance)
+
 	# Colorize the freshly loaded hull only — flag/ropes keep their own look.
 	var applier := preload("res://scripts/components/KenneyMaterialApplier.gd").new()
 	applier.material_path = material_path
@@ -77,6 +83,17 @@ func _apply_color_to_meshes(node: Node, color: Color) -> void:
 	for child in node.get_children():
 		_apply_color_to_meshes(child, color)
 
+
+func _find_sail_nodes(root: Node) -> Array[Node3D]:
+	var found: Array[Node3D] = []
+	_collect_sail_nodes(root, found)
+	return found
+
+func _collect_sail_nodes(node: Node, found: Array[Node3D]) -> void:
+	if node is Node3D and "sail" in node.name.to_lower():
+		found.append(node)
+	for child in node.get_children():
+		_collect_sail_nodes(child, found)
 
 func _find_wake_particles() -> GPUParticles3D:
 	## Look for a WakeParticles node in the parent ship scene

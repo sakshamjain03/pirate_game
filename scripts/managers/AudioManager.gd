@@ -25,6 +25,8 @@ signal volume_changed(bus_name: String, linear: float)
 
 const VALID_BUSES: Array[String] = ["Master", "Music", "SFX"]
 
+var _warned_missing_sounds: Dictionary = {}
+
 func set_bus_volume(bus_name: String, linear: float) -> void:
 	if not bus_name in VALID_BUSES:
 		push_error("AudioManager: Unknown bus name: %s" % bus_name)
@@ -65,5 +67,8 @@ func play_sound(sound_name: String) -> void:
 		add_child(player)
 		player.play()
 		player.finished.connect(player.queue_free)
-	else:
-		print("AudioManager: Playing missing sound '", sound_name, "'")
+	elif not _warned_missing_sounds.has(sound_name):
+		# Warn once per sound name rather than on every call — this fires on
+		# every cannon shot, and assets/audio/ has no files in it at all yet.
+		_warned_missing_sounds[sound_name] = true
+		push_warning("AudioManager: No audio asset for '%s' — assets/audio/ is empty, so this and any repeat plays are silent." % sound_name)

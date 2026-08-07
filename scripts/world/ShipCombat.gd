@@ -12,6 +12,7 @@ signal fired(side: String)
 
 var cannonball_scene: PackedScene = preload("res://scenes/combat/Cannonball.tscn")
 var floating_damage_scene: PackedScene = preload("res://scenes/ui/FloatingDamage.tscn")
+var cannon_model_scene: PackedScene = preload("res://assets/models/cannon.glb")
 
 var current_health: float = 100.0
 var can_fire_port: bool = true
@@ -47,6 +48,21 @@ func _ready() -> void:
 					
 	# Emit initial health
 	call_deferred("emit_signal", "health_changed", current_health, ship_stats.max_health)
+
+	_spawn_cannon_models()
+
+func _spawn_cannon_models() -> void:
+	## The markers themselves are bare, invisible Marker3D nodes — every ship
+	## fired from what looked like an empty hull. Their forward direction
+	## (-Z) now correctly points outward (see the marker-orientation fix),
+	## so instancing the cannon at identity local rotation just works.
+	if not cannon_model_scene:
+		return
+	for marker in port_markers + starboard_markers:
+		var cannon = cannon_model_scene.instantiate()
+		marker.add_child(cannon)
+		var applier = preload("res://scripts/components/KenneyMaterialApplier.gd").new()
+		cannon.add_child(applier)
 
 func take_damage(amount: float) -> void:
 	if current_health <= 0:
@@ -106,7 +122,9 @@ func fire_broadside(side: String) -> bool:
 func _spawn_cannonball(marker: Node3D, side: String) -> void:
 	if not cannonball_scene:
 		return
-		
+
+	_spawn_muzzle_flash(marker)
+
 	var ball = cannonball_scene.instantiate() as RigidBody3D
 	# Add to main world, not as child of ship
 	get_tree().current_scene.add_child(ball)
@@ -125,12 +143,11 @@ func _spawn_cannonball(marker: Node3D, side: String) -> void:
 		ball.damage = ship_stats.cannon_damage * dmg_mod
 		ball.source_ship = parent
 	
-	# Launch direction comes from the ship hull's own basis, not the marker's
-	# rotation. PortMarker*/StarboardMarker* in the ship scenes are authored
-	# with their basis pointed inward (a scene bug — the marker's own -Z
-	# fires into the hull it's mounted on), so deriving direction from
-	# marker.basis would send cannonballs into the firing ship itself.
-	# +X is starboard, -X is port (Godot's right-handed convention).
+	# Launch direction comes from the ship hull's own basis rather than the
+	# marker's own rotation — robust even if a ship scene's marker transforms
+	# are ever re-authored incorrectly again (this exact class of bug hit all
+	# 12 markers across all 3 ship scenes previously). +X is starboard, -X is
+	# port (Godot's right-handed convention).
 	var parent = get_parent()
 	var forward = Vector3.RIGHT
 	if parent is Node3D:
@@ -144,6 +161,20 @@ func _spawn_cannonball(marker: Node3D, side: String) -> void:
 		base_vel = parent.linear_velocity
 
 	ball.linear_velocity = base_vel + (forward * ship_stats.cannon_speed)
+
+func _spawn_muzzle_flash(marker: Node3D) -> void:
+	## A brief bright point light at the cannon mouth — there was previously
+	## no visual event at the firing point at all beyond the ball itself.
+	var flash = OmniLight3D.new()
+	flash.light_color = Color(1.0, 0.8, 0.4)
+	flash.light_energy = 8.0
+	flash.omni_range = 6.0
+	get_tree().current_scene.add_child(flash)
+	flash.global_position = marker.global_position
+
+	var tween = flash.create_tween()
+	tween.tween_property(flash, "light_energy", 0.0, 0.15)
+	tween.tween_callback(flash.queue_free)
 
 func _start_cooldown(side: String) -> void:
 	var cooldown_time = 1.0 / max(ship_stats.fire_rate, 0.1)

@@ -33,12 +33,21 @@ var current_forward_input: float = 0.0
 var current_turn_input: float = 0.0
 var is_docked: bool = false
 
+# Snapshot of the model node's authored local transform (it can carry a
+# baked mirror/rotation, e.g. PlayerShip's ShipModel), so the sinking
+# sequence has something exact to restore to on respawn instead of
+# assuming identity.
+var _model_initial_transform: Transform3D
+
 func _ready() -> void:
 	if not model:
 		for child in get_children():
 			if child.name.contains("ship") or child is Node3D and child.name != "FloatPoints":
 				model = child
 				break
+
+	if model:
+		_model_initial_transform = model.transform
 
 	# Use a soft warning instead of assert so the ship still spawns during dev
 	if not ship_stats:
@@ -56,8 +65,17 @@ func _ready() -> void:
 
 
 func _apply_recoil(is_port: bool) -> void:
-	# Add a slight visual tilt or physical impulse if desired
-	pass
+	# Firing a broadside kicks the hull toward the OPPOSITE side (Newton's
+	# third law) and gives it a brief heel, rather than the previous zero
+	# kick / zero heel on every shot.
+	var recoil_dir = global_transform.basis.x.normalized() * (1.0 if is_port else -1.0)
+	apply_central_impulse(recoil_dir * mass * 0.15)
+
+	if model:
+		var target_roll = deg_to_rad(4.0) * (1.0 if is_port else -1.0)
+		var tween = create_tween()
+		tween.tween_property(model, "rotation:z", target_roll, 0.08).set_trans(Tween.TRANS_SINE)
+		tween.tween_property(model, "rotation:z", 0.0, 0.4).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 func _spawn_cannon_smoke(is_port: bool) -> void:
 	var smoke = CPUParticles3D.new()
@@ -191,9 +209,7 @@ func _on_died() -> void:
 	angular_velocity = Vector3.ZERO
 	freeze = true
 
-	# Hide the ship model
-	if model:
-		model.visible = false
+	_play_sinking_sequence()
 
 	# If this is an enemy, drop loot and despawn
 	if not is_in_group("player_ship"):
@@ -213,10 +229,23 @@ func _on_died() -> void:
 	ship_destroyed.emit()
 	
 	if not is_in_group("player_ship"):
-		get_tree().create_timer(0.5).timeout.connect(queue_free)
+		# Long enough for the sinking sequence below to actually play before
+		# the ship (and its still-animating model) is freed out from under it.
+		get_tree().create_timer(2.0).timeout.connect(queue_free)
 	else:
 		# Player died — let WorldHUD handle the death screen
 		pass
+
+func _play_sinking_sequence() -> void:
+	if not model:
+		return
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(model, "position:y", model.position.y - 3.0, 1.6) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tween.tween_property(model, "rotation:x", model.rotation.x + deg_to_rad(20.0), 1.6) \
+		.set_trans(Tween.TRANS_SINE)
+	tween.chain().tween_callback(func(): if is_instance_valid(model): model.visible = false)
 
 func _spawn_explosion() -> void:
 	var explosion = CPUParticles3D.new()
@@ -287,7 +316,10 @@ func respawn(location: Vector3) -> void:
 	
 	if model:
 		model.visible = true
-		
+		# Undo the sinking sequence's list/sink so a respawned ship doesn't
+		# come back still tilted and partially submerged.
+		model.transform = _model_initial_transform
+
 	if combat and ship_stats:
 		combat.current_health = ship_stats.max_health
 		combat.health_changed.emit(combat.current_health, ship_stats.max_health)

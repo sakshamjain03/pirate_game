@@ -22,7 +22,10 @@ func setup(combat: ShipCombat) -> void:
 
 func _on_health_changed(current: float, maximum: float) -> void:
 	_update_display(current, maximum)
-	visible = true
+	# ShipCombat._ready() fires an initial health_changed at full health
+	# purely to sync listeners — without this check every enemy showed a
+	# full health bar from the moment it spawned, before taking any damage.
+	visible = current < maximum
 
 func _on_died() -> void:
 	visible = false

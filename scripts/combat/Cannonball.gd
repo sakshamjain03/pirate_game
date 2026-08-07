@@ -4,31 +4,99 @@ class_name Cannonball extends RigidBody3D
 @export var lifetime: float = 5.0
 
 var source_ship: Node = null
+var _splashed: bool = false
 
 func _ready() -> void:
 	# Enable contact reporting to detect hits
 	contact_monitor = true
 	max_contacts_reported = 1
-	
+
 	# Connect to collision signal
 	body_entered.connect(_on_body_entered)
-	
+
 	# Despawn after lifetime
 	get_tree().create_timer(lifetime).timeout.connect(queue_free)
 
+func _process(_delta: float) -> void:
+	# The ocean has no collider, so a miss would otherwise just sink through
+	# and idle out its full lifetime underwater, invisible, with no impact
+	# feedback at all.
+	if not _splashed and global_position.y < 0.0:
+		_splashed = true
+		_spawn_splash()
+		queue_free()
+
+func _spawn_splash() -> void:
+	var splash = CPUParticles3D.new()
+	splash.emitting = false
+	splash.one_shot = true
+	splash.amount = 20
+	splash.lifetime = 0.6
+	splash.explosiveness = 0.9
+	splash.spread = 40.0
+	splash.direction = Vector3(0, 1, 0)
+	splash.gravity = Vector3(0, -9.8, 0)
+	splash.initial_velocity_min = 3.0
+	splash.initial_velocity_max = 6.0
+
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.85, 0.95, 1.0, 0.8)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+	var mesh = SphereMesh.new()
+	mesh.radius = 0.15
+	mesh.height = 0.3
+	mesh.material = mat
+	splash.mesh = mesh
+
+	get_tree().current_scene.add_child(splash)
+	splash.global_position = Vector3(global_position.x, 0.0, global_position.z)
+	splash.emitting = true
+
+	var timer = get_tree().create_timer(1.0)
+	timer.timeout.connect(func(): if is_instance_valid(splash): splash.queue_free())
+
 func _on_body_entered(body: Node) -> void:
-	# Ignore collision with the ship that fired this
+	# Ignore collision with the ship that fired this — but still despawn;
+	# leaving the ball alive without freeing it meant it kept physically
+	# colliding with (and shoving) the firer for its full lifetime.
 	if body == source_ship:
+		queue_free()
 		return
-		
-	# Check if body has a ShipCombat component
-	if body.has_method("take_damage"):
-		body.take_damage(damage)
-	elif body.has_node("ShipCombat"):
-		var combat = body.get_node("ShipCombat")
-		if combat.has_method("take_damage"):
-			combat.take_damage(damage)
-			
+
+	if not _is_friendly(body):
+		# Check if body has a ShipCombat component
+		if body.has_method("take_damage"):
+			body.take_damage(damage)
+		elif body.has_node("ShipCombat"):
+			var combat = body.get_node("ShipCombat")
+			if combat.has_method("take_damage"):
+				combat.take_damage(damage)
+
 	# Spawn impact effect here later
-	
+
 	queue_free()
+
+
+func _is_friendly(body: Node) -> bool:
+	## Cannonballs share one collision mask across every enemy ship
+	## (they're all on layer 2 regardless of faction), so without this an
+	## enemy's broadside could damage another enemy on the SAME faction —
+	## and Island.gd captures an island the instant its defender dies for
+	## any cause, including friendly fire.
+	if not source_ship or not is_instance_valid(source_ship):
+		return false
+
+	var shooter_is_player = source_ship.is_in_group("player_ship")
+	var target_is_player = body.is_in_group("player_ship")
+	# The player carries no FactionData, and every enemy that engages the
+	# player is hostile to them by construction — always a valid hit.
+	if shooter_is_player != target_is_player:
+		return false
+
+	var shooter_faction = source_ship.get("faction") if "faction" in source_ship else null
+	var target_faction = body.get("faction") if "faction" in body else null
+	if shooter_faction == null or target_faction == null:
+		return false
+
+	return shooter_faction.get("faction_id") == target_faction.get("faction_id")

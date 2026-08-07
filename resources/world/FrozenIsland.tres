@@ -7,3 +7,4 @@ script = ExtResource("1_fis")
 island_id = "frozen_island"
 island_name = "Frostbite Reef"
 island_type = 3
+terrain_theme = 2

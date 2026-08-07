@@ -30,8 +30,39 @@ func _ready() -> void:
 		
 	if ResourceManager.has_signal("global_economy_tick"):
 		ResourceManager.global_economy_tick.connect(_on_economy_tick)
-		
+
 	_spawn_defenses()
+	_apply_terrain_theme()
+
+func _apply_terrain_theme() -> void:
+	## All six islands instance the same Island.tscn layout — this re-tints
+	## the shared sand/grass materials so an island whose name/lore promises
+	## something different (a volcano, a frozen reef) doesn't render as an
+	## identical copy of a tropical island. Terrain mesh/props stay shared;
+	## only the color changes.
+	if not island_data or island_data.terrain_theme == IslandData.TerrainTheme.TROPICAL:
+		return
+
+	var substitutions: Dictionary = {}
+	match island_data.terrain_theme:
+		IslandData.TerrainTheme.VOLCANIC:
+			substitutions = {
+				"res://resources/materials/sand.tres": "res://resources/materials/sand_volcanic.tres",
+				"res://resources/materials/grass.tres": "res://resources/materials/grass_scorched.tres",
+			}
+		IslandData.TerrainTheme.FROZEN:
+			substitutions = {
+				"res://resources/materials/sand.tres": "res://resources/materials/sand_frozen.tres",
+				"res://resources/materials/grass.tres": "res://resources/materials/grass_frozen.tres",
+			}
+
+	var terrain := get_node_or_null("Terrain")
+	if not terrain:
+		return
+	for tile in terrain.get_children():
+		for child in tile.get_children():
+			if child is KenneyMaterialApplier and substitutions.has(child.material_path):
+				child.override_material_path(substitutions[child.material_path])
 
 func _on_dock_area_body_entered(body: Node) -> void:
 	if not body.is_in_group("player_ship"):

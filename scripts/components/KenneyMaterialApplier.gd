@@ -36,6 +36,18 @@ func _ready() -> void:
 	_apply_to_children(get_parent())
 
 
+func override_material_path(new_path: String) -> void:
+	## Re-resolves and re-applies with a different material_path after the
+	## initial _ready() pass — e.g. Island.gd re-tinting a shared terrain
+	## tile for a specific island's theme (volcanic, frozen, ...). Calling
+	## this before _ready() has no effect since _ready() would just
+	## overwrite it; call it afterwards instead.
+	material_path = new_path
+	_using_fallback = false
+	_base_material = _resolve_material()
+	_apply_to_children(get_parent())
+
+
 func _resolve_material() -> ShaderMaterial:
 	var path := material_path
 	if path.is_empty():

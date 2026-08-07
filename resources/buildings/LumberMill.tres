@@ -14,4 +14,4 @@ produces_resource = "wood"
 production_amount = 5
 production_interval = 10.0
 icon_path = ""
-model_path = "res://assets/models/structure.glb"
+model_path = "res://assets/models/structure-platform.glb"

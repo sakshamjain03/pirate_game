@@ -14,4 +14,4 @@ cost_rum = 0
 produces_resource = ""
 production_amount = 0
 production_interval = 0.0
-model_path = "res://assets/models/structure.glb"
+model_path = "res://assets/models/tower-complete-large.glb"

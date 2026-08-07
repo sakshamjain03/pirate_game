@@ -14,4 +14,4 @@ cost_rum = 0
 produces_resource = "gold"
 production_amount = 10
 production_interval = 15.0
-model_path = "res://assets/models/structure.glb"
+model_path = "res://assets/models/structure-platform-small.glb"

@@ -7,3 +7,4 @@ script = ExtResource("1_vis")
 island_id = "volcano_island"
 island_name = "Mount Brimstone"
 island_type = 2
+terrain_theme = 1

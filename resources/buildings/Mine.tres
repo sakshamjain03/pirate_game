@@ -14,4 +14,4 @@ produces_resource = "iron"
 production_amount = 2
 production_interval = 15.0
 icon_path = ""
-model_path = "res://assets/models/structure.glb"
+model_path = "res://assets/models/tower-base.glb"

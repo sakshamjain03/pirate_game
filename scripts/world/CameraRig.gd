@@ -19,11 +19,24 @@ enum CameraMode {
 var current_mode: CameraMode = CameraMode.FOLLOW
 var target_zoom: float = 35.0
 var target_pitch: float = -48.0
+
+# The rig previously rode 20 units above the ship with no look_at to
+# compensate, which put the ship ~75% down the frame at default zoom (worse
+# zoomed in, since the offset is constant while zoom isn't). Following at
+# ship height with a steeper pitch (-48 deg) frames the ship centrally
+# without needing a compensating look_at.
+const EYE_HEIGHT := 0.0
 var target_yaw: float = 0.0
 
 func _ready() -> void:
 	if not settings:
 		settings = CameraSettings.new()
+	if not is_instance_valid(target):
+		# Scenes can't wire a Node3D-typed export to a sibling via a plain
+		# NodePath in .tscn (it stays an unresolved NodePath, never a real
+		# node) — fall back to the player ship so the rig isn't just frozen
+		# at its scene-default transform forever.
+		target = get_tree().get_first_node_in_group("player_ship")
 	target_zoom = settings.default_distance
 	if spring_arm:
 		spring_arm.spring_length = target_zoom
@@ -31,12 +44,15 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(target) or not pivot or not spring_arm:
 		return
-	
+
 	# Smoothly follow target position
 	var t = 1.0 - exp(-settings.damping * delta * 10.0)
-	global_position = global_position.lerp(target.global_position, t)
+	global_position = global_position.lerp(target.global_position + Vector3.UP * EYE_HEIGHT, t)
 	
 	# Handle rotation based on mode
+	# ORBIT and LOOK are deferred — tracked for a future milestone. set_mode() still
+	# accepts them (so callers don't break), but they currently run identical FOLLOW
+	# behavior below rather than distinct logic.
 	if current_mode == CameraMode.FOLLOW:
 		# In follow mode, optionally align yaw with ship over time, or just let player control it
 		pass

@@ -94,7 +94,7 @@ func fire_broadside(side: String) -> bool:
 	var fired_any = false
 
 	for marker in markers:
-		_spawn_cannonball(marker)
+		_spawn_cannonball(marker, side)
 		fired_any = true
 
 	if fired_any:
@@ -103,7 +103,7 @@ func fire_broadside(side: String) -> bool:
 
 	return fired_any
 
-func _spawn_cannonball(marker: Node3D) -> void:
+func _spawn_cannonball(marker: Node3D, side: String) -> void:
 	if not cannonball_scene:
 		return
 		
@@ -125,14 +125,24 @@ func _spawn_cannonball(marker: Node3D) -> void:
 		ball.damage = ship_stats.cannon_damage * dmg_mod
 		ball.source_ship = parent
 	
-	# Calculate velocity based on marker's forward direction (usually -Z)
-	var forward = -marker.global_transform.basis.z.normalized()
-	# Also inherit ship's velocity if possible
+	# Launch direction comes from the ship hull's own basis, not the marker's
+	# rotation. PortMarker*/StarboardMarker* in the ship scenes are authored
+	# with their basis pointed inward (a scene bug — the marker's own -Z
+	# fires into the hull it's mounted on), so deriving direction from
+	# marker.basis would send cannonballs into the firing ship itself.
+	# +X is starboard, -X is port (Godot's right-handed convention).
 	var parent = get_parent()
+	var forward = Vector3.RIGHT
+	if parent is Node3D:
+		forward = parent.global_transform.basis.x.normalized()
+	if side == "port":
+		forward = -forward
+
+	# Also inherit ship's velocity if possible
 	var base_vel = Vector3.ZERO
 	if parent is RigidBody3D:
 		base_vel = parent.linear_velocity
-		
+
 	ball.linear_velocity = base_vel + (forward * ship_stats.cannon_speed)
 
 func _start_cooldown(side: String) -> void:

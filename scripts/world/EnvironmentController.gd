@@ -14,10 +14,21 @@ class_name EnvironmentController extends Node3D
 @onready var directional_light: DirectionalLight3D = $DirectionalLight3D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 
+# Authored compass heading of the sun (captured from the scene once, in
+# radians) so the day/night cycle only ever drives elevation. Writing
+# rotation.x directly on the light every frame round-trips through Euler
+# decomposition, which is gimbal-locked right at the noon/midnight poles
+# (elevation == +-90 deg) — the authored yaw could drift or flip there.
+# Composing an explicit basis from a fixed yaw + the live elevation avoids
+# that entirely.
+var _sun_yaw: float = 0.0
+
 func _ready() -> void:
 	if not settings:
 		push_warning("EnvironmentController: No EnvironmentSettings resource — using defaults.")
 		settings = EnvironmentSettings.new()
+	if directional_light:
+		_sun_yaw = directional_light.rotation.y
 	_update_lighting()
 
 func _process(delta: float) -> void:
@@ -33,8 +44,17 @@ func _update_lighting() -> void:
 		return
 
 	# 0.0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset
-	var angle = current_time * PI * 2.0 - PI / 2.0
-	directional_light.rotation.x = angle
+	# Wrapped to [-PI, PI]: current_time wraps from ~1.0 back to ~0.0 every day
+	# cycle, and an unwrapped angle would jump by a full 2*PI at that instant
+	# even though the light's actual orientation is unchanged.
+	#
+	# `angle` is the sun's elevation, expressed as the light's pitch about
+	# its local X axis: 0 = horizon, -PI/2 = straight overhead (noon),
+	# +PI/2 = straight below the ground (midnight). At current_time = 0.5
+	# this evaluates to -PI/2, so the sun is directly overhead at noon and
+	# below the horizon at 0.0/1.0, as the segment comments below assume.
+	var angle = wrapf(PI / 2.0 - current_time * PI * 2.0, -PI, PI)
+	directional_light.transform.basis = Basis(Vector3.UP, _sun_yaw) * Basis(Vector3.RIGHT, angle)
 
 	var seg: int
 	var t: float

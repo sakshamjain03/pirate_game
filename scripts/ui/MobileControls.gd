@@ -10,14 +10,17 @@ extends CanvasLayer
 @onready var btn_fire_star = %BtnFireStar
 
 func _ready() -> void:
-	# Hide on desktop platforms if desired, but for now we'll show it or let it be toggled
+	# These are on-screen touch buttons — on desktop they just sit on top of
+	# the HUD (overlapping HealthBarContainer) and are unthemed, since this
+	# is a CanvasLayer and WorldHUD._apply_theme() only themes Control
+	# children.
 	if OS.has_feature("pc"):
-		# Could hide here, but let's keep it visible for testing
-		pass
+		visible = false
+		return
 
-	_setup_button(btn_forward, "sail_forward")
-	_setup_button(btn_left, "steer_left")
-	_setup_button(btn_right, "steer_right")
+	_setup_button(btn_forward, "ship_forward")
+	_setup_button(btn_left, "ship_left")
+	_setup_button(btn_right, "ship_right")
 	_setup_button(btn_fire_port, "fire_port")
 	_setup_button(btn_fire_star, "fire_starboard")
 

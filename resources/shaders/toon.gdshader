@@ -1,5 +1,8 @@
 shader_type spatial;
-render_mode diffuse_toon, specular_toon, cull_back;
+// diffuse_toon/specular_toon only affect the built-in lighting model, but
+// this shader supplies its own light() function below, which overrides both
+// — so only cull_back has any effect here.
+render_mode cull_back;
 
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform sampler2D texture_albedo : source_color, filter_nearest, repeat_disable;
@@ -14,20 +17,25 @@ void fragment() {
 }
 
 void light() {
-	// Crisp 2-band toon shading — hard shadow boundary
+	// Crisp 2-band toon shading — hard shadow boundary.
 	float NdotL = dot(NORMAL, LIGHT);
 	float diff   = smoothstep(0.0, 0.02, NdotL);  // near-binary shadow edge
 
-	// Half-tone warm/cool ambient shift in shadow
-	vec3 warm_color = vec3(1.0, 0.95, 0.8);
-	vec3 cool_color = vec3(0.5, 0.6, 0.8);
-	vec3 diffuse    = LIGHT_COLOR * ALBEDO * diff * ATTENUATION;
-	vec3 ambient    = mix(cool_color, warm_color, diff) * ALBEDO * (1.0 - diff) * 0.15;
+	vec3 diffuse = LIGHT_COLOR * ALBEDO * diff * ATTENUATION;
+
+	// Warm/cool ambient fill for the shadow side. WorldEnvironment ambient
+	// light contributes too, but on its own it reads flat across a hard
+	// toon shadow edge — this term adds a subtle color-graded fill (cool
+	// into shadow, warm near the terminator) so shadowed faces read as
+	// shaded rather than going to flat black or losing all definition.
+	vec3 cool_color = vec3(0.55, 0.65, 0.85);
+	vec3 warm_color = vec3(1.0, 0.85, 0.65);
+	vec3 ambient = mix(cool_color, warm_color, diff) * ALBEDO * (1.0 - diff) * 0.15;
 
 	// Rim light — bright edge glow (sells the cartoon look)
 	float rim     = 1.0 - clamp(dot(VIEW, NORMAL), 0.0, 1.0);
 	rim           = pow(rim, 3.5);
-	vec3 rim_col  = LIGHT_COLOR * rim * 0.25 * diff * ATTENUATION;
+	vec3 rim_col  = LIGHT_COLOR * rim * 0.15 * diff * ATTENUATION;
 
 	// Hard specular highlight
 	vec3 half_vec = normalize(VIEW + LIGHT);

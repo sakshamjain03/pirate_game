@@ -1,5 +1,28 @@
 class_name ShipMovement extends Node
 
+# Converts the authored ShipStats.turn_rate value (already hand-tuned per
+# ship, ranging ~0.5-2.5) into an absolute max yaw speed. Turning used to be
+# a raw torque = turn_rate * mass, which is not a rate at all — it was never
+# divided by the hull's moment of inertia, so actual turn speed silently
+# rescaled with every hull-size change and came out to ~7 deg/s regardless
+# of the authored value. Driving angular_velocity toward an explicit
+# deg/s target instead decouples turning from mass entirely.
+const TURN_RATE_TO_DEG_PER_SEC := 25.0
+# How quickly angular velocity approaches its target; time constant is
+# roughly 1/this, in seconds. Higher = snappier turning.
+const TURN_RESPONSE_RATE := 6.0
+# Rudder authority at zero forward speed, as a fraction of full authority.
+# A real rudder needs flow across it to bite, but a hard 0 would let the
+# ship get stuck unable to turn its way out of a dead stop.
+const MIN_RUDDER_AUTHORITY := 0.35
+# The authored per-ship drift_compensation_multiplier (4-10) was tuned
+# against a torque-based turn model and, combined with linear_damp, killed
+# lateral velocity within ~0.3s — the ship never carried any momentum
+# through a turn. Scaling it down here (rather than editing 8 resources)
+# keeps each ship's relative feel while giving all of them a longer,
+# more boat-like drift decay.
+const DRIFT_COMPENSATION_SCALE := 0.25
+
 @export var ship_stats: ShipStats
 var body: RigidBody3D
 
@@ -11,49 +34,62 @@ func _ready() -> void:
 func apply_movement(forward_input: float, turn_input: float, delta: float) -> void:
 	if not body or not ship_stats:
 		return
-		
+
 	var speed_mod = 1.0
 	var turn_mod = 1.0
 	if body and "active_captain" in body and body.active_captain:
 		speed_mod = body.active_captain.speed_modifier
 		turn_mod = body.active_captain.turn_rate_modifier
-		
+
 	# Forward/Backward movement (Propulsion)
 	var forward_dir = -body.global_transform.basis.z.normalized()
-	
+	var current_speed = body.linear_velocity.dot(forward_dir)
+
 	if forward_input != 0:
 		var target_speed = ship_stats.max_speed * speed_mod * forward_input
-		var current_speed = body.linear_velocity.dot(forward_dir)
 		var speed_diff = target_speed - current_speed
-		
-		# Use acceleration for speeding up, deceleration for slowing down/reversing
-		var accel = ship_stats.acceleration if (forward_input * current_speed > 0 and abs(current_speed) < abs(target_speed)) else ship_stats.deceleration
-		
-		# Calculate force to reach target speed, capped by max acceleration
+
+		# Use acceleration for speeding up, deceleration for slowing down/
+		# reversing. `forward_input * current_speed > 0` used to gate this,
+		# but that's false at exactly current_speed == 0, so every launch
+		# from a dead stop used the (lower) deceleration value instead.
+		var speeding_up = current_speed == 0.0 or \
+			(forward_input * current_speed > 0 and abs(current_speed) < abs(target_speed))
+		var accel = ship_stats.acceleration if speeding_up else ship_stats.deceleration
+
+		# Calculate force to reach target speed, capped by max acceleration.
+		# This clamp is what actually limits top speed now — the RigidBody's
+		# own linear_damp is no longer applied (see ShipController), which
+		# previously fought this servo and capped terminal speed at
+		# acceleration/linear_damp (~4 m/s) instead of the authored max_speed.
 		var max_velocity_change = accel * delta
 		var actual_velocity_change = sign(speed_diff) * min(abs(speed_diff), max_velocity_change)
 		var force = forward_dir * (actual_velocity_change / delta * body.mass)
-		
+
 		body.apply_central_force(force)
 	else:
 		# Water resistance
-		var current_speed = body.linear_velocity.dot(forward_dir)
 		var drag = -forward_dir * (current_speed * ship_stats.deceleration * body.mass)
 		body.apply_central_force(drag)
 
-	# Turning (Steering)
+	# Turning (Steering) — servo the yaw rate toward an explicit deg/s
+	# target instead of applying raw torque (see TURN_RATE_TO_DEG_PER_SEC).
+	var target_yaw_speed_dps = 0.0
 	if turn_input != 0:
+		var speed_frac = clamp(abs(current_speed) / max(ship_stats.max_speed, 0.01), 0.0, 1.0)
+		var rudder_authority = lerp(MIN_RUDDER_AUTHORITY, 1.0, speed_frac)
+		var rate = ship_stats.turn_rate * TURN_RATE_TO_DEG_PER_SEC * turn_mod * rudder_authority
 		# Reduce turn rate if moving backwards (Property 9)
-		var current_speed = body.linear_velocity.dot(forward_dir)
-		var actual_turn_rate = ship_stats.turn_rate * turn_mod
 		if current_speed < -0.1:
-			actual_turn_rate *= ship_stats.reverse_turn_modifier
-			
-		var torque = Vector3.UP * (-turn_input * actual_turn_rate * body.mass)
-		body.apply_torque(torque)
-		
+			rate *= ship_stats.reverse_turn_modifier
+		target_yaw_speed_dps = -turn_input * rate
+
+	var target_yaw_speed = deg_to_rad(target_yaw_speed_dps)
+	var yaw_t = 1.0 - exp(-TURN_RESPONSE_RATE * delta)
+	body.angular_velocity.y = lerp(body.angular_velocity.y, target_yaw_speed, yaw_t)
+
 	# Drift compensation
 	var right_dir = body.global_transform.basis.x.normalized()
 	var drift_velocity = body.linear_velocity.dot(right_dir)
-	var anti_drift_force = -right_dir * (drift_velocity * (1.0 - ship_stats.drift_factor) * body.mass * ship_stats.drift_compensation_multiplier)
+	var anti_drift_force = -right_dir * (drift_velocity * (1.0 - ship_stats.drift_factor) * body.mass * ship_stats.drift_compensation_multiplier * DRIFT_COMPENSATION_SCALE)
 	body.apply_central_force(anti_drift_force)

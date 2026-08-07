@@ -46,17 +46,9 @@ func _process(delta: float) -> void:
 				var move_input = _input_manager.get_movement_vector()
 				player_ship.set_input(move_input.y, move_input.x)
 
-		# Process combat input
-		if player_ship and player_ship.has_method("fire_cannons"):
-			# Input is global in Godot, so these are read directly.
-			if Input.is_action_just_pressed("fire_port"):
-				player_ship.fire_cannons("port")
-			if Input.is_action_just_pressed("fire_starboard"):
-				player_ship.fire_cannons("starboard")
-
-			# Process dock/undock input
-			if Input.is_action_just_pressed("dock"):
-				_toggle_docking()
+		# Process dock/undock input
+		if Input.is_action_just_pressed("dock"):
+			_toggle_docking()
 
 		# Process camera input
 		if _camera_rig:
@@ -68,6 +60,21 @@ func _process(delta: float) -> void:
 				_camera_rig.add_zoom(CAMERA_ZOOM_STEP)
 			if Input.is_action_just_pressed("camera_zoom_out"):
 				_camera_rig.add_zoom(-CAMERA_ZOOM_STEP)
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Firing goes through _unhandled_input rather than the global Input
+	# polling above so a UI element (e.g. an IslandMenu button) can consume
+	# the click first — global Input.is_action_just_pressed() ignored that
+	# entirely, so clicking any button while docked also fired a broadside.
+	if not is_world_loaded or not player_ship or not player_ship.has_method("fire_cannons"):
+		return
+
+	if event.is_action_pressed("fire_port"):
+		player_ship.fire_cannons("port")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("fire_starboard"):
+		player_ship.fire_cannons("starboard")
+		get_viewport().set_input_as_handled()
 
 func _toggle_docking() -> void:
 	if not _docking_system:

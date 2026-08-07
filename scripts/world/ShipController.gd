@@ -108,9 +108,15 @@ func _apply_ship_stats() -> void:
 		combat.ship_stats = ship_stats
 
 	mass = ship_stats.mass
-	linear_damp = ship_stats.linear_damp
-	angular_damp = ship_stats.angular_damp
-	
+	# ship_stats.linear_damp/angular_damp are intentionally NOT applied here.
+	# ShipMovement's forward-speed servo is clamped to reach exactly
+	# max_speed on its own; Godot's built-in RigidBody damping was fighting
+	# that servo with a constant counter-deceleration, capping real terminal
+	# speed at acceleration/linear_damp (~4 m/s) regardless of the authored
+	# max_speed (~30). Turning has the same story — ShipMovement now servos
+	# angular_velocity directly rather than applying torque, so angular_damp
+	# would only fight that the same way.
+
 	if is_in_group("player_ship"):
 		_apply_tech_modifiers()
 
@@ -163,9 +169,9 @@ func undock() -> void:
 	ship_undocked.emit()
 
 func fire_cannons(side: String) -> void:
-	if not combat:
+	if not combat or is_docked:
 		return
-		
+
 	# Determine spawn positions based on side
 	var is_port = (side.to_lower() == "port")
 

@@ -17,7 +17,7 @@
 [ext_resource type="Script"      path="res://scripts/world/Island.gd"                       id="14_isl"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_1"]
-radius = 22.0
+radius = 11.0
 height = 5.0
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_dock"]
@@ -82,7 +82,7 @@ script = ExtResource("13_mat")
 material_path = "res://resources/materials/wood_light.tres"
 
 [node name="DockArea" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19, 1, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DockArea"]
 shape = SubResource("BoxShape3D_dock")

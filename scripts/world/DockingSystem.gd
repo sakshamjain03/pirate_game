@@ -6,6 +6,7 @@ signal dock_initiated(island_id: String)
 signal dock_completed(island_id: String)
 signal undock_initiated()
 signal undock_completed()
+signal dock_speed_exceeded()
 
 enum DockState {
 	FREE,
@@ -20,7 +21,7 @@ var current_island_id: String = ""
 var ship_controller: ShipController = null
 
 @export var max_docking_speed: float = 5.0
-@export var alignment_speed: float = 2.0
+@export var alignment_speed: float = 4.0
 @export var position_tolerance: float = 1.0
 @export var repair_rate: float = 5.0
 
@@ -66,8 +67,7 @@ func attempt_dock() -> bool:
 	# Verify speed is low enough
 	var current_speed = ship_controller.linear_velocity.length()
 	if current_speed > max_docking_speed:
-		# Too fast to dock
-		print("Too fast to dock! Current speed: ", current_speed, " Max allowed: ", max_docking_speed)
+		dock_speed_exceeded.emit()
 		return false
 	
 	# Start alignment
@@ -84,18 +84,32 @@ func attempt_dock() -> bool:
 func attempt_undock() -> bool:
 	if current_state != DockState.DOCKED:
 		return false
-	
+
+	var area_to_recheck := active_dock_area
+	var island_id_to_recheck := current_island_id
+
 	undock_initiated.emit()
 	current_state = DockState.FREE
 	active_dock_area = null
-	
+	current_island_id = ""
+
 	# Re-enable ship controls and physics
 	if is_instance_valid(ship_controller):
 		if ship_controller.has_method("undock"):
 			ship_controller.undock()
 		ship_controller.freeze = false
-	
+
 	undock_completed.emit()
+
+	# The ship is still physically inside the dock Area3D right after
+	# undocking, so Area3D.body_entered will never fire again on its own —
+	# without this, the dock prompt wouldn't return until the player sailed
+	# all the way out of the dock box and back in, even though they never
+	# actually left it.
+	if is_instance_valid(area_to_recheck) and is_instance_valid(ship_controller) \
+			and ship_controller in area_to_recheck.get_overlapping_bodies():
+		on_dock_area_entered(area_to_recheck, island_id_to_recheck)
+
 	return true
 
 func _process_alignment(delta: float) -> void:

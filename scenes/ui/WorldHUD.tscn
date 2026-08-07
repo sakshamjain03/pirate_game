@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/IslandMenu.tscn" id="2_island_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/DeathScreen.tscn" id="3_death_screen"]
 [ext_resource type="PackedScene" path="res://scenes/ui/TutorialDialogue.tscn" id="4_tutorial_dialogue"]
+[ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="5_pause_menu"]
 
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HealthBg"]
@@ -377,6 +378,10 @@ unique_name_in_owner = true
 visible = false
 
 [node name="TutorialDialogue" parent="." instance=ExtResource("4_tutorial_dialogue")]
+unique_name_in_owner = true
+visible = false
+
+[node name="PauseMenu" parent="." instance=ExtResource("5_pause_menu")]
 unique_name_in_owner = true
 visible = false
 

@@ -28,6 +28,12 @@ var target_pitch: float = -48.0
 const EYE_HEIGHT := 0.0
 var target_yaw: float = 0.0
 
+# How long a manual Q/E yaw nudge suppresses auto-align, in milliseconds —
+# long enough to look around deliberately without the camera immediately
+# snapping back and fighting the input.
+const MANUAL_YAW_HOLD_MS := 2000
+var _manual_yaw_until_ms: int = 0
+
 func _ready() -> void:
 	if not settings:
 		settings = CameraSettings.new()
@@ -53,17 +59,25 @@ func _physics_process(delta: float) -> void:
 	# ORBIT and LOOK are deferred — tracked for a future milestone. set_mode() still
 	# accepts them (so callers don't break), but they currently run identical FOLLOW
 	# behavior below rather than distinct logic.
-	if current_mode == CameraMode.FOLLOW:
-		# In follow mode, optionally align yaw with ship over time, or just let player control it
-		pass
-	
-	# Apply smoothed rotations
+	if current_mode == CameraMode.FOLLOW and Time.get_ticks_msec() >= _manual_yaw_until_ms:
+		# Tank-style ship controls are steered relative to the hull, so the
+		# camera has to face the same way the ship does — otherwise "left"
+		# on the stick stops matching "left" on screen the moment the ship
+		# turns. Chase the ship's heading instead of leaving target_yaw
+		# frozen wherever the player last set it with Q/E.
+		target_yaw = wrapf(rad_to_deg(target.global_rotation.y), -180.0, 180.0)
+
+	# Apply smoothed rotations. Yaw goes through lerp_angle (via radians)
+	# rather than a plain lerp on degrees — a plain lerp crossing the +-180
+	# seam sends the camera almost all the way around the wrong way instead
+	# of taking the short path.
 	var current_pitch = pivot.rotation_degrees.x
-	var current_yaw = pivot.rotation_degrees.y
-	
+	var current_yaw_rad = deg_to_rad(pivot.rotation_degrees.y)
+	var target_yaw_rad = deg_to_rad(target_yaw)
+
 	pivot.rotation_degrees.x = lerp(current_pitch, target_pitch, t)
-	pivot.rotation_degrees.y = lerp(current_yaw, target_yaw, t)
-	
+	pivot.rotation_degrees.y = rad_to_deg(lerp_angle(current_yaw_rad, target_yaw_rad, t))
+
 	# Apply zoom
 	spring_arm.spring_length = lerp(spring_arm.spring_length, target_zoom, t)
 
@@ -71,6 +85,7 @@ func add_yaw(amount: float) -> void:
 	target_yaw -= amount
 	# Normalize yaw
 	target_yaw = wrapf(target_yaw, -180.0, 180.0)
+	_manual_yaw_until_ms = Time.get_ticks_msec() + MANUAL_YAW_HOLD_MS
 
 func add_pitch(amount: float) -> void:
 	target_pitch -= amount

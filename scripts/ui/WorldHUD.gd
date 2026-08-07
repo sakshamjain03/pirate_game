@@ -77,6 +77,7 @@ func _find_ship() -> void:
 		dock_sys.undock_initiated.connect(_on_undock_initiated)
 		dock_sys.dock_area_entered.connect(_on_dock_area_entered)
 		dock_sys.dock_area_exited.connect(_on_dock_area_exited)
+		dock_sys.dock_speed_exceeded.connect(_on_dock_speed_exceeded)
 		
 		
 	# Create Economy Tick Label
@@ -153,6 +154,9 @@ func _on_dock_area_entered(_island_id: String) -> void:
 
 func _on_dock_area_exited(_island_id: String) -> void:
 	show_dock_prompt(false)
+
+func _on_dock_speed_exceeded() -> void:
+	announce_event("Too fast to dock — slow down!")
 
 func _on_resources_changed(res: Dictionary) -> void:
 	var max_res = ResourceManager.max_storage

@@ -8,6 +8,6 @@ class_name OceanSettings extends Resource
 @export var wind_direction: Vector2 = Vector2(1.0, 0.0)
 
 @export_group("Visual")
-@export_color_no_alpha var water_color: Color = Color("#1a5fb4")
+@export_color_no_alpha var water_color: Color = Color(0.106, 0.651, 0.784)
 @export_range(0.0, 1.0) var transparency: float = 0.6
 @export_range(0.0, 1.0) var reflectivity: float = 0.3

@@ -126,9 +126,29 @@ fire_starboard={
 ]
 }
 
+[importer_defaults]
+
+; Godot's "Detect 3D" texture heuristic auto-switches any texture used on a
+; 3D material to VRAM-compressed (block compression), which is fine for
+; photographic textures but bleeds colors between adjacent swatches on a
+; small hand-authored palette atlas like colormap.png — the Kenney kit's
+; only texture and its entire color identity. Disabling the auto-detect and
+; keeping Lossless compression applies project-wide to future imports; .import
+; files themselves are gitignored (regenerated per-machine), so this is the
+; setting that actually ships.
+texture={
+"compress/mode": 0,
+"detect_3d/compress_to": 0
+}
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+; Default 3600s rollover made the shader's TIME (used for wave animation)
+; drift out of sync with BuoyancySimulator's separate Time.get_ticks_msec()
+; clock after an hour of play, since only one of the two wraps. Raised well
+; past any realistic play session.
+limits/time/time_rollover_secs=86400
 
 [gui]
 

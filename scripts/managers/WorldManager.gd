@@ -11,7 +11,6 @@ signal island_discovered(island_id: String)
 signal player_docked(island_id: String)
 
 var is_world_loaded: bool = false
-var time_of_day: float = 8.0 # 0-24 hours
 
 # Nodes we might track
 var player_ship: Node3D = null
@@ -38,8 +37,6 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if is_world_loaded:
-		_process_time(delta)
-
 		# Process ship input
 		if player_ship and player_ship.has_method("set_input"):
 			if _input_manager:
@@ -88,14 +85,6 @@ func _on_dock_completed(island_id: String) -> void:
 	on_player_docked(island_id)
 	if EventManager.has_method("handle_docking_event"):
 		EventManager.handle_docking_event(island_id)
-
-func _process_time(delta: float) -> void:
-	# 1 real second = 1 in-game minute
-	# 24 real minutes = 24 in-game hours
-	var time_scale = 1.0 / 60.0 # hours per second
-	time_of_day += delta * time_scale
-	if time_of_day >= 24.0:
-		time_of_day -= 24.0
 
 func initialize_world(ship: Node3D, islands: Array) -> void:
 	player_ship = ship

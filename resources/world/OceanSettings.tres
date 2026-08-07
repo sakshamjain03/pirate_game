@@ -8,6 +8,6 @@ wave_height = 0.45
 wave_length = 20.0
 wave_speed = 1.0
 wind_direction = Vector2(1, 0)
-water_color = Color(0.101961, 0.372549, 0.705882, 1)
+water_color = Color(0.106, 0.651, 0.784, 1)
 transparency = 0.6
 reflectivity = 0.3

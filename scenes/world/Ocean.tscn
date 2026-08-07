@@ -9,14 +9,13 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
 render_priority = 0
 shader = ExtResource("4_shader")
-shader_parameter/water_color = Color(0.106, 0.651, 0.784, 1)
 shader_parameter/water_color_deep    = Color(0.027, 0.302, 0.529, 1)
 shader_parameter/foam_color          = Color(0.95, 0.98, 1.0, 1)
 shader_parameter/depth_distance      = 60.0
+shader_parameter/foam_thickness      = 2.5
 shader_parameter/wave_speed_1        = 0.03
 shader_parameter/wave_speed_2        = -0.015
 shader_parameter/wave_scale          = 150.0
-shader_parameter/wave_height         = 0.45
 shader_parameter/sparkle_intensity   = 0.35
 shader_parameter/sparkle_scale       = 60.0
 shader_parameter/sparkle_speed       = 0.08
@@ -24,7 +23,7 @@ shader_parameter/wave_noise          = ExtResource("5_noise")
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_1"]
 material = SubResource("ShaderMaterial_1")
-size = Vector2(1000, 1000)
+size = Vector2(600, 600)
 subdivide_width = 120
 subdivide_depth = 120
 

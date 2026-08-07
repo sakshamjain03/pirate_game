@@ -11,6 +11,7 @@ class_name CaptainData extends Resource
 @export_group("Progression")
 @export var level: int = 1
 @export var current_xp: int = 0
+@export var hire_cost_gold: int = 500
 
 @export_group("Base Modifiers")
 @export_range(0.1, 3.0) var base_speed_modifier: float = 1.0

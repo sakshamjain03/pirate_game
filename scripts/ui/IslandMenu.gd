@@ -1,8 +1,13 @@
 class_name IslandMenu extends Control
 
 ## Purpose: UI menu shown when docked at an island.
-## Responsibilities: Displays island info, available buildings, handles construction requests.
-## Dependencies: Island, ResourceManager, PirateThemeBuilder
+## Responsibilities: Displays island info, available buildings, handles construction requests,
+##   ship/captain purchase, fleet mission assignment (incl. a Defend Home toggle, M4), tech
+##   research, and resource trading. Disables the Colonize button (with an explanatory tooltip)
+##   when the island's region is not yet active (M4).
+## Dependencies: Island, ResourceManager, PirateThemeBuilder, EmpireManager (region gating)
+
+signal structure_changed(building_id: String, is_upgrade: bool)
 
 @onready var tab_container: TabContainer = %TabContainer
 @onready var buildings_container: VBoxContainer = %BuildingsContainer
@@ -25,6 +30,7 @@ var available_techs: Array[TechData] = []
 var colonize_btn: Button
 
 func _ready() -> void:
+	add_to_group("island_menu")
 	close_button.pressed.connect(_on_close_pressed)
 	_load_building_data()
 	hide()
@@ -69,7 +75,10 @@ func _load_building_data() -> void:
 		if ship: available_ships.append(ship)
 		
 	# Load Captains
-	var cap_names = ["Redbeard", "Anne", "Bartholomew", "Jack", "Mary"]
+	var cap_names = ["Redbeard", "Anne", "Bartholomew", "Jack", "Mary",
+		"Isabela", "Diego", "Grace", "OldTom", "Fiona",
+		"Cutlass", "Whistler", "Marguerite", "Ezra", "Rook",
+		"Selene", "Barnaby", "Constance", "Yusuf", "Ophelia"]
 	for c in cap_names:
 		var cap = load("res://resources/captains/" + c + ".tres")
 		if cap: available_captains.append(cap)
@@ -110,9 +119,26 @@ func open(island: Node3D) -> void:
 	tab_container.set_tab_hidden(3, false) # Index 3 is Fleet (always visible)
 	tab_container.set_tab_hidden(4, false) # Index 4 is Research (always visible)
 	tab_container.set_tab_hidden(5, not can_build) # Index 5 is Trade
-	
+
+	# Tutorial gating: only ever further hides tabs, never overrides the rules above.
+	if TutorialManager.tutorial_active:
+		if not TutorialManager.is_ui_unlocked("tab_fleet"):
+			tab_container.set_tab_hidden(3, true)
+		if not TutorialManager.is_ui_unlocked("tab_research"):
+			tab_container.set_tab_hidden(4, true)
+		if not TutorialManager.is_ui_unlocked("tab_trade"):
+			tab_container.set_tab_hidden(5, true)
+
 	if colonize_btn:
 		colonize_btn.visible = type == IslandData.IslandType.NEUTRAL
+		
+		# Task 10: disable if not active
+		if current_island.has_method("_should_be_active") and not current_island._should_be_active():
+			colonize_btn.disabled = true
+			colonize_btn.tooltip_text = "This region has not yet drawn attention"
+		else:
+			colonize_btn.disabled = false
+			colonize_btn.tooltip_text = ""
 		
 	_refresh_buildings()
 	if has_shipyard and can_build: _refresh_ships()
@@ -250,11 +276,13 @@ func _on_build_pressed(building: BuildingData) -> void:
 			elif building.building_id.begins_with("tavern"):
 				tab_container.set_tab_hidden(2, false)
 				_refresh_captains()
+			structure_changed.emit(building.building_id, false)
 
 func _on_upgrade_pressed(old_id: String, next_upgrade: BuildingData) -> void:
 	if current_island and current_island.has_method("upgrade_structure"):
 		if current_island.upgrade_structure(old_id, next_upgrade):
 			_refresh_buildings()
+			structure_changed.emit(next_upgrade.building_id, true)
 
 # --- SHIPYARD ---
 
@@ -344,11 +372,11 @@ func _create_captain_entry(cap: CaptainData) -> void:
 	info_vbox.add_child(name_lbl)
 	info_vbox.add_child(desc_lbl)
 	
-	# Cost - flat 500 gold for now
-	var cost_dict = {"gold": 500}
-	
+	# Cost - per-captain, ramps with roster depth
+	var cost_dict = {"gold": cap.hire_cost_gold}
+
 	var cost_lbl = Label.new()
-	cost_lbl.text = "500 Gold  "
+	cost_lbl.text = "%d Gold  " % cap.hire_cost_gold
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	
 	var btn = Button.new()
@@ -442,6 +470,15 @@ func _create_fleet_entry(ship: ShipStats, index: int) -> void:
 			patrol_btn.pressed.connect(func(): _on_mission_pressed(index, cap_index, "patrol"))
 			hbox.add_child(patrol_btn)
 			
+			var defend_btn = Button.new()
+			var is_defending = FleetManager.has_method("is_defending_home") and FleetManager.is_defending_home(index)
+			defend_btn.text = "Defend: ON" if is_defending else "Defend: OFF"
+			defend_btn.custom_minimum_size = Vector2(100, 40)
+			if is_defending:
+				defend_btn.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+			defend_btn.pressed.connect(func(): _on_defend_home_pressed(index, not is_defending))
+			hbox.add_child(defend_btn)
+			
 		var make_active_btn = Button.new()
 		make_active_btn.text = "Make Active"
 		make_active_btn.custom_minimum_size = Vector2(100, 40)
@@ -459,8 +496,17 @@ func _on_recall_pressed(ship_idx: int) -> void:
 	FleetManager.unassign_mission(ship_idx)
 	_refresh_fleet()
 
+func _on_defend_home_pressed(ship_idx: int, defend: bool) -> void:
+	if FleetManager.has_method("set_defend_home"):
+		FleetManager.set_defend_home(ship_idx, defend)
+		_refresh_fleet()
+
 func _on_make_active_pressed(index: int) -> void:
 	FleetManager.active_ship_index = index
+	# Keep the captain index in lockstep with the ship index, matching the pairing
+	# _create_fleet_entry() displays for this row (cap_index falls back to 0 only
+	# when index is out of range for owned_captains).
+	FleetManager.active_captain_index = index if index < FleetManager.owned_captains.size() else 0
 	var player = get_tree().get_first_node_in_group("player_ship")
 	if player and "ship_stats" in player:
 		var ship = FleetManager.get_active_ship()

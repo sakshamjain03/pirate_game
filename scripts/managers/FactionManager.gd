@@ -26,8 +26,9 @@ func _on_economy_tick() -> void:
 			var spawner = get_tree().current_scene.get_node_or_null("Systems/EnemySpawner")
 			if spawner and spawner.has_method("spawn_hunter"):
 				var navy = load("res://resources/factions/RoyalNavy.tres")
-				spawner.spawn_hunter(navy)
-				print("Royal Navy dispatched a hunter!")
+				if navy:
+					spawner.spawn_hunter(navy)
+					print("Royal Navy dispatched a hunter!")
 
 func get_reputation(faction_id: String) -> int:
 	return reputation_scores.get(faction_id, 0)

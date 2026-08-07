@@ -97,6 +97,30 @@ audit). Skipping this step recreates that problem every milestone.
 
 ---
 
+# Rule 7: Verify with the GUT suite, not `--check-only`
+
+`godot --headless --path . --check-only` does not reliably exit on its own in this project on
+Godot 4.3 — with `run/main_scene` configured, it boots into real gameplay and then idles forever
+instead of quitting, which produces false "hangs" and orphaned processes if you wait on it or
+poll it. Use `godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit` instead — it
+calls `-gexit` and reliably terminates, and it already proves every test script parses correctly
+(GUT cannot run tests from a script that fails to compile), which covers what `--check-only` was
+being used for anyway. When verifying a single fix rather than a whole milestone, target the
+specific file with `-gtest=res://tests/<file>.gd` instead of the whole `-gdir` — much faster.
+
+Always launch long-running verification commands with proper background execution and wait for
+the actual completion signal — do not manually poll with sleep loops, and do not assume a command
+"hung" and kill it without checking whether something else (another leftover process from an
+earlier attempt) is the actual problem. Check for stray processes before starting a new run.
+
+# Rule 8: Checkpoints must survive concurrent work
+
+If another Antigravity/Gemini session is running milestone N+1 work while milestone N's
+checkpoint is still being reviewed, the checkpoint reviewer is verifying a moving target — new
+files can appear mid-review, test discovery can shift, and cross-test state pollution becomes
+possible. Do not start a new milestone's Task 1 until the prior milestone's final checkpoint has
+been reported as passing, even if the tools make it easy to keep going in parallel.
+
 # How this maps to Antigravity in practice
 
 Antigravity sessions with Gemini should be short-lived: one task in, one verified result out.

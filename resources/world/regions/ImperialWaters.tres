@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="RegionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
+
+[resource]
+script = ExtResource("1_reg")
+id = "imperial_waters"
+display_name = "Imperial Waters"
+tier = 3
+dominant_faction = "spanish_empire"
+activation_notoriety_threshold = 150.0
+island_ids = Array[String](["volcano_island", "cartagena_outpost"])

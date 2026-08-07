@@ -7,5 +7,6 @@ class_name FactionData
 @export var faction_id: String
 @export var faction_name: String
 @export var is_hostile_to_player: bool = true
+@export var is_empire: bool = false
 @export var sail_color: Color = Color.WHITE
 @export var hull_color: Color = Color.WHITE

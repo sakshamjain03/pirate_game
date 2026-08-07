@@ -7,5 +7,6 @@ script = ExtResource("1_fac")
 faction_id = "royal_navy"
 faction_name = "Royal Navy"
 is_hostile_to_player = true
+is_empire = true
 sail_color = Color(0.8, 0.9, 1.0, 1)
 hull_color = Color(0.2, 0.3, 0.8, 1)

@@ -1,9 +1,13 @@
 class_name WorldHUD extends CanvasLayer
 
 ## Purpose: The in-game heads-up display for the World scene.
-## Responsibilities: Shows speed, health, cannon cooldowns, dock prompts.
-##                   Applies the Pirate Theme and manages UI state.
-## Dependencies: PirateThemeBuilder, ShipController signals
+## Responsibilities: Shows speed, health, cannon cooldowns, dock prompts, resource counters.
+##                   Applies the Pirate Theme and manages UI state. Shows live notoriety and
+##                   time-to-next-region-escalation (M4), and announces region activations via a
+##                   transient popup. (RaidReportScreen itself is shown by WorldManager.gd, not here.)
+##                   Shows a one-time "while you were away" notice after an offline catch-up (M5).
+## Dependencies: PirateThemeBuilder, ShipController signals, EmpireManager (notoriety_changed,
+##               region_activated), SaveManager (_pending_offline_ticks)
 
 # Signals from ShipController to connect to
 signal _dummy  # ensures signals section exists
@@ -29,6 +33,19 @@ var _ship_controller: ShipController
 func _ready() -> void:
 	_apply_theme()
 	_find_ship()
+	# SaveManager.load_game() runs deferred and finishes after this _ready(), so
+	# _pending_offline_ticks isn't populated yet on a real Continue-from-save load.
+	# Check now for the already-loaded/no-save case, and again once loading completes.
+	_check_offline_return()
+	if SaveManager.has_signal("game_loaded") and not SaveManager.game_loaded.is_connected(_check_offline_return):
+		SaveManager.game_loaded.connect(_check_offline_return)
+
+func _check_offline_return() -> void:
+	## Show a one-time "while you were away" notice if SaveManager just replayed offline ticks
+	if SaveManager._pending_offline_ticks > 0:
+		var ticks = SaveManager._pending_offline_ticks
+		SaveManager._pending_offline_ticks = 0
+		announce_event("While you were away: your empire kept running (%d ticks)" % ticks)
 
 func _apply_theme() -> void:
 	## Inject the runtime pirate theme into this HUD
@@ -53,15 +70,20 @@ func _find_ship() -> void:
 		# Initialize display
 		_on_resources_changed(ResourceManager.current_resources)
 		
-	var dock_sys = get_tree().current_scene.get_node_or_null("Systems/DockingSystem")
+	var current_scene = get_tree().current_scene
+	var dock_sys = current_scene.get_node_or_null("Systems/DockingSystem") if current_scene else null
 	if dock_sys:
 		dock_sys.dock_completed.connect(_on_dock_completed)
 		dock_sys.undock_initiated.connect(_on_undock_initiated)
 		dock_sys.dock_area_entered.connect(_on_dock_area_entered)
 		dock_sys.dock_area_exited.connect(_on_dock_area_exited)
 		
+		
 	# Create Economy Tick Label
 	_create_economy_label()
+	
+	# Create Notoriety Label
+	_create_notoriety_label()
 
 var _economy_label: Label
 func _create_economy_label() -> void:
@@ -72,6 +94,59 @@ func _create_economy_label() -> void:
 	_economy_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_economy_label.position.y += 20
 	add_child(_economy_label)
+
+var _notoriety_label: Label
+func _create_notoriety_label() -> void:
+	_notoriety_label = Label.new()
+	_notoriety_label.add_theme_font_size_override("font_size", 14)
+	_notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
+	# Position top right
+	_notoriety_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_notoriety_label.position.y += 20
+	_notoriety_label.position.x -= 300
+	add_child(_notoriety_label)
+	
+	var emp = get_tree().root.get_node_or_null("EmpireManager")
+	if emp:
+		emp.notoriety_changed.connect(_on_notoriety_changed)
+		emp.region_activated.connect(_on_region_activated)
+		_on_notoriety_changed(emp.notoriety)
+
+func _on_notoriety_changed(new_val: float) -> void:
+	if not _notoriety_label:
+		return
+		
+	var text = "Notoriety: %.1f" % new_val
+	var next_threshold = -1.0
+	
+	var emp = get_tree().root.get_node_or_null("EmpireManager")
+	if emp:
+		for region in emp._regions:
+			if not emp.is_region_active(region.id):
+				if next_threshold < 0 or region.activation_notoriety_threshold < next_threshold:
+					next_threshold = region.activation_notoriety_threshold
+					
+	if next_threshold >= 0:
+		var remaining = max(0.0, next_threshold - new_val)
+		text += "\nNext escalation in: %.1f" % remaining
+		
+	_notoriety_label.text = text
+
+func _on_region_activated(region_id: String) -> void:
+	var region_name = region_id
+	var faction_name = "an Empire"
+	var emp = get_tree().root.get_node_or_null("EmpireManager")
+	if emp:
+		for r in emp._regions:
+			if r.id == region_id:
+				region_name = r.display_name
+				if emp.has_method("_get_faction_by_id"):
+					var f = emp._get_faction_by_id(r.dominant_faction)
+					if f:
+						faction_name = f.get("faction_name")
+				break
+				
+	announce_event(region_name + " is now active!\n" + faction_name + " is hunting you!")
 
 func _on_dock_area_entered(_island_id: String) -> void:
 	show_dock_prompt(true)

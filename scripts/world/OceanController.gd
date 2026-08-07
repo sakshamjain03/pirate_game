@@ -40,7 +40,7 @@ func _setup_material() -> void:
 		return
 
 	# Create a new ShaderMaterial with the water shader
-	var water_shader = load("res://resources/materials/water.gdshader")
+	var water_shader = load("res://resources/shaders/water.gdshader")
 	if water_shader:
 		material = ShaderMaterial.new()
 		material.shader = water_shader

@@ -62,6 +62,7 @@ func _on_new_game_pressed() -> void:
 	ResourceManager.current_resources = {
 		"gold": 200, "wood": 50, "iron": 20, "rum": 10
 	}
+	TutorialManager.start_new_game_session()
 	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 func _on_settings_pressed() -> void:

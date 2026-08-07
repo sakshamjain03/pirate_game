@@ -1,16 +1,21 @@
 extends Node
 
 ## Purpose: Global manager for the player's fleet (M6).
-## Responsibilities: Tracks owned ships, owned captains, and current active ship.
-## Dependencies: ShipStats, CaptainData
+## Responsibilities: Tracks owned ships, owned captains, current active ship, background
+##   trade/patrol missions, and per-ship "Defend Home" flags (M4) — get_ships_defending_home()
+##   excludes the currently active ship and any ship on a mission, for EmpireManager's defense
+##   score.
+## Dependencies: ShipStats, CaptainData, EmpireManager (defense score consumer)
 
 signal fleet_changed()
 signal active_ship_changed(ship_stats: ShipStats, captain: CaptainData)
+signal captain_recruited(captain: CaptainData)
 
 var owned_ships: Array[ShipStats] = []
 var owned_captains: Array[CaptainData] = []
 var active_ship_index: int = 0
 var active_captain_index: int = 0
+var defend_home_ship_indices: Array = []
 
 # Dictionary mapping ship_index (int) -> { "captain_index": int, "mission_type": String, "timer": float }
 var active_missions: Dictionary = {}
@@ -34,8 +39,10 @@ func _on_economy_tick() -> void:
 	for ship_idx in active_missions.keys():
 		var mission = active_missions[ship_idx]
 		var cap_idx = mission["captain_index"]
+		if cap_idx < 0 or cap_idx >= owned_captains.size():
+			continue
 		var cap = owned_captains[cap_idx]
-		
+
 		# Give XP to captain
 		cap.add_xp(10)
 		
@@ -58,6 +65,25 @@ func assign_mission(ship_index: int, captain_index: int, mission_type: String) -
 	}
 	fleet_changed.emit()
 
+func set_defend_home(ship_index: int, defend: bool) -> void:
+	if defend:
+		if not defend_home_ship_indices.has(ship_index):
+			defend_home_ship_indices.append(ship_index)
+	else:
+		if defend_home_ship_indices.has(ship_index):
+			defend_home_ship_indices.erase(ship_index)
+	fleet_changed.emit()
+
+func is_defending_home(ship_index: int) -> bool:
+	return defend_home_ship_indices.has(ship_index)
+
+func get_ships_defending_home() -> int:
+	var count = 0
+	for idx in defend_home_ship_indices:
+		if idx != active_ship_index and not is_on_mission(idx):
+			count += 1
+	return count
+
 func unassign_mission(ship_index: int) -> void:
 	if active_missions.has(ship_index):
 		active_missions.erase(ship_index)
@@ -75,6 +101,7 @@ func add_captain(captain: CaptainData) -> void:
 	if not captain in owned_captains:
 		owned_captains.append(captain)
 		fleet_changed.emit()
+		captain_recruited.emit(captain)
 
 func get_active_ship() -> ShipStats:
 	if active_ship_index >= 0 and active_ship_index < owned_ships.size():
@@ -100,7 +127,8 @@ func get_save_data() -> Dictionary:
 		"owned_captains": cap_paths,
 		"active_ship_index": active_ship_index,
 		"active_captain_index": active_captain_index,
-		"active_missions": active_missions
+		"active_missions": active_missions.duplicate(true),
+		"defend_home_ship_indices": defend_home_ship_indices.duplicate()
 	}
 
 func load_save_data(data: Dictionary) -> void:
@@ -124,5 +152,10 @@ func load_save_data(data: Dictionary) -> void:
 		# Ensure dict keys are converted to int for ship indices
 		for k in data["active_missions"].keys():
 			active_missions[int(k)] = data["active_missions"][k]
+			
+	defend_home_ship_indices.clear()
+	if data.has("defend_home_ship_indices"):
+		for idx in data["defend_home_ship_indices"]:
+			defend_home_ship_indices.append(int(idx))
 	
 	fleet_changed.emit()

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="FactionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/FactionData.gd" id="1_fac"]
+
+[resource]
+script = ExtResource("1_fac")
+faction_id = "player"
+faction_name = "Your Fleet"
+is_hostile_to_player = false
+sail_color = Color(0.1, 0.4, 0.8, 1)
+hull_color = Color(0.2, 0.2, 0.2, 1)

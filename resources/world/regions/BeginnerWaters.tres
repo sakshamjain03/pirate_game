@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="RegionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
+
+[resource]
+script = ExtResource("1_reg")
+id = "beginner_waters"
+display_name = "Beginner Waters"
+tier = 1
+dominant_faction = "pirate_clans"
+activation_notoriety_threshold = 0.0
+island_ids = Array[String](["port_royal", "tortuga"])

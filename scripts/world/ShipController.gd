@@ -1,8 +1,10 @@
 class_name ShipController extends RigidBody3D
 
 ## Purpose: Top-level controller for the player ship.
-## Responsibilities: Orchestrates movement, buoyancy, and visual sub-systems.
-## Dependencies: ShipMovement, BuoyancySimulator, ShipVisuals (children)
+## Responsibilities: Orchestrates movement, buoyancy, and visual sub-systems; handles dock/undock,
+##   cannon fire VFX, loot drop and respawn on death. On a ship's death, grants EmpireManager
+##   notoriety — +5 if the destroyed ship's faction is_empire, else +1 (M4).
+## Dependencies: ShipMovement, BuoyancySimulator, ShipVisuals (children), EmpireManager
 
 signal ship_speed_changed(speed: float)
 signal ship_health_changed(current: float, maximum: float)
@@ -190,6 +192,14 @@ func _on_died() -> void:
 	# If this is an enemy, drop loot and despawn
 	if not is_in_group("player_ship"):
 		_spawn_loot()
+		
+		# Add notoriety based on faction
+		if EmpireManager and faction:
+			if faction.get("is_empire"):
+				EmpireManager.add_notoriety(5.0)
+			else:
+				EmpireManager.add_notoriety(1.0)
+		
 	_spawn_explosion()
 	if AudioManager: AudioManager.play_sound("explosion")
 	
@@ -247,7 +257,7 @@ func _spawn_loot() -> void:
 		
 		if is_in_group("boss_ship"):
 			loot_table = load("res://resources/loot/BossLoot.tres")
-		elif "faction" in self and self.faction and self.faction.faction_id == "merchant_guild":
+		elif "faction" in self and self.faction and self.faction.get("faction_id") == "merchant_guild":
 			loot_table = load("res://resources/loot/MerchantLoot.tres")
 		else:
 			loot_table = load("res://resources/loot/StandardEnemyLoot.tres")

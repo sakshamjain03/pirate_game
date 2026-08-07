@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
 [ext_resource type="PackedScene" path="res://scenes/ui/IslandMenu.tscn" id="2_island_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/DeathScreen.tscn" id="3_death_screen"]
+[ext_resource type="PackedScene" path="res://scenes/ui/TutorialDialogue.tscn" id="4_tutorial_dialogue"]
 
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HealthBg"]
@@ -372,6 +373,10 @@ unique_name_in_owner = true
 visible = false
 
 [node name="DeathScreen" parent="." instance=ExtResource("3_death_screen")]
+unique_name_in_owner = true
+visible = false
+
+[node name="TutorialDialogue" parent="." instance=ExtResource("4_tutorial_dialogue")]
 unique_name_in_owner = true
 visible = false
 

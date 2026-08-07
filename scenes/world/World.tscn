@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/EnvironmentController.gd" id="1_env"]
 [ext_resource type="PackedScene" path="res://scenes/world/Ocean.tscn" id="2_ocean"]
@@ -8,7 +8,6 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/WorldHUD.tscn" id="6_hud"]
 [ext_resource type="Script" path="res://scripts/managers/WorldManager.gd" id="7_w_mgr"]
 [ext_resource type="Script" path="res://scripts/managers/InputManager.gd" id="8_i_mgr"]
-[ext_resource type="Script" path="res://scripts/managers/EventManager.gd" id="9_e_mgr"]
 [ext_resource type="Script" path="res://scripts/world/DockingSystem.gd" id="10_dock"]
 [ext_resource type="Resource" path="res://resources/world/EnvironmentSettings.tres" id="11_env_settings"]
 [ext_resource type="Resource" path="res://resources/world/CameraSettings.tres" id="12_cam_settings"]
@@ -21,7 +20,7 @@
 [ext_resource type="Script" path="res://scripts/managers/WorldEventManager.gd" id="19_wem"]
 [ext_resource type="Resource" path="res://resources/world/VolcanoIsland.tres" id="20_volcano"]
 [ext_resource type="Resource" path="res://resources/world/FrozenIsland.tres" id="21_frozen"]
-
+[ext_resource type="Resource" path="res://resources/world/CartagenaOutpost.tres" id="22_cartagena"]
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_world"]
 sky_top_color = Color(0.04, 0.32, 0.68, 1)
 sky_horizon_color = Color(0.95, 0.72, 0.42, 1)
@@ -63,7 +62,7 @@ glow_hdr_scale = 2.0
 fog_enabled = true
 fog_density = 0.00012
 fog_light_color = Color(0.9, 0.72, 0.52, 1)
-fog_sun_scatter = 0.5
+fog_sun_scatter = 0.05
 fog_sky_affect = 0.0
 
 [node name="World" type="Node3D"]
@@ -112,7 +111,6 @@ transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, -30, 0.3
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0.3, 50)
 
 [node name="CameraRig" parent="." instance=ExtResource("4_cam")]
-target = NodePath("../PlayerShip")
 settings = ExtResource("12_cam_settings")
 
 [node name="Islands" type="Node3D" parent="."]
@@ -137,6 +135,10 @@ island_data = ExtResource("20_volcano")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0, 60)
 island_data = ExtResource("21_frozen")
 
+[node name="Island6" parent="Islands" instance=ExtResource("5_isl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -120, 0, 100)
+island_data = ExtResource("22_cartagena")
+
 [node name="WorldUI" parent="." instance=ExtResource("6_hud")]
 
 [node name="Systems" type="Node" parent="."]
@@ -146,9 +148,6 @@ script = ExtResource("7_w_mgr")
 
 [node name="InputManager" type="Node" parent="Systems"]
 script = ExtResource("8_i_mgr")
-
-[node name="EventManager" type="Node" parent="Systems"]
-script = ExtResource("9_e_mgr")
 
 [node name="DockingSystem" type="Node" parent="Systems"]
 script = ExtResource("10_dock")

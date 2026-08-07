@@ -35,6 +35,7 @@ class_name SettingsMenu
 @onready var resolution_option: OptionButton = $Control/GridContainer/ResolutionOptionButton
 @onready var vsync_check: CheckButton = $Control/GridContainer/VSyncCheckButton
 @onready var back_button: Button = $Control/BackButton
+@onready var replay_tutorial_button: Button = $Control/GridContainer/ReplayTutorialButton
 
 var settings_manager: Node = SettingsManager
 var audio_manager: Node = AudioManager
@@ -63,7 +64,8 @@ func _ready() -> void:
 	resolution_option.item_selected.connect(_on_resolution_selected)
 	
 	back_button.pressed.connect(_on_back_pressed)
-	
+	replay_tutorial_button.pressed.connect(_on_replay_tutorial_pressed)
+
 	# Set focus on first slider for keyboard/gamepad navigation
 	master_slider.grab_focus()
 
@@ -99,6 +101,12 @@ func _on_resolution_selected(index: int) -> void:
 
 func _on_back_pressed() -> void:
 	SceneManager.go_back()
+
+func _on_replay_tutorial_pressed() -> void:
+	# Non-destructive: World.gd still calls SaveManager.load_game() on load,
+	# so the player's existing save is untouched — only the tutorial re-arms.
+	TutorialManager.reset_and_replay()
+	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

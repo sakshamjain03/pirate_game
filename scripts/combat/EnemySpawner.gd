@@ -1,16 +1,18 @@
 class_name EnemySpawner extends Node
 
 ## Purpose: Manages the lifecycle of enemy ships in the world.
-## Responsibilities: Spawns enemies at safe distances, replaces destroyed ones, caps population.
-## Dependencies: EnemyShip.tscn, player_ship group
+## Responsibilities: Spawns enemies at safe distances, replaces destroyed ones, caps population,
+##   weights faction selection by reputation. Applies M4 empire scaling: compute_spawn_multiplier()
+##   scales an empire-faction ship's effective max_health/cannon_damage by region tier + notoriety
+##   at spawn time (via a duplicated ShipStats instance, never mutating the shared resource);
+##   non-empire factions always spawn at multiplier 1.0.
+## Dependencies: EnemyShip.tscn, player_ship group, FactionData.is_empire, EmpireManager.notoriety
 ##
 ## Limitations:
-##   - No faction or difficulty scaling yet (future milestone)
 ##   - No spawn zones or region-specific enemy types yet
 ##
 ## TODO:
 ##   - M8: Region-specific enemy types
-##   - M9: Difficulty scaling based on empire size
 ##   - M10: Named pirate captain enemies
 
 signal enemy_spawned(enemy: Node3D)
@@ -50,11 +52,14 @@ func _initialize() -> void:
 	if f3: available_factions.append(f3)
 	
 	# Find or create the Enemies container in the scene
-	_enemies_container = get_tree().current_scene.get_node_or_null("Enemies")
+	var current_scene = get_tree().current_scene
+	if current_scene == null:
+		return
+	_enemies_container = current_scene.get_node_or_null("Enemies")
 	if not _enemies_container:
 		_enemies_container = Node3D.new()
 		_enemies_container.name = "Enemies"
-		get_tree().current_scene.add_child(_enemies_container)
+		current_scene.add_child(_enemies_container)
 	
 	# Register any existing enemies already placed in the scene
 	for child in _enemies_container.get_children():
@@ -118,6 +123,15 @@ func _spawn_enemy() -> void:
 		if "faction" in enemy:
 			enemy.faction = chosen_faction
 			
+			if chosen_faction and chosen_faction.get("is_empire"):
+				var tier = _get_region_tier_for_position(spawn_pos)
+				var mult = compute_spawn_multiplier(tier)
+				
+				if enemy.get("ship_stats"):
+					enemy.ship_stats = enemy.ship_stats.duplicate()
+					enemy.ship_stats.max_health *= mult
+					enemy.ship_stats.cannon_damage *= mult
+					
 	_enemies_container.add_child(enemy)
 	enemy.global_position = spawn_pos
 	
@@ -173,6 +187,32 @@ func _find_spawn_position() -> Vector3:
 	# Fallback: just pick a random spot
 	return Vector3(randf_range(-100, 100), 0.3, randf_range(-100, 100))
 
+func _get_region_tier_for_position(pos: Vector3) -> int:
+	var islands = get_tree().get_nodes_in_group("islands")
+	if islands.is_empty():
+		return 1
+		
+	var closest_island = null
+	var min_dist = INF
+	for island in islands:
+		var d = island.global_position.distance_to(pos)
+		if d < min_dist:
+			min_dist = d
+			closest_island = island
+			
+	if closest_island and EmpireManager:
+		var region = EmpireManager.get_region_for_island(closest_island.get_island_id())
+		if region:
+			return region.tier
+			
+	return 1
+
+func compute_spawn_multiplier(region_tier: int) -> float:
+	var current_notoriety = 0.0
+	if EmpireManager:
+		current_notoriety = EmpireManager.notoriety
+	return 1.0 + max(0, region_tier - 1) * 0.3 + current_notoriety * 0.002
+
 func get_active_enemy_count() -> int:
 	return _active_enemies.size()
 
@@ -188,6 +228,22 @@ func spawn_hunter(faction: Resource) -> void:
 	if "faction" in enemy:
 		enemy.faction = faction
 		
+		if faction and faction.get("is_empire"):
+			var tier = _get_region_tier_for_position(spawn_pos)
+			var mult = compute_spawn_multiplier(tier)
+			print("EnemySpawner: Spawning empire faction! mult=", mult)
+			
+			if enemy.get("ship_stats"):
+				enemy.ship_stats = enemy.ship_stats.duplicate(true)
+				print("EnemySpawner: duplicated ship_stats. Original max_health=", enemy.ship_stats.max_health)
+				enemy.ship_stats.max_health *= mult
+				enemy.ship_stats.cannon_damage *= mult
+				print("EnemySpawner: after scaling max_health=", enemy.ship_stats.max_health)
+			else:
+				print("EnemySpawner: enemy.get('ship_stats') is null")
+		else:
+			print("EnemySpawner: not empire faction")
+		
 	_enemies_container.add_child(enemy)
 	enemy.global_position = spawn_pos
 	enemy.global_rotation.y = randf() * TAU
@@ -199,4 +255,5 @@ func spawn_hunter(faction: Resource) -> void:
 	if enemy.has_method("set_target") and _player_ship:
 		enemy.set_target(_player_ship)
 		
-	print("Hunter spawned from faction: ", faction.faction_name)
+	if faction:
+		print("Hunter spawned from faction: ", faction.get("faction_name"))

@@ -1,8 +1,12 @@
 extends Node3D
 
 ## Purpose: Manages the island's logic, buildings, and resource production.
-## Responsibilities: Holds IslandData, tracks built structures, generates resources over time.
-## Dependencies: IslandData, ResourceManager, BuildingData resources
+## Responsibilities: Holds IslandData, tracks built structures, generates resources over time,
+##   handles colonize/capture (gaining +15 notoriety and setting EmpireManager.home_island_id on
+##   first capture). Defender spawning and capture are both gated on the island's region being
+##   active (M4 — see _should_be_active()); a dormant region's islands have no defenders and
+##   cannot be colonized yet.
+## Dependencies: IslandData, ResourceManager, BuildingData resources, EmpireManager, RegionData
 
 @export var island_data: IslandData
 
@@ -43,12 +47,26 @@ func _on_dock_area_body_exited(body: Node) -> void:
 	if ds:
 		ds.on_dock_area_exited(dock_area, get_island_id())
 
+func _should_be_active() -> bool:
+	var empire = get_tree().root.get_node_or_null("EmpireManager")
+	if not empire:
+		return true
+	var region = empire.get_region_for_island(get_island_id())
+	if not region:
+		return true
+	return empire.is_region_active(region.id)
+
 func _spawn_defenses() -> void:
+	if not _should_be_active():
+		return
 	if island_data and island_data.island_type == IslandData.IslandType.ENEMY:
 		var enemy_scene = load("res://scenes/world/EnemyShip.tscn")
 		if enemy_scene:
 			var enemy = enemy_scene.instantiate()
-			get_tree().current_scene.call_deferred("add_child", enemy)
+			var parent = get_tree().current_scene
+			if not parent:
+				parent = get_tree().root
+			parent.call_deferred("add_child", enemy)
 			enemy.global_position = global_position + Vector3(30, 0, 30)
 			
 			# Monitor enemy death for capture logic
@@ -62,10 +80,18 @@ func _on_defense_destroyed() -> void:
 		capture_island(FactionManager.get_player_faction())
 
 func capture_island(new_faction: Resource) -> void:
+	if not _should_be_active():
+		return
 	if island_data:
 		island_data.owner_faction = new_faction
 		island_data.island_type = IslandData.IslandType.FRIENDLY
 		print("Island ", get_island_name(), " captured by ", new_faction.faction_name)
+		
+		if EmpireManager:
+			if EmpireManager.home_island_id.is_empty():
+				EmpireManager.home_island_id = get_island_id()
+			EmpireManager.add_notoriety(15.0)
+			EmpireManager.notify_island_captured(get_island_id())
 		
 		# Show announcement
 		var hud = get_tree().get_first_node_in_group("hud")

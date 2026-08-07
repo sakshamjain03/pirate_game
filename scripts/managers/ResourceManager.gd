@@ -91,15 +91,16 @@ func get_save_data() -> Dictionary:
 func load_save_data(data: Dictionary) -> void:
 	if typeof(data) != TYPE_DICTIONARY:
 		return
-		
+
 	for key in data:
-		current_resources[key] = int(data[key])
-		
+		var cap = max_storage.get(key, 999999)
+		current_resources[key] = min(int(data[key]), cap)
+
 	resources_changed.emit(current_resources)
 
 func recalculate_storage_capacity() -> void:
 	var base_storage: Dictionary = {
-		"gold": 1000,
+		"gold": 5000,
 		"wood": 200,
 		"iron": 100,
 		"rum": 50

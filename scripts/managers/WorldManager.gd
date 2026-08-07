@@ -1,5 +1,11 @@
 extends Node
 
+## Purpose: Per-scene coordinator for the World scene (autoload-adjacent scene-local manager).
+## Responsibilities: Routes input to the player ship, drives the day/night timer, handles
+##   dock/undock via DockingSystem, and auto-shows RaidReportScreen on world load when
+##   EmpireManager has an unshown pending_raid_report (M4).
+## Dependencies: DockingSystem, InputManager, CameraRig (siblings), EmpireManager, RaidReportScreen.tscn
+
 signal world_loaded()
 signal island_discovered(island_id: String)
 signal player_docked(island_id: String)
@@ -17,12 +23,15 @@ var active_islands: Dictionary = {}
 # (see AGENTS.md Performance Rules).
 var _docking_system: Node = null
 var _input_manager: Node = null
-var _event_manager: Node = null
+var _camera_rig: Node = null
+
+const CAMERA_ROTATE_SPEED: float = 90.0 # degrees/sec while held
+const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
 
 func _ready() -> void:
 	_docking_system = get_node_or_null("../DockingSystem")
 	_input_manager = get_node_or_null("../InputManager")
-	_event_manager = get_node_or_null("../EventManager")
+	_camera_rig = get_node_or_null("../../CameraRig")
 
 	if _docking_system:
 		_docking_system.dock_completed.connect(_on_dock_completed)
@@ -49,6 +58,17 @@ func _process(delta: float) -> void:
 			if Input.is_action_just_pressed("dock"):
 				_toggle_docking()
 
+		# Process camera input
+		if _camera_rig:
+			var rotate_input = Input.get_action_strength("camera_rotate_right") - Input.get_action_strength("camera_rotate_left")
+			if rotate_input != 0.0:
+				_camera_rig.add_yaw(rotate_input * CAMERA_ROTATE_SPEED * delta)
+
+			if Input.is_action_just_pressed("camera_zoom_in"):
+				_camera_rig.add_zoom(CAMERA_ZOOM_STEP)
+			if Input.is_action_just_pressed("camera_zoom_out"):
+				_camera_rig.add_zoom(-CAMERA_ZOOM_STEP)
+
 func _toggle_docking() -> void:
 	if not _docking_system:
 		return
@@ -59,8 +79,8 @@ func _toggle_docking() -> void:
 
 func _on_dock_completed(island_id: String) -> void:
 	on_player_docked(island_id)
-	if _event_manager and _event_manager.has_method("handle_docking_event"):
-		_event_manager.handle_docking_event(island_id)
+	if EventManager.has_method("handle_docking_event"):
+		EventManager.handle_docking_event(island_id)
 
 func _process_time(delta: float) -> void:
 	# 1 real second = 1 in-game minute
@@ -75,9 +95,23 @@ func initialize_world(ship: Node3D, islands: Array) -> void:
 	for island in islands:
 		if island.has_method("get_island_id"):
 			active_islands[island.get_island_id()] = island
-			
+
 	is_world_loaded = true
 	emit_signal("world_loaded")
+
+	# A save's pending_raid_report is only restored once SaveManager.load_game() finishes
+	# (it runs deferred, after this method), so check now for the no-save-to-load case and
+	# again once loading completes for the Continue-from-save case.
+	_check_pending_raid_report()
+	if SaveManager.has_signal("game_loaded") and not SaveManager.game_loaded.is_connected(_check_pending_raid_report):
+		SaveManager.game_loaded.connect(_check_pending_raid_report)
+
+func _check_pending_raid_report() -> void:
+	var empire = get_tree().root.get_node_or_null("EmpireManager")
+	if empire and empire.get("pending_raid_report") != null:
+		var raid_screen = load("res://scenes/ui/RaidReportScreen.tscn").instantiate()
+		get_tree().current_scene.add_child(raid_screen)
+		raid_screen.open(empire.pending_raid_report)
 
 func on_island_discovered(island_id: String) -> void:
 	emit_signal("island_discovered", island_id)

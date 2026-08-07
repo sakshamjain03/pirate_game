@@ -1,5 +1,7 @@
 extends Node
 
+# Must be run manually via `godot --headless -s res://scripts/tests/ScreenshotHarness.gd`, not as an autoload.
+
 ## Temporary diagnostic autoload: boots straight into World.tscn (run via
 ## `godot --path . scenes/world/World.tscn`, NOT --headless since headless
 ## uses the dummy renderer and produces empty viewport textures) and

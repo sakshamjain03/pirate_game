@@ -138,7 +138,8 @@ func _process_alignment(delta: float) -> void:
 		# Slerp rotation
 		var current_quat = Quaternion(ship_transform.basis)
 		var target_quat = Quaternion(target_transform.basis)
-		var new_quat = current_quat.slerp(target_quat, alignment_speed * delta)
+		var slerp_weight = clamp(alignment_speed * delta, 0.0, 1.0)
+		var new_quat = current_quat.slerp(target_quat, slerp_weight)
 		ship_controller.global_transform.basis = Basis(new_quat)
 
 func _process_healing(delta: float) -> void:

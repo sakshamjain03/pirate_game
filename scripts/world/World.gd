@@ -24,3 +24,8 @@ func _ready() -> void:
 	if SaveManager.has_method("load_game"):
 		# Use call_deferred to ensure physics and all nodes are fully ready
 		SaveManager.call_deferred("load_game")
+
+	# Deferred (and queued after load_game above) so a resumed tutorial step
+	# index from a loaded save is already in place before the dialogue reads it.
+	if world_manager and TutorialManager.has_method("on_world_ready"):
+		TutorialManager.call_deferred("on_world_ready", world_manager)

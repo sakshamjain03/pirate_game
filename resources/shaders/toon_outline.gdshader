@@ -8,15 +8,14 @@ uniform float outline_width : hint_range(0.0, 0.1) = 0.012;
 uniform vec4  outline_color : source_color = vec4(0.05, 0.05, 0.05, 1.0);
 
 void vertex() {
-	// Expand vertices along their normals in view space to create the outline
-	vec4 clip_pos    = PROJECTION_MATRIX * MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
-	vec3 clip_normal = mat3(PROJECTION_MATRIX) * mat3(MODELVIEW_MATRIX) * NORMAL;
+	// Expand vertices along their normals in view space, then project —
+	// projecting the normal itself (rather than the expanded position)
+	// blows up non-linearly near silhouette edges and tears the mesh apart.
+	vec4 view_pos     = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
+	vec3 view_normal  = normalize(mat3(MODELVIEW_MATRIX) * NORMAL);
+	view_pos.xyz     += view_normal * outline_width;
 
-	// Normalize in clip space (prevents outline distortion at oblique angles)
-	vec2 offset  = normalize(clip_normal.xy) * outline_width * clip_pos.w;
-	clip_pos.xy += offset;
-
-	POSITION = clip_pos;
+	POSITION = PROJECTION_MATRIX * view_pos;
 }
 
 void fragment() {

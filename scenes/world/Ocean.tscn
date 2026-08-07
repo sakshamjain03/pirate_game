@@ -9,11 +9,10 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
 render_priority = 0
 shader = ExtResource("4_shader")
-shader_parameter/water_color_shallow = Color(0.106, 0.651, 0.784, 1)
+shader_parameter/water_color = Color(0.106, 0.651, 0.784, 1)
 shader_parameter/water_color_deep    = Color(0.027, 0.302, 0.529, 1)
 shader_parameter/foam_color          = Color(0.95, 0.98, 1.0, 1)
-shader_parameter/foam_thickness      = 2.5
-shader_parameter/depth_distance      = 8.0
+shader_parameter/depth_distance      = 60.0
 shader_parameter/wave_speed_1        = 0.03
 shader_parameter/wave_speed_2        = -0.015
 shader_parameter/wave_scale          = 150.0

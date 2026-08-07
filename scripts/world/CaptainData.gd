@@ -36,4 +36,3 @@ func add_xp(amount: int) -> void:
 		current_xp -= xp_needed
 		level += 1
 		xp_needed = level * 100
-		print(captain_name, " leveled up to ", level, "!")

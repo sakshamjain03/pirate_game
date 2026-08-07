@@ -28,7 +28,6 @@ func _on_economy_tick() -> void:
 				var navy = load("res://resources/factions/RoyalNavy.tres")
 				if navy:
 					spawner.spawn_hunter(navy)
-					print("Royal Navy dispatched a hunter!")
 
 func get_reputation(faction_id: String) -> int:
 	return reputation_scores.get(faction_id, 0)

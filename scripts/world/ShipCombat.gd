@@ -95,7 +95,7 @@ func take_damage(amount: float) -> void:
 
 func die() -> void:
 	died.emit()
-	# Typically handled by ShipController or GameManager
+	# Handled by ShipController._on_died(), connected to this signal.
 
 func fire_broadside(side: String) -> bool:
 	if not ship_stats:

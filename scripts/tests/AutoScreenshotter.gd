@@ -4,11 +4,14 @@ extends SceneTree
 func _init() -> void:
 	print("=== AutoScreenshotter: Starting Visual Capture ===")
 	
+	# Resolved relative to the actual project directory on whichever machine
+	# runs this, rather than a hardcoded "D:/Pirate-game/..." that only ever
+	# worked on one specific machine.
 	var scenes_to_capture = {
-		"D:/Pirate-game/screenshot_world.png": "res://scenes/world/World.tscn",
-		"D:/Pirate-game/screenshot_playership.png": "res://scenes/world/PlayerShip.tscn",
-		"D:/Pirate-game/screenshot_cannonball.png": "res://scenes/combat/Cannonball.tscn",
-		"D:/Pirate-game/screenshot_worldhud.png": "res://scenes/ui/WorldHUD.tscn"
+		ProjectSettings.globalize_path("res://screenshot_world.png"): "res://scenes/world/World.tscn",
+		ProjectSettings.globalize_path("res://screenshot_playership.png"): "res://scenes/world/PlayerShip.tscn",
+		ProjectSettings.globalize_path("res://screenshot_cannonball.png"): "res://scenes/combat/Cannonball.tscn",
+		ProjectSettings.globalize_path("res://screenshot_worldhud.png"): "res://scenes/ui/WorldHUD.tscn"
 	}
 	
 	for path in scenes_to_capture.keys():

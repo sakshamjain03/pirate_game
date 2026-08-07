@@ -91,7 +91,6 @@ func _get_random_spawn_pos() -> Vector3:
 	)
 
 func _spawn_merchant_convoy() -> void:
-	print("EventManager: Triggering Merchant Convoy!")
 	trigger_event("merchant_convoy_spotted", {}, EventPriority.HIGH)
 	
 	var enemy_scene = load("res://scenes/world/EnemyShip.tscn")
@@ -116,7 +115,6 @@ func _spawn_merchant_convoy() -> void:
 		ship.global_rotation.y = randf() * TAU
 
 func _spawn_floating_treasure() -> void:
-	print("EventManager: Triggering Floating Treasure!")
 	trigger_event("floating_treasure_spotted", {}, EventPriority.MEDIUM)
 	
 	var loot_scene = load("res://scenes/combat/LootDrop.tscn")
@@ -142,7 +140,6 @@ func _spawn_floating_treasure() -> void:
 			}
 
 func _spawn_ghost_ship_boss() -> void:
-	print("EventManager: A chilling fog rolls in... The Ghost Ship appears!")
 	trigger_event("ghost_ship_spotted", {}, EventPriority.HIGH)
 	
 	var enemy_scene = load("res://scenes/world/EnemyShip.tscn")

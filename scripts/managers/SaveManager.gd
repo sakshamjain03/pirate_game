@@ -33,7 +33,6 @@ func _process(delta: float) -> void:
 		save_game()
 
 func save_game() -> void:
-	print("SaveManager: Saving game state...")
 	var save_dict = {
 		"player": {},
 		"economy": {},
@@ -98,14 +97,11 @@ func save_game() -> void:
 		var json_string = JSON.stringify(save_dict, "\t")
 		file.store_string(json_string)
 		file.close()
-		print("SaveManager: Game saved successfully.")
 	else:
 		push_error("SaveManager: Failed to open save file for writing.")
 
 func load_game() -> void:
-	print("SaveManager: Loading game state...")
 	if not has_save_data():
-		print("SaveManager: No save data found.")
 		game_loaded.emit()
 		return
 
@@ -216,7 +212,6 @@ func load_game() -> void:
 				FleetManager._on_economy_tick()
 			_pending_offline_ticks = offline_ticks
 
-	print("SaveManager: Game loaded successfully.")
 	game_loaded.emit()
 
 func has_save_data() -> bool:
@@ -227,4 +222,3 @@ func delete_save() -> void:
 		var dir = DirAccess.open("user://")
 		if dir:
 			dir.remove("save_data.json")
-			print("SaveManager: Save data deleted.")

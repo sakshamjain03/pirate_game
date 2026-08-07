@@ -21,9 +21,12 @@ var defend_home_ship_indices: Array = []
 var active_missions: Dictionary = {}
 
 func _ready() -> void:
-	# Give the player a starter ship if empty
+	# Give the player a starter ship if empty. Must match PlayerShip.tscn's
+	# own ship_stats (Sloop) — a mismatch here previously made the Shipyard
+	# tab show a phantom Dinghy as "Owned" and the actual Sloop the player
+	# was sailing as still buyable.
 	if owned_ships.size() == 0:
-		var starter = load("res://resources/ships/Dinghy.tres")
+		var starter = load("res://resources/ships/Sloop.tres")
 		if starter:
 			owned_ships.append(starter)
 			
@@ -50,11 +53,9 @@ func _on_economy_tick() -> void:
 		if mission["mission_type"] == "trade":
 			var amount = 10 * cap.level
 			ResourceManager.add_resource("gold", amount)
-			print("Trade Fleet earned ", amount, " Gold!")
 		elif mission["mission_type"] == "patrol":
 			if FactionManager.has_method("add_reputation"):
 				FactionManager.add_reputation("merchant_guild", 1)
-				print("Patrol Fleet earned 1 Reputation with Merchants!")
 
 func assign_mission(ship_index: int, captain_index: int, mission_type: String) -> void:
 	if ship_index == active_ship_index: return # Active ship cannot run background missions

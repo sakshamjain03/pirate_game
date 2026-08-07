@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://e5f6g7h1i2j3k"]
-
-[ext_resource type="Theme" uid="uid://d3h5x1y6z2v3n" path="res://resources/ui/GlobalTheme.tres" id="1_theme"]
-
-[node name="StyledButton" type="Button"]
-offset_right = 8.0
-offset_bottom = 8.0
-theme = ExtResource("1_theme")
-text = "Button"

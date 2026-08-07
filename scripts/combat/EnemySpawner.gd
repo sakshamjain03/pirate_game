@@ -231,19 +231,12 @@ func spawn_hunter(faction: Resource) -> void:
 		if faction and faction.get("is_empire"):
 			var tier = _get_region_tier_for_position(spawn_pos)
 			var mult = compute_spawn_multiplier(tier)
-			print("EnemySpawner: Spawning empire faction! mult=", mult)
-			
+
 			if enemy.get("ship_stats"):
 				enemy.ship_stats = enemy.ship_stats.duplicate(true)
-				print("EnemySpawner: duplicated ship_stats. Original max_health=", enemy.ship_stats.max_health)
 				enemy.ship_stats.max_health *= mult
 				enemy.ship_stats.cannon_damage *= mult
-				print("EnemySpawner: after scaling max_health=", enemy.ship_stats.max_health)
-			else:
-				print("EnemySpawner: enemy.get('ship_stats') is null")
-		else:
-			print("EnemySpawner: not empire faction")
-		
+
 	_enemies_container.add_child(enemy)
 	enemy.global_position = spawn_pos
 	enemy.global_rotation.y = randf() * TAU
@@ -254,6 +247,3 @@ func spawn_hunter(faction: Resource) -> void:
 	# Force targeting player
 	if enemy.has_method("set_target") and _player_ship:
 		enemy.set_target(_player_ship)
-		
-	if faction:
-		print("Hunter spawned from faction: ", faction.get("faction_name"))

@@ -85,7 +85,6 @@ func _collect() -> void:
 		var amount = loot_data[res_type]
 		if ResourceManager.has_method("add_resource"):
 			ResourceManager.add_resource(res_type, amount)
-			print("Collected loot: ", amount, " ", res_type)
 
 	# Quick scale-down animation then remove
 	var tween = create_tween()

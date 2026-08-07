@@ -34,7 +34,16 @@ func _ready() -> void:
 	close_button.pressed.connect(_on_close_pressed)
 	_load_building_data()
 	hide()
-	
+
+	# Keep processing input while paused — open()/close() pause the game so
+	# enemies don't keep sailing and shooting the player (and the economy
+	# doesn't keep ticking) while this menu is up.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+	if ResourceManager.has_signal("resources_changed"):
+		ResourceManager.resources_changed.connect(_on_resources_changed)
+
+
 	# Create Colonize Button
 	colonize_btn = Button.new()
 	colonize_btn.text = "Colonize (1000 Gold)"
@@ -146,12 +155,29 @@ func open(island: Node3D) -> void:
 	_refresh_fleet()
 	_refresh_research()
 	if can_build: _refresh_trade()
-	
+
 	show()
+	get_tree().paused = true
 
 func close() -> void:
 	current_island = null
 	hide()
+	get_tree().paused = false
+
+func _on_resources_changed(_res: Dictionary) -> void:
+	# Affordability (button disabled states, colors) was only ever computed
+	# once at open() and never refreshed — spend gold on one tab and every
+	# other tab kept showing stale can/can't-afford states until re-opened.
+	if not visible or not current_island:
+		return
+	_refresh_buildings()
+	if current_island.has_method("has_building"):
+		if current_island.has_building("shipyard"):
+			_refresh_ships()
+		if current_island.has_building("tavern"):
+			_refresh_captains()
+	_refresh_research()
+	_refresh_trade()
 
 func _on_close_pressed() -> void:
 	# Tell the docking system to undock
@@ -345,7 +371,6 @@ func _on_buy_ship_pressed(ship: ShipStats, cost: Dictionary) -> void:
 	if ResourceManager.spend_resources(cost):
 		FleetManager.add_ship(ship)
 		_refresh_ships()
-		print("Bought new ship: ", ship.resource_path)
 
 # --- TAVERN ---
 
@@ -404,7 +429,6 @@ func _on_hire_captain_pressed(cap: CaptainData, cost: Dictionary) -> void:
 	if ResourceManager.spend_resources(cost):
 		FleetManager.add_captain(cap)
 		_refresh_captains()
-		print("Hired ", cap.captain_name)
 
 # --- FLEET ---
 
@@ -589,7 +613,6 @@ func _on_unlock_tech_pressed(tech: TechData, cost: Dictionary) -> void:
 	if ResourceManager.spend_resources(cost):
 		TechManager.unlock_tech(tech)
 		_refresh_research()
-		print("Researched ", tech.tech_name)
 
 # --- TRADE ---
 
@@ -642,4 +665,3 @@ func _on_sell_pressed(res_key: String, amount: int, gold_value: int) -> void:
 	if ResourceManager.spend_resources(cost):
 		ResourceManager.add_resource("gold", gold_value)
 		_refresh_trade()
-		print("Sold ", amount, " ", res_key, " for ", gold_value, " Gold")

@@ -23,7 +23,6 @@ buses/default_bus_layout="res://default_bus_layout.tres"
 
 [autoload]
 
-GameManager="*res://scripts/managers/GameManager.gd"
 SaveManager="*res://scripts/managers/SaveManager.gd"
 SceneManager="*res://scripts/managers/SceneManager.gd"
 SettingsManager="*res://scripts/managers/SettingsManager.gd"
@@ -150,6 +149,3 @@ textures/canvas_textures/default_texture_filter=0
 ; past any realistic play session.
 limits/time/time_rollover_secs=86400
 
-[gui]
-
-theme/custom="res://resources/ui/GlobalTheme.tres"

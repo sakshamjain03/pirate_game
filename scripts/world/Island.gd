@@ -116,8 +116,7 @@ func capture_island(new_faction: Resource) -> void:
 	if island_data:
 		island_data.owner_faction = new_faction
 		island_data.island_type = IslandData.IslandType.FRIENDLY
-		print("Island ", get_island_name(), " captured by ", new_faction.faction_name)
-		
+
 		if EmpireManager:
 			if EmpireManager.home_island_id.is_empty():
 				EmpireManager.home_island_id = get_island_id()
@@ -177,8 +176,7 @@ func build_structure(building: BuildingData) -> bool:
 		
 		if ResourceManager.has_method("recalculate_storage_capacity"):
 			ResourceManager.recalculate_storage_capacity()
-		
-		print("Built ", building.building_name, " on ", get_island_name())
+
 		return true
 		
 	return false
@@ -198,8 +196,7 @@ func upgrade_structure(old_id: String, new_building: BuildingData) -> bool:
 	var cost = new_building.get_cost_dict()
 	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):
 		built_buildings[old_building_idx] = new_building
-		print("Upgraded to ", new_building.building_name, " on ", get_island_name())
-		
+
 		# Update visuals if needed (just scale up for now)
 		if _spawned_models.has(old_id):
 			var model = _spawned_models[old_id]

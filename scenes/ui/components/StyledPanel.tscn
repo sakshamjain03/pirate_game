@@ -1,8 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://f6g7h8i1j2k3l"]
-
-[ext_resource type="Theme" uid="uid://d3h5x1y6z2v3n" path="res://resources/ui/GlobalTheme.tres" id="1_theme"]
-
-[node name="StyledPanel" type="PanelContainer"]
-offset_right = 40.0
-offset_bottom = 40.0
-theme = ExtResource("1_theme")

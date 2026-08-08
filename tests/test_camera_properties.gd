@@ -43,7 +43,14 @@ func test_property_2_obstacle_avoidance():
 	box.size = Vector3(2, 2, 2)
 	col.shape = box
 	obstacle.add_child(col)
-	obstacle.collision_layer = 3 # matches SpringArm3D collision_mask = 3
+	# Layer 5 (bit value 16) = terrain, matching SpringArm3D's collision_mask.
+	# This was 3, pinned to the arm's old mask of 3 (ships + islands). That mask
+	# made the arm collide with the very ship it is attached to — the rig rides
+	# at the target's origin, so the arm's sphere started inside the hull,
+	# collapsed to ~0 and buried the camera inside the ship. The arm now masks
+	# terrain only; this obstacle moves to that layer so the test still asserts
+	# the real property (the camera pulls in for obstructions).
+	obstacle.collision_layer = 16
 	add_child(obstacle)
 	
 	for i in range(20):

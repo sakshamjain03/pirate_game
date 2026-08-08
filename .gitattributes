@@ -1,17 +1,22 @@
-* text=auto eol=lf
+# Windows batch files MUST have CRLF line endings. cmd.exe parses LF-only
+# .cmd/.bat files incorrectly — it eats the first character of every line
+# ("setlocal" becomes "etlocal", "@echo off" becomes "echo off"), so the
+# launcher silently fails to start the game. This bit the double-click
+# launcher once already; see docs/09_VISUAL_BUG_TRACKER.md V11.
+*.cmd text eol=crlf
+*.bat text eol=crlf
 
-*.gd text
-*.tscn text
-*.tres text
-*.shader text
-*.md text
-*.json text
-*.cfg text
+# Keep everything else normalized to LF in the repo.
+*.gd    text eol=lf
+*.tscn  text eol=lf
+*.tres  text eol=lf
+*.godot text eol=lf
+*.md    text eol=lf
 
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.ogg binary
-*.wav binary
-*.glb binary
-*.blend binary
+# Binary assets — never touch these.
+*.glb   binary
+*.png   binary
+*.jpg   binary
+*.ogg   binary
+*.wav   binary
+*.exe   binary

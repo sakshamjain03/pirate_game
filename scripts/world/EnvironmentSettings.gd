@@ -15,10 +15,16 @@ class_name EnvironmentSettings extends Resource
 @export var sky_top_evening: Color = Color(0.08, 0.14, 0.34)
 @export var sky_top_night: Color = Color(0.01, 0.02, 0.07)
 
+## Only morning and evening are warm. Noon was previously authored as
+## (0.95, 0.72, 0.42) — a sunset orange — which, combined with
+## EnvironmentController rewriting the sky every frame, made the horizon read
+## as a permanent sunset at every time of day. Noon is now a pale daylight haze
+## that sits under sky_top_noon, and morning is pulled back from peach to a
+## soft warm blue so dawn reads as dawn rather than as a second sunset.
 @export_group("Sky Horizon")
-@export var sky_horizon_morning: Color = Color(0.85, 0.62, 0.5)
-@export var sky_horizon_noon: Color = Color(0.95, 0.72, 0.42)
-@export var sky_horizon_evening: Color = Color(0.55, 0.28, 0.3)
+@export var sky_horizon_morning: Color = Color(0.68, 0.66, 0.62)
+@export var sky_horizon_noon: Color = Color(0.62, 0.76, 0.88)
+@export var sky_horizon_evening: Color = Color(0.72, 0.36, 0.26)
 @export var sky_horizon_night: Color = Color(0.03, 0.04, 0.1)
 
 @export_group("Ambient")

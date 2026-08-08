@@ -12,9 +12,17 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_hull"]
 size = Vector3(3.5, 2.5, 8.5)
 
+; Ballast below this ship's float points (which sit at y=1.0, higher than the
+; other two ships) so the hull self-rights — see PlayerShip.tscn for the note.
+; can_sleep = false matches the other ships: buoyancy is applied via
+; apply_force every physics tick, and a sleeping body ignores it, so a boss
+; that settled would stop floating.
 [node name="BossShip" type="RigidBody3D" groups=["enemy_ship", "boss_ship"]]
 collision_layer = 2
 collision_mask = 5
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.4, 0)
+can_sleep = false
 script = ExtResource("1_ship")
 ship_stats = ExtResource("5_stats")
 

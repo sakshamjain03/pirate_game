@@ -46,6 +46,7 @@ func _ready() -> void:
 	target_zoom = settings.default_distance
 	if spring_arm:
 		spring_arm.spring_length = target_zoom
+	_exclude_target_from_spring_arm()
 
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(target) or not pivot or not spring_arm:
@@ -107,4 +108,19 @@ func set_mode(mode: CameraMode) -> void:
 
 func set_target(new_target: Node3D) -> void:
 	target = new_target
+	_exclude_target_from_spring_arm()
 	camera_target_changed.emit(target)
+
+
+func _exclude_target_from_spring_arm() -> void:
+	## The rig sits at the target's origin, so the spring arm's sphere starts
+	## inside the target's own collision shape. On its own that collapses the
+	## arm and buries the camera in the hull. The collision_mask in
+	## CameraRig.tscn already excludes ships by layer; this excludes the
+	## specific followed body as well, so the fix survives a ship being moved
+	## to a different physics layer later.
+	if not spring_arm:
+		return
+	spring_arm.clear_excluded_objects()
+	if target is CollisionObject3D:
+		spring_arm.add_excluded_object(target.get_rid())

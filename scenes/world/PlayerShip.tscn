@@ -13,9 +13,18 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_hull"]
 size = Vector3(3.0, 2.0, 8.0)
 
+; center_of_mass is set explicitly (and below the float points at y=0) because
+; the auto-computed one sits at the collision shape's centre, y=+1.0. With
+; buoyancy applied at the float points a metre BELOW the centre of mass, the
+; hull is an inverted pendulum: any small tilt generates more tilting torque,
+; so ships heeled over and capsized no matter how strong the restoring torque
+; was. Ballasting the mass below the buoyancy points is what makes a hull
+; self-righting, in the sim exactly as in reality.
 [node name="PlayerShip" type="RigidBody3D" groups=["player_ship"]]
 collision_layer = 1
 collision_mask = 7
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, -0.6, 0)
 can_sleep = false
 script = ExtResource("1_ship")
 ship_stats = ExtResource("5_stats")

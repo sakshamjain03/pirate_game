@@ -25,3 +25,6 @@ Thumbs.db
 /screenshot_*.png
 /final_*
 /tree.txt
+
+# Debug screenshot captures (scenes/debug/CaptureHarness.tscn)
+.capture*/

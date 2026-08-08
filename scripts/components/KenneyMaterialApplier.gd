@@ -7,14 +7,21 @@ class_name KenneyMaterialApplier extends Node
 ## Responsibilities: Recursively finds MeshInstance3D children and, for every
 ##                   surface that doesn't already have a custom override,
 ##                   assigns a toon material seeded from that surface's own
-##                   original color/texture. When a `material_path` is given
-##                   (island props each pick their own — sand, grass,
-##                   wood_dark, ...), its authored color is applied as a
-##                   multiplicative TINT on top of that per-surface color,
-##                   not a flat replacement — replacing outright flattened
-##                   every part of a model to one solid color (e.g. a palm's
-##                   trunk and fronds, or a house's walls/windows/door, all
-##                   came out identical).
+##                   original color/texture. An authored `material_path`
+##                   contributes its color only in proportion to
+##                   `tint_strength`, which defaults to 0 — i.e. the colormap
+##                   atlas is left alone.
+##
+##                   Why 0 by default: every model this runs on is a Kenney GLB
+##                   whose colors come entirely from the colormap.png atlas, so
+##                   the atlas is already the authored per-part color. The
+##                   previous behavior multiplied every surface by the authored
+##                   color unconditionally, which dragged the whole model toward
+##                   that one hue — wood_light's (0.85, 0.55, 0.25) turned white
+##                   sails and skull emblems bright orange, and wood_dark's
+##                   (0.38, 0.2, 0.12) muddied everything to brown. Tinting is
+##                   now opt-in for the cases that genuinely mean "recolor this
+##                   whole model" (Island.gd's frozen/volcanic terrain themes).
 ## Dependencies: res://resources/materials/*.tres (ShaderMaterial using
 ##               res://resources/shaders/toon.gdshader, chained to outline.tres).
 ## Usage: Add as a child of any Node3D that contains Kenney GLB models. Set
@@ -28,6 +35,13 @@ const FALLBACK_MATERIAL_PATH := "res://resources/materials/wood_light.tres"
 ## ShipVisuals) so resolution doesn't depend on tree position.
 @export var material_path: String = ""
 
+## How far to pull each surface from its own colormap color toward the
+## authored `material_path` color. 0 keeps the atlas exactly as imported
+## (correct for every stock Kenney model); 1 reproduces the old
+## multiply-everything behavior. Blending rather than multiplying means a
+## partial value shifts hue without also crushing brightness.
+@export_range(0.0, 1.0) var tint_strength: float = 0.0
+
 var _base_material: ShaderMaterial
 var _using_fallback: bool = false
 
@@ -36,16 +50,24 @@ func _ready() -> void:
 	_apply_to_children(get_parent())
 
 
-func override_material_path(new_path: String) -> void:
+func override_material_path(new_path: String, new_tint_strength: float = 1.0) -> void:
 	## Re-resolves and re-applies with a different material_path after the
 	## initial _ready() pass — e.g. Island.gd re-tinting a shared terrain
 	## tile for a specific island's theme (volcanic, frozen, ...). Calling
 	## this before _ready() has no effect since _ready() would just
 	## overwrite it; call it afterwards instead.
+	##
+	## Defaults to a full-strength tint because the callers of this method are
+	## deliberately recoloring a whole model (a frozen reef, a scorched
+	## volcano); that intent is the exception the 0 default is guarding against.
 	material_path = new_path
+	tint_strength = new_tint_strength
 	_using_fallback = false
 	_base_material = _resolve_material()
-	_apply_to_children(get_parent())
+	# force, because _ready() has already put an override on every surface and
+	# the normal pass deliberately skips those — without this the re-apply
+	# silently did nothing and themed islands rendered as tropical ones.
+	_apply_to_children(get_parent(), true)
 
 
 func _resolve_material() -> ShaderMaterial:
@@ -77,21 +99,33 @@ func _find_ship_stats() -> ShipStats:
 	return null
 
 
-func _apply_to_children(node: Node) -> void:
+func _apply_to_children(node: Node, force: bool = false) -> void:
 	## Recursively walks the scene tree and assigns a toon material — seeded
 	## from each surface's own original color/texture — to every
 	## MeshInstance3D surface that doesn't already have a custom override.
+	## `force` re-applies over this component's own earlier pass; the seed is
+	## always re-read from the mesh's built-in material, which set_surface_
+	## override_material never touches, so repeated calls don't compound.
 	for child in node.get_children():
 		if child is MeshInstance3D:
 			var mesh_inst := child as MeshInstance3D
 			var surface_count := mesh_inst.get_surface_override_material_count()
 			for i in range(surface_count):
-				if mesh_inst.get_surface_override_material(i) == null:
+				if force or mesh_inst.get_surface_override_material(i) == null:
 					var original := mesh_inst.mesh.surface_get_material(i) if mesh_inst.mesh else null
-					mesh_inst.set_surface_override_material(i, _build_toon_material(original))
+					var built := _build_toon_material(original)
+					# Guard against assigning null: _build_toon_material returns
+					# null when the base material failed to resolve, and a null
+					# surface override leaves the mesh unshaded. Keeping the
+					# mesh's own imported material is the better fallback.
+					# (Note: this is defensive only — it is NOT the source of the
+					# startup `Parameter "material" is null` errors; those were
+					# measured to be unchanged by this guard.)
+					if built:
+						mesh_inst.set_surface_override_material(i, built)
 
 		# Always recurse into children
-		_apply_to_children(child)
+		_apply_to_children(child, force)
 
 
 func _build_toon_material(original: Material) -> ShaderMaterial:
@@ -113,24 +147,30 @@ func _build_toon_material(original: Material) -> ShaderMaterial:
 		base_metallic = original.metallic
 		base_roughness = original.roughness
 
-	if _using_fallback:
-		# Nothing was authored for this object at all — use its own imported
-		# look untouched rather than tinting toward the generic placeholder
-		# material, which was never meant to represent this specific object.
+	if _using_fallback or tint_strength <= 0.0:
+		# Either nothing was authored for this object at all, or the authored
+		# material is only supplying surface properties — keep the surface's
+		# own imported color, which for these models is the colormap atlas.
 		mat.set_shader_parameter("albedo", base_albedo)
 	else:
-		# An explicit material_path (or ship_stats.material_path) is an
-		# authored TINT on top of the surface's own color, not a full
-		# replacement — multiplying preserves per-part variation (e.g. a
-		# house's window/door/wall colors, a palm's trunk vs fronds) while
-		# still pushing the overall hue/tone toward what was authored (e.g.
-		# "wood_dark" reads as darker, warmer wood without erasing detail).
-		var tint: Color = _base_material.get_shader_parameter("albedo")
-		if tint == null:
-			tint = Color.WHITE
-		mat.set_shader_parameter("albedo", base_albedo * tint)
-		base_metallic = _base_material.get_shader_parameter("metallic") if _base_material.get_shader_parameter("metallic") != null else base_metallic
-		base_roughness = _base_material.get_shader_parameter("roughness") if _base_material.get_shader_parameter("roughness") != null else base_roughness
+		# Blend toward the authored color rather than multiplying by it.
+		# Multiplying can only ever darken, so it compounded across every
+		# surface; a lerp lands on the authored hue at full strength while
+		# leaving brightness intact at partial strength.
+		var tint_param = _base_material.get_shader_parameter("albedo")
+		var tint: Color = tint_param if tint_param is Color else Color.WHITE
+		mat.set_shader_parameter("albedo", base_albedo.lerp(tint, tint_strength))
+
+	# Surface properties always come from the authored material when there is
+	# one — these are style choices (how glossy wood or brass reads under the
+	# toon light ramp) and carry none of the color problem above.
+	if not _using_fallback:
+		var m = _base_material.get_shader_parameter("metallic")
+		var r = _base_material.get_shader_parameter("roughness")
+		if m != null:
+			base_metallic = m
+		if r != null:
+			base_roughness = r
 
 	if base_texture:
 		mat.set_shader_parameter("texture_albedo", base_texture)

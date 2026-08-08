@@ -116,10 +116,19 @@ func _create_notoriety_label() -> void:
 	_notoriety_label = Label.new()
 	_notoriety_label.add_theme_font_size_override("font_size", 14)
 	_notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
-	# Position top right
-	_notoriety_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_notoriety_label.position.y += 20
-	_notoriety_label.position.x -= 300
+	# Anchor to the top-right corner and grow leftwards/downwards. The previous
+	# PRESET_TOP_RIGHT + `position.x -= 300` nudge anchored only the label's
+	# left edge to the screen edge, so the text both ran off the right of the
+	# screen and landed on top of the resource bar. Right-aligning inside an
+	# explicitly-offset rect keeps it clear of the bar at any resolution.
+	_notoriety_label.set_anchors_preset(Control.PRESET_TOP_RIGHT, true)
+	_notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_notoriety_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_notoriety_label.offset_left = -320.0
+	_notoriety_label.offset_right = -16.0
+	# Below the resource bar rather than across it.
+	_notoriety_label.offset_top = 52.0
+	_notoriety_label.offset_bottom = 96.0
 	add_child(_notoriety_label)
 	
 	var emp = get_tree().root.get_node_or_null("EmpireManager")
@@ -278,12 +287,26 @@ func announce_event(text_content: String) -> void:
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 8)
 	
-	label.set_anchors_preset(Control.PRESET_CENTER)
-	label.position.y -= 100 # Slightly above center
-	
+	# Span the full width and wrap, rather than PRESET_CENTER. That preset
+	# anchors a zero-width rect at the centre, so a long announcement grew
+	# rightwards off the edge of the screen instead of centring within it —
+	# "While you were away: your empire kept running (N ticks)" ran clean off
+	# the frame. A full-width rect with wrapping centres properly at any length.
+	label.set_anchors_preset(Control.PRESET_HCENTER_WIDE, true)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.offset_left = 40.0
+	label.offset_right = -40.0
+	label.offset_top = -140.0
+	label.offset_bottom = -40.0
+
 	add_child(label)
-	
+
+	# Start transparent, otherwise the first tween fades from 1.0 to 1.0 and the
+	# announcement simply pops in.
+	label.modulate.a = 0.0
+
 	var tween = create_tween()
-	tween.tween_property(label, "modulate:a", 1.0, 2.0) # Hold for 2 seconds
-	tween.tween_property(label, "modulate:a", 0.0, 2.0).set_delay(2.0)
-	tween.chain().tween_callback(label.queue_free)
+	tween.tween_property(label, "modulate:a", 1.0, 0.4)
+	tween.tween_interval(2.0)
+	tween.tween_property(label, "modulate:a", 0.0, 1.0)
+	tween.tween_callback(label.queue_free)

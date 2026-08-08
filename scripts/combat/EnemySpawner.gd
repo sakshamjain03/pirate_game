@@ -133,13 +133,27 @@ func _spawn_enemy() -> void:
 					enemy.ship_stats.cannon_damage *= mult
 					
 	_enemies_container.add_child(enemy)
-	enemy.global_position = spawn_pos
-	
-	# Randomize initial facing direction
-	enemy.global_rotation.y = randf() * TAU
-	
+	_place_upright(enemy, spawn_pos, randf() * TAU)
+
 	_track_enemy(enemy)
 	enemy_spawned.emit(enemy)
+
+
+func _place_upright(enemy: Node3D, spawn_pos: Vector3, yaw: float) -> void:
+	## Set position and facing in a single explicit basis assignment.
+	##
+	## This used to be `global_position = ...` followed by
+	## `global_rotation.y = randf() * TAU`. Assigning a single Euler component
+	## on a RigidBody3D reads the current basis, decomposes it to Euler angles,
+	## substitutes y, and recomposes — so any roll/pitch already present is
+	## folded back in rather than cleared, and the body starts tilted. Building
+	## the basis from scratch guarantees a dead-level hull with only yaw.
+	enemy.global_transform = Transform3D(Basis(Vector3.UP, yaw), spawn_pos)
+	if enemy is RigidBody3D:
+		# Clear any velocity inherited from the instantiated scene state, so a
+		# freshly spawned ship isn't already rolling when buoyancy first runs.
+		enemy.linear_velocity = Vector3.ZERO
+		enemy.angular_velocity = Vector3.ZERO
 
 func _track_enemy(enemy: Node3D) -> void:
 	_active_enemies.append(enemy)
@@ -238,12 +252,11 @@ func spawn_hunter(faction: Resource) -> void:
 				enemy.ship_stats.cannon_damage *= mult
 
 	_enemies_container.add_child(enemy)
-	enemy.global_position = spawn_pos
-	enemy.global_rotation.y = randf() * TAU
-	
+	_place_upright(enemy, spawn_pos, randf() * TAU)
+
 	_track_enemy(enemy)
 	enemy_spawned.emit(enemy)
-	
+
 	# Force targeting player
 	if enemy.has_method("set_target") and _player_ship:
 		enemy.set_target(_player_ship)

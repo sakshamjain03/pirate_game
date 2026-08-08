@@ -80,17 +80,55 @@ func apply_buoyancy(delta: float) -> void:
 						w_height = _cached_water_heights[i]
 				_apply_buoyancy_at_pos_with_height(point.global_position, w_height, effective_points.size())
 
-	# Apply overall stability torque to keep ship upright
-	var right = body.global_transform.basis.x
-	var forward = -body.global_transform.basis.z
-
-	var target_up = Vector3.UP
-	var pitch_correction = target_up.dot(forward)
-	var roll_correction = target_up.dot(right)
-
-	var stability_torque = (right * pitch_correction - forward * roll_correction) \
+	# Apply overall stability torque to keep ship upright.
+	#
+	# The restoring torque is `body_up x world_up`: a rotation about that axis
+	# is exactly what carries the tilted deck back to level, and its magnitude
+	# falls to zero as the two align. The previous formula
+	# (`right * up.dot(forward) - forward * up.dot(right)`) produced a vector
+	# along the right axis, which is the correct *axis* for both roll and
+	# pitch, but with the sign flipped — its dot product with `up x world_up`
+	# is negative for a tilt in any direction. So what was labelled "stability"
+	# actively drove the ship further from upright: any tiny tilt was amplified
+	# until the hull was on its side, at which point the buoyancy points
+	# rotated through the water and it tumbled continuously. That is the
+	# spinning-in-place behavior.
+	var up := body.global_transform.basis.y
+	var stability_torque := up.cross(Vector3.UP) \
 		* ship_stats.stability * body.mass * ship_stats.stability_torque_multiplier
+
+	# Damp angular roll/pitch so the restoring torque converges instead of
+	# oscillating forever. Without this the hull is an undamped pendulum: the
+	# torque above always points back toward upright but never removes energy,
+	# so it overshoots and rocks indefinitely. Yaw (rotation about world up) is
+	# deliberately excluded — that is steering, and damping it here would fight
+	# ShipMovement's turning.
+	# ShipController deliberately does not apply ship_stats.angular_damp to the
+	# RigidBody, because body-wide damping would also fight ShipMovement's yaw
+	# servo. That leaves roll and pitch with no engine damping at all, so the
+	# authored angular_damp is applied here instead — on the roll/pitch axes
+	# only, which is where it was always meant to act.
+	var ang_vel := body.angular_velocity
+	var yaw_component := Vector3.UP * ang_vel.dot(Vector3.UP)
+	stability_torque -= (ang_vel - yaw_component) \
+		* body.mass * ship_stats.stability \
+		* ship_stats.stability_torque_multiplier * ship_stats.angular_damp
+
 	body.apply_torque(stability_torque)
+
+	# Hard backstop against a hull that has already gone past the point where
+	# the restoring torque can recover it. `up.cross(Vector3.UP)` has magnitude
+	# sin(tilt), which peaks at 90 degrees and then FALLS AWAY again — so a ship
+	# knocked past horizontal by a wave or a collision gets weaker and weaker
+	# correction the further over it goes, and simply stays capsized. That is
+	# what left enemy ships lying on their sides indefinitely. Past 60 degrees,
+	# drive the correction at full strength instead of letting it fade.
+	var tilt_cos := up.dot(Vector3.UP)
+	if tilt_cos < 0.5:
+		var axis := up.cross(Vector3.UP)
+		if axis.length() > 0.001:
+			body.apply_torque(axis.normalized() * ship_stats.stability * body.mass \
+				* ship_stats.stability_torque_multiplier * (1.0 - tilt_cos))
 
 func _apply_buoyancy_at_pos(global_pos: Vector3, time: float, num_points: int, use_wave_gen: bool) -> void:
 	var water_height: float = 0.0

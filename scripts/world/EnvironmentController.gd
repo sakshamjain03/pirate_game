@@ -85,14 +85,27 @@ func _update_lighting() -> void:
 			settings.ambient_energy_night, settings.ambient_energy_morning,
 			settings.ambient_energy_noon, settings.ambient_energy_evening)
 
+		var horizon := _lerp_color(seg, t,
+			settings.sky_horizon_night, settings.sky_horizon_morning,
+			settings.sky_horizon_noon, settings.sky_horizon_evening)
+
 		if env.sky and env.sky.sky_material is ProceduralSkyMaterial:
 			var sky_mat: ProceduralSkyMaterial = env.sky.sky_material
 			sky_mat.sky_top_color = _lerp_color(seg, t,
 				settings.sky_top_night, settings.sky_top_morning,
 				settings.sky_top_noon, settings.sky_top_evening)
-			sky_mat.sky_horizon_color = _lerp_color(seg, t,
-				settings.sky_horizon_night, settings.sky_horizon_morning,
-				settings.sky_horizon_noon, settings.sky_horizon_evening)
+			sky_mat.sky_horizon_color = horizon
+			# The ground half of the procedural sky is what shows below the
+			# horizon line; leaving it authored while the sky half animates
+			# made the two disagree at every time except the one it was
+			# authored for.
+			sky_mat.ground_horizon_color = horizon
+
+		# Fog was the actual cause of the "permanent sunset" — it was authored
+		# warm orange and nothing ever updated it, so it tinted the whole
+		# distance regardless of time of day, even after the sky colours were
+		# corrected. Tying it to the horizon colour keeps the two consistent.
+		env.fog_light_color = horizon
 
 func _lerp_color(seg: int, t: float, night: Color, morning: Color, noon: Color, evening: Color) -> Color:
 	match seg:

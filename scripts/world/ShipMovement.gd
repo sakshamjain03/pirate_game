@@ -86,7 +86,19 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 
 	var target_yaw_speed = deg_to_rad(target_yaw_speed_dps)
 	var yaw_t = 1.0 - exp(-TURN_RESPONSE_RATE * delta)
-	body.angular_velocity.y = lerp(body.angular_velocity.y, target_yaw_speed, yaw_t)
+	# Servo ONLY the yaw component, preserving roll/pitch. Assigning
+	# `angular_velocity.y` directly used to overwrite the world-Y component
+	# outright every frame — which is precisely the component the buoyancy
+	# restoring torque needs to accumulate in order to right a heeled hull.
+	# Ships that steer continuously (i.e. every AI-driven enemy) therefore had
+	# their self-righting cancelled on every physics tick and stayed capsized,
+	# while the player ship — which is only steered on input — recovered.
+	# Rebuilding the vector from its parts keeps steering authority without
+	# touching the axes that stability owns.
+	var ang_vel := body.angular_velocity
+	var yaw_now := ang_vel.dot(Vector3.UP)
+	var roll_pitch := ang_vel - Vector3.UP * yaw_now
+	body.angular_velocity = roll_pitch + Vector3.UP * lerp(yaw_now, target_yaw_speed, yaw_t)
 
 	# Drift compensation
 	var right_dir = body.global_transform.basis.x.normalized()

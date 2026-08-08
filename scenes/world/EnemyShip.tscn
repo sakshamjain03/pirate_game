@@ -16,6 +16,10 @@ size = Vector3(3.5, 2.5, 8.5)
 [node name="EnemyShip" type="RigidBody3D" groups=["enemy_ship"]]
 collision_layer = 2
 collision_mask = 5
+; Ballast below the float points (y=0) so the hull self-rights instead of
+; behaving as an inverted pendulum — see PlayerShip.tscn for the full note.
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, -0.6, 0)
 can_sleep = false
 script = ExtResource("1_ship")
 ship_stats = ExtResource("5_stats")

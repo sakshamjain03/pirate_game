@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Resource" path="res://resources/buildings/Tavern_L4.tres" id="1_0k3ko"]
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_thq0i"]
+
+[resource]
+script = ExtResource("1_thq0i")
+building_id = "tavern_l3"
+building_name = "Tavern Level 3"
+description = "Boosts crew morale, generating extra Gold."
+next_upgrade = ExtResource("1_0k3ko")
+level = 3
+cost_gold = 175
+cost_wood = 350
+produces_resource = "gold"
+production_amount = 16
+model_path = "res://assets/models/castle-door.glb"

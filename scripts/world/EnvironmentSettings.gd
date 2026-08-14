@@ -32,3 +32,20 @@ class_name EnvironmentSettings extends Resource
 @export var ambient_energy_noon: float = 0.3
 @export var ambient_energy_evening: float = 0.22
 @export var ambient_energy_night: float = 0.08
+
+@export_group("Sun Energy")
+## Directional light energy across the day. These were hardcoded in
+## EnvironmentController as (0.3, 0.9, 1.3, 0.9).
+##
+## Noon was 1.3, which OVERBRIGHTENED the scene into channel clipping: the
+## Kenney colormap's warm wood tones peak around RGB(241,151,108), and
+## 0.945 * sun_red * 1.3 = 1.23, clipped to 1.0. Every warm surface lost its
+## red-channel detail and collapsed toward the same washed-out salmon, while
+## cooler surfaces (sails, water) kept theirs — which is exactly why hulls,
+## palm trunks, rocks, docks and sand all read as one flat orange while the
+## sails still looked correct. 1.0 keeps the brightest atlas pixel just under
+## clipping while staying bright.
+@export var sun_energy_morning: float = 0.75
+@export var sun_energy_noon: float = 1.0
+@export var sun_energy_evening: float = 0.75
+@export var sun_energy_night: float = 0.25

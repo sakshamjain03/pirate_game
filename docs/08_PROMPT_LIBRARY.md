@@ -1,6 +1,6 @@
 # 08_PROMPT_LIBRARY.md
 
-> Version: 1.0
+> Version: 2.0
 > Status: Living Document
 > Owner: Project Lead
 
@@ -8,616 +8,418 @@
 
 # Purpose
 
-Ready-to-paste prompts for Antigravity/Gemini, one per task in `.kiro/specs/milestone-m3-stabilization/tasks.md`
-and `.kiro/specs/milestone-m4-empire-escalation/tasks.md`. Paste one prompt, let Gemini finish
-that task and stop, review the diff (checkpoints have a dedicated Claude Code review prompt —
-use it), then paste the next one. Never paste more than one task-prompt into a session before
-reviewing its output. See `docs/07_AI_AGENT_WORKFLOW.md` for why.
+This file drives **Antigravity/Gemini** through the current milestone.
 
-Every prompt below is self-contained — it tells Gemini exactly which docs to read and exactly
-which task to execute, by number, from the actual `tasks.md` file (not a copy of the task text,
-so the prompt never goes stale if `tasks.md` is edited). Do not paraphrase these prompts before
-pasting them.
+Unlike v1.0 (which held one hand-pasted prompt per task and required a human to paste each one),
+this file is self-driving. You type **two lines** into Antigravity chat (section 1); the file
+supplies the rest. Gemini works through the task list autonomously, one task at a time, in
+order, halting at every checkpoint.
 
-Do not skip the 🛑 checkpoint entries — they are not Gemini prompts, they are instructions for
-the human running this project to bring the diff to a Claude Code session for review before
-continuing.
+The split is deliberate: what you type stays short and never changes between milestones, while
+everything that *does* change — the spec path, the per-task hazards, the baseline — lives here
+and is edited as a file rather than retyped as a prompt.
 
----
+Completed milestones' prompts have been removed. M3 and M4 are done and verified — their
+prompts were dead weight and are recoverable from git history if ever needed. This file always
+describes **only the milestone currently being built**.
 
-# How to use this file
-
-1. Open Antigravity, start a fresh session (or continue an existing one — Gemini has no memory
-   of prior tasks unless you keep it in the same session, which is fine as long as you still
-   review after every single task).
-2. Copy exactly one prompt block below, in order, and paste it in.
-3. Let Gemini finish. Read its report (files changed, verification output).
-4. When you hit a 🛑 checkpoint, stop pasting Gemini prompts. Bring the changes to Claude Code
-   using the checkpoint's review prompt instead.
-5. Once the checkpoint passes, resume pasting the next task's prompt.
+**Current milestone: M7 — Campaign Spine & Economy Correction**
+Spec: `.kiro/specs/milestone-m7-campaign-spine/`
 
 ---
 
-# Milestone M3 — Stabilization
+# 1. THE MASTER PROMPT — type this in Antigravity chat
 
-## Task 1 — Remove ScreenshotHarness from production autoloads
-
-```
-You are working in the Godot 4.3 project at d:\Pirate-game ("Pirate Empire").
-
-Read, in this order: agents.md, docs/05_CURRENT_SYSTEMS.md,
-.kiro/specs/milestone-m3-stabilization/requirements.md,
-.kiro/specs/milestone-m3-stabilization/design.md,
-.kiro/specs/milestone-m3-stabilization/tasks.md.
-
-Execute ONLY Task 1 ("Remove ScreenshotHarness from production autoloads") from that tasks.md.
-Do not do any other task.
-
-Rules: touch only the files that task names. Do not refactor or "clean up" anything else. Do not
-invent architecture not already in design.md. Run the exact verification step written in the
-task and report its real output — do not claim success without running it. Stop after this one
-task and report: files changed, verification output, anything that didn't match the spec.
-```
-
-## Task 2 — Fix duplicate EventManager instance
+This is all you type. Everything else is in this file, which the prompt tells Gemini to read.
 
 ```
-Same project and required-reading order as before (agents.md, docs/05_CURRENT_SYSTEMS.md, then
-the milestone-m3-stabilization requirements.md/design.md/tasks.md).
-
-Execute ONLY Task 2 ("Fix duplicate EventManager instance") from
-.kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task.
-
-Same rules as always: touch only the named files, no unrelated refactors, no invented
-architecture, run the task's exact verification step and report the real output, stop after this
-one task and report files changed + verification output + any spec mismatches found.
+Read docs/08_PROMPT_LIBRARY.md and follow section 1.1 (Operating Contract) exactly.
+Work milestone M7 autonomously from the lowest incomplete task. Halt at the first 🛑.
 ```
 
-## Task 3 — Create PlayerFaction.tres
+That's it. If Gemini ever loses the thread mid-session (new session, context reset), retype the
+same two lines — it re-reads the contract and resumes from the lowest unticked task, because
+task state lives in `tasks.md` checkboxes rather than in the chat.
+
+**To resume after a checkpoint passes**, type:
 
 ```
-Same reading order (agents.md, docs/05_CURRENT_SYSTEMS.md, milestone-m3-stabilization
-requirements.md/design.md/tasks.md).
-
-Execute ONLY Task 3 ("Create PlayerFaction.tres") from
-.kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task.
-
-Same rules: minimal file scope, no unrelated changes, no invented architecture, run and report
-the real verification output, stop after this task.
-```
-
-## Task 4 — Wire PlayerFaction.tres into FactionManager
-
-```
-Same reading order as always. Execute ONLY Task 4 ("Wire PlayerFaction.tres into FactionManager")
-from .kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task. This task depends
-on Task 3 already being done — if resources/factions/PlayerFaction.tres does not exist yet, stop
-and report that instead of improvising a fix.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 5 — Fix GhostShipStats.tres property names
-
-```
-Same reading order as always. Execute ONLY Task 5 ("Fix GhostShipStats.tres property names")
-from .kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task. Before editing,
-actually read the full @export property list in scripts/world/ShipStats.gd — do not guess
-property names.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 6 — Rewrite SaveManager.gd documentation header
-
-```
-Same reading order as always. Execute ONLY Task 6 ("Rewrite SaveManager.gd documentation header")
-from .kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task. Change only the
-header comment block — do not touch any code below it, even if you notice something you think
-should be fixed. If you notice something else that looks wrong, report it at the end instead of
-fixing it.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 7 — Delete dead code (ScenePaths, UIConstants)
-
-```
-Same reading order as always. Execute ONLY Task 7 ("Delete dead code — ScenePaths and
-UIConstants") from .kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task.
-Before deleting anything, actually run a full-repo search for "ScenePaths" and "UIConstants" and
-paste the results in your report — do not delete based on assumption.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 8 — Delete orphaned resources
-
-```
-Same reading order as always. Execute ONLY Task 8 ("Delete orphaned resources") from
-.kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task. Before deleting
-anything, actually run a full-repo search for "resources/world/ShipStats.tres" and
-"resources/world/IslandData.tres" and paste the results in your report.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## 🛑 CHECKPOINT after Task 8 — bring to Claude Code before continuing
-
-```
-Review the milestone-m3-stabilization work completed so far (Tasks 1-8) in the Godot project at
-d:\Pirate-game. Read .kiro/specs/milestone-m3-stabilization/tasks.md Task 9's checkpoint
-criteria. Actually run: `godot --headless --check-only` (use the Godot_v4.3-stable_win64_console.exe
-in the project root) and the full GUT suite. Boot the game and manually verify: Boot -> MainMenu
--> World, sail to an island, dock, colonize it, undock, with no new console errors compared to
-before this milestone. Report pass/fail on each check, and fix anything broken before this
-milestone continues to Task 10.
-```
-
-## Task 10 — Add gamepad input bindings
-
-```
-Same reading order as always. Execute ONLY Task 10 ("Add gamepad input bindings") from
-.kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 11 — Add camera collision to CameraRig
-
-```
-Same reading order as always. Execute ONLY Task 11 ("Add camera collision to CameraRig") from
-.kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task.
-
-Same rules: minimal scope, no invented architecture. This task's verification requires actually
-running the game and observing behavior near an island, not just confirming the code compiles —
-do this and describe what you observed. Stop after this task.
-```
-
-## Task 12 — Resolve ORBIT/LOOK camera mode stubs
-
-```
-Same reading order as always. Execute ONLY Task 12 ("Resolve ORBIT/LOOK camera mode stubs") from
-.kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task. Per design.md, prefer
-collapsing the unused modes with a clear comment over implementing new camera logic, unless
-implementing them is genuinely trivial — if it looks non-trivial, stop and report that instead
-of building new camera-mode behavior.
-
-Same rules: minimal scope, run and report the real verification output, stop after this task.
-```
-
-## Task 13 — Align ocean shader uniforms with OceanController
-
-```
-Same reading order as always. Execute ONLY Task 13 ("Align ocean shader uniforms with
-OceanController") from .kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other
-task. Read resources/shaders/water.gdshader's uniform declarations AND
-scripts/world/OceanController.gd's set_shader_parameter calls side by side before changing
-anything, and report which names you found mismatched.
-
-Same rules: minimal scope, no invented architecture. Verify visually (run the game, change a
-value in OceanSettings.tres, confirm the ocean visibly changes) — do not rely on compilation
-success alone. Stop after this task.
-```
-
-## Task 14 — Sync WaveGenerator with OceanSettings
-
-```
-Same reading order as always. Execute ONLY Task 14 ("Sync WaveGenerator with OceanSettings")
-from .kiro/specs/milestone-m3-stabilization/tasks.md. Do not do any other task. This depends on
-Task 13 being done first — if the shader uniform names are still mismatched, stop and report
-that instead of proceeding.
-
-Same rules: minimal scope, no invented architecture. Verify visually (run the game, observe
-whether the player ship's pitch/roll now tracks the rendered wave surface) — do not rely on
-compilation success alone. Stop after this task.
-```
-
-## 🛑 CHECKPOINT after Task 14 — bring to Claude Code before continuing
-
-```
-Review the milestone-m3-stabilization work completed in Tasks 10-14 in the Godot project at
-d:\Pirate-game. Read .kiro/specs/milestone-m3-stabilization/tasks.md Task 15's checkpoint
-criteria. Actually boot the game and manually verify: camera no longer clips through islands
-near shore, ship motion visually matches the ocean surface, gamepad bindings exist in Project
-Settings > Input Map (test with a controller if one is available). Report pass/fail on each,
-fix anything broken before this milestone continues to Task 16.
-```
-
-## Task 16 — Implement test_ship_properties.gd
-
-```
-Same reading order as always, plus also read
-.kiro/specs/milestone-m2-playable-world/design.md section 6 (Correctness Properties) before
-starting. Execute ONLY Task 16 ("Implement test_ship_properties.gd") from
-.kiro/specs/milestone-m3-stabilization/tasks.md — implement Properties 4, 5, 6, 7, 9 exactly as
-specified there, following the GUT test pattern already used in tests/test_settings_manager.gd.
-Do not invent new properties or change the ones already specified.
-
-Same rules: minimal scope. Run `godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests
--gexit` and report the real pass/fail output. Stop after this task.
-```
-
-## Task 17 — Implement test_camera_properties.gd
-
-```
-Same reading order as always, plus .kiro/specs/milestone-m2-playable-world/design.md section 6.
-Execute ONLY Task 17 ("Implement test_camera_properties.gd") from
-.kiro/specs/milestone-m3-stabilization/tasks.md — implement Properties 1, 2, 3 exactly as
-specified there.
-
-Same rules: minimal scope. Run the GUT suite command and report the real pass/fail output. Stop
-after this task.
-```
-
-## Task 18 — Implement test_docking_properties.gd
-
-```
-Same reading order as always, plus .kiro/specs/milestone-m2-playable-world/design.md section 6.
-Execute ONLY Task 18 ("Implement test_docking_properties.gd") from
-.kiro/specs/milestone-m3-stabilization/tasks.md — implement Properties 10, 11, 12, 13 exactly as
-specified there.
-
-Same rules: minimal scope. Run the GUT suite command and report the real pass/fail output. Stop
-after this task.
-```
-
-## Task 19 — Implement test_input_properties.gd
-
-```
-Same reading order as always, plus .kiro/specs/milestone-m2-playable-world/design.md section 6.
-Execute ONLY Task 19 ("Implement test_input_properties.gd") from
-.kiro/specs/milestone-m3-stabilization/tasks.md — implement Properties 8, 14, 15, 23, 24, 25
-exactly as specified there.
-
-Same rules: minimal scope. Run the GUT suite command and report the real pass/fail output. Stop
-after this task.
-```
-
-## Task 20 — Implement test_ocean_properties.gd
-
-```
-Same reading order as always, plus .kiro/specs/milestone-m2-playable-world/design.md section 6.
-Execute ONLY Task 20 ("Implement test_ocean_properties.gd") from
-.kiro/specs/milestone-m3-stabilization/tasks.md — implement Properties 19, 20, 21, 22 exactly as
-specified there.
-
-Same rules: minimal scope. Run the GUT suite command and report the real pass/fail output. Stop
-after this task.
-```
-
-## 🛑 FINAL CHECKPOINT — Task 21, full M3 verification
-
-```
-Perform the full milestone-m3-stabilization closeout described in Task 21 of
-.kiro/specs/milestone-m3-stabilization/tasks.md, in the Godot project at d:\Pirate-game. Run the
-full GUT suite and `godot --headless --check-only`, both must be clean. Manually play through:
-Boot -> MainMenu -> World -> sail -> dock -> colonize -> undock -> combat with one enemy ship ->
-ship destroyed -> loot drop -> death/respawn. Update docs/05_CURRENT_SYSTEMS.md's defect table
-(D1-D11 resolved, D12 remains open) with what was actually fixed. Confirm every modified .gd
-file has an accurate documentation header. Report a full pass/fail summary. Do not mark this
-milestone complete unless every check genuinely passes — if something is broken, fix it and
-re-verify rather than reporting a partial pass as done.
+Read docs/08_PROMPT_LIBRARY.md section 1.1. The checkpoint has passed — continue M7 from the
+next task. Halt at the next 🛑.
 ```
 
 ---
 
-# Milestone M4 — Empire Escalation
+## 1.1 Operating Contract — Gemini reads this
 
-**Do not start these until milestone-m3-stabilization's final checkpoint above has genuinely
-passed.** M4 is built directly on top of the colonize/capture flow that M3 fixes.
-
-## Task 1 — Add is_empire field to FactionData
+Everything below this line is addressed to the agent, not the human.
 
 ```
-You are working in the Godot 4.3 project at d:\Pirate-game ("Pirate Empire").
+You are working in the Godot 4.3 project at d:\Pirate-game ("Pirate Empire"), a mobile-first
+pirate empire-building game in GDScript.
 
-Read, in this order: agents.md, docs/05_CURRENT_SYSTEMS.md,
-.kiro/specs/milestone-m4-empire-escalation/requirements.md,
-.kiro/specs/milestone-m4-empire-escalation/design.md,
-.kiro/specs/milestone-m4-empire-escalation/tasks.md.
+## Your assignment
 
-Execute ONLY Task 1 ("Add is_empire field to FactionData") from that tasks.md. Do not do any
-other task.
+Work through Milestone M7 autonomously, ONE TASK AT A TIME, IN NUMERIC ORDER, starting at the
+lowest-numbered task that is not yet complete.
 
-Rules: touch only the files that task names. Do not refactor or "clean up" anything else. Do not
-invent architecture not already in design.md. Run the exact verification step written in the
-task and report its real output. Stop after this one task and report: files changed,
-verification output, anything that didn't match the spec.
-```
+The authoritative task list is:
+  .kiro/specs/milestone-m7-campaign-spine/tasks.md
 
-## Task 2 — Create SpanishEmpire faction
+Per-task implementation notes, warnings, and acceptance criteria are in section 3 of:
+  docs/08_PROMPT_LIBRARY.md
+(this file). Read the section 3 entry for a task BEFORE you start that task.
 
-```
-Same reading order as always (agents.md, docs/05_CURRENT_SYSTEMS.md, then
-milestone-m4-empire-escalation requirements.md/design.md/tasks.md). Execute ONLY Task 2 ("Create
-SpanishEmpire faction") from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Do not do any
-other task.
+## Required reading, in this exact order, before your first task
 
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
+1. agents.md                  <- the project constitution, overrides everything else
+2. docs/05_CURRENT_SYSTEMS.md <- ground truth on what actually exists today
+3. .kiro/specs/milestone-m7-campaign-spine/requirements.md
+4. .kiro/specs/milestone-m7-campaign-spine/design.md
+5. .kiro/specs/milestone-m7-campaign-spine/tasks.md
+6. docs/08_PROMPT_LIBRARY.md section 2 (Standing Rules) and section 3 (per-task notes)
 
-## Task 3 — Create RegionData resource class
+Wave 1 (Tasks 1-7, economy correction) is the priority pass covered in detail below — every
+other wave in M7 depends on Wave 1's corrected ship/captain data being in place first. Do not
+skip ahead to Wave 2+ content even if you find it faster to implement; Task 7's checkpoint must
+pass first.
 
-```
-Same reading order as always. Execute ONLY Task 3 ("Create RegionData resource class") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Use the exact field list from design.md
-section 2/3 — do not add fields not specified there.
+Do not skip this. Most defects in this project's history came from an agent writing code that
+duplicated a system that already existed.
 
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
+## The loop you must run
 
-## Task 4 — Create the 3 RegionData instances
+For each task N, in order:
 
-```
-Same reading order as always. Execute ONLY Task 4 ("Create the 3 RegionData instances") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. This depends on Task 3 already existing —
-if scripts/world/RegionData.gd doesn't exist yet, stop and report that. Before assigning
-island_ids, actually look up the real island ids from the existing IslandData .tres files listed
-in docs/05_CURRENT_SYSTEMS.md section 3 — do not guess them.
+  1. Read the task N entry in tasks.md AND its section 3 entry in this file.
+  2. Implement ONLY task N. Touch only the files that task names.
+  3. Run the verification command (section 2, "Verification").
+  4. Compare against the baseline (section 2, "Baseline"). If you caused a regression, FIX IT
+     before moving on. Never advance with a regression outstanding.
+  5. Tick task N's checkbox in tasks.md from "- [ ]" to "- [x]" and append a one-line note:
+     "Done <YYYY-MM-DD>: <what changed>".
+  6. Write a short report for task N (see "Reporting" below).
+  7. Move to task N+1.
 
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
+## STOP CONDITIONS — these are absolute
 
-## Task 5 — Author a second Region 3 island
+HALT immediately and wait for a human when ANY of these happen:
 
-```
-Same reading order as always. Execute ONLY Task 5 ("Author a second Region 3 island") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Follow the exact schema of the existing
-VolcanoIsland.tres and the placement pattern already used for other islands in
-scenes/world/World.tscn.
+  A. You reach a task marked with 🛑 (a Checkpoint: tasks 7, 12, 21, 26).
+     Do NOT attempt the checkpoint yourself and do NOT start the next task. Checkpoints are
+     verified by a human running Claude Code. This is mandated by
+     docs/07_AI_AGENT_WORKFLOW.md Rules 4/7/8 — a task wave must never begin before the
+     preceding checkpoint has been verified by someone other than the agent that did the work.
 
-Same rules: minimal scope, no invented architecture. Verify by actually booting the game and
-confirming the new island renders — do not rely on the scene file compiling alone. Stop after
-this task.
-```
+  B. The verification run shows a regression you cannot fix in a reasonable attempt.
 
-## Task 6 — Create EmpireManager autoload — notoriety core
+  C. A task's instructions contradict agents.md, design.md, or what you find in the actual
+     code. Report the contradiction rather than guessing which is right.
 
-```
-Same reading order as always. Execute ONLY Task 6 ("Create EmpireManager autoload — notoriety
-core") from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Use the exact signal/field
-signatures from design.md section 3 — do not add methods or signals not specified there yet
-(later tasks add the rest incrementally).
+  D. A task would require you to invent architecture that design.md does not specify.
 
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
+When you halt, state clearly: which task you stopped at, why, and what you need.
 
-## Task 7 — Wire notoriety gains to combat and colonization
+## Standing rules (full text in section 2 — these are the ones most often broken)
 
-```
-Same reading order as always. Execute ONLY Task 7 ("Wire notoriety gains to combat and
-colonization") from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Find the actual death
-handling in scripts/world/ShipCombat.gd (or wherever the faction of the destroyed ship is
-already known) rather than guessing where to hook in — report which exact function you hooked
-into.
+- Touch only the files the current task names. No unrelated refactors, no opportunistic
+  "cleanup", no reformatting of files you are not otherwise changing.
+- Never invent architecture beyond what design.md specifies.
+- Never duplicate an existing system. If something looks missing, search for it first — it is
+  often present but unwired.
+- All gameplay values go in .tres Resource files, never hardcoded in scripts.
+- Before authoring any .tres, confirm every property you set is actually @export'ed on the
+  corresponding .gd script. A mismatch fails SILENTLY.
+- Run the real verification command and report its REAL output. Never claim a pass you did not
+  observe. Never claim a visual/manual check passed — you cannot perform those; say so.
+- NEVER run `godot --headless --path . --check-only`. It does not terminate in this project.
 
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
+## Reporting
 
-## Task 8 — Add idle notoriety decay
+After each task, report concisely:
+  - Task number and title
+  - Files created / modified / deleted
+  - The actual verification output (test counts: total / passing / failing)
+  - Anything that did not match the spec's assumptions
+  - Whether you are proceeding to the next task or halting, and why
 
-```
-Same reading order as always. Execute ONLY Task 8 ("Add idle notoriety decay") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md.
-
-Same rules: minimal scope, no invented architecture. For verification, temporarily use a short
-test interval as the task suggests, confirm the behavior, then revert to the real default before
-reporting done — state clearly in your report that you reverted the debug value. Stop after this
-task.
-```
-
-## Task 9 — Region loading and activation checking
-
-```
-Same reading order as always. Execute ONLY Task 9 ("Region loading and activation checking")
-from .kiro/specs/milestone-m4-empire-escalation/tasks.md. This depends on Tasks 4 and 6 already
-being done — if the region resources or EmpireManager don't exist yet in the state this task
-expects, stop and report that instead of improvising.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 10 — Gate Island.gd defender spawning and capture on region activation
-
-```
-Same reading order as always. Execute ONLY Task 10 ("Gate Island.gd defender spawning and
-capture on region activation") from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Read
-the existing defender-spawn logic and capture_island() in scripts/world/Island.gd fully before
-adding the guard clause — the goal is one small guard added to existing logic, not a rewrite of
-Island.gd.
-
-Same rules: minimal scope, no invented architecture. Verify by actually booting the game and
-observing a dormant-region island's behavior before and after crossing the threshold, not by
-code inspection alone. Stop after this task.
-```
-
-## 🛑 CHECKPOINT after Task 10 — bring to Claude Code before continuing
-
-```
-Review the milestone-m4-empire-escalation work completed so far (Tasks 1-10) in the Godot
-project at d:\Pirate-game. Read .kiro/specs/milestone-m4-empire-escalation/tasks.md Task 11's
-checkpoint criteria. Actually boot the game from a fresh save and verify: Region 1 is fully
-active and playable, Region 2 and Region 3 islands have no defenders and cannot be colonized.
-Manually raise notoriety (via debug calls or by grinding kills/colonization) past each region's
-threshold in turn and confirm each region activates exactly once, in the correct order. Report
-pass/fail, fix anything broken before continuing to Task 12.
-```
-
-## Task 12 — Empire spawn scaling
-
-```
-Same reading order as always. Execute ONLY Task 12 ("Empire spawn scaling") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Read design.md section 5 and section 6
-(Property M4-5) carefully — the multiplier must be applied at spawn/instantiation time to that
-specific ship instance's runtime stats, and must NOT mutate the shared ShipStats resource used by
-other ships of the same tier. If you find that avoiding shared-resource mutation requires
-duplicating the resource (e.g. ShipStats.duplicate()) at spawn time, do that — do not take a
-shortcut that mutates the shared resource, even temporarily.
-
-Same rules: minimal scope. Write the unit test the task describes and report its real pass/fail
-output. Stop after this task.
-```
-
-## Task 13 — Confirm non-empire spawns are unaffected
-
-```
-Same reading order as always. Execute ONLY Task 13 ("Confirm non-empire spawns are unaffected")
-from .kiro/specs/milestone-m4-empire-escalation/tasks.md — this is a verification/test-writing
-task on top of Task 12's work, not new spawn logic.
-
-Same rules: minimal scope, run and report the real verification output, stop after this task.
-```
-
-## 🛑 CHECKPOINT after Task 13 — bring to Claude Code before continuing
-
-```
-Review the milestone-m4-empire-escalation work completed in Tasks 12-13 in the Godot project at
-d:\Pirate-game. Read .kiro/specs/milestone-m4-empire-escalation/tasks.md Task 14's checkpoint
-criteria. With notoriety high enough for Region 3 to be active, fight an empire ship there vs.
-one in Region 1 (or compare printed/logged stat values if a live side-by-side isn't practical)
-and confirm a real, measurable difference matching the +25%/+60% targets in requirements.md
-Requirement 5.2. Confirm non-empire faction ships show zero difference across regions. Report
-pass/fail, fix anything broken before continuing to Task 15.
-```
-
-## Task 15 — Home island tracking and defense score
-
-```
-Same reading order as always. Execute ONLY Task 15 ("Home island tracking and defense score")
-from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Use the exact formula in design.md
-section 5 for the defense score — do not invent different weightings.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 16 — Attack score and raid probability check
-
-```
-Same reading order as always. Execute ONLY Task 16 ("Attack score and raid probability check")
-from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Use the exact formula in design.md
-section 5. For verification, temporarily lower the interval and raise the probability floor as
-the task suggests, confirm raids attempt at roughly the expected rate, then revert the debug
-values and state clearly in your report that you reverted them.
-
-Same rules: minimal scope, no invented architecture, stop after this task.
-```
-
-## Task 17 — Raid resolution
-
-```
-Same reading order as always. Execute ONLY Task 17 ("Raid resolution") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Use the exact RaidReport shape and formula
-from design.md sections 5 and 6 (Properties M4-7, M4-8, M4-9) — write the unit tests the task
-describes covering both the repelled and not-repelled cases.
-
-Same rules: minimal scope, no invented architecture. Report the real test pass/fail output. Stop
-after this task.
-```
-
-## Task 18 — Defend Home fleet assignment
-
-```
-Same reading order as always. Execute ONLY Task 18 ("Defend Home fleet assignment") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Read the existing Fleet tab UI in
-scripts/ui/IslandMenu.gd before adding to it — add one small control, do not restructure the
-existing tab.
-
-Same rules: minimal scope, no invented architecture, run and report the real verification
-output, stop after this task.
-```
-
-## Task 19 — RaidReportScreen UI
-
-```
-Same reading order as always. Execute ONLY Task 19 ("RaidReportScreen UI") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Follow DeathScreen's existing
-CanvasLayer -> Control (FULL_RECT) structure and scripting pattern as the template — read
-scripts/ui/DeathScreen.gd and its scene first.
-
-Same rules: minimal scope, no invented architecture. Verify by actually triggering a raid via
-the debug values from Task 16 and observing the screen appear and dismiss correctly in a live
-run. Stop after this task.
-```
-
-## Task 20 — HUD notoriety display
-
-```
-Same reading order as always. Execute ONLY Task 20 ("HUD notoriety display") from
-.kiro/specs/milestone-m4-empire-escalation/tasks.md. Read the existing scripts/ui/WorldHUD.gd
-fully before adding to it — add new elements, do not restructure the existing HUD layout.
-
-Same rules: minimal scope, no invented architecture. Verify visually in a live run, not by code
-inspection alone. Stop after this task.
-```
-
-## Task 21 — Persistence — save/load all new state
-
-```
-Same reading order as always. Execute ONLY Task 21 ("Persistence — save/load all new state")
-from .kiro/specs/milestone-m4-empire-escalation/tasks.md. Read the existing save/load structure
-in scripts/managers/SaveManager.gd fully before adding to it — extend the existing JSON
-structure, do not introduce a second save mechanism.
-
-Same rules: minimal scope, no invented architecture. Verify by setting all new values to
-non-default, saving, reloading, and confirming an exact round-trip — report the actual before/
-after values you tested with. Stop after this task.
-```
-
-## 🛑 FINAL CHECKPOINT — Task 22, full M4 verification
-
-```
-Perform the full milestone-m4-empire-escalation closeout described in Task 22 of
-.kiro/specs/milestone-m4-empire-escalation/tasks.md, in the Godot project at d:\Pirate-game. Run
-the full GUT suite (all M1/M2/M3/M4 tests) and `godot --headless --check-only`, both must be
-clean. From a fresh save, play through: Region 1 active/playable immediately, gain notoriety via
-kills and colonization, watch Region 2 then Region 3 activate in order, confirm empire ships in
-higher regions are visibly tougher, trigger and observe a raid and the RaidReportScreen, save and
-reload and confirm every new value persisted correctly. Add a new "Empire Escalation (M4)"
-section to docs/05_CURRENT_SYSTEMS.md summarizing EmpireManager, RegionData, and the raid system,
-so this milestone's systems are documented for whatever comes next. Confirm every new/modified
-.gd file has an accurate documentation header. Report a full pass/fail summary. Do not mark this
-milestone complete unless every check genuinely passes.
+Begin now: read the required reading, then start at the lowest incomplete task in tasks.md.
 ```
 
 ---
 
-# Reusable template (for any future milestone not yet covered above)
+# 2. Standing rules (referenced by the Operating Contract)
 
-When a new `.kiro/specs/milestone-XX/tasks.md` is written, generate its prompts using this exact
-shape — do not deviate:
+## Verification
 
-```
-Same reading order as always: agents.md, docs/05_CURRENT_SYSTEMS.md, then
-.kiro/specs/milestone-XX/requirements.md, design.md, tasks.md.
-
-Execute ONLY Task N ("<exact task title>") from that tasks.md. Do not do any other task.
-
-Same rules: touch only the named files, no unrelated refactors, no invented architecture beyond
-what design.md already specifies, run the exact verification step and report the real output
-(never claim success without running it), stop after this one task and report files changed +
-verification output + anything that didn't match the spec's assumptions.
-```
-
-For checkpoint tasks, use this shape instead (addressed to Claude Code / a human reviewer, not
-Gemini):
+The only verification command. GDScript is interpreted, so there is no build step; a clean GUT
+run also proves every test script — and everything it imports — parses correctly.
 
 ```
-Review the milestone-XX work completed in Tasks A-B in the Godot project at d:\Pirate-game. Read
-tasks.md's checkpoint task criteria. Actually run the verification steps (headless check, GUT
-suite, manual play pass) rather than trusting Gemini's self-report. Fix anything broken before
-the milestone continues to the next task.
+<godot-binary> --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
 ```
+
+Single file, much faster, for checking one specific fix:
+
+```
+<godot-binary> --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/<file>.gd -gexit
+```
+
+**Never run `godot --headless --path . --check-only`.** `project.godot` sets `run/main_scene`,
+so it boots into real gameplay and idles forever, producing a false "hang" and orphaned
+processes. If a run looks hung, check for a stray Godot process from a previously killed
+attempt first — that is the usual cause.
+
+The engine binary is gitignored and not vendored. Check the project root, then `where godot` /
+`where godot4` on PATH. Ask rather than guess if neither is found.
+
+## Baseline
+
+**Do not hardcode a test count in a prompt you paste to Gemini.** The number changes every
+milestone as tests are added — the `103` figure that used to live here was stale by 15 tests
+before anyone noticed (`docs/05_CURRENT_SYSTEMS.md`'s 2026-08-14 baseline correction). Instead,
+tell Gemini to **run the suite first and record the actual totals** before making changes, then
+compare after: any new failure, or any drop in the total test count, is a regression. The one
+standing exception is `test_property_21_lod_distance_transitions` — no LOD system exists yet, a
+real tracked gap, not a regression.
+
+New tests must go **flat under `tests/`**. GUT's `-gdir=res://tests` does not recurse into
+subdirectories in this project.
+
+## Architecture rules (from `agents.md` — non-negotiable)
+
+- **Never duplicate systems.** Search before you build.
+- **Data-driven balance.** Gameplay values live in `.tres` `Resource` files. `@export`ed fields
+  on the `.gd` script define the schema. A `.tres` setting a property the script does not
+  `@export` **fails silently** — this has caused real bugs (`docs/05_CURRENT_SYSTEMS.md`
+  D3/D14). Always check the script's real exported properties first.
+- **Composition over inheritance.** New behaviour becomes a focused component hung off the
+  existing controller, not a deeper class hierarchy.
+- **Signals over direct references.** Prefer connecting to an existing signal over adding a new
+  direct call path.
+- **Persistence convention.** New persistent state exposes `get_save_data()` / `load_save_data()`
+  for `SaveManager` to round-trip. Do not invent a new persistence path.
+
+## Things in this codebase that have broken before — do not regress them
+
+These are not hypothetical; each was a real defect that cost real debugging time.
+
+1. **Ship stability.** The buoyancy / stability-torque / yaw-servo code in
+   `BuoyancySimulator.gd` and `ShipMovement.gd` was stabilized across **four separate root
+   causes** (`docs/09_VISUAL_BUG_TRACKER.md` V1). The yaw servo deliberately preserves roll and
+   pitch. Regressing it re-capsizes every enemy ship. Do not touch this code unless a task
+   explicitly says to.
+2. **Cannon firing direction** derives forward from the **hull basis**
+   (`parent.global_transform.basis.x`), not from marker rotation. A bug across all 12 markers on
+   all 3 ship scenes was fixed exactly this way. Do not revert it.
+3. **Enemy obstacle avoidance** (`_get_avoidance_turn` / `_probe` / `_push_to_open_water` in
+   `EnemyAI.gd`, added 2026-08-09) is what stops enemy ships beaching themselves on islands
+   (D39). Do not modify or bypass it.
+4. **`tests/test_ship_combat.gd`** is the compatibility guard on the `ShipDamage` migration. It
+   must keep passing **unmodified**. If it fails, the migration is wrong — fix the migration,
+   never the test.
+5. **Silent skips on load destroy player data.** Any resource resolver must `push_error` on an
+   unresolvable id, never skip quietly.
+6. **`IslandMenu`'s ship pricing was computed from hull `mass`** (`cost_gold = mass / 100`),
+   which is exactly why M7 exists — it made every ship nearly free. If you find yourself
+   reaching for a physics property to derive a gameplay cost, stop; costs are authored data
+   (M7 Task 1), never derived from unrelated stats.
+7. **`TutorialManager`'s 8 hardcoded steps are being replaced by M7**, not duplicated. If a task
+   asks you to touch narrative/onboarding content, check whether `CampaignManager` (M7) already
+   owns it before adding a second system.
+
+## What you cannot verify
+
+Manual/visual behaviour cannot be checked headlessly in this environment: camera feel, gamepad
+input, shader appearance, boarding prompt feel, building model changes, HUD legibility, timed
+offline-return prompts. **Say so explicitly rather than claiming a visual check passed.** There
+is repeated precedent for this in the milestone specs.
+
+## When you change a documented system
+
+Update its entry in `docs/05_CURRENT_SYSTEMS.md` **in the same change**. That file is the living
+ground-truth doc and exists specifically to stop systems from being silently reimplemented.
+
+---
+
+# 3. Per-task notes — M7
+
+Numbering matches `.kiro/specs/milestone-m7-campaign-spine/tasks.md` exactly. Read the entry for
+a task before starting it. Tasks with no extra notes below carry no hazards beyond the standing
+rules — implement them straight from `tasks.md` and `design.md`.
+
+## Wave 1 — Economy correction (Tasks 1–7)
+
+**Nothing in Waves 2–4 should start until this wave's checkpoint (Task 7) passes.** Every
+chapter authored later is tuned against the corrected ship ladder this wave produces.
+
+### Task 1 — Extend ShipStats with identity and cost fields
+⚠️ **Only ADD fields.** Do not change any existing property or physics value in `ShipStats.gd`
+or in the 8 `resources/ships/*.tres` — hazard #1, the buoyancy/stability numbers are
+load-bearing and unrelated to this task.
+Before authoring the 8 `.tres` files, confirm `ship_id`/`display_name`/`ship_class`/
+`cost_gold`/`cost_wood`/`cost_iron`/`cost_rum` are real `@export`ed properties on the script you
+just edited — a mismatch fails silently.
+Use the exact ladder table in `design.md` Part A1. Do not invent different numbers even if they
+seem more "balanced" — this table is derived from the level-5 Farm cost (1350 gold) specifically
+so the ship ladder and the building ladder stay in the same economic universe.
+
+### Task 2 — Fix IslandMenu's ship pricing and naming
+⚠️ Delete the `mass`-derived formula entirely — see hazard #6. Do not leave it as a fallback for
+ships missing the new fields; Task 1 already authors all 8.
+Verify manually (this is the one non-mechanical check in this wave, call it out explicitly in
+your report): open the Shipyard in-game and read the displayed prices — a level-5 Farm should
+cost less than the cheapest ship, and the Man O'War should cost more than any single building.
+
+### Task 3 — Author captain boarding modifier and hire cost
+Purely data — no script change. `base_boarding_modifier` and `hire_cost_gold` already exist as
+`@export`ed fields on `CaptainData.gd`; they were simply never set on most of the 20 files.
+Use the suggested values in `docs/12_CHARACTER_BIBLE.md` §5 (C1), or an ordering that preserves
+the same relative ranking if you have a design reason to deviate — report which you did.
+
+### Task 4 — Add captain identity fields
+⚠️ Every `home_island_id` / `allegiance_faction_id` value you author must match a real
+`island_id` / `faction_id` from the actual `.tres` files in `resources/world/` and
+`resources/factions/` — do not guess spellings from `docs/12_CHARACTER_BIBLE.md`'s prose, check
+the source files.
+Leave `unlock_chapter_id` and `portrait_path` at their script defaults for now — chapter ids
+don't exist until Wave 2 authors them (Task 13 fills these in later).
+
+### Task 5 — Fix input rebinding (D57)
+⚠️ Read `scripts/ui/SettingsMenu.gd` and `scenes/world/World.tscn` fully before choosing between
+the two approaches in `design.md` A5. This is a "check the actual scene tree before deciding"
+task per the project's D9/D11 lesson — do not assume `InputManager`'s location from the script
+alone.
+The test you write (`tests/test_input_rebinding.gd`) is the point of this task as much as the
+fix itself: this defect shipped in M6 specifically because no test exercised the rebind flow
+through the real UI, only the underlying `InputManager.rebind_action()` in isolation.
+
+### Task 6 — Fix cold start
+⚠️ Guard this on "is this a new game", not "is `home_island_id` empty" — an existing save with
+a different home island must never be overwritten. Find the actual new-game code path rather
+than assuming; `TutorialManager.gd`'s own comments about `SaveManager.delete_save()` are a
+starting point, not the final answer.
+
+### 🛑 Task 7 — CHECKPOINT: economy correction
+**HALT. Do not attempt this task.** A human verifies it in Claude Code using the review prompt
+in section 4.
+
+## Wave 2 — Campaign data model (Tasks 8–12)
+
+### Task 8 — Create DialogueBeatData, ObjectiveData, ChapterData
+Use the schemas in `design.md` Part B1 exactly as written — do not add fields "for later." The
+schema is deliberately the smallest one that covers all 5 authored chapters.
+
+### Task 9 — Create the CampaignManager autoload
+⚠️ This is the largest single task in the milestone. Read `scripts/managers/TutorialManager.gd`
+in full before writing anything — its `wait_for` / `_check_condition()` pattern is what you are
+reusing, not reinventing (hazard #7).
+Register the new autoload in `project.godot` in the exact position `design.md` B2 specifies:
+immediately after `EmpireManager`, before `TutorialManager`.
+`get_save_data()` must return **duplicates**, never the live `Array`/`Dictionary` — this exact
+mistake in `FleetManager` was a real bug (`docs/05_CURRENT_SYSTEMS.md` D12).
+Check whether `EmpireManager` already exposes a way to ask "is region X active" before adding a
+new method — `design.md` flags this as something to verify, not assume.
+
+### Task 10 — Generalize TutorialManager
+⚠️ This task requires a judgment call `design.md` Part C deliberately leaves to you: retire
+`TutorialManager`'s step logic outright, or reduce it to a thin wrapper. Before choosing, search
+the codebase for every caller of `TutorialManager.is_ui_unlocked()` and similar methods — if
+that search comes back large, report it and prefer the wrapper approach rather than a risky
+large deletion.
+Whatever you choose, `user://tutorial_state.json`'s completion flag must still work — test this
+explicitly, not just by reading the code.
+
+### Task 11 — Small enablers: boss id, discovery write path
+Check whether bosses already carry an identifiable id (e.g. via `ShipStats.ship_id` from Task 1)
+before adding a second id field for this purpose.
+
+### 🛑 Task 12 — CHECKPOINT: campaign data model
+**HALT.**
+
+## Wave 3 — Content authoring (Tasks 13–21)
+
+### Tasks 14–18 — Author Chapters 1–5
+⚠️ These are content-authoring tasks, not coding tasks, but the same "fails silently" rule
+applies to every `target_id` in every `ObjectiveData` — it must match a real building/island/
+faction/captain id, checked against the actual resource file, not typed from memory of
+`docs/13_CAMPAIGN_LEVELS_1-5.md`'s prose.
+Task 14 (Chapter 1) specifically replaces `TutorialManager`'s 8 old steps — do not leave both
+systems' content live simultaneously.
+Chapters 3 and 5 gate on `required_region_id`, **not** a raw notoriety number authored a second
+time — `design.md` Part B1 explains why duplicating the threshold is a drift risk.
+
+### Task 19 — Verify Cartagena as a second buildable island
+This is a verification task that may turn into a fix task. If `IslandMenu` or `Island.gd` turns
+out to assume "there is only one buildable island" somewhere non-obvious, fix it here and report
+exactly what you found — this is exactly the kind of assumption Rule 5
+(`docs/07_AI_AGENT_WORKFLOW.md`) says to report rather than silently patch around if it looks
+like an architecture decision, not a bug.
+
+### Task 20 — Objective-integrity test
+This test is the automated version of the "check every id" warning repeated above — write it to
+actually fail if a bad id slips through, not just to exist.
+
+### 🛑 Task 21 — CHECKPOINT: content authoring
+**HALT.**
+
+## Wave 4 — UI and polish (Tasks 22–26)
+
+### Task 24 — Dialogue beat queue support
+Check whether `TutorialDialogue.gd` already supports advancing through multiple beats before
+assuming it needs extending — it may already be closer to what's needed than `design.md` D3
+guesses.
+
+### Task 25 — Update docs/05_CURRENT_SYSTEMS.md
+Document `CampaignManager`, the corrected autoload registry, and mark D53–D58 resolved.
+
+### 🛑 Task 26 — CHECKPOINT: M7 complete
+**HALT.**
+
+---
+
+# 4. Checkpoint review prompt — for the human, in Claude Code
+
+Do **not** paste this to Antigravity. When Gemini halts at a 🛑, open Claude Code and paste:
+
+```
+Review the milestone-m7 work completed since the last checkpoint in the Godot project at
+d:\Pirate-game.
+
+Read .kiro/specs/milestone-m7-campaign-spine/tasks.md and find the checkpoint task Gemini halted
+at. Verify its criteria are ACTUALLY met — run the GUT suite yourself
+(--headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit) rather than trusting Gemini's
+self-report, and read the real diff.
+
+Do not trust a hardcoded baseline number from an old prompt — read the count recorded at this
+milestone's own last verified checkpoint (or, if this is the first checkpoint, the 126 tests /
+125 passing / 1 known LOD failure baseline recorded in docs/05_CURRENT_SYSTEMS.md as of
+2026-08-14) and compare against that. Any new failure, or a drop in the total count, is a
+regression.
+
+Also confirm Gemini did not regress any of the known-fragile areas listed in
+docs/08_PROMPT_LIBRARY.md section 2: ship stability, hull-basis cannon direction, enemy obstacle
+avoidance, test_ship_combat.gd passing unmodified, and — new to M7 — that no ship's price still
+derives from `mass` and that TutorialManager's content was replaced, not duplicated alongside
+CampaignManager.
+
+Fix anything broken before the milestone continues, then tell me whether Wave N+1 is cleared to
+start.
+```
+
+---
+
+# 5. Starting the next milestone
+
+When M6 is complete and its final checkpoint has passed:
+
+1. Delete section 3 (the M6 per-task notes).
+2. Write the new milestone's `.kiro/specs/milestone-mN-<name>/{requirements,design,tasks}.md`.
+3. Re-point section 1.1's spec path at the new milestone and author a fresh section 3.
+   The two lines you type in chat do NOT change — only the milestone name in them.
+4. Carry section 2 forward unchanged, adding any new "has broken before" hazards discovered
+   during the completed milestone.
+
+The Operating Contract and Standing Rules are milestone-agnostic by design — only 1.1's spec
+path and section 3 change between milestones. That is the whole point of the split: the thing
+you type stays stable, the thing you edit stays in version control.

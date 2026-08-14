@@ -9,6 +9,18 @@ enum IslandType { NEUTRAL, FRIENDLY, ENEMY, CAPITAL, LEGENDARY }
 @export var island_type: IslandType = IslandType.NEUTRAL
 @export var owner_faction: Resource # FactionData
 
+@export_group("World")
+## Authored XZ position, kept in sync with this island's transform in World.tscn.
+## The scene file is still what places the island; this mirrors it so that code and
+## UI can reason about distance and region membership without walking the scene
+## tree (a prerequisite for the world-map UI). See docs/11_WORLD_MAP.md.
+@export var world_position: Vector2 = Vector2.ZERO
+## Which RegionData this island belongs to. RegionData.island_ids already holds the
+## same relationship, but only one-way — this is the reverse lookup.
+@export var region_id: String = ""
+
+@export_group("Progression")
+@export var min_buildings_for_tier: int = 2
 
 @export_group("Docking")
 @export var has_dock: bool = true

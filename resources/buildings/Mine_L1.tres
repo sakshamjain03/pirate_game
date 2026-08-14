@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_35d4x"]
+[ext_resource type="Resource" path="res://resources/buildings/Mine_L2.tres" id="1_wh3j0"]
+
+[resource]
+script = ExtResource("1_35d4x")
+building_id = "mine_l1"
+building_name = "Iron Mine Level 1"
+description = "Produces iron over time."
+next_upgrade = ExtResource("1_wh3j0")
+cost_gold = 100
+cost_wood = 20
+produces_resource = "iron"
+production_amount = 2
+production_interval = 15.0
+model_path = "res://assets/models/tower-base.glb"

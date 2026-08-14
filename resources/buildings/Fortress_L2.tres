@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_d5ufn"]
+[ext_resource type="Resource" path="res://resources/buildings/Fortress_L3.tres" id="1_hje4v"]
+
+[resource]
+script = ExtResource("1_d5ufn")
+building_id = "fortress_l2"
+building_name = "Fortress Level 2"
+description = "Heavy Island Defense (Future Combat)."
+next_upgrade = ExtResource("1_hje4v")
+level = 2
+cost_gold = 1500
+cost_wood = 750
+cost_iron = 750
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+model_path = "res://assets/models/tower-complete-large.glb"

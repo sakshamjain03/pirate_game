@@ -605,7 +605,43 @@ Feel that their empire is uniquely theirs.
 
 ---
 
-# 23. Final Principle
+# 23. Where the Vision Becomes Specific
+
+This document is deliberately abstract. Five companion documents turn it into content:
+
+`docs/06_NARRATIVE_AND_WORLD.md`
+
+The premise, the tone, and the five-chapter spine.
+
+`docs/11_WORLD_MAP.md`
+
+Where every island is, and why it is there.
+
+`docs/12_CHARACTER_BIBLE.md`
+
+The cast, including all twenty existing captains.
+
+`docs/13_CAMPAIGN_LEVELS_1-5.md`
+
+What actually happens in the first five chapters.
+
+`docs/14_SYSTEM_INVENTORY.md`
+
+Every component and process the game needs, with its status.
+
+`docs/15_MASTER_PLAN.md`
+
+The order in which the rest gets built.
+
+The story is a frame around the loop.
+
+It never gates the loop.
+
+A player who ignores it entirely can still build, explore, and conquer.
+
+---
+
+# 24. Final Principle
 
 We are not building levels.
 

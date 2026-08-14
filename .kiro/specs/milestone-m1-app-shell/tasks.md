@@ -21,25 +21,25 @@ Every task builds directly on the previous one so there is no orphaned code.
   - Add documentation header (purpose, responsibilities, dependencies, limitations, TODOs)
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3, 15.1_
 
-  - [ ] 1.1 Write property test — Property 1: scene navigation always pushes to history
+  - [x] 1.1 Write property test — Property 1 (verified 2026-08-09: implemented in tests/test_scene_manager_history.gd): scene navigation always pushes to history
     - **Property 1: Scene navigation always pushes to history**
     - For any valid scene path string, calling `change_scene_with_fade(path)` or `change_scene(path)` must result in `path` as the most recent history entry and stack length must increase by exactly one
     - Use GUT or a custom test runner to generate arbitrary valid-looking path strings (e.g., `"res://Scenes/ui/Test{N}.tscn"`) with a mocked `get_tree()` and `ResourceLoader`
     - **Validates: Requirements 2.3, 2.6**
 
-  - [ ] 1.2 Write property test — Property 2: scene_changed signal emitted with correct path
+  - [x] 1.2 Write property test — Property 2 (verified 2026-08-09: implemented in tests/test_scene_manager_history.gd): scene_changed signal emitted with correct path
     - **Property 2: scene_changed signal is emitted with the correct path**
     - For any valid scene path, after `change_scene_with_fade(path)` completes, `scene_changed` must have fired exactly once with that path
     - Mock tween completion; assert signal spy recorded exactly one emission matching the path
     - **Validates: Requirements 2.4**
 
-  - [ ] 1.3 Write property test — Property 3: fade overlay hidden after every transition
+  - [x] 1.3 Write property test — Property 3 (verified 2026-08-09: implemented in tests/test_scene_manager_history.gd): fade overlay hidden after every transition
     - **Property 3: Fade overlay is hidden after every transition**
     - For any valid path and any positive duration, `_fade_overlay.visible` must be `false` after `change_scene_with_fade` fully completes
     - Fuzz with varied duration values (0.01–2.0) and multiple paths
     - **Validates: Requirements 3.4**
 
-  - [ ] 1.4 Write property test — Property 4: go_back() correctly pops and navigates history
+  - [x] 1.4 Write property test — Property 4 (verified 2026-08-09: implemented in tests/test_scene_manager_history.gd): go_back() correctly pops and navigates history
     - **Property 4: go_back() correctly pops and navigates history**
     - For any Scene_History stack of length N ≥ 1, calling `go_back()` must yield a stack of length N − 1 and must navigate to the entry at index N − 1
     - Seed the history array with 1–10 arbitrary path strings; assert post-call stack size and navigation target
@@ -54,19 +54,19 @@ Every task builds directly on the previous one so there is no orphaned code.
   - Add documentation header
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 15.2_
 
-  - [ ] 2.1 Write property test — Property 5: AudioManager volume round-trip
+  - [x] 2.1 Write property test — Property 5 (verified 2026-08-09: implemented in tests/test_audio_manager.gd): AudioManager volume round-trip
     - **Property 5: AudioManager volume round-trip**
     - For any `bus_name` in `{"Master","Music","SFX"}` and any `linear_volume` in `[0.0, 1.0]`, `get_bus_volume(bus_name)` after `set_bus_volume(bus_name, linear_volume)` must equal `linear_volume` within `1e-5` tolerance
     - Generate 100+ random float samples per bus using a property test loop; mock `AudioServer` calls to avoid engine dependency
     - **Validates: Requirements 8.1, 8.2**
 
-  - [ ] 2.2 Write property test — Property 6: volume_changed signal carries correct arguments
+  - [x] 2.2 Write property test — Property 6 (verified 2026-08-09: implemented in tests/test_audio_manager.gd): volume_changed signal carries correct arguments
     - **Property 6: volume_changed signal carries correct arguments**
     - For any valid bus and any `linear_volume` in `[0.0, 1.0]`, `set_bus_volume` must emit `volume_changed` exactly once with the same `bus_name` and `linear_volume`
     - Use a signal spy; assert emission count == 1 and captured args match inputs
     - **Validates: Requirements 8.3**
 
-  - [ ] 2.3 Write property test — Property 7: AudioManager clamps out-of-range volumes
+  - [x] 2.3 Write property test — Property 7 (verified 2026-08-09: implemented in tests/test_audio_manager.gd): AudioManager clamps out-of-range volumes
     - **Property 7: AudioManager clamps out-of-range volumes**
     - For any float value (including values below 0.0 or above 1.0), `get_bus_volume` after `set_bus_volume` must return a value in `[0.0, 1.0]`
     - Generate values in ranges `[-10.0, -0.001]`, `[1.001, 10.0]`, and boundary values `0.0`, `1.0`; assert result is always clamped

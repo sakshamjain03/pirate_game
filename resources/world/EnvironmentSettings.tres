@@ -20,3 +20,7 @@ ambient_energy_morning = 0.3
 ambient_energy_noon = 0.3
 ambient_energy_evening = 0.22
 ambient_energy_night = 0.08
+sun_energy_morning = 0.75
+sun_energy_noon = 1.0
+sun_energy_evening = 0.75
+sun_energy_night = 0.25

@@ -10,6 +10,9 @@ extends Node3D
 
 @export var island_data: IslandData
 
+signal tier_changed(new_tier: int)
+var _current_tier: int = 1
+
 var built_buildings: Array[BuildingData] = []
 var _production_timers: Dictionary = {}
 var _spawned_models: Dictionary = {}
@@ -152,6 +155,40 @@ func get_island_name() -> String:
 		return island_data.island_name
 	return name
 
+func get_island_tier() -> int:
+	return _current_tier
+
+func _recalculate_tier() -> void:
+	var total_levels = 0
+	for b in built_buildings:
+		total_levels += b.level
+		
+	var new_tier = 1
+	var min_b = 2
+	if island_data and "min_buildings_for_tier" in island_data:
+		min_b = island_data.min_buildings_for_tier
+		
+	if built_buildings.size() >= min_b and built_buildings.size() > 0:
+		new_tier = floori(float(total_levels) / float(built_buildings.size()))
+		
+	new_tier = clampi(new_tier, 1, 5)
+	
+	if new_tier != _current_tier:
+		_current_tier = new_tier
+		tier_changed.emit(_current_tier)
+		
+		# Show announcement. Guarded on is_inside_tree() because tier is also
+		# recalculated during restore_buildings() on load, which can run before
+		# the island has entered the tree — get_tree() is null there and the
+		# unguarded call aborted the whole restore.
+		if is_inside_tree():
+			var hud = get_tree().get_first_node_in_group("hud")
+			if hud and hud.has_method("announce_event"):
+				hud.announce_event(get_island_name() + " reached Tier " + str(_current_tier) + "!")
+			
+		if EmpireManager and EmpireManager.has_method("notify_island_tier_changed"):
+			EmpireManager.notify_island_tier_changed(get_island_id(), _current_tier)
+
 func has_building(building_id: String) -> bool:
 	for b in built_buildings:
 		if b.building_id == building_id:
@@ -176,6 +213,8 @@ func build_structure(building: BuildingData) -> bool:
 		
 		if ResourceManager.has_method("recalculate_storage_capacity"):
 			ResourceManager.recalculate_storage_capacity()
+			
+		_recalculate_tier()
 
 		return true
 		
@@ -201,14 +240,17 @@ func upgrade_structure(old_id: String, new_building: BuildingData) -> bool:
 		if _spawned_models.has(old_id):
 			var model = _spawned_models[old_id]
 			if is_instance_valid(model):
+				var target_scale = Vector3.ONE * pow(1.2, new_building.level - 1)
 				var tween = create_tween()
-				tween.tween_property(model, "scale", model.scale * 1.2, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+				tween.tween_property(model, "scale", target_scale, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 			# Re-map the dictionary key
 			_spawned_models[new_building.building_id] = model
 			_spawned_models.erase(old_id)
 			
 		if ResourceManager.has_method("recalculate_storage_capacity"):
 			ResourceManager.recalculate_storage_capacity()
+			
+		_recalculate_tier()
 			
 		return true
 		
@@ -247,10 +289,14 @@ func _spawn_building_visual(building: BuildingData, slot_index: int, animate: bo
 				var roof_applier = load("res://scripts/components/KenneyMaterialApplier.gd").new()
 				roof.add_child(roof_applier)
 		
+		var target_scale = Vector3.ONE * pow(1.2, building.level - 1)
+		
 		if animate:
 			instance.scale = Vector3.ZERO
 			var tween = create_tween()
-			tween.tween_property(instance, "scale", Vector3.ONE, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+			tween.tween_property(instance, "scale", target_scale, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		else:
+			instance.scale = target_scale
 			
 		_spawned_models[building.building_id] = instance
 
@@ -259,6 +305,26 @@ func get_built_building_ids() -> Array:
 	for b in built_buildings:
 		ids.append(b.building_id)
 	return ids
+
+func _resolve_building(building_id: String) -> BuildingData:
+	var original_id = building_id
+	if not "_l" in building_id:
+		building_id += "_l1"
+		
+	var parts = building_id.split("_l")
+	if parts.size() != 2:
+		push_error("Island: Invalid building_id format for restore: " + original_id)
+		return null
+		
+	var base_name = parts[0].capitalize().replace(" ", "")
+	var level = parts[1]
+	
+	var path = "res://resources/buildings/" + base_name + "_L" + level + ".tres"
+	if ResourceLoader.exists(path):
+		return load(path) as BuildingData
+	else:
+		push_error("Island: Unresolvable building_id: " + original_id + " (path not found: " + path + ")")
+		return null
 
 func restore_buildings(building_ids: Array) -> void:
 	built_buildings.clear()
@@ -271,26 +337,13 @@ func restore_buildings(building_ids: Array) -> void:
 	
 	var slot_index = 0
 	for b_id in building_ids:
-		# Map id to path (simplified logic since we know the paths)
-		var paths = {
-			"lumber_mill": "res://resources/buildings/LumberMill.tres",
-			"mine": "res://resources/buildings/Mine.tres",
-			"farm": "res://resources/buildings/Farm.tres",
-			"market": "res://resources/buildings/Market.tres",
-			"shipyard": "res://resources/buildings/Shipyard.tres",
-			"tavern": "res://resources/buildings/Tavern.tres",
-			"watchtower": "res://resources/buildings/Watchtower.tres",
-			"fortress": "res://resources/buildings/Fortress.tres",
-			"warehouse": "res://resources/buildings/Warehouse.tres",
-			"academy": "res://resources/buildings/Academy.tres"
-		}
-		
-		if paths.has(b_id):
-			var b_res = load(paths[b_id])
-			if b_res:
-				built_buildings.append(b_res)
-				_spawn_building_visual(b_res, slot_index, false)
-				slot_index += 1
+		var b_res = _resolve_building(b_id)
+		if b_res:
+			built_buildings.append(b_res)
+			_spawn_building_visual(b_res, slot_index, false)
+			slot_index += 1
 				
 	if ResourceManager.has_method("recalculate_storage_capacity"):
 		ResourceManager.recalculate_storage_capacity()
+		
+	_recalculate_tier()

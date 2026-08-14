@@ -18,6 +18,7 @@ class_name CaptainData extends Resource
 @export_range(0.1, 3.0) var base_turn_rate_modifier: float = 1.0
 @export_range(0.1, 3.0) var base_damage_modifier: float = 1.0
 @export_range(0.1, 3.0) var base_health_modifier: float = 1.0
+@export_range(0.1, 3.0) var base_boarding_modifier: float = 1.0
 
 # Dynamic modifiers (computed from base + level)
 var speed_modifier: float:
@@ -28,6 +29,8 @@ var damage_modifier: float:
 	get: return base_damage_modifier + (level - 1) * 0.1
 var health_modifier: float:
 	get: return base_health_modifier + (level - 1) * 0.1
+var boarding_modifier: float:
+	get: return base_boarding_modifier + (level - 1) * 0.1
 
 func add_xp(amount: int) -> void:
 	current_xp += amount

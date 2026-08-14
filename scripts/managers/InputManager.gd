@@ -76,3 +76,32 @@ func get_movement_vector() -> Vector2:
 
 func set_sensitivity(val: float) -> void:
 	sensitivity = val
+
+func rebind_action(action: String, event: InputEvent) -> bool:
+	if not InputMap.has_action(action): return false
+	
+	if not event is InputEventKey:
+		return false
+		
+	if event == null:
+		var essential = ["ship_forward", "ship_backward", "ship_left", "ship_right"]
+		if action in essential:
+			return false
+			
+	var events = InputMap.action_get_events(action)
+	for e in events:
+		if e is InputEventKey:
+			InputMap.action_erase_event(action, e)
+			
+	if event != null:
+		InputMap.action_add_event(action, event)
+		
+	if get_tree().root.has_node("SettingsManager"):
+		get_tree().root.get_node("SettingsManager").save_settings()
+		
+	return true
+
+func reset_to_defaults() -> void:
+	InputMap.load_from_project_settings()
+	if get_tree().root.has_node("SettingsManager"):
+		get_tree().root.get_node("SettingsManager").save_settings()

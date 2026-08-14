@@ -6,6 +6,14 @@ signal camera_target_changed(target: Node3D)
 @export var settings: CameraSettings
 @export var target: Node3D
 
+@export_group("Docking")
+@export var docked_zoom: float = 20.0
+@export var docked_pitch: float = -30.0
+
+var _pre_dock_zoom: float = 35.0
+var _pre_dock_pitch: float = -48.0
+var _is_docked_view: bool = false
+
 @onready var pivot: Node3D = $CameraPivot
 @onready var spring_arm: SpringArm3D = $CameraPivot/SpringArm3D
 @onready var camera: Camera3D = $CameraPivot/SpringArm3D/MainCamera
@@ -47,6 +55,22 @@ func _ready() -> void:
 	if spring_arm:
 		spring_arm.spring_length = target_zoom
 	_exclude_target_from_spring_arm()
+	
+	call_deferred("_connect_to_docking_system")
+
+func _connect_to_docking_system() -> void:
+	# This runs deferred, so the rig may have left the tree (or never been in
+	# one, as in the camera property tests) before the call lands — get_tree()
+	# returns null there and dereferencing it errored every frame.
+	if not is_inside_tree():
+		return
+	var current_scene = get_tree().current_scene
+	var dock_sys = current_scene.get_node_or_null("Systems/DockingSystem") if current_scene else null
+	if dock_sys:
+		if dock_sys.has_signal("dock_completed"):
+			dock_sys.dock_completed.connect(func(_id): enter_docked_view())
+		if dock_sys.has_signal("undock_initiated"):
+			dock_sys.undock_initiated.connect(exit_docked_view)
 
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(target) or not pivot or not spring_arm:
@@ -110,6 +134,20 @@ func set_target(new_target: Node3D) -> void:
 	target = new_target
 	_exclude_target_from_spring_arm()
 	camera_target_changed.emit(target)
+
+func enter_docked_view() -> void:
+	if _is_docked_view: return
+	_is_docked_view = true
+	_pre_dock_zoom = target_zoom
+	_pre_dock_pitch = target_pitch
+	target_zoom = docked_zoom
+	target_pitch = docked_pitch
+
+func exit_docked_view() -> void:
+	if not _is_docked_view: return
+	_is_docked_view = false
+	target_zoom = _pre_dock_zoom
+	target_pitch = _pre_dock_pitch
 
 
 func _exclude_target_from_spring_arm() -> void:

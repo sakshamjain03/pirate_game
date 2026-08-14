@@ -329,6 +329,33 @@ text           = "⚓  Press  [F]  to  Dock"
 horizontal_alignment = 1
 vertical_alignment   = 1
 
+[node name="BoardPrompt" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible        = false
+layout_mode    = 1
+anchors_preset = 7
+anchor_left    = 0.5
+anchor_top     = 1.0
+anchor_right   = 0.5
+anchor_bottom  = 1.0
+offset_left    = -140.0
+offset_top     = -160.0
+offset_right   = 140.0
+offset_bottom  = -100.0
+grow_horizontal = 2
+grow_vertical   = 0
+
+[node name="BoardLabel" type="Label" parent="BoardPrompt"]
+layout_mode  = 1
+anchors_preset = 15
+anchor_right  = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical   = 2
+text           = "⚔️  Press  [F]  to  Board"
+horizontal_alignment = 1
+vertical_alignment   = 1
+
 [node name="ResourceBar" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 1

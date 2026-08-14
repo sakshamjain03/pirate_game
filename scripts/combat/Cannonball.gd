@@ -2,6 +2,7 @@ class_name Cannonball extends RigidBody3D
 
 @export var damage: float = 15.0
 @export var lifetime: float = 5.0
+@export var ammo: AmmoData
 
 var source_ship: Node = null
 var _splashed: bool = false
@@ -65,13 +66,19 @@ func _on_body_entered(body: Node) -> void:
 		return
 
 	if not _is_friendly(body):
-		# Check if body has a ShipCombat component
-		if body.has_method("take_damage"):
-			body.take_damage(damage)
+		var hit_dir = linear_velocity.normalized()
+		var hit_ammo = ammo if ammo else load("res://resources/combat/ammo/RoundShot.tres")
+		
+		# Check if body has a ShipDamage component directly or through ShipCombat
+		var dmg = body.get_node_or_null("ShipDamage")
+		if dmg:
+			dmg.apply_hit(damage, hit_ammo, hit_dir)
+		elif body.has_method("take_damage"):
+			body.take_damage(damage, hit_ammo, hit_dir)
 		elif body.has_node("ShipCombat"):
 			var combat = body.get_node("ShipCombat")
 			if combat.has_method("take_damage"):
-				combat.take_damage(damage)
+				combat.take_damage(damage, hit_ammo, hit_dir)
 
 	# Spawn impact effect here later
 

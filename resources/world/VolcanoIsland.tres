@@ -8,3 +8,5 @@ island_id = "volcano_island"
 island_name = "Mount Brimstone"
 island_type = 2
 terrain_theme = 1
+world_position = Vector2(-180, -150)
+region_id = "imperial_waters"

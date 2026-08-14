@@ -99,22 +99,31 @@ func load_save_data(data: Dictionary) -> void:
 	resources_changed.emit(current_resources)
 
 func recalculate_storage_capacity() -> void:
+	# Must list every key that `max_storage` is initialised with — this function
+	# REBUILDS the dictionary rather than adjusting it, so any key omitted here
+	# silently loses its cap and falls through to the 999999 default on the first
+	# recalculation (i.e. as soon as one building is constructed).
 	var base_storage: Dictionary = {
 		"gold": 5000,
 		"wood": 200,
 		"iron": 100,
-		"rum": 50
+		"rum": 50,
+		"research": 9999
 	}
-	
+
 	max_storage = base_storage.duplicate()
 	
 	var islands = get_tree().get_nodes_in_group("islands")
 	for island in islands:
-		if island.has_method("has_building") and island.has_building("warehouse"):
-			max_storage["gold"] += 500
-			max_storage["wood"] += 200
-			max_storage["iron"] += 100
-			max_storage["rum"] += 50
+		if island.get("built_buildings"):
+			for building in island.built_buildings:
+				if "storage_bonus" in building and building.storage_bonus:
+					for res_type in building.storage_bonus.keys():
+						var val = building.storage_bonus[res_type]
+						if max_storage.has(res_type):
+							max_storage[res_type] += val
+						else:
+							max_storage[res_type] = val
 			
 	var changed = false
 	for type in current_resources.keys():

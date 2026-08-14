@@ -120,6 +120,44 @@ Fight New Boss.
 
 ---
 
+# Chapter Loop
+
+Read the chapter's opening beat
+
+↓
+
+Pursue three to five objectives through normal play
+
+↓
+
+Cross a notoriety threshold
+
+↓
+
+A new region activates
+
+↓
+
+Read the closing beat
+
+↓
+
+Claim the chapter's captains, buildings, and ships
+
+↓
+
+Next chapter
+
+The chapter loop is a frame around the other loops—never a gate.
+
+Every objective is satisfied by an action the player would take anyway.
+
+A player who ignores the campaign entirely loses nothing but the frame.
+
+Chapters are data. See `docs/13_CAMPAIGN_LEVELS_1-5.md`.
+
+---
+
 # Long-Term Loop
 
 Small Empire

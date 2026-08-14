@@ -517,75 +517,11 @@ Optional
 
 # 21. Milestone Roadmap
 
-## M1
-
-Foundation & UI
-
----
-
-## M2
-
-First Playable World
-
----
-
-## M3
-
-Naval Movement & Combat
-
----
-
-## M4
-
-Islands & Colonies
-
----
-
-## M5
-
-Economy & Production
-
----
-
-## M6
-
-Fleet Management & Captains
-
----
-
-## M7
-
-Diplomacy & World Events
-
----
-
-## M8
-
-Progression & Technology
-
----
-
-## M9
-
-Content Expansion
-
-- More islands
-- More ships
-- More factions
-- More events
-
----
-
-## M10
-
-Polish & Release
-
-- Optimization
-- Mobile balancing
-- Bug fixing
-- UI polish
-- Audio polish
-- Beta testing
+**This section is superseded.** It described the pre-production plan and no longer matches what
+was actually built. Real milestone history lives in `.kiro/specs/milestone-mN-*/`; the forward
+plan (M7 onward) is `docs/15_MASTER_PLAN.md`. Do not plan work against the list that used to be
+here — the names and order it described (e.g. "M7 Diplomacy & World Events") do not correspond
+to any milestone that was actually executed.
 
 ---
 

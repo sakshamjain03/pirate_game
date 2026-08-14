@@ -41,6 +41,10 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 		speed_mod = body.active_captain.speed_modifier
 		turn_mod = body.active_captain.turn_rate_modifier
 
+	var dmg = body.get_node_or_null("ShipDamage")
+	if dmg and dmg.has_method("get_speed_multiplier"):
+		speed_mod *= dmg.get_speed_multiplier()
+
 	# Forward/Backward movement (Propulsion)
 	var forward_dir = -body.global_transform.basis.z.normalized()
 	var current_speed = body.linear_velocity.dot(forward_dir)

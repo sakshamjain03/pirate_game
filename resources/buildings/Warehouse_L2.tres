@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_2ffcb"]
+[ext_resource type="Resource" path="res://resources/buildings/Warehouse_L3.tres" id="1_bq1cm"]
+
+[resource]
+script = ExtResource("1_2ffcb")
+building_id = "warehouse_l2"
+building_name = "Warehouse Level 2"
+description = "Increases maximum resource storage."
+next_upgrade = ExtResource("1_bq1cm")
+level = 2
+storage_bonus = {
+"gold": 900,
+"iron": 180,
+"rum": 90,
+"wood": 360
+}
+cost_gold = 150
+cost_wood = 75
+cost_iron = 15
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+model_path = "res://assets/models/tower-complete-small.glb"

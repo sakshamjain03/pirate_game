@@ -50,6 +50,26 @@ enum AIState {
 
 @export_group("Behavior")
 @export var aggression: float = 0.7  # 0=passive, 1=always aggressive
+@export var ai_profile: Resource # AIProfileData
+
+@export_group("Obstacle Avoidance")
+## Enemy ships previously had no obstacle awareness at all, so any steering
+## target on the far side of an island drove them straight onto the shore,
+## where the hull rode up the terrain and capsized (tracked as D39/V8). These
+## feelers steer around islands before contact instead.
+@export var avoid_enabled: bool = true
+## How far ahead the ship looks for obstructions. Wants to exceed the turning
+## circle — a ship that only sees an island one hull-length out cannot turn
+## away in time at full throttle.
+@export var avoid_probe_distance: float = 45.0
+## Angle of the left/right feelers off the bow, in degrees.
+@export var avoid_feeler_angle: float = 30.0
+## Physics layers the feelers test. Layer 5 (bit 16) is terrain — islands carry
+## it in addition to layer 1, so masking terrain alone detects islands without
+## every enemy also swerving around every other ship.
+@export_flags_3d_physics var avoid_collision_mask: int = 16
+## Steering authority applied when a feeler is blocked, 0..1.
+@export var avoid_turn_strength: float = 1.0
 
 var current_state: AIState = AIState.IDLE
 var ship_controller: ShipController
@@ -68,12 +88,24 @@ var _attack_repositioning: bool = false
 
 
 func _ready() -> void:
+	if ai_profile:
+		aggression = ai_profile.get("aggression")
+		preferred_combat_distance = ai_profile.get("preferred_combat_distance")
+		flee_health_threshold = ai_profile.get("flee_health_threshold")
+		broadside_angle_tolerance = ai_profile.get("broadside_angle_tolerance")
+		
 	ship_controller = get_parent() as ShipController
 	if not ship_controller:
 		push_error("EnemyAI: Must be a child of a ShipController!")
 		return
 
 	ship_combat = ship_controller.get_node_or_null("ShipCombat") as ShipCombat
+	
+	if ai_profile and ship_combat:
+		var ammo_path = "res://resources/combat/ammo/" + ai_profile.get("ammo_preference") + ".tres"
+		var ammo_res = load(ammo_path)
+		if ammo_res:
+			ship_combat.current_ammo = ammo_res
 
 	# Remember spawn position as home for patrol routes
 	home_position = ship_controller.global_position
@@ -282,7 +314,84 @@ func _steer_towards(target: Vector3, throttle: float) -> void:
 	elif dot < 0.7:
 		actual_throttle *= 0.7
 
+	# Obstacle avoidance overrides the navigation turn. It is applied last and
+	# unconditionally: running aground is always worse than missing a waypoint
+	# or losing a firing angle, and a beached ship is unrecoverable because
+	# nothing pushes a hull back off terrain once it has ridden up onto it.
+	var avoid_turn := _get_avoidance_turn()
+	if avoid_turn != 0.0:
+		turn = avoid_turn
+		actual_throttle = min(actual_throttle, 0.5)
+
 	ship_controller.set_input(actual_throttle, turn)
+
+
+func _get_avoidance_turn() -> float:
+	## Three-feeler whisker probe from the bow. Returns a turn input steering
+	## away from whichever side is blocked, or 0.0 when the way ahead is clear.
+	##
+	## The centre feeler alone is not enough — a ship approaching an island
+	## head-on has an equally blocked left and right, and with no tie-break it
+	## would sail straight in. When both sides are blocked the ship commits to
+	## the side whose feeler hit *further* away, which is the shorter way out.
+	if not avoid_enabled or not ship_controller:
+		return 0.0
+
+	var space := ship_controller.get_world_3d().direct_space_state
+	if not space:
+		return 0.0
+
+	var origin := ship_controller.global_position
+	var forward := -ship_controller.global_transform.basis.z.normalized()
+	forward = Vector3(forward.x, 0.0, forward.z).normalized()
+	if forward.length_squared() < 0.01:
+		return 0.0
+
+	var rad := deg_to_rad(avoid_feeler_angle)
+	var left_dir := forward.rotated(Vector3.UP, rad)
+	var right_dir := forward.rotated(Vector3.UP, -rad)
+
+	var centre_hit := _probe(space, origin, forward)
+	var left_hit := _probe(space, origin, left_dir)
+	var right_hit := _probe(space, origin, right_dir)
+
+	if centre_hit < 0.0 and left_hit < 0.0 and right_hit < 0.0:
+		return 0.0
+
+	# Normalize misses to "infinitely far" so the comparisons below read
+	# naturally, then steer toward the side with more room.
+	var left_room := left_hit if left_hit >= 0.0 else INF
+	var right_room := right_hit if right_hit >= 0.0 else INF
+
+	var turn_dir := 1.0 if left_room > right_room else -1.0
+
+	# Urgency scales with how close the nearest obstruction is, so a distant
+	# island produces a gentle course correction rather than a hard swerve.
+	# Explicitly typed: min()/clamp() return Variant, and this project promotes
+	# the "inferred from Variant" warning to an error.
+	var nearest: float = min(left_room, right_room)
+	if centre_hit >= 0.0:
+		nearest = min(nearest, centre_hit)
+	if nearest == INF:
+		return 0.0
+
+	var urgency: float = clamp(1.0 - (nearest / avoid_probe_distance), 0.25, 1.0)
+	return turn_dir * urgency * avoid_turn_strength
+
+
+func _probe(space: PhysicsDirectSpaceState3D, origin: Vector3, dir: Vector3) -> float:
+	## Casts one feeler. Returns the distance to the obstruction, or -1.0 if
+	## the ray is clear. Excludes the ship's own body so a hull that overlaps
+	## its own probe origin does not report itself as an obstacle.
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + dir * avoid_probe_distance)
+	query.collision_mask = avoid_collision_mask
+	if ship_controller is CollisionObject3D:
+		query.exclude = [ship_controller.get_rid()]
+
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		return -1.0
+	return origin.distance_to(hit.position)
 
 
 # === UTILITY ===
@@ -342,9 +451,39 @@ func _generate_patrol_waypoints() -> void:
 			0,
 			sin(angle) * patrol_radius * randf_range(0.6, 1.0)
 		)
-		patrol_waypoints.append(home_position + offset)
+		var point: Vector3 = home_position + offset
+		# A waypoint generated on top of an island is unreachable: the ship
+		# sails at it, avoidance turns it away, it never arrives, and it grinds
+		# along the shore indefinitely. Push any such point back out to open
+		# water along the home->point direction before accepting it.
+		point = _push_to_open_water(point)
+		patrol_waypoints.append(point)
 
 	current_waypoint_index = 0
+
+
+func _push_to_open_water(point: Vector3) -> Vector3:
+	## If `point` lies inside island terrain, walk it back toward home until it
+	## clears. Returns the original point when it is already in open water.
+	if not ship_controller:
+		return point
+	var space := ship_controller.get_world_3d().direct_space_state
+	if not space:
+		return point
+
+	var probe := PhysicsPointQueryParameters3D.new()
+	probe.collision_mask = avoid_collision_mask
+	probe.collide_with_areas = false
+
+	var candidate := point
+	for _attempt in range(6):
+		probe.position = candidate
+		if space.intersect_point(probe, 1).is_empty():
+			return candidate
+		# Step back toward home, which is by definition water the ship spawned on.
+		candidate = candidate.lerp(home_position, 0.35)
+
+	return home_position
 
 
 func _change_state(new_state: AIState) -> void:

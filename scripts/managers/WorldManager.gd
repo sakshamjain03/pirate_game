@@ -21,6 +21,7 @@ var active_islands: Dictionary = {}
 # string-based node lookups in a hot loop are an explicit perf anti-pattern
 # (see AGENTS.md Performance Rules).
 var _docking_system: Node = null
+var _boarding_system: Node = null
 var _input_manager: Node = null
 var _camera_rig: Node = null
 
@@ -29,6 +30,7 @@ const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
 
 func _ready() -> void:
 	_docking_system = get_node_or_null("../DockingSystem")
+	_boarding_system = get_node_or_null("../BoardingSystem")
 	_input_manager = get_node_or_null("../InputManager")
 	_camera_rig = get_node_or_null("../../CameraRig")
 
@@ -45,7 +47,12 @@ func _process(delta: float) -> void:
 
 		# Process dock/undock input
 		if Input.is_action_just_pressed("dock"):
-			_toggle_docking()
+			var boarded = false
+			if _boarding_system and _boarding_system.get("_eligible_enemy") != null:
+				if _boarding_system.has_method("attempt_boarding"):
+					boarded = _boarding_system.attempt_boarding()
+			if not boarded:
+				_toggle_docking()
 
 		# Process camera input
 		if _camera_rig:

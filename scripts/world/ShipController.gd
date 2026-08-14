@@ -298,7 +298,17 @@ func _spawn_loot() -> void:
 			loot_table = load("res://resources/loot/StandardEnemyLoot.tres")
 			
 		if loot_table:
-			loot.loot_data = loot_table.roll()
+			var rolled = loot_table.roll()
+			var class_mult = clamp(ship_stats.max_crew / 8.0, 1.0, 3.0)
+			var not_mult = 1.0
+			if get_tree().root.has_node("EmpireManager"):
+				var emp = get_tree().root.get_node("EmpireManager")
+				not_mult = 1.0 + (emp.notoriety / 100.0)
+				
+			for k in rolled.keys():
+				rolled[k] = int(rolled[k] * class_mult * not_mult)
+				
+			loot.loot_data = rolled
 		else:
 			# Fallback
 			loot.loot_data = {"gold": 50, "wood": 10}

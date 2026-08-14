@@ -33,6 +33,15 @@ const DEFAULT_FULLSCREEN: bool = false
 const DEFAULT_RESOLUTION: String = "1920x1080"
 const DEFAULT_VSYNC: bool = true
 
+## The gameplay actions the player may rebind. Single source of truth — this
+## list was previously duplicated verbatim in both save_settings() and
+## load_settings(), so the two could drift out of sync silently.
+const REBINDABLE_ACTIONS: Array[String] = [
+	"ship_forward", "ship_backward", "ship_left", "ship_right",
+	"camera_zoom_in", "camera_zoom_out", "camera_rotate_left", "camera_rotate_right",
+	"dock", "interact", "pause",
+]
+
 # Typed member variables
 var master_volume: float = DEFAULT_MASTER_VOLUME
 var music_volume: float = DEFAULT_MUSIC_VOLUME
@@ -42,7 +51,55 @@ var resolution: String = DEFAULT_RESOLUTION
 var vsync: bool = DEFAULT_VSYNC
 
 var _settings_path: String = "user://settings.cfg"
+
+## Whether load_settings() should also push saved key bindings into the global
+## InputMap.
+##
+## This is opt-in because InputMap is process-global while a SettingsManager is
+## an ordinary object: `tests/test_settings_manager.gd` constructs 50+ throwaway
+## managers per property test and round-trips each one, and having every load
+## erase and re-add key events for 11 actions turned a 3-second test file into a
+## multi-minute one (and left the InputMap progressively mangled for every test
+## that ran afterwards). The autoload sets this true in _ready(); transient
+## instances leave it false and touch only their own fields.
+var apply_input_bindings_on_load: bool = false
 var audio_manager: Node = null
+
+
+func _ready() -> void:
+	## Only the real autoload singleton owns the global InputMap. Transient
+	## instances constructed by tests enter the tree too, but they are not the
+	## autoload, so they must not rewrite process-global input state.
+	if get_tree() and get_tree().root.get_node_or_null("SettingsManager") == self:
+		apply_input_bindings_on_load = true
+
+
+func load_input_bindings(config: ConfigFile) -> void:
+	## Pushes saved key bindings into the global InputMap.
+	##
+	## Every call is guarded on has_action() — save_settings() already had that
+	## guard and load did not, so this could erase events from actions that were
+	## never bound in the first place. An empty stored array is treated as
+	## "nothing authored" rather than "unbind this action", which would otherwise
+	## leave the player unable to steer after a corrupt or partial save.
+	if not config.has_section("input"):
+		return
+
+	for action in REBINDABLE_ACTIONS:
+		if not InputMap.has_action(action):
+			continue
+		if not config.has_section_key("input", action):
+			continue
+		var keycodes = config.get_value("input", action, [])
+		if typeof(keycodes) != TYPE_ARRAY or keycodes.is_empty():
+			continue
+		for e in InputMap.action_get_events(action):
+			if e is InputEventKey:
+				InputMap.action_erase_event(action, e)
+		for code in keycodes:
+			var new_event := InputEventKey.new()
+			new_event.keycode = int(code)
+			InputMap.action_add_event(action, new_event)
 
 
 func load_settings() -> void:
@@ -76,6 +133,9 @@ func load_settings() -> void:
 	var _vsync = config.get_value("display", "vsync", DEFAULT_VSYNC)
 	vsync = _vsync if typeof(_vsync) == TYPE_BOOL else DEFAULT_VSYNC
 	
+	if apply_input_bindings_on_load:
+		load_input_bindings(config)
+
 	# Apply loaded settings
 	apply_display_settings()
 	apply_audio_settings()
@@ -94,6 +154,19 @@ func save_settings() -> void:
 	config.set_value("display", "resolution", resolution)
 	config.set_value("display", "vsync", vsync)
 	
+	# Write input bindings under the "input" section. Only actions that actually
+	# carry key events are written — persisting an empty array would read back
+	# on the next load as "this action is unbound".
+	for action in REBINDABLE_ACTIONS:
+		if not InputMap.has_action(action):
+			continue
+		var keycodes := []
+		for e in InputMap.action_get_events(action):
+			if e is InputEventKey:
+				keycodes.append(e.keycode)
+		if not keycodes.is_empty():
+			config.set_value("input", action, keycodes)
+
 	# Save to disk
 	var err := config.save(_settings_path)
 	if err != OK:

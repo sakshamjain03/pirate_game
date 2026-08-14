@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CaptainData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CaptainData" format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
 
@@ -9,5 +9,4 @@ captain_name = "\"Iron\" Bartholomew"
 background = "His ships are built like fortresses, but move like them too."
 base_speed_modifier = 0.85
 base_turn_rate_modifier = 0.9
-base_damage_modifier = 1.0
 base_health_modifier = 1.3

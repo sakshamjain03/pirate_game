@@ -173,33 +173,44 @@ func _find_spawn_position() -> Vector3:
 	## - Far enough from islands
 	## - On the ocean surface (y = 0.3, ship settles just below this)
 	
+	var base_pos = Vector3.ZERO
+	if _player_ship and is_instance_valid(_player_ship):
+		base_pos = _player_ship.global_position
+
+	# Track the roomiest candidate seen so we have a sane answer if none of the
+	# attempts fully clears the islands. The previous fallback was a hardcoded
+	# Vector3(randf_range(-100, 100), 0.3, randf_range(-100, 100)) box centred on
+	# the world origin — which since the 2026-08-14 map reposition (docs/11_WORLD_MAP.md
+	# §4a) is the *home island itself*, so it dropped enemies on top of Port Royal.
+	# Keeping the best attempt needs no magic numbers at all, and always lands in
+	# the player's neighbourhood regardless of how large the map grows.
+	var best_candidate := Vector3.ZERO
+	var best_clearance := -INF
+	var islands := get_tree().get_nodes_in_group("islands")
+
 	for attempt in range(10):
 		var angle = randf() * TAU
 		var distance = randf_range(min_spawn_distance, max_spawn_distance)
-		
-		var base_pos = Vector3.ZERO
-		if _player_ship and is_instance_valid(_player_ship):
-			base_pos = _player_ship.global_position
-		
+
 		var candidate = Vector3(
 			base_pos.x + cos(angle) * distance,
 			0.3,
 			base_pos.z + sin(angle) * distance
 		)
-		
-		# Check distance from islands
-		var too_close = false
-		var islands = get_tree().get_nodes_in_group("islands")
+
+		# Clearance = distance to the nearest island; INF when there are none.
+		var clearance := INF
 		for island in islands:
-			if island.global_position.distance_to(candidate) < min_distance_from_islands:
-				too_close = true
-				break
-		
-		if not too_close:
+			clearance = minf(clearance, island.global_position.distance_to(candidate))
+
+		if clearance >= min_distance_from_islands:
 			return candidate
-	
-	# Fallback: just pick a random spot
-	return Vector3(randf_range(-100, 100), 0.3, randf_range(-100, 100))
+
+		if clearance > best_clearance:
+			best_clearance = clearance
+			best_candidate = candidate
+
+	return best_candidate
 
 func _get_region_tier_for_position(pos: Vector3) -> int:
 	var islands = get_tree().get_nodes_in_group("islands")

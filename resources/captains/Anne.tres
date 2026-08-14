@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CaptainData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CaptainData" format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
 
@@ -9,5 +9,3 @@ captain_name = "\"Swift\" Anne"
 background = "Nobody can catch her."
 base_speed_modifier = 1.15
 base_turn_rate_modifier = 1.2
-base_damage_modifier = 1.0
-base_health_modifier = 1.0

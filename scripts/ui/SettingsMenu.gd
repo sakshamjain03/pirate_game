@@ -28,14 +28,18 @@ class_name SettingsMenu
 ## - Implement debounce for rapid setting changes (e.g., fast slider movement)
 ## - Add visual feedback for successful settings save
 
-@onready var master_slider: HSlider = $Control/GridContainer/MasterSlider
-@onready var music_slider: HSlider = $Control/GridContainer/MusicSlider
-@onready var sfx_slider: HSlider = $Control/GridContainer/SFXSlider
-@onready var fullscreen_check: CheckButton = $Control/GridContainer/FullscreenCheckButton
-@onready var resolution_option: OptionButton = $Control/GridContainer/ResolutionOptionButton
-@onready var vsync_check: CheckButton = $Control/GridContainer/VSyncCheckButton
+@onready var master_slider: HSlider = $Control/TabContainer/General/GridContainer/MasterSlider
+@onready var music_slider: HSlider = $Control/TabContainer/General/GridContainer/MusicSlider
+@onready var sfx_slider: HSlider = $Control/TabContainer/General/GridContainer/SFXSlider
+@onready var fullscreen_check: CheckButton = $Control/TabContainer/General/GridContainer/FullscreenCheckButton
+@onready var resolution_option: OptionButton = $Control/TabContainer/General/GridContainer/ResolutionOptionButton
+@onready var vsync_check: CheckButton = $Control/TabContainer/General/GridContainer/VSyncCheckButton
 @onready var back_button: Button = $Control/BackButton
-@onready var replay_tutorial_button: Button = $Control/GridContainer/ReplayTutorialButton
+@onready var replay_tutorial_button: Button = $Control/TabContainer/General/GridContainer/ReplayTutorialButton
+
+@onready var controls_vbox: VBoxContainer = $Control/TabContainer/Controls/ScrollContainer/ControlsVBox
+
+var _awaiting_rebind: String = ""
 
 var settings_manager: Node = SettingsManager
 var audio_manager: Node = AudioManager
@@ -68,6 +72,54 @@ func _ready() -> void:
 
 	# Set focus on first slider for keyboard/gamepad navigation
 	master_slider.grab_focus()
+	_populate_controls()
+
+func _populate_controls() -> void:
+	for child in controls_vbox.get_children():
+		child.queue_free()
+		
+	var actions = ["ship_forward", "ship_backward", "ship_left", "ship_right", "camera_zoom_in", "camera_zoom_out", "camera_rotate_left", "camera_rotate_right", "dock", "interact", "pause"]
+	for action in actions:
+		if InputMap.has_action(action):
+			var hbox = HBoxContainer.new()
+			var label = Label.new()
+			label.text = action.capitalize().replace("_", " ")
+			label.custom_minimum_size.x = 200
+			hbox.add_child(label)
+			
+			var btn = Button.new()
+			var events = InputMap.action_get_events(action)
+			if events.size() > 0 and events[0] is InputEventKey:
+				btn.text = OS.get_keycode_string(events[0].keycode)
+			else:
+				btn.text = "Unbound"
+			
+			btn.pressed.connect(func(): _on_rebind_pressed(action, btn))
+			hbox.add_child(btn)
+			controls_vbox.add_child(hbox)
+			
+	var reset_btn = Button.new()
+	reset_btn.text = "Reset to Defaults"
+	reset_btn.pressed.connect(func():
+		var im = get_tree().root.get_node_or_null("InputManager")
+		if im and im.has_method("reset_to_defaults"):
+			im.reset_to_defaults()
+			_populate_controls()
+	)
+	controls_vbox.add_child(reset_btn)
+
+func _on_rebind_pressed(action: String, btn: Button) -> void:
+	_awaiting_rebind = action
+	btn.text = "Press any key..."
+
+func _input(event: InputEvent) -> void:
+	if _awaiting_rebind != "" and event is InputEventKey and event.pressed:
+		get_viewport().set_input_as_handled()
+		var im = get_tree().root.get_node_or_null("InputManager")
+		if im and im.has_method("rebind_action"):
+			im.rebind_action(_awaiting_rebind, event)
+		_awaiting_rebind = ""
+		_populate_controls()
 
 func _on_master_slider_changed(value: float) -> void:
 	settings_manager.master_volume = value

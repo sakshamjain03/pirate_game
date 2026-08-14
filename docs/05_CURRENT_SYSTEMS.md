@@ -32,10 +32,10 @@ the same pull request.
   captain + tech modifiers to damage.
 - `Cannonball.gd` — `RigidBody3D` projectile, straight-line velocity, despawns on contact or timeout.
 - `EnemyAI.gd` — state machine (IDLE/PATROL/CHASE/ATTACK/FLEE), picks broadside side, checks
-  `FactionManager` hostility, flees at low HP.
+  `FactionManager` hostility, flees at low HP. Assigns `AIProfileData` resources (e.g. `HarassingSloop.tres`, `AggressiveGalleon.tres`) to govern aggression, distance, flee threshold, and ammo preference.
 - `EnemySpawner.gd` — spawns/caps enemy population, weights faction selection by reputation
   (worse reputation with a faction → more of their ships spawn), exposes `spawn_hunter()`.
-- `LootDrop.gd` / `LootTableData.gd` — death drops rolled from a faction/boss-specific loot table.
+- `LootDrop.gd` / `LootTableData.gd` / `BoardingSystem.gd` — death drops and boarding rewards rolled from a faction/boss-specific loot table. Rewards dynamically scale with the destroyed ship's class (`max_crew`) and current empire `notoriety`.
 
 **Known gaps:** no cannonball arcing (straight-line only), no armor/hull-facing variance, no
 boarding, no multi-ship fleet coordination.
@@ -44,13 +44,12 @@ boarding, no multi-ship fleet coordination.
 `scripts/managers/ResourceManager.gd` + `scripts/world/Island.gd` + `scripts/world/BuildingData.gd`
 
 - `ResourceManager` (autoload): gold/wood/iron/rum/research, per-resource storage caps, a global
-  10-second economy tick signal, `add_resource` / `spend_resource` / `can_afford`.
+  10-second economy tick signal, `add_resource` / `spend_resource` / `can_afford`. Dynamically recalculates `max_storage` by summing `storage_bonus` across all constructed buildings.
 - `Island.gd`: tracks `built_buildings` per island, listens to the economy tick, produces
   resources per building. `build_structure()` / `upgrade_structure()` spend resources and swap
-  in the next `BuildingData` tier. Buildings snap into pre-authored `Marker3D` slots (**not**
-  free placement). Persists built-building IDs through `SaveManager`.
-- 10 populated `BuildingData` tiers exist: Academy, Farm, Fortress, LumberMill, Market, Mine,
-  Shipyard, Tavern, Warehouse, Watchtower.
+  in the next `BuildingData` tier. Restores buildings dynamically via name convention (`<BuildingName>_L<Level>.tres`). Includes `get_island_tier()` derived from average building levels.
+- 10 populated `BuildingData` chains exist: Academy, Farm, Fortress, LumberMill, Market, Mine,
+  Shipyard, Tavern, Warehouse, Watchtower. Each has 5 authored level resources (`_L1.tres` to `_L5.tres`) with geometric cost/production scaling.
 - **Offline catch-up (M5):** `SaveManager` persists `last_saved_unix` on every save; on load it
   computes elapsed real time (capped at 4h), then directly calls each loaded island's
   `_on_economy_tick()` and `FleetManager._on_economy_tick()` once per offline tick — deliberately
@@ -88,15 +87,13 @@ production chains), colonize/capture flow is broken (see §2).
 ## Player-facing UI for all of the above
 `scripts/ui/IslandMenu.gd` (largest UI file in the project)
 
-Tabbed, fully code-built UI: Buildings (build/upgrade), Shipyard (buy ships, gated on owning a
-Shipyard), Tavern (hire captains, gated on owning a Tavern), Fleet (assign missions), Research
-(unlock tech), Trade (sell resources), and a "Colonize (1000 Gold)" button for neutral islands.
-This already covers most of the PRD's colony/economy/fleet screens — extend this file rather
-than building parallel UI.
+Tabbed, fully code-built UI: Buildings (build/upgrade, gated by `required_island_tier`), Shipyard (buy ships, gated on owning a Shipyard), Tavern (hire captains, gated on owning a Tavern), Fleet (assign missions), Research (unlock tech), Trade (sell resources), and a "Colonize (1000 Gold)" button for neutral islands.
+
+`SettingsMenu.tscn` / `SettingsMenu.gd`: includes a Controls tab for input rebinding via `InputManager.rebind_action()` (persisted through `SettingsManager`). `WorldHUD` tints resource limits red when caps are reached.
 
 ## World/ships/ocean — M2 scope, functional with documented gaps
 `ShipController`, `ShipMovement`, `ShipVisuals`, `BuoyancySimulator`, `WaveGenerator`,
-`OceanController`, `CameraRig`, `DockingSystem`, `EnvironmentController`, `WorldManager`. See
+`OceanController`, `CameraRig` (includes smooth `enter_docked_view()` / `exit_docked_view()` transitions driven by `DockingSystem` signals), `DockingSystem`, `EnvironmentController`, `WorldManager`. See
 `.kiro/specs/milestone-m2-playable-world/tasks.md` bug-fix notes and §2 below for open gaps.
 
 ---
@@ -242,14 +239,37 @@ milestone-m4-empire-escalation (see that spec's `RegionData` resource).
 
 # 4. Autoload registry (current, for reference)
 
+Re-read directly from `project.godot` on 2026-08-14. The previous version of this section was
+**stale**: it listed `GameManager`, which no longer exists (only an orphaned
+`scripts/managers/GameManager.gd.uid` remains), and omitted `TutorialManager`, which *is*
+registered.
+
 ```
-GameManager, SaveManager, SceneManager, SettingsManager, AudioManager,
-ResourceManager, FleetManager, TechManager, EventManager, FactionManager,
-EmpireManager
+SaveManager, SceneManager, SettingsManager, AudioManager, ResourceManager,
+FleetManager, TechManager, EventManager, FactionManager, EmpireManager,
+TutorialManager
 ```
 
 `ScreenshotHarness` (D4) has been removed from `[autoload]`; it's now invoked manually only,
 per its own header comment.
+
+**Not autoloads — scene-local nodes** under `World/Systems` in `scenes/world/World.tscn`. This
+distinction matters: anything outside the World scene that tries to reach one of these via
+`get_tree().root.get_node_or_null(...)` gets null (see D55).
+
+```
+WorldManager, InputManager, DockingSystem, EnemySpawner, WorldEventManager, BoardingSystem
+```
+
+## No narrative, quest, or discovery system exists
+
+As of 2026-08-14 there is no campaign, chapter, quest, or objective system of any kind. The only
+narrative content in the project is the **8 hardcoded steps** in
+`scripts/managers/TutorialManager.gd` (an `Array[Dictionary]` in the script body, not a
+`Resource` — a standing `AGENTS.md` data-driven violation). `IslandData.discovered` is authored
+on all 6 islands and **never written to by any code**, so there is no discovery or fog system
+either. Both are M7/M8 scope; see `docs/06_NARRATIVE_AND_WORLD.md` and
+`docs/14_SYSTEM_INVENTORY.md`.
 
 ---
 
@@ -345,11 +365,53 @@ changed in the systems this doc covers:
 | D36 | **HUD layout defects** (both found by screenshot, neither reported). `WorldHUD._create_notoriety_label()` used `PRESET_TOP_RIGHT` + `position.x -= 300`, anchoring only the label's *left* edge to the screen edge — text ran off-screen *and* printed on top of the resource bar. `announce_event()` used `PRESET_CENTER` (a zero-width rect), so long announcements grew off the right edge; its tween also faded `modulate:a` from 1.0 *to* 1.0, a no-op "fade in". | **Resolved.** Notoriety label right-aligned in an explicitly-offset rect that grows leftwards, positioned below the resource bar. Announcement banner spans full width with `AUTOWRAP_WORD_SMART`, starts transparent, and actually fades. |
 | D37 | **`ManOWar.tres` set `stability_torque_multiplier = 25.0` against `@export_range(0.0, 20.0)`.** The authored ships form a deliberate ladder scaling with hull size (Dinghy 8 → Galleon 20 → ManOWar 25), so 25 is intended and the *range* was wrong. Out-of-range values load fine at runtime, but the inspector would have snapped it to 20 the first time anyone opened ManOWar in the editor. | **Resolved.** Range widened to `0.0, 30.0`. |
 | D38 | **`project.godot` referenced a nonexistent `res://icon.svg`**, logging an error on every single launch. | **Resolved.** Project icon added rather than removing the setting, since an exported build needs one. |
-| D39 | **Ships beach themselves on island terrain** and end up stranded and tipped. Not a buoyancy problem — the hull is resting on static geometry (the island collision cylinder sits at `y=+2.0`, above the waterline). `EnemyAI` steers straight at its target with no obstacle avoidance. | **Open.** Tracked as V8. Needs avoidance steering or a no-sail radius around islands. |
-| D40 | **`Sloop.tres` points at `pirate-sloop-lvl1.glb`, one of only two models in `assets/models/` with no texture** (0 images; colour carried purely in `baseColorFactor`), against 72 stock Kenney models that all use the `colormap` atlas. Sloop is the default enemy ship, so this path is active, not latent as previously recorded. Any change to `KenneyMaterialApplier` affects the two groups differently. | **Open.** Renders acceptably in captures — cosmetic risk rather than a visible defect. Tracked as V7. |
+| D39 | **Ships beach themselves on island terrain** and end up stranded and tipped. Not a buoyancy problem — the hull is resting on static geometry (the island collision cylinder sits at `y=+2.0`, above the waterline). `EnemyAI` steers straight at its target with no obstacle avoidance. | **Fixed 2026-08-09.** `EnemyAI` gained a three-feeler whisker probe (`_get_avoidance_turn()`/`_probe()`) masking layer 5 (terrain) only, so enemies steer around islands without swerving around each other. Avoidance overrides the navigation turn unconditionally — running aground is always worse than missing a waypoint, and a beached hull is unrecoverable. Patrol waypoints are also pushed back to open water via `_push_to_open_water()`, since a waypoint generated inside an island was unreachable and made ships grind along the shore forever. Tuning is exported (`avoid_probe_distance`, `avoid_feeler_angle`, `avoid_collision_mask`, `avoid_turn_strength`). |
+| D40 | **`Sloop.tres` points at `pirate-sloop-lvl1.glb`, one of only two models in `assets/models/` with no texture** (0 images; colour carried purely in `baseColorFactor`), against 72 stock Kenney models that all use the `colormap` atlas. Sloop is the default enemy ship, so this path is active, not latent as previously recorded. Any change to `KenneyMaterialApplier` affects the two groups differently. | **Fixed 2026-08-09.** Scope was wider than recorded: the two untextured models backed **three** ships (Sloop, Dinghy, Brigantine), and the other five shared just two Kenney models, so the fleet had almost no silhouette variety. All 8 `resources/ships/*.tres` were remapped onto textured stock models graded by tier (boat-row-small → ship-small → ship-pirate-small → ship-medium → ship-pirate-medium → ship-large → ship-pirate-large). Both untextured `.glb` files and the now-empty `assets/models/ships/` directory were deleted after confirming zero remaining references. |
+| D41 | **`SettingsManager.load_settings()` rewrote the global `InputMap` on every call**, erasing and re-adding key events for 11 actions. `InputMap` is process-global but a `SettingsManager` is an ordinary object, and `tests/test_settings_manager.gd` constructs 50+ throwaway managers per property test. The file went from 3.2s to **over 60s** (the whole suite stopped terminating), and actions were left progressively stripped of their events. | **Fixed 2026-08-09.** Input application is now opt-in via `apply_input_bindings_on_load`, set true in `_ready()` only for the real autoload singleton; the logic moved to `load_input_bindings()`. Also added the `has_action()` guard the load path lacked (save already had it), made an empty stored array mean "nothing authored" rather than "unbind", and replaced the action list duplicated across save/load with the `REBINDABLE_ACTIONS` constant. |
+| D42 | **Wave 3's three tests were written to `test/unit/`, not `tests/`** — so GUT never ran them despite Task 23 being ticked. The spec warns twice that `-gdir=res://tests` does not recurse. | **Fixed 2026-08-09.** Moved to `tests/`; all three pass (`test_building_levels.gd` alone carries 230 asserts). |
+| D43 | **`EnemyAI.gd` failed to parse** — `min()`/`clamp()` return Variant and this project promotes "inferred from Variant" to an error, so `test_empire_scaling.gd` could not load the script at all. | **Fixed 2026-08-09.** Explicit `: float` annotations on `nearest` and `urgency`. |
+| D44 | **`Island._recalculate_tier()` called `get_tree()` unguarded.** Tier is recalculated from `restore_buildings()`, which can run before the island enters the tree — `get_tree()` is null there and the crash aborted the whole restore. | **Fixed 2026-08-09.** Announcement guarded on `is_inside_tree()`. |
+| D45 | **`CameraRig._connect_to_docking_system()` dereferenced a null `get_tree()`.** It runs deferred, so the rig may have left (or never entered) the tree by the time it lands. | **Fixed 2026-08-09.** Early return on `not is_inside_tree()`. |
+| D46 | **Two GUT API misuses in `tests/test_boarding.gd`** — `get_signal_parameters()` already returns the parameter array so `signal_args[0][0]` double-indexed into a bool; and `assert_signal_emitted_with_parameters()`'s 4th argument is an emission *index*, but a String was passed, causing a `String == int` comparison and a deep-diff against null. Also `Resource.free()` on a RefCounted in `test_island_tier.gd`. | **Fixed 2026-08-09.** Correct indexing, index argument dropped, manual `free()` removed. |
+| D47 | **Ship scenes were geometrically mismatched to their models**, which is what made ships render as scattered debris. The 2026-08-09 remap pointed all 8 classes at Kenney hulls spanning `x = -2.40..2.40` with masts to `y = 9.96`, but the scenes still carried transforms authored for a much smaller retired hull: cannon markers at `x = +/-2.0, y = 1.8` sat *inside* the planking, and separate `PirateFlag`/`MastRopes` props at `y = 3.5` floated in mid-air beside rigging the GLBs already contain. | **Fixed 2026-08-09.** Across `PlayerShip`/`EnemyShip`/`BossShip`: duplicate flag/rope props removed (the models ship their own), cannon markers moved to `x = +/-2.5, y = 1.6` and spread over the true ~9-unit hull length, hull `BoxShape3D` corrected to `4.6 x 2.0 x 9.0`, and float points widened `+/-1.5 -> +/-1.9` for a longer righting lever arm. Unused `ext_resource` entries and `load_steps` fixed. |
+| D48 | **Toon shader had no mid-tones — the "chalky/cardboard" look.** `diff = smoothstep(0.0, 0.02, NdotL)` is a near-binary ramp, so every surface facing the light snapped to full brightness and every surface facing away snapped to fill, with nothing between; a flat `0.15` neutral ambient then lifted shadows toward that same pale value. Hulls, sails and terrain all rendered as one washed-out tone regardless of angle. | **Fixed 2026-08-09.** Replaced with a three-band cel ramp (shadow / mid / full) exposed as `toon_band_1/2` + `toon_shade_low/mid` uniforms, keeping the hard cel edges while restoring tonal separation. Ambient deepened and cooled (`0.15` -> `0.10`, bluer) so lit faces read as lit. Values are uniforms, not hardcoded, per AGENTS.md. |
+| D49 | **Double-boarding exploit.** `BoardingSystem.attempt_boarding()` zeroed `hull` and emitted `destroyed` directly, leaving `ShipDamage._is_destroyed` false, and never cleared `_eligible_enemy` — so a second call against the same wreck re-rolled the loot table and re-granted the full payout. | **Fixed 2026-08-09.** Added `ShipDamage.mark_destroyed()` (idempotent) and `is_destroyed()`; `attempt_boarding()` now refuses an already-destroyed hull and clears eligibility on both outcomes. Guarded by `test_boarding.gd::test_boarding_a_wreck_twice_grants_loot_only_once`. |
+| D50 | **`ResourceManager.recalculate_storage_capacity()` dropped the `research` cap.** The function rebuilds `max_storage` from a literal that omitted `research`, so the 9999 cap set at init fell through to the 999999 default as soon as any building was constructed. | **Fixed 2026-08-09.** `research` added to `base_storage` with a comment explaining that the dictionary is rebuilt, not amended. |
+| D51 | **The "chalky/cardboard" look was channel clipping from an overbright sun, not a material or shader-ramp problem.** `EnvironmentController` hardcoded the sun energy curve as `(0.3, 0.9, 1.3, 0.9)`. At noon (1.3) the Kenney colormap's warm wood tones — which peak near RGB(241,151,108) — computed to `0.945 * 1.0 * 1.3 = 1.23` in red and **clipped to 1.0**. Warm surfaces lost all red-channel detail and collapsed toward one washed-out salmon, while cooler surfaces (sails, water) stayed correct — exactly why hulls, palm trunks, rocks, docks and sand all read as the same flat orange while grey-blue sails looked fine. Verified by decoding `colormap.png` and computing final lit values; the atlas, the import settings, `KenneyMaterialApplier` and the material pipeline were all confirmed **correct** (runtime probe showed `albedo=(1,1,1)` + atlas texture bound on every surface). | **Fixed 2026-08-09.** Sun energy moved out of the script into `EnvironmentSettings` as `sun_energy_night/morning/noon/evening` (data-driven per AGENTS.md) and retuned to `(0.25, 0.75, 1.0, 0.75)`, which keeps the brightest atlas pixel just under clipping. `World.tscn`'s authored light also corrected (`1.3 -> 1.0`, colour de-orangeed) so the scene matches before the controller's first tick. |
+| D52 | **Cannon props rendered as oversized grey blocks floating beside the decks.** `cannon.glb` is a ~2-unit cube with a centred pivot; `ShipCombat._spawn_cannon_models()` instanced it at identity scale onto each marker, so on a 4.6-wide hull each cannon was nearly half the beam and half-buried below the deck. | **Fixed 2026-08-09.** Cannons scaled to 0.45 and lifted by half their scaled height so they rest on the deck; markers normalized across all three ship scenes to `x = +/-2.05, y = 1.7`, `z = -2.4/0/+2.4`, just inside the bulwark. |
 
 **Verification:** GUT suite at **103 tests, 102 passing, 1 failing** — the single
 failure is `test_property_21_lod_distance_transitions`, the known/accepted
 pre-existing gap. Baseline restored, no regression. Rendered validation came
 from `scenes/debug/CaptureHarness.tscn`, which captures the real viewport at
 ≈0/1/3/7/12s; per `CLAUDE.md`, sailing *feel* still needs a human at the controls.
+
+> **Baseline correction (2026-08-14).** The `103 tests / 102 passing` figure above — repeated in
+> the M6 spec header and used as the regression guard ever since — is **stale by 15 tests**. A
+> real run on this date measured **118 tests, 117 passing, 1 failing** (the same known LOD
+> failure). Wave 3's three test files were never folded into the count. **118 / 117 is the number
+> to regress against.** The engine binary is at
+> `%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_*\Godot_v4.7.1-stable_win64.exe`
+> — the same path `Play Pirate Empire.cmd` has always used — so "binary unavailable" is not a
+> valid reason to skip a checkpoint run.
+
+---
+
+## Pre-M7 audit (2026-08-14)
+
+Found while writing `docs/06_NARRATIVE_AND_WORLD.md` and `docs/11`–`15`, by direct inspection of
+the resource files and UI scripts that no previous pass had cross-checked against each other.
+None of these were known before. Full context for each is in `docs/14_SYSTEM_INVENTORY.md` §7.
+
+Also confirmed in this pass, and now fixed in this document: §4's autoload registry was stale
+(listed the deleted `GameManager`, omitted the registered `TutorialManager`).
+
+| # | Defect | Status |
+|---|--------|--------|
+| D53 | 🔴 **Ship prices are computed from hull `mass`, in a UI script.** `IslandMenu.gd:357-359` derives `cost_gold = int(ship.mass / 100)`, `cost_wood = mass / 200`, `cost_iron = mass / 400`. The resulting ladder is catastrophically cheap: **Man O'War = 300 gold / 150 wood / 75 iron** (600 HP, 50 damage) against a starting purse of 200 gold and a level-5 Farm at **1350 gold**. Every hull is also affordable within the starting storage caps, so nothing gates it. This defeats **M6 Requirement 8 in full** — the circular economy in which combat loot funds the empire and the empire funds a better ship — because the ship half of that circle is free. It additionally violates `AGENTS.md` ("hardcoded values are forbidden"; "balance belongs inside Resources") *and* couples balance to physics: any future change to a hull's `mass` for buoyancy reasons silently re-prices it. | **Open — M7 Wave 1, priority 1.** Add `cost_gold`/`cost_wood`/`cost_iron`/`cost_rum` to `ShipStats`, author per hull to the ladder in `docs/13_CAMPAIGN_LEVELS_1-5.md` §2, and delete the mass formula. |
+| D54 | `ShipStats` has no `ship_id`, no `display_name`, and no `ship_class`. `IslandMenu._create_ship_entry()` therefore derives the shown name from the **filename** (`ship.resource_path.get_file().split(".")`), so the Shipyard reads "ManOWar" and no hull can be renamed, re-skinned, or localised. The missing class field is also why M6 Requirement 8.4 (enemy hulls trend larger as notoriety rises) has to approximate tier via `max_crew`. | **Open — M7 Wave 1.** |
+| D55 | **`base_boarding_modifier` is authored on 0 of 20 captains.** `CaptainData.gd:21` exports it and `BoardingSystem.gd:80` reads `boarding_modifier` off the active captain, so the code path is live — but with no captain setting it, every captain returns the `1.0` default and **captain choice has no effect on boarding at all**. M6 Requirement 3.2 ("modified by captain traits") is half-dead. Exactly the D14 failure mode: schema exists, data was never authored, feature silently inert. Also a flavour/mechanics contradiction — `Cutlass.tres`'s entire authored personality is *"Prefers boarding actions to broadsides"* and he is mechanically no better at it than any other captain. | **Open — M7 Wave 1.** Suggested values in `docs/12_CHARACTER_BIBLE.md` §5. |
+| D56 | `hire_cost_gold` is set on only **15 of 20** captains; the other five silently fall through to the `500` default, so they are mispriced relative to their stats. The field was added in M5 specifically so recruitment cost scales with roster depth. | **Open — M7 Wave 1.** |
+| D57 | **Input rebinding is silently dead.** `SettingsMenu.gd:104` and `:118` resolve the rebinding target with `get_tree().root.get_node_or_null("InputManager")` — i.e. as an autoload. `InputManager` is **not** an autoload; it is a scene-local node at `World/Systems/InputManager`. Both lookups always return null, both are null-guarded, so pressing a key in the rebind flow swallows the input (`set_input_as_handled()`), clears `_awaiting_rebind`, and re-renders the *old* binding — no error, no crash, no rebinding. **M6 Requirement 9.2 / Task 27 does not work.** Same class as D15: a feature checkpoint-verified in isolation but dead in the real tree. | **Open — M7 Wave 1.** Fix by group lookup or by promoting `InputManager` to an autoload. |
+| D58 | **Cold start is unplayable by construction.** `ResourceManager` starts the player on **200 gold**; `IslandMenu`'s colonize button costs **1000**; and `EmpireManager.home_island_id` is only ever assigned by `Island.gd:124` on a successful capture. A new player therefore owns no island, has no production, and must grind 800 gold from combat loot alone before the game's central verb (building) becomes available. | **Open — M7.** Resolution in `docs/13_CAMPAIGN_LEVELS_1-5.md` §3: a new game starts with Port Royal owned and set as home; the 1000-gold colonise cost applies to additional islands only. |
+| D59 | **Map ring ordering is inverted.** In `scenes/world/World.tscn`, tier-2 `skull_cove` sits **54 u** from the home island while tier-1 `tortuga` sits **94 u**, so the first thing a new player sails toward is the tier-2 pirate stronghold. Distance stops signalling danger, which is the map's primary spatial read. | **Fixed 2026-08-14** — see the map-layout entry below. |

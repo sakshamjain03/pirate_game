@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CaptainData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CaptainData" format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
 
@@ -7,8 +7,8 @@ script = ExtResource("1_cd")
 captain_id = "barnaby"
 captain_name = "\"Bruiser\" Barnaby"
 background = "Won his ship in a bare-knuckle bet and has defended it the same way since."
+hire_cost_gold = 2920
 base_speed_modifier = 0.85
 base_turn_rate_modifier = 0.9
 base_damage_modifier = 1.5
 base_health_modifier = 1.2
-hire_cost_gold = 2920

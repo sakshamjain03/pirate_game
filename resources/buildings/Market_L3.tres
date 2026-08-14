@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Resource" path="res://resources/buildings/Market_L4.tres" id="1_1f8bm"]
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_lheix"]
+
+[resource]
+script = ExtResource("1_lheix")
+building_id = "market_l3"
+building_name = "Market Level 3"
+description = "Generates Gold over time."
+next_upgrade = ExtResource("1_1f8bm")
+level = 3
+cost_gold = 0
+cost_wood = 350
+cost_iron = 175
+produces_resource = "gold"
+production_amount = 32
+production_interval = 15.0
+model_path = "res://assets/models/structure-platform-small.glb"

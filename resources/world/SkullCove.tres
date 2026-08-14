@@ -9,3 +9,5 @@ island_name = "Skull Cove"
 discovered = false
 has_dock = true
 docking_speed_limit = 5.0
+world_position = Vector2(40, -150)
+region_id = "contested_waters"

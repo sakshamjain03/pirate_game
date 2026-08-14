@@ -87,6 +87,18 @@ scripts/
 | 02_TECH_STACK.md | Technology decisions |
 | 03_ART_DIRECTION.md | Visual identity |
 | 04_GAME_LOOP.md | Core gameplay loops |
+| 05_CURRENT_SYSTEMS.md | **Ground truth** — what actually runs today, and every known defect |
+| navalCombat.md | Locked design for real-time combat — auto-fire, roles, captain abilities, battle upgrades |
+| 06_NARRATIVE_AND_WORLD.md | Premise, tone, and the five-chapter story spine |
+| 07_AI_AGENT_WORKFLOW.md | Which agent does which work |
+| 08_PROMPT_LIBRARY.md | Task-prompt templates for the implementation agent |
+| 09_VISUAL_BUG_TRACKER.md | Screenshot-driven rendering defect ledger |
+| 10_ASSET_REQUESTS.md | Outstanding art and audio needs |
+| 11_WORLD_MAP.md | Geography — where every island is, and why |
+| 12_CHARACTER_BIBLE.md | The cast, including all twenty captains |
+| 13_CAMPAIGN_LEVELS_1-5.md | What happens in the first five chapters |
+| 14_SYSTEM_INVENTORY.md | **Every component and process the game needs, with status** |
+| 15_MASTER_PLAN.md | The order the rest gets built in (M7 → M12) |
 
 ---
 

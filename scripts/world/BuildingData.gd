@@ -9,6 +9,10 @@ class_name BuildingData extends Resource
 @export var description: String = "Produces wood over time."
 @export var next_upgrade: Resource # BuildingData
 
+@export_group("Progression")
+@export var level: int = 1
+@export var required_island_tier: int = 1
+@export var storage_bonus: Dictionary = {}
 @export_group("Cost")
 @export var cost_gold: int = 50
 @export var cost_wood: int = 0

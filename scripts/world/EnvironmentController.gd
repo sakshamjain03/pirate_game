@@ -74,7 +74,9 @@ func _update_lighting() -> void:
 	directional_light.light_color = _lerp_color(seg, t,
 		settings.sun_color_night, settings.sun_color_morning,
 		settings.sun_color_noon, settings.sun_color_evening)
-	directional_light.light_energy = _lerp_float(seg, t, 0.3, 0.9, 1.3, 0.9)
+	directional_light.light_energy = _lerp_float(seg, t,
+		settings.sun_energy_night, settings.sun_energy_morning,
+		settings.sun_energy_noon, settings.sun_energy_evening)
 
 	# The sky background and ambient light don't follow the sun on their own —
 	# without driving them here the sky stays a static bright-day gradient

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_o4u2y"]
+[ext_resource type="Resource" path="res://resources/buildings/Farm_L5.tres" id="1_sn500"]
+
+[resource]
+script = ExtResource("1_o4u2y")
+building_id = "farm_l4"
+building_name = "Rum Distillery Level 4"
+description = "Produces rum over time."
+next_upgrade = ExtResource("1_sn500")
+level = 4
+cost_gold = 600
+cost_wood = 120
+cost_iron = 40
+produces_resource = "rum"
+production_amount = 16
+production_interval = 12.0

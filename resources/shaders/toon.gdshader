@@ -9,6 +9,15 @@ uniform sampler2D texture_albedo : source_color, filter_nearest, repeat_disable;
 uniform float metallic  = 0.0;
 uniform float roughness = 0.5;
 
+// Toon light ramp. NdotL below `toon_band_1` uses `toon_shade_low`, between the
+// two bands uses `toon_shade_mid`, above `toon_band_2` is fully lit. Exposed as
+// uniforms so the art direction stays data-driven (AGENTS.md) — raise the shade
+// values for a flatter, more graphic look, lower them for more contrast.
+uniform float toon_band_1  : hint_range(0.0, 1.0) = 0.25;
+uniform float toon_band_2  : hint_range(0.0, 1.0) = 0.62;
+uniform float toon_shade_low : hint_range(0.0, 1.0) = 0.42;
+uniform float toon_shade_mid : hint_range(0.0, 1.0) = 0.72;
+
 void fragment() {
 	vec4 albedo_tex = texture(texture_albedo, UV);
 	ALBEDO    = albedo.rgb * albedo_tex.rgb;
@@ -40,18 +49,38 @@ void light() {
 	// surface's own hue. SPECULAR_LIGHT is not albedo-multiplied, so the
 	// specular term below is unaffected.
 	float NdotL = dot(NORMAL, LIGHT);
-	float diff   = smoothstep(0.0, 0.02, NdotL);  // near-binary shadow edge
 
-	vec3 diffuse = light_energy * diff * ATTENUATION;
+	// Banded toon ramp. This was previously smoothstep(0.0, 0.02, NdotL) — a
+	// near-binary edge, so every surface facing the light at all snapped to
+	// full brightness and every surface facing away snapped to fill. With no
+	// values in between, hulls, sails and terrain all rendered as the same
+	// flat pale tone regardless of how they were angled, which is what made
+	// the game read as chalky and cardboard-like.
+	//
+	// Three lit bands (shadow / mid / full) keep the hard cel edges the style
+	// depends on while restoring the tonal separation that makes form legible:
+	// a deck now reads brighter than the hull side beneath it.
+	float lit = smoothstep(0.0, 0.02, NdotL);
+	float band = NdotL <= 0.0 ? 0.0
+		: (NdotL < toon_band_1 ? toon_shade_low
+		: (NdotL < toon_band_2 ? toon_shade_mid : 1.0));
+
+	vec3 diffuse = light_energy * band * ATTENUATION;
+	float diff = lit;
 
 	// Warm/cool ambient fill for the shadow side. WorldEnvironment ambient
 	// light contributes too, but on its own it reads flat across a hard
 	// toon shadow edge — this term adds a subtle color-graded fill (cool
 	// into shadow, warm near the terminator) so shadowed faces read as
 	// shaded rather than going to flat black or losing all definition.
-	vec3 cool_color = vec3(0.55, 0.65, 0.85);
-	vec3 warm_color = vec3(1.0, 0.85, 0.65);
-	vec3 ambient = mix(cool_color, warm_color, diff) * (1.0 - diff) * 0.15;
+	// Deeper and bluer than before (was 0.15 flat with a paler cool tone). A
+	// bright neutral fill lifted every shadow toward the same washed-out value
+	// as the lit side, collapsing contrast — the other half of the "chalky"
+	// problem. Shadows now sit lower and cooler, so lit faces actually read as
+	// lit and the low-poly forms regain their volume.
+	vec3 cool_color = vec3(0.34, 0.45, 0.72);
+	vec3 warm_color = vec3(0.95, 0.78, 0.58);
+	vec3 ambient = mix(cool_color, warm_color, band) * (1.0 - band) * 0.10;
 
 	// Rim light — bright edge glow (sells the cartoon look)
 	float rim     = 1.0 - clamp(dot(VIEW, NORMAL), 0.0, 1.0);

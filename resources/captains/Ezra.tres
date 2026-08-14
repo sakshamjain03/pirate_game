@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CaptainData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CaptainData" format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
 
@@ -7,8 +7,8 @@ script = ExtResource("1_cd")
 captain_id = "ezra"
 captain_name = "\"Anchor\" Ezra"
 background = "A slow, unshakeable wall of a man who never abandons a fight."
+hire_cost_gold = 2015
 base_speed_modifier = 0.7
 base_turn_rate_modifier = 0.75
 base_damage_modifier = 1.15
 base_health_modifier = 1.5
-hire_cost_gold = 2015

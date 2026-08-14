@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CaptainData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CaptainData" format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
 
@@ -7,8 +7,8 @@ script = ExtResource("1_cd")
 captain_id = "constance"
 captain_name = "\"Constance\" the Unyielding"
 background = "Has never once ordered a retreat, and never will."
+hire_cost_gold = 3300
 base_speed_modifier = 0.8
 base_turn_rate_modifier = 0.85
 base_damage_modifier = 1.25
 base_health_modifier = 1.45
-hire_cost_gold = 3300

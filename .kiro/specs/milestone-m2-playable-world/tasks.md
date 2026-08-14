@@ -12,20 +12,20 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Set up GDScript testing framework for property-based testing
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 2. Implement ocean rendering and environment
-  - [ ] 2.1 Create OceanController script and scene
+- [x] 2. Implement ocean rendering and environment
+  - [x] 2.1 Create OceanController script and scene (verified 2026-08-09: scripts/world/OceanController.gd + scenes/world/Ocean.tscn)
     - Implement Gerstner wave algorithm for realistic waves
     - Create water shader with vertex displacement, fresnel effect, and reflections
     - Implement LOD system for distant water
     - Configure performance settings (low/medium/high quality)
     - _Requirements: 2.1.1, 2.2.1, 2.2.4_
   
-  - [ ]* 2.2 Write property tests for ocean system
+  - [x]* 2.2 Write property tests for ocean system (verified 2026-08-09: tests/test_ocean_properties.gd, properties 19/20/22 pass; 21 LOD is the one known open gap)
     - **Property 19: Wave Animation Continuity**
     - **Property 21: LOD Distance Transitions**
     - **Validates: Requirements 2.2.1, 2.2.4**
   
-  - [ ] 2.3 Implement world environment and lighting
+  - [x] 2.3 Implement world environment and lighting (verified 2026-08-09: WorldEnvironment + Directional/Fill lights in World.tscn, driven by EnvironmentController)
     - Set up WorldEnvironment with day/night cycle
     - Configure DirectionalLight and FogVolume
     - Implement basic weather system for lighting changes
@@ -39,7 +39,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
     - Configure ship parameters via ShipStats resource
     - _Requirements: 2.4.1, 2.4.2, 2.4.3, 2.4.4, 2.5.2_
   
-  - [ ]* 3.2 Write property tests for ship movement
+  - [x]* 3.2 Write property tests for ship movement (verified 2026-08-09: tests/test_ship_properties.gd)
     - **Property 4: Proportional Movement Response**
     - **Property 5: Realistic Turning Physics**
     - **Property 6: Water Resistance Deceleration**
@@ -64,13 +64,15 @@ Convert the feature design into a series of prompts for a code-generation LLM th
     - Configure camera constraints (distance limits, angle limits)
     - _Requirements: 2.1.2, 2.3.1, 2.3.2, 2.3.3, 2.3.4_
   
-  - [ ]* 5.2 Write property tests for camera system
+  - [x]* 5.2 Write property tests for camera system (verified 2026-08-09: tests/test_camera_properties.gd, properties 1-3)
     - **Property 1: Camera Following Bounds**
     - **Property 2: Camera Obstacle Avoidance**
     - **Property 3: Smooth Camera Damping**
     - **Validates: Requirements 2.1.2, 2.3.1, 2.3.2, 2.3.3, 2.3.4_
   
   - [ ] 5.3 Implement docking camera transitions
+    - **AUDIT 2026-08-09: CONFIRMED STILL OPEN.** `scripts/world/CameraRig.gd` contains no
+      docking-related code at all. Rolled into M6 (see .kiro/specs/milestone-m6-*).
     - Create smooth transition to focused island view when docked
     - Implement camera state machine for different gameplay contexts
     - _Requirements: 2.3.5_
@@ -83,7 +85,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
     - Add input buffering and smoothing
     - _Requirements: 2.7.1, 2.7.2, 2.7.3, 2.7.4, 2.7.5_
   
-  - [ ]* 6.2 Write property tests for input system
+  - [x]* 6.2 Write property tests for input system (verified 2026-08-09: tests/test_input_properties.gd, properties 8/14/15/23/24/25)
     - **Property 8: Input Response Latency**
     - **Property 14: Input Method Priority**
     - **Property 15: Input Sensitivity Application**
@@ -93,6 +95,8 @@ Convert the feature design into a series of prompts for a code-generation LLM th
     - **Validates: Requirements 2.5.1, 2.7.1, 2.7.2, 2.7.3, 2.7.4, 2.7.5_
   
   - [ ] 6.3 Create input configuration interface
+    - **AUDIT 2026-08-09: CONFIRMED STILL OPEN.** `SettingsMenu.gd` exposes audio/video only;
+      `InputManager.gd` has no InputMap rebinding API. Rolled into M6.
     - Implement adjustable sensitivity and dead zone settings
     - Add input method detection and switching
     - Configure input context switching (menu vs gameplay)
@@ -113,7 +117,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
     - Configure docking speed validation and feedback
     - _Requirements: 2.9.1, 2.9.2, 2.9.3, 2.9.4, 2.9.5_
   
-  - [ ]* 7.3 Write property tests for docking system
+  - [x]* 7.3 Write property tests for docking system (verified 2026-08-09: tests/test_docking_properties.gd, properties 10-13)
     - **Property 10: Docking Proximity Detection**
     - **Property 11: Docking Speed Validation**
     - **Property 12: Docking Alignment Automation**

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_vec0e"]
+
+[resource]
+script = ExtResource("1_vec0e")
+building_id = "fortress_l5"
+building_name = "Fortress Level 5"
+description = "Heavy Island Defense (Future Combat)."
+level = 5
+cost_gold = 18000
+cost_wood = 9000
+cost_iron = 9000
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+model_path = "res://assets/models/tower-complete-large.glb"

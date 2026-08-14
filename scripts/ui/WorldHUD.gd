@@ -19,6 +19,7 @@ signal _dummy  # ensures signals section exists
 @onready var port_label      : Label        = %PortCooldown
 @onready var stbd_label      : Label        = %StarboardCooldown
 @onready var dock_prompt     : PanelContainer = %DockPrompt
+@onready var board_prompt    : PanelContainer = %BoardPrompt
 @onready var compass_needle  : Control      = %CompassNeedle
 
 @onready var gold_label      : Label        = %GoldLabel
@@ -94,6 +95,11 @@ func _find_ship() -> void:
 		dock_sys.dock_area_exited.connect(_on_dock_area_exited)
 		dock_sys.dock_speed_exceeded.connect(_on_dock_speed_exceeded)
 		
+	var boarding_sys = current_scene.get_node_or_null("Systems/BoardingSystem") if current_scene else null
+	if boarding_sys:
+		boarding_sys.boarding_prompt_available.connect(_on_boarding_prompt_available)
+		boarding_sys.boarding_prompt_unavailable.connect(_on_boarding_prompt_unavailable)
+		boarding_sys.boarding_resolved.connect(_on_boarding_resolved)
 		
 	# Create Economy Tick Label
 	_create_economy_label()
@@ -182,12 +188,44 @@ func _on_dock_area_exited(_island_id: String) -> void:
 func _on_dock_speed_exceeded() -> void:
 	announce_event("Too fast to dock — slow down!")
 
+func _on_boarding_prompt_available(_enemy_ship: Node) -> void:
+	if board_prompt:
+		board_prompt.visible = true
+
+func _on_boarding_prompt_unavailable() -> void:
+	if board_prompt:
+		board_prompt.visible = false
+
+func _on_boarding_resolved(success: bool, loot: Dictionary) -> void:
+	if success:
+		var text = "Boarding Successful!\n"
+		for k in loot.keys():
+			text += "+%d %s " % [loot[k], k.capitalize()]
+		announce_event(text)
+	else:
+		announce_event("Boarding Failed! Crew lost.")
+
+func _tint_label(lbl: Label, current: int, maximum: int) -> void:
+	if not lbl: return
+	if current >= maximum:
+		lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+	else:
+		lbl.remove_theme_color_override("font_color")
+
 func _on_resources_changed(res: Dictionary) -> void:
 	var max_res = ResourceManager.max_storage
-	if gold_label: gold_label.text = "💰 %s / %s" % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
-	if wood_label: wood_label.text = "🪵 %s / %s" % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
-	if iron_label: iron_label.text = "⛏️ %s / %s" % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
-	if rum_label:  rum_label.text  = "🍷 %s / %s" % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
+	if gold_label: 
+		gold_label.text = "💰 %s / %s" % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
+		_tint_label(gold_label, res.get("gold", 0), max_res.get("gold", 9999))
+	if wood_label: 
+		wood_label.text = "🪵 %s / %s" % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
+		_tint_label(wood_label, res.get("wood", 0), max_res.get("wood", 9999))
+	if iron_label: 
+		iron_label.text = "⛏️ %s / %s" % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
+		_tint_label(iron_label, res.get("iron", 0), max_res.get("iron", 9999))
+	if rum_label:  
+		rum_label.text  = "🍷 %s / %s" % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
+		_tint_label(rum_label, res.get("rum", 0), max_res.get("rum", 9999))
 	if _economy_label:
 		# Just append it to the economy label for now to avoid creating a new UI element
 		var res_str = " | 🧪 %s" % str(res.get("research", 0))

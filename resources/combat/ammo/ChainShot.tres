@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AmmoData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/AmmoData.gd" id="1_ammo"]
+
+[resource]
+script = ExtResource("1_ammo")
+ammo_id = "chain"
+display_name = "Chain Shot"
+hull_damage_mult = 0.3
+sail_damage_mult = 1.0
+crew_damage_mult = 0.0
+speed_penalty = 0.5
+speed_penalty_duration = 10.0
+speed_mult = 1.0
+spread_degrees = 0.0
+projectiles_per_cannon = 1

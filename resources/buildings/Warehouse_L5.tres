@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_5qme6"]
+
+[resource]
+script = ExtResource("1_5qme6")
+building_id = "warehouse_l5"
+building_name = "Warehouse Level 5"
+description = "Increases maximum resource storage."
+level = 5
+storage_bonus = {
+"gold": 4500,
+"iron": 900,
+"rum": 450,
+"wood": 1800
+}
+cost_gold = 1800
+cost_wood = 900
+cost_iron = 180
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+model_path = "res://assets/models/tower-complete-small.glb"

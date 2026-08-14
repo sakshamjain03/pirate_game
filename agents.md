@@ -817,11 +817,43 @@ Battle Pass
 
 Procedural World Generation
 
-Large Story Campaign
+Branching Narrative Campaign
 
 These are future milestones.
 
 Do not implement unless instructed.
+
+---
+
+## Narrative — the one carve-out
+
+A **lightweight, data-driven chapter spine is in scope** for Version 1. It is the frame that gives
+the loop a reason; it is not a second game.
+
+In scope
+
+Up to five chapters
+
+Objectives resolved from signals that already exist
+
+Chapters authored entirely as Resource files
+
+Short dialogue beats through the existing dialogue panel
+
+Out of scope
+
+Branching narrative or player dialogue choices
+
+Cutscenes or scripted camera sequences
+
+Voice acting
+
+Any objective that blocks the economy loop
+
+Any chapter that requires a script change to add
+
+See `docs/06_NARRATIVE_AND_WORLD.md` for the design and
+`docs/13_CAMPAIGN_LEVELS_1-5.md` for the chapters.
 
 ---
 

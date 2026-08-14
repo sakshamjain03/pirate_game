@@ -34,6 +34,12 @@ class_name ShipStats extends Resource
 
 @export_group("Combat")
 @export_range(1.0, 1000.0) var max_health: float = 100.0
+@export_range(1.0, 1000.0) var max_sails: float = 100.0
+@export_range(1.0, 200.0) var max_crew: float = 20.0
+@export_range(1.0, 5.0) var stern_crit_multiplier: float = 1.5
+@export_range(0.0, 180.0) var stern_arc_degrees: float = 60.0
+@export_range(0.0, 1.0) var min_speed_fraction: float = 0.35
+@export_range(0.0, 1.0) var optimal_crew_fraction: float = 0.5
 @export_range(1.0, 100.0) var cannon_damage: float = 15.0
 @export_range(0.1, 10.0) var fire_rate: float = 2.0
 @export_range(10.0, 1000.0) var cannon_range: float = 200.0

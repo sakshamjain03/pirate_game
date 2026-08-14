@@ -8,3 +8,5 @@ island_id = "frozen_island"
 island_name = "Frostbite Reef"
 island_type = 3
 terrain_theme = 2
+world_position = Vector2(150, 60)
+region_id = "contested_waters"

@@ -86,6 +86,11 @@ func _process(delta: float) -> void:
 func notify_island_captured(island_id: String) -> void:
 	island_captured.emit(island_id)
 
+signal island_tier_changed(island_id: String, new_tier: int)
+
+func notify_island_tier_changed(island_id: String, new_tier: int) -> void:
+	island_tier_changed.emit(island_id, new_tier)
+
 func add_notoriety(amount: float) -> void:
 	if amount > 0.0:
 		_last_gain_unix = int(Time.get_unix_time_from_system())

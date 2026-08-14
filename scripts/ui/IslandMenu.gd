@@ -56,25 +56,25 @@ func _ready() -> void:
 
 func _load_building_data() -> void:
 	# In a real game, this would load from a directory or registry
-	var mill = load("res://resources/buildings/LumberMill.tres")
+	var mill = load("res://resources/buildings/LumberMill_L1.tres")
 	if mill: available_buildings.append(mill)
-	var mine = load("res://resources/buildings/Mine.tres")
+	var mine = load("res://resources/buildings/Mine_L1.tres")
 	if mine: available_buildings.append(mine)
-	var farm = load("res://resources/buildings/Farm.tres")
+	var farm = load("res://resources/buildings/Farm_L1.tres")
 	if farm: available_buildings.append(farm)
-	var market = load("res://resources/buildings/Market.tres")
+	var market = load("res://resources/buildings/Market_L1.tres")
 	if market: available_buildings.append(market)
-	var shipyard = load("res://resources/buildings/Shipyard.tres")
+	var shipyard = load("res://resources/buildings/Shipyard_L1.tres")
 	if shipyard: available_buildings.append(shipyard)
-	var tavern = load("res://resources/buildings/Tavern.tres")
+	var tavern = load("res://resources/buildings/Tavern_L1.tres")
 	if tavern: available_buildings.append(tavern)
-	var watchtower = load("res://resources/buildings/Watchtower.tres")
+	var watchtower = load("res://resources/buildings/Watchtower_L1.tres")
 	if watchtower: available_buildings.append(watchtower)
-	var fortress = load("res://resources/buildings/Fortress.tres")
+	var fortress = load("res://resources/buildings/Fortress_L1.tres")
 	if fortress: available_buildings.append(fortress)
-	var warehouse = load("res://resources/buildings/Warehouse.tres")
+	var warehouse = load("res://resources/buildings/Warehouse_L1.tres")
 	if warehouse: available_buildings.append(warehouse)
-	var academy = load("res://resources/buildings/Academy.tres")
+	var academy = load("res://resources/buildings/Academy_L1.tres")
 	if academy: available_buildings.append(academy)
 	
 	# Load Ships
@@ -247,39 +247,57 @@ func _create_building_entry(building: BuildingData) -> void:
 	if current_island.has_method("has_building"):
 		for b in current_island.built_buildings:
 			# Match by prefix so Level 2 counts as the same base building
-			if b.building_id.begins_with(building.building_id) or building.building_id.begins_with(b.building_id):
+			var b_base = b.building_id.split("_l")[0]
+			var check_base = building.building_id.split("_l")[0]
+			if b_base == check_base:
 				is_built = true
 				existing_building = b
 				break
 				
+	var island_tier = 1
+	if current_island.has_method("get_island_tier"):
+		island_tier = current_island.get_island_tier()
+				
 	if is_built and existing_building:
 		if "next_upgrade" in existing_building and existing_building.next_upgrade:
 			btn.text = "Upgrade"
-			var up_cost = existing_building.next_upgrade.get_cost_dict()
-			cost_text = ""
-			for k in up_cost.keys():
-				cost_text += str(up_cost[k]) + " " + k.capitalize() + "  "
-			cost_lbl.text = cost_text
+			var next_b = existing_building.next_upgrade
 			
-			if not ResourceManager.can_afford(up_cost):
+			if "required_island_tier" in next_b and next_b.required_island_tier > island_tier:
 				btn.disabled = true
+				cost_lbl.text = "Requires Island Tier " + str(next_b.required_island_tier)
 				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 			else:
-				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
-				btn.pressed.connect(func(): _on_upgrade_pressed(existing_building.building_id, existing_building.next_upgrade))
+				var up_cost = next_b.get_cost_dict()
+				cost_text = ""
+				for k in up_cost.keys():
+					cost_text += str(up_cost[k]) + " " + k.capitalize() + "  "
+				cost_lbl.text = cost_text
+				
+				if not ResourceManager.can_afford(up_cost):
+					btn.disabled = true
+					cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+				else:
+					cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
+					btn.pressed.connect(func(): _on_upgrade_pressed(existing_building.building_id, next_b))
 		else:
 			btn.text = "Max Lvl"
 			btn.disabled = true
 			cost_lbl.text = ""
 	else:
-		# Check affordability
-		if not ResourceManager.can_afford(cost_dict):
+		if "required_island_tier" in building and building.required_island_tier > island_tier:
 			btn.disabled = true
+			cost_lbl.text = "Requires Island Tier " + str(building.required_island_tier)
 			cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 		else:
-			cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
-			
-		btn.pressed.connect(func(): _on_build_pressed(building))
+			# Check affordability
+			if not ResourceManager.can_afford(cost_dict):
+				btn.disabled = true
+				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+			else:
+				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
+				
+			btn.pressed.connect(func(): _on_build_pressed(building))
 		
 	hbox.add_child(info_vbox)
 	hbox.add_child(cost_lbl)
@@ -377,8 +395,75 @@ func _on_buy_ship_pressed(ship: ShipStats, cost: Dictionary) -> void:
 func _refresh_captains() -> void:
 	for child in captains_container.get_children():
 		child.queue_free()
+		
+	_create_crew_recruitment_entry()
+	
 	for cap in available_captains:
 		_create_captain_entry(cap)
+
+func _create_crew_recruitment_entry() -> void:
+	var player = get_tree().get_first_node_in_group("player_ship")
+	if not player: return
+	var dmg = player.get_node_or_null("ShipDamage")
+	if not dmg: return
+	
+	var current_crew = dmg.crew
+	var max_crew = dmg.ship_stats.max_crew
+	var missing = max_crew - current_crew
+	
+	var hbox = HBoxContainer.new()
+	var info_vbox = VBoxContainer.new()
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	var name_lbl = Label.new()
+	name_lbl.text = "Recruit Crew (Currently: %d/%d)" % [current_crew, max_crew]
+	name_lbl.add_theme_font_size_override("font_size", 18)
+	
+	var desc_lbl = Label.new()
+	desc_lbl.text = "Cost: 10 Gold & 1 Rum per crew member"
+	desc_lbl.add_theme_font_size_override("font_size", 12)
+	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	
+	info_vbox.add_child(name_lbl)
+	info_vbox.add_child(desc_lbl)
+	hbox.add_child(info_vbox)
+	
+	if missing > 0:
+		var btn = Button.new()
+		var recruit_amt = min(missing, 5)
+		var cost = {"gold": 10 * recruit_amt, "rum": 1 * recruit_amt}
+		
+		btn.text = "Recruit %d" % recruit_amt
+		btn.custom_minimum_size = Vector2(100, 40)
+		
+		var cost_lbl = Label.new()
+		cost_lbl.text = "%d Gold  %d Rum  " % [cost["gold"], cost["rum"]]
+		cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		
+		if not ResourceManager.can_afford(cost):
+			btn.disabled = true
+			cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+		else:
+			cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
+			btn.pressed.connect(func(): _on_recruit_crew_pressed(recruit_amt, cost, dmg))
+			
+		hbox.add_child(cost_lbl)
+		hbox.add_child(btn)
+	else:
+		var full_lbl = Label.new()
+		full_lbl.text = "Crew Full"
+		full_lbl.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+		hbox.add_child(full_lbl)
+		
+	captains_container.add_child(hbox)
+	captains_container.add_child(HSeparator.new())
+
+func _on_recruit_crew_pressed(amount: float, cost: Dictionary, dmg: Node) -> void:
+	if ResourceManager.spend_resources(cost):
+		dmg.crew = min(dmg.crew + amount, dmg.ship_stats.max_crew)
+		if dmg.has_signal("pool_changed"):
+			dmg.pool_changed.emit("crew", dmg.crew, dmg.ship_stats.max_crew)
+		_refresh_captains()
 
 func _create_captain_entry(cap: CaptainData) -> void:
 	var hbox = HBoxContainer.new()

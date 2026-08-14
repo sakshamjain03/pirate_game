@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Resource" path="res://resources/buildings/Academy_L5.tres" id="1_dk51t"]
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_duge4"]
+
+[resource]
+script = ExtResource("1_duge4")
+building_id = "academy_l4"
+building_name = "Academy Level 4"
+description = "Produces research points."
+next_upgrade = ExtResource("1_dk51t")
+level = 4
+cost_gold = 4000
+cost_wood = 800
+cost_iron = 160
+produces_resource = "research"
+production_amount = 27
+model_path = "res://assets/models/tower-middle-windows.glb"

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_d4jrr"]
+[ext_resource type="Resource" path="res://resources/buildings/LumberMill_L3.tres" id="1_rwqnv"]
+
+[resource]
+script = ExtResource("1_d4jrr")
+building_id = "lumber_mill_l2"
+building_name = "Lumber Mill Level 2"
+next_upgrade = ExtResource("1_rwqnv")
+level = 2
+cost_gold = 75
+production_amount = 9
+model_path = "res://assets/models/structure-platform.glb"

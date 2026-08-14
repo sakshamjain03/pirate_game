@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_scdxg"]
+[ext_resource type="Resource" path="res://resources/buildings/Shipyard_L5.tres" id="1_wx0rk"]
+
+[resource]
+script = ExtResource("1_scdxg")
+building_id = "shipyard_l4"
+building_name = "Shipyard Level 4"
+description = "Repairs your ship slowly while docked."
+next_upgrade = ExtResource("1_wx0rk")
+level = 4
+cost_gold = 1600
+cost_wood = 1200
+cost_iron = 800
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+model_path = "res://assets/models/structure-platform-dock-small.glb"

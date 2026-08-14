@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Resource" path="res://resources/buildings/Watchtower_L2.tres" id="1_08ijb"]
+[ext_resource type="Script" path="res://scripts/world/BuildingData.gd" id="1_ij3bj"]
+
+[resource]
+script = ExtResource("1_ij3bj")
+building_id = "watchtower_l1"
+building_name = "Watchtower Level 1"
+description = "Defensive structure (Future Combat)."
+next_upgrade = ExtResource("1_08ijb")
+cost_gold = 0
+cost_wood = 200
+cost_iron = 100
+produces_resource = ""
+production_amount = 0
+production_interval = 0.0
+model_path = "res://assets/models/tower-watch.glb"

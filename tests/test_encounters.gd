@@ -20,9 +20,21 @@ var _root: Node
 var _mgr: EncounterManager
 var _spawner: MockSpawner
 var _player: MockPlayer
+var _resources_backup: Dictionary
 
 
 func before_each():
+	# ResourceManager is a real autoload whose current_resources accumulates
+	# across the whole suite run — nothing resets it between test files. A
+	# gold-reward assertion here can fail purely because an earlier file's
+	# tests already pushed gold to its 5000 cap by the time this file runs,
+	# independent of whether _grant_rewards() itself works. Force a known,
+	# cap-safe starting state and restore whatever was there afterward — same
+	# backup/restore discipline test_cold_start.gd/test_region_gates.gd
+	# already use for SaveManager/EmpireManager.
+	_resources_backup = ResourceManager.current_resources.duplicate()
+	ResourceManager.current_resources = {"gold": 200, "wood": 50, "iron": 20, "rum": 10, "research": 0}
+
 	if not get_tree().current_scene:
 		var scene = Node3D.new()
 		scene.name = "TestScene"
@@ -57,6 +69,10 @@ func before_each():
 	_player.add_child(mods)
 	add_child_autoqfree(_player)
 	_player.global_position = Vector3.ZERO
+
+
+func after_each():
+	ResourceManager.current_resources = _resources_backup
 
 
 func _player_stats() -> ShipStats:
@@ -497,6 +513,8 @@ func test_every_authored_encounter_is_loadable_and_coherent():
 		"res://resources/combat/encounters/EliteHunters.tres",
 		"res://resources/combat/encounters/GhostShipBoss.tres",
 		"res://resources/combat/encounters/Defense.tres",
+		"res://resources/combat/encounters/IntransigentBoss.tres",
+		"res://resources/combat/encounters/CardenasBoss.tres",
 	]
 	for p in paths:
 		var d: EncounterData = load(p)
@@ -528,3 +546,60 @@ func test_boss_encounter_replaces_the_old_world_event_timer():
 		"docs/navalCombat.md §12: a boss offers more meaningful choices than a normal fight")
 	assert_false(FileAccess.file_exists("res://scripts/managers/WorldEventManager.gd"),
 		"The superseded WorldEventManager must be gone, not left as a duplicate system")
+
+
+# === chapter-gated ambient bosses (M7.5) ===
+# Chapter 4/5's dedicated bosses (HMS Intransigent, Cárdenas' flagship) are
+# real DEFEAT_BOSS objectives (Ch4/Ch5 tasks.md) but had no in-world trigger
+# at all — reachable only via a manual start_encounter() call, so neither
+# chapter was actually completable by a real player. Gating them into the
+# ambient pool by `required_chapter_id` is the fix; these pin the gate itself.
+
+func test_chapter_gated_encounter_is_excluded_before_its_chapter():
+	var saved_index = CampaignManager.current_chapter_index
+	var saved_chapters = CampaignManager.chapters.duplicate()
+	CampaignManager.chapters = []
+	CampaignManager.current_chapter_index = -1
+
+	var gated := _encounter(1)
+	gated.required_chapter_id = "ch4_the_admirals_gambit"
+	_mgr.encounter_pool = [gated]
+	_mgr.ambient_enabled = true
+	_mgr._ambient_timer = _mgr.ambient_interval
+
+	_mgr._start_random_ambient()
+	assert_false(_mgr.is_active(),
+		"A chapter-gated encounter must not be a candidate before its chapter is current")
+
+	CampaignManager.chapters = saved_chapters
+	CampaignManager.current_chapter_index = saved_index
+
+func test_chapter_gated_encounter_is_eligible_once_its_chapter_is_current():
+	var saved_index = CampaignManager.current_chapter_index
+	var saved_chapters = CampaignManager.chapters.duplicate()
+	var ch := ChapterData.new()
+	ch.chapter_id = "ch4_the_admirals_gambit"
+	ch.chapter_number = 4
+	CampaignManager.chapters = [ch]
+	CampaignManager.current_chapter_index = 0
+
+	var gated := _encounter(1)
+	gated.required_chapter_id = "ch4_the_admirals_gambit"
+	_mgr.encounter_pool = [gated]
+	_mgr.ambient_enabled = true
+	_mgr._ambient_timer = _mgr.ambient_interval
+
+	_mgr._start_random_ambient()
+	assert_true(_mgr.is_active(),
+		"Once its chapter is current, the gated encounter must be reachable ambiently")
+
+	CampaignManager.chapters = saved_chapters
+	CampaignManager.current_chapter_index = saved_index
+
+func test_both_authored_chapter_bosses_are_gated_to_their_own_chapter():
+	var intransigent: EncounterData = load("res://resources/combat/encounters/IntransigentBoss.tres")
+	var cardenas: EncounterData = load("res://resources/combat/encounters/CardenasBoss.tres")
+	assert_eq(intransigent.required_chapter_id, "ch4_the_admirals_gambit",
+		"HMS Intransigent must only be ambiently reachable during Chapter 4")
+	assert_eq(cardenas.required_chapter_id, "ch5_the_silver_fleet",
+		"Cárdenas' flagship must only be ambiently reachable during Chapter 5")

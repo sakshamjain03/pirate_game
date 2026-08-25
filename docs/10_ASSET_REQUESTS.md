@@ -3,7 +3,7 @@
 > Version: 1.0
 > Status: Living Document
 > Owner: Project Lead
-> Companion to: `.kiro/specs/milestone-m6-black-flag-combat-economy/`
+> Companion to: M6 — Black Flag Combat & Island Economy (see `docs/16_MILESTONE_HISTORY.md`)
 
 ---
 

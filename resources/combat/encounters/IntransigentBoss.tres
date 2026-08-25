@@ -9,6 +9,7 @@ script = ExtResource("1_enc")
 encounter_id = "intransigent_boss"
 display_name = "HMS Intransigent"
 announce_text = "HMS Intransigent looms out of the reef fog — Admiral Vance's flagship."
+required_chapter_id = "ch4_the_admirals_gambit"
 kind = 4
 objective = 0
 objective_count = 1

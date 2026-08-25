@@ -40,7 +40,6 @@ func _process(delta: float) -> void:
 
 func save_game() -> void:
 	var save_dict = {
-		"player": {},
 		"economy": {},
 		"islands": {},
 		"fleet": {},
@@ -52,8 +51,20 @@ func save_game() -> void:
 	}
 
 	# 1. Player State
+	# No "player" key at all when no player_ship exists to read from (a
+	# save_game() called outside a real World scene, e.g. from a test harness)
+	# — an empty `{}` used to be written and indistinguishable on load from a
+	# save that legitimately has nothing else to restore, so load_game()
+	# defaulted position to Vector3(0, 1, 0) and silently teleported the ship
+	# there. Harmless until M7 made Port Royal (at that exact world origin)
+	# the home island — after that, loading such a save embedded the ship in
+	# the island's own collision and collapsed the camera's spring arm into
+	# the terrain, rendering the 3D viewport solid black while the HUD kept
+	# working. Found by actually running the game and looking at the render,
+	# not by reading code. See the matching guard in load_game().
 	var player = get_tree().get_first_node_in_group("player_ship")
 	if player and is_instance_valid(player):
+		save_dict["player"] = {}
 		save_dict["player"]["pos_x"] = player.global_position.x
 		save_dict["player"]["pos_y"] = player.global_position.y
 		save_dict["player"]["pos_z"] = player.global_position.z
@@ -155,14 +166,27 @@ func load_game() -> void:
 		var player_data = data["player"]
 		var player = get_tree().get_first_node_in_group("player_ship")
 		if player and is_instance_valid(player):
-			# Transform
-			var pos = Vector3(
-				player_data.get("pos_x", 0.0),
-				player_data.get("pos_y", 1.0),
-				player_data.get("pos_z", 0.0)
-			)
-			player.global_position = pos
-			player.global_rotation.y = player_data.get("rot_y", 0.0)
+			# Transform — only if this save actually recorded one. `save_game()`
+			# leaves "player" as `{}` whenever it ran with no `player_ship` group
+			# member in the tree (e.g. a test/verification harness without a full
+			# World scene); `player_data.get("pos_x", 0.0)` used to default that
+			# to Vector3(0, 1, 0) on load, which happens to be Port Royal's exact
+			# island origin now that M7 seeds it as the home island — silently
+			# teleporting the ship into the island's own collision on every such
+			# load. Confirmed live: the SpringArm3D camera collapses into the
+			# terrain it's now embedded in, rendering the 3D viewport solid black
+			# while the HUD keeps working — found via an actual headful
+			# CaptureHarness run, not static reading. Missing position data now
+			# means "leave the ship at the scene's authored spawn", not "assume
+			# the origin".
+			if player_data.has("pos_x"):
+				var pos = Vector3(
+					player_data.get("pos_x", 0.0),
+					player_data.get("pos_y", 1.0),
+					player_data.get("pos_z", 0.0)
+				)
+				player.global_position = pos
+				player.global_rotation.y = player_data.get("rot_y", 0.0)
 
 			# Health will be set after fleet loads
 

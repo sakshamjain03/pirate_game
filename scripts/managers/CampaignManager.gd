@@ -139,6 +139,18 @@ func _catch_up() -> void:
 	## loaded from a save) and/or a region independently activated while
 	## `current_chapter_index` hadn't caught up yet.
 	while current_chapter_index + 1 < chapters.size():
+		# Never advance past the chapter currently in progress just because a
+		# later chapter's own gate (typically a region-only gate with no
+		# required_previous_chapter — ch3/ch5) already happens to be open.
+		# Notoriety climbs from ordinary combat throughout every chapter, so a
+		# player who kept fighting while mid-chapter can cross a later
+		# region's threshold before finishing (or even drawing) the current
+		# chapter's own content. Left unguarded, this silently abandons that
+		# chapter: its objectives freeze (dispatch only ever targets
+		# _current_chapter()), its D65 ambient-gated boss becomes
+		# unreachable, and its completion reward is never granted.
+		if current_chapter_index >= 0 and _current_chapter() != null:
+			return
 		var next := chapters[current_chapter_index + 1]
 		if not _gate_satisfied(next):
 			return
@@ -232,6 +244,17 @@ func _complete_chapter(chapter: ChapterData) -> void:
 
 func is_chapter_completed(chapter_id: String) -> bool:
 	return chapter_id.is_empty() or completed_chapter_ids.has(chapter_id)
+
+
+## True if `chapter_id` is empty (no gate) or is the chapter currently in
+## progress. Lets a chapter-specific system (e.g. `EncounterManager`'s ambient
+## boss gate) key off "is this chapter live right now" without duplicating
+## `_current_chapter()`'s completed/index bookkeeping.
+func is_chapter_current(chapter_id: String) -> bool:
+	if chapter_id.is_empty():
+		return true
+	var chapter := _current_chapter()
+	return chapter != null and chapter.chapter_id == chapter_id
 
 
 # === Condition handlers — one per real signal, mirroring TutorialManager ===

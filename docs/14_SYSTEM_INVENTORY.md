@@ -39,10 +39,12 @@ WorldManager, DockingSystem, EnemySpawner, EncounterManager, BoardingSystem
 `WorldEventManager` was **deleted in M8** — `EncounterManager` absorbed its boss timer.
 `InputManager` moved out of this list into the autoload list above (D57, M7).
 
-**Test baseline (measured 2026-08-25 after M7 campaign spine, Godot 4.7.1):** **320 tests, 319
-passing, 1 failing** — `test_property_21_lod_distance_transitions`, the known LOD gap, unchanged
-since M6. **320/319 is the number to regress against.** (History: 103 → 118/117 (stale count
-fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7 campaign spine + M1/M2 tail).)
+**Test baseline (measured 2026-08-26 after the M7.5 checkpoint correction, Godot 4.7.1):** **324
+tests, 323 passing, 1 failing** — `test_property_21_lod_distance_transitions`, the known LOD gap,
+unchanged since M6. **324/323 is the number to regress against.** (History: 103 → 118/117 (stale
+count fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7 campaign spine + M1/M2
+tail) → 323/322 (M7.5 — D64/D65, self-reported, did not reproduce) → 324/323 (M7.5 checkpoint
+correction — D66/D67).)
 
 ---
 
@@ -230,13 +232,13 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 
 | Process | Status | Where it lives |
 |---|---|---|
-| Milestone specs (requirements/design/tasks) | ✅ | `.kiro/specs/milestone-mN-*/` — M1–M7 complete (M8 combat rework also complete, tracked outside the M1-M7 spec set) |
+| Milestone specs (requirements/design/tasks) | ✅ | `.kiro/specs/milestone-mN-*/` — M1–M7 complete (M8 combat rework also complete, tracked outside the M1-M7 spec set); M7.5 stabilization pass complete (D64/D65) |
 | Two-agent workflow (Claude plans, Gemini implements) | ✅ | `docs/07_AI_AGENT_WORKFLOW.md` |
 | Gemini prompt template | ✅ | `docs/08_PROMPT_LIBRARY.md` + `gemini-prompt` skill |
 | Blocking checkpoint review | 🟡 | **the process exists and was skipped**: M6 Task 29 was ticked with *"Skipped local execution of GUT since binary is unavailable"* |
-| Automated test suite | ✅ | GUT, 46 scripts, **320 tests** — `godot-verify` skill |
-| Test-count regression guard | ✅ | baseline is **320 / 319** after the M7 campaign spine + M1/M2 tail (was 249/248 after M8 Phase 2) |
-| Visual verification | ✅ | `scenes/debug/CaptureHarness.tscn` renders the real viewport at ~0/1/3/7/12 s |
+| Automated test suite | ✅ | GUT, 46 scripts, **324 tests** — `godot-verify` skill |
+| Test-count regression guard | ✅ | baseline is **324 / 323** after the M7.5 checkpoint correction (was 323/322 self-reported, did not reproduce; 320/319 after M7 + M1/M2 tail) |
+| Visual verification | ✅ | `scenes/debug/CaptureHarness.tscn` renders the real viewport at ~0/1/3/7/12 s — this is what actually caught D64/D65 (§7.5); a passing GUT suite alone had not |
 | Manual/feel verification | 🟡 | requires a human; repeatedly and correctly flagged as un-automatable |
 | Ground-truth doc upkeep | ✅ | `docs/05_CURRENT_SYSTEMS.md` + `sync-systems-doc` skill |
 | Visual bug ledger | ✅ | `docs/09_VISUAL_BUG_TRACKER.md` |
@@ -277,6 +279,31 @@ Found by direct code and resource inspection while writing docs 06 and 11–15. 
 
 Plus one documentation correction, not a defect: the GUT baseline is **118 tests / 117 passing**,
 not the 103 recorded in the M6 spec and CURRENT_SYSTEMS §2.
+
+---
+
+# 7.5. The 2026-08-25 post-M7 stabilization pass — new defects
+
+Found by actually running the game (`scenes/debug/CaptureHarness.tscn`, headful) and looking at
+the rendered output, not by reading code or trusting a passing test suite — the GUT suite was
+green the entire time both of these were live. Full detail and resolution in
+`docs/05_CURRENT_SYSTEMS.md`'s "M7.5 Stabilization Pass" section.
+
+| ID | Severity | Defect | Fix milestone |
+|---|---|---|---|
+| D64 | 🔴 **critical** | `SaveManager` couldn't distinguish "no player position was ever saved" from "saved, and it's empty" — a save written with no `player_ship` in the tree defaulted the ship to `Vector3(0,1,0)` on load, which is Port Royal's own island origin now that M7 made it the home island. Loading such a save embeds the ship in the island's collision and collapses the camera's spring arm into the terrain — the 3D viewport renders solid black while the HUD keeps working, with no error anywhere | **Fixed M7.5** |
+| D65 | 🟡 | Chapters 4/5's dedicated bosses (HMS Intransigent, Cárdenas' flagship) had real `DEFEAT_BOSS` objectives but no in-world trigger — reachable only via a manual `EncounterManager.start_encounter()` call, so neither chapter was completable by a real player | **Fixed M7.5** — chapter-gated ambient pool entry via `EncounterData.required_chapter_id` |
+
+## 7.6. The 2026-08-26 M7.5 checkpoint correction — new defects
+
+Found by re-verifying the M7.5 checkpoint above against actual code and a real GUT run instead of
+its recorded self-report. Full detail and resolution in `docs/05_CURRENT_SYSTEMS.md`'s "Checkpoint
+correction" addendum.
+
+| ID | Severity | Defect | Fix milestone |
+|---|---|---|---|
+| D66 | 🔴 **critical** | `CampaignManager._catch_up()` could advance past an in-progress, incomplete chapter whenever a later chapter's own gate (region-only, e.g. ch3/ch5) happened to already be satisfied — silently orphaning that chapter's objectives, reward, and (via D65's own gate) its ambient-pool boss | **Fixed M7.5 correction** |
+| D67 | 🟡 | The M7.5 checkpoint's recorded "323/322" GUT result did not reproduce (actual: 323/321) — root cause was `ResourceManager.current_resources` leaking across test files, the same class as two prior `SaveManager`/`EmpireManager` test-isolation bugs from the M7 pass | **Fixed M7.5 correction** |
 
 ---
 

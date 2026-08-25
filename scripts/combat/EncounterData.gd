@@ -27,6 +27,13 @@ enum Objective {
 @export var encounter_id: String = "open_water_skirmish"
 @export var display_name: String = "Enemy Sail Sighted"
 @export_multiline var announce_text: String = "Enemy sail sighted off the bow!"
+## Empty = always eligible for the ambient scheduler. Non-empty gates this
+## encounter to only draw while `CampaignManager` reports that chapter as the
+## current one — e.g. a chapter-specific dedicated boss (Chapter 4's HMS
+## Intransigent, Chapter 5's Cárdenas) must not be reachable by a Chapter 1
+## player, but also must not require its own bespoke trigger system to be
+## reachable at all once its chapter *is* current.
+@export var required_chapter_id: String = ""
 
 @export_group("Type")
 @export var kind: Kind = Kind.ENCOUNTER

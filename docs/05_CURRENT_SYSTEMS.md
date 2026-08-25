@@ -180,7 +180,7 @@ Tabbed, fully code-built UI: Buildings (build/upgrade, gated by `required_island
 ## World/ships/ocean — M2 scope, functional with documented gaps
 `ShipController`, `ShipMovement`, `ShipVisuals`, `BuoyancySimulator`, `WaveGenerator`,
 `OceanController`, `CameraRig` (includes smooth `enter_docked_view()` / `exit_docked_view()` transitions driven by `DockingSystem` signals), `DockingSystem`, `EnvironmentController`, `WorldManager`. See
-`.kiro/specs/milestone-m2-playable-world/tasks.md` bug-fix notes and §2 below for open gaps.
+§2 below for open gaps (M2's own bug-fix history is condensed in `docs/16_MILESTONE_HISTORY.md`).
 
 ---
 
@@ -737,3 +737,39 @@ inert and every lookup, including the test's own `after_each()` `queue_free()` c
 targeting the real autoload. Both files now back up/restore the real save file around their run
 and save/restore `EmpireManager.notoriety`/`_region_active` directly instead of trying to shadow
 the autoload.
+
+---
+
+## M7.5 Stabilization Pass (2026-08-25)
+
+Found by actually running the game headfully (`scenes/debug/CaptureHarness.tscn`, which boots
+straight into `World.tscn`) and looking at the rendered screenshots, not by reading code — the
+same discipline the 2026-08-09 visual pass established. Both defects below were invisible to
+every prior static review and to the whole GUT suite, which asserts no rendered-frame state at
+all. **Suite: 320 → 323 tests, 322 passing, still exactly one known LOD failure**
+(`test_property_21_lod_distance_transitions`). **323 / 322 is the number to regress against.**
+
+| # | Defect | Resolution |
+|---|--------|------------|
+| D64 | 🔴 **A save with no player position silently teleported the ship into Port Royal's own collision.** `SaveManager.save_game()` wrote `"player": {}` whenever it ran with no `player_ship` group member in the tree (e.g. a test/verification harness without a full `World` scene — exactly what produced the corrupted local save this defect was found through). On load, `load_game()` couldn't distinguish "no position was ever recorded" from "recorded, and it's `{}`" — `data.has("player")` was true either way — so `player_data.get("pos_x", 0.0)`/`get("pos_y", 1.0)`/`get("pos_z", 0.0)` defaulted the ship to `Vector3(0, 1, 0)`. That default was harmless until M7 made Port Royal (which sits at that exact world origin, ~13.7-unit collision radius) the home island: loading such a save now embeds the ship in the island's own terrain, and `CameraRig`'s `SpringArm3D` (collision mask includes terrain, D31) collapses toward it, pinning the camera at the ship's own height aimed steeply into the hull/terrain — the 3D viewport renders solid black while the HUD keeps working normally (confirmed via instrumented diagnostics: sun energy, ambient light, active camera, and encounter state were all reported as completely healthy the entire time; only the camera's actual world position had collapsed toward the target). | **Resolved.** `save_game()` no longer writes a `"player"` key at all when no player node exists to read from (instead of an empty dict); `load_game()` only restores position/rotation when the save actually recorded `pos_x`, otherwise leaves the ship at the scene's authored spawn transform. Guarded by the existing `SaveManager`/`CampaignManager` test suites (no regression) — the fix is defensive-default correctness, not new behavior to unit-test in isolation. Full screenshot-driven repro, the three disproved theories tried first, and validation renders: `docs/09_VISUAL_BUG_TRACKER.md` V12. |
+| D65 | 🟡 **Chapter 4/5's dedicated bosses had no in-world trigger.** HMS Intransigent (Ch4) and Cárdenas' flagship (Ch5) each got a fully dedicated `ShipStats`/scene/`EncounterData` (confirmed necessary — see the M7 section above), and each chapter's real `DEFEAT_BOSS` objective (Ch4 `4.6`, Ch5's equivalent) targets that dedicated `ship_id` — but neither `EncounterData` was in `World.tscn`'s ambient `encounter_pool`, so neither chapter was actually completable by a real player; only a manual `EncounterManager.start_encounter()` call could reach them. Honestly flagged as a known gap when M7 shipped, not silently left broken. | **Resolved.** `EncounterData` gained `required_chapter_id: String = ""` — empty means always eligible (every pre-existing encounter), non-empty gates it to only draw while `CampaignManager.is_chapter_current()` (new public helper, mirrors the existing `is_chapter_completed()`) reports that chapter as the one in progress. `IntransigentBoss.tres`/`CardenasBoss.tres` set it to `"ch4_the_admirals_gambit"`/`"ch5_the_silver_fleet"` and both were added to `World.tscn`'s `encounter_pool`. `EncounterManager._start_random_ambient()` filters candidates through the gate before picking one — a Chapter 1 player still cannot stumble into a Chapter 4 boss, and a Chapter 4 player now can reach it without a scripted trigger system. `tests/test_encounters.gd` gained 3 tests pinning the gate (excluded before the chapter, eligible once current, both authored bosses carry the right id) and extended `test_every_authored_encounter_is_loadable_and_coherent`'s path list to actually cover both boss `.tres` files, which it had never done. |
+
+**Not fixed in this pass, noted for whoever picks up the map/discovery work in M9**: the boss fight
+still has no *location* — it's a floating chance in the ambient pool for the duration of its
+chapter, not "sail to Frostbite Reef and it's there," which is what Chapter 4's own opening beat
+describes. A location-anchored trigger (spawn only within some radius of a named point, once)
+would read better but needs the discovery/waypoint system M9 is already scoped to build; gating by
+chapter alone is the smallest change that makes the fight reachable at all today.
+
+### Checkpoint correction (2026-08-26)
+
+The M7.5 checkpoint above self-reported "323 tests, 322 passing" and D64/D65 both fully resolved.
+Re-verifying it against actual code and a real GUT run (not the recorded self-report — the exact
+discipline D15/D42/D57 exist to enforce) found the code for D64/D65 correctly implemented, but
+surfaced two further defects the checkpoint missed. **Suite: 323 → 324 tests, 323 passing, still
+exactly one known LOD failure. 324 / 323 is the number to regress against.**
+
+| # | Defect | Resolution |
+|---|--------|------------|
+| D66 | 🔴 **D65's own fix can be silently defeated by the pre-existing chapter "overshoot" catch-up mechanic.** `CampaignManager._catch_up()` (runs at boot and after every save load) walks `current_chapter_index` forward through any chapter whose gate is satisfied, but only ever checks the *next* chapter's gate — never whether the chapter currently in progress has actually been completed. Chapters 3 and 5 are gated purely by region activation (no `required_previous_chapter`), and region activation tracks notoriety, which rises continuously from ordinary combat throughout every chapter, including the one whose boss hasn't been drawn/beaten yet. A player who keeps fighting while genuinely mid-Chapter-4 can easily cross Imperial Waters' notoriety threshold before defeating HMS Intransigent; the next boot or save load then jumps `_catch_up()` straight to Chapter 5. Chapter 4 is never marked complete, its objectives freeze (dispatch only ever targets `_current_chapter()`), its reward is never granted, and — because of D65's new `required_chapter_id` gate — HMS Intransigent becomes **permanently unreachable** in the ambient pool, since `is_chapter_current("ch4_...")` no longer matches. This is the exact "boss unreachable through normal play" failure D65 was written to close, reintroduced through a different path; the live/mid-play advancement path (`_advance_to_next_chapter()`) already guarded against this, `_catch_up()` was the one caller that didn't. | **Resolved.** `_catch_up()` now stops instead of advancing whenever `current_chapter_index` still points at a real, not-yet-completed chapter (`_current_chapter() != null`) — mirroring the safety `_advance_to_next_chapter()` already had. Verified against all 4 existing catch-up tests (unaffected) plus a new one pinning the exact failure mode: `test_catch_up_does_not_abandon_an_in_progress_chapter_for_a_region_gated_next_chapter` in `tests/test_campaign_manager.gd`. |
+| D67 | 🟡 **The checkpoint's recorded "323/322" GUT result does not reproduce.** A fresh full-suite run measured **323 tests, 321 passing, 2 failing** — the known LOD gap plus `test_destroying_the_composition_wins_and_pays_out` (`tests/test_encounters.gd`), which failed with gold before and after a reward grant both already pinned at the 5000 storage cap. `ResourceManager.current_resources` is a real autoload value nothing resets between test files; running `test_encounters.gd` alone passed cleanly (32/32), confirming pure cross-file state leakage — gold accumulated by earlier tests in the full run — not a defect in reward-crediting itself. Same defect class as the M7 pass's two prior `SaveManager`/`EmpireManager` test-isolation fixes, a third instance, previously undetected only because the full suite hadn't tipped gold over the cap until now. | **Resolved.** `tests/test_encounters.gd` now backs up `ResourceManager.current_resources` in `before_each()`, resets it to a known cap-safe baseline, and restores the backup in a new `after_each()` — the same backup/restore discipline `test_cold_start.gd`/`test_region_gates.gd` already use. Re-verified: full suite now reproduces cleanly at 324/323. |

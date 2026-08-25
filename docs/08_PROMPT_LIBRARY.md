@@ -19,22 +19,32 @@ The split is deliberate: what you type stays short and never changes between mil
 everything that *does* change — the spec path, the per-task hazards, the baseline — lives here
 and is edited as a file rather than retyped as a prompt.
 
-Completed milestones' prompts have been removed. M3 and M4 are done and verified — their
+Completed milestones' prompts have been removed. M3 through M7 are done and verified — their
 prompts were dead weight and are recoverable from git history if ever needed. This file always
 describes **only the milestone currently being built**.
 
-**Current milestone: M7 — Campaign Spine & Economy Correction**
-Spec: `.kiro/specs/milestone-m7-campaign-spine/`
+**No milestone is currently active.** M7 (Campaign Spine) and the M7.5 stabilization pass are
+both complete as of 2026-08-25 — see `docs/16_MILESTONE_HISTORY.md` for the condensed record of
+every milestone through M7.5, and `docs/05_CURRENT_SYSTEMS.md`/`docs/14_SYSTEM_INVENTORY.md` for
+what's actually implemented today. The next candidate per `docs/15_MASTER_PLAN.md` is **M9 — The
+Legible World** (M8, Combat Identity Rework, was already completed ad hoc and is tracked in
+`docs/05_CURRENT_SYSTEMS.md` rather than as a `.kiro/specs/` milestone). It has not been
+scaffolded yet. Section 1.1's spec path and section 3 below are placeholders — follow section 5
+before typing the master prompt into Antigravity.
 
 ---
 
 # 1. THE MASTER PROMPT — type this in Antigravity chat
 
+**Placeholder — no milestone is scaffolded right now.** Before this section is usable, follow
+section 5 to scaffold the next milestone's spec and fill in `<MILESTONE>` below (section 1.1's
+spec path and section 3 need the same substitution).
+
 This is all you type. Everything else is in this file, which the prompt tells Gemini to read.
 
 ```
 Read docs/08_PROMPT_LIBRARY.md and follow section 1.1 (Operating Contract) exactly.
-Work milestone M7 autonomously from the lowest incomplete task. Halt at the first 🛑.
+Work milestone <MILESTONE> autonomously from the lowest incomplete task. Halt at the first 🛑.
 ```
 
 That's it. If Gemini ever loses the thread mid-session (new session, context reset), retype the
@@ -44,8 +54,8 @@ task state lives in `tasks.md` checkboxes rather than in the chat.
 **To resume after a checkpoint passes**, type:
 
 ```
-Read docs/08_PROMPT_LIBRARY.md section 1.1. The checkpoint has passed — continue M7 from the
-next task. Halt at the next 🛑.
+Read docs/08_PROMPT_LIBRARY.md section 1.1. The checkpoint has passed — continue <MILESTONE> from
+the next task. Halt at the next 🛑.
 ```
 
 ---
@@ -60,11 +70,11 @@ pirate empire-building game in GDScript.
 
 ## Your assignment
 
-Work through Milestone M7 autonomously, ONE TASK AT A TIME, IN NUMERIC ORDER, starting at the
-lowest-numbered task that is not yet complete.
+Work through Milestone <MILESTONE> autonomously, ONE TASK AT A TIME, IN NUMERIC ORDER, starting
+at the lowest-numbered task that is not yet complete.
 
 The authoritative task list is:
-  .kiro/specs/milestone-m7-campaign-spine/tasks.md
+  .kiro/specs/milestone-<MILESTONE>/tasks.md
 
 Per-task implementation notes, warnings, and acceptance criteria are in section 3 of:
   docs/08_PROMPT_LIBRARY.md
@@ -74,15 +84,13 @@ Per-task implementation notes, warnings, and acceptance criteria are in section 
 
 1. agents.md                  <- the project constitution, overrides everything else
 2. docs/05_CURRENT_SYSTEMS.md <- ground truth on what actually exists today
-3. .kiro/specs/milestone-m7-campaign-spine/requirements.md
-4. .kiro/specs/milestone-m7-campaign-spine/design.md
-5. .kiro/specs/milestone-m7-campaign-spine/tasks.md
+3. .kiro/specs/milestone-<MILESTONE>/requirements.md
+4. .kiro/specs/milestone-<MILESTONE>/design.md
+5. .kiro/specs/milestone-<MILESTONE>/tasks.md
 6. docs/08_PROMPT_LIBRARY.md section 2 (Standing Rules) and section 3 (per-task notes)
 
-Wave 1 (Tasks 1-7, economy correction) is the priority pass covered in detail below — every
-other wave in M7 depends on Wave 1's corrected ship/captain data being in place first. Do not
-skip ahead to Wave 2+ content even if you find it faster to implement; Task 7's checkpoint must
-pass first.
+Note whichever task wave depends on an earlier wave's checkpoint having passed first — check the
+task list's own dependency notes rather than assuming waves are independent.
 
 Do not skip this. Most defects in this project's history came from an agent writing code that
 duplicated a system that already existed.
@@ -220,13 +228,30 @@ These are not hypothetical; each was a real defect that cost real debugging time
    never the test.
 5. **Silent skips on load destroy player data.** Any resource resolver must `push_error` on an
    unresolvable id, never skip quietly.
-6. **`IslandMenu`'s ship pricing was computed from hull `mass`** (`cost_gold = mass / 100`),
-   which is exactly why M7 exists — it made every ship nearly free. If you find yourself
-   reaching for a physics property to derive a gameplay cost, stop; costs are authored data
-   (M7 Task 1), never derived from unrelated stats.
-7. **`TutorialManager`'s 8 hardcoded steps are being replaced by M7**, not duplicated. If a task
-   asks you to touch narrative/onboarding content, check whether `CampaignManager` (M7) already
-   owns it before adding a second system.
+6. **Ship/building/captain costs are authored data, never derived from an unrelated stat.**
+   `IslandMenu`'s ship pricing used to be computed from hull `mass` (`cost_gold = mass / 100`),
+   which made every ship nearly free (D53) — fixed by authoring real `cost_*` fields on
+   `ShipStats`. If you find yourself reaching for a physics property to derive a gameplay cost,
+   stop.
+7. **Narrative/onboarding content lives in `CampaignManager` + `ChapterData`, not
+   `TutorialManager`.** `TutorialManager`'s old 8 hardcoded steps were retired in M7 in favor of
+   chapter objectives; it now only tracks UI-tab-unlock flags and the completion file. If a task
+   touches onboarding content, check whether `CampaignManager` already owns it before adding a
+   second system.
+8. **A save missing a section is not the same as a save with an empty section.** `SaveManager`
+   used to write `"player": {}` whenever `save_game()` ran with no `player_ship` in the tree,
+   and `load_game()` couldn't tell that apart from a real empty section — it defaulted the ship's
+   position to `Vector3(0, 1, 0)`, which is Port Royal's own island origin post-M7, silently
+   teleporting the ship into the home island's collision on load (D64,
+   `docs/09_VISUAL_BUG_TRACKER.md` V12). Any optional save section needs the same discipline: omit
+   the key entirely when there's nothing to write, and check for a specific expected field before
+   trusting a default.
+9. **New chapter-specific content needs a chapter gate, not just a `.tres` file.** Chapter 4/5's
+   dedicated bosses were fully authored (dedicated `ShipStats`/scene/`EncounterData`) but had no
+   in-world trigger at all — neither chapter was actually completable (D65). If new content is
+   meant to appear only during a specific chapter, wire it through
+   `CampaignManager.is_chapter_current()` (or the equivalent gate on whatever system schedules it)
+   before considering the content "done."
 
 ## What you cannot verify
 
@@ -242,139 +267,17 @@ ground-truth doc and exists specifically to stop systems from being silently rei
 
 ---
 
-# 3. Per-task notes — M7
+# 3. Per-task notes — \<MILESTONE\>
 
-Numbering matches `.kiro/specs/milestone-m7-campaign-spine/tasks.md` exactly. Read the entry for
-a task before starting it. Tasks with no extra notes below carry no hazards beyond the standing
-rules — implement them straight from `tasks.md` and `design.md`.
+**Empty — to be authored when the next milestone is scaffolded (section 5).** M7's per-task
+notes lived here through 2026-08-25 and were removed once M7 (and the M7.5 stabilization pass)
+completed, per this section's own convention: only the milestone currently being built is kept
+here. The condensed record of M7's per-task hazards, and every milestone before it, is in
+`docs/16_MILESTONE_HISTORY.md`.
 
-## Wave 1 — Economy correction (Tasks 1–7)
-
-**Nothing in Waves 2–4 should start until this wave's checkpoint (Task 7) passes.** Every
-chapter authored later is tuned against the corrected ship ladder this wave produces.
-
-### Task 1 — Extend ShipStats with identity and cost fields
-⚠️ **Only ADD fields.** Do not change any existing property or physics value in `ShipStats.gd`
-or in the 8 `resources/ships/*.tres` — hazard #1, the buoyancy/stability numbers are
-load-bearing and unrelated to this task.
-Before authoring the 8 `.tres` files, confirm `ship_id`/`display_name`/`ship_class`/
-`cost_gold`/`cost_wood`/`cost_iron`/`cost_rum` are real `@export`ed properties on the script you
-just edited — a mismatch fails silently.
-Use the exact ladder table in `design.md` Part A1. Do not invent different numbers even if they
-seem more "balanced" — this table is derived from the level-5 Farm cost (1350 gold) specifically
-so the ship ladder and the building ladder stay in the same economic universe.
-
-### Task 2 — Fix IslandMenu's ship pricing and naming
-⚠️ Delete the `mass`-derived formula entirely — see hazard #6. Do not leave it as a fallback for
-ships missing the new fields; Task 1 already authors all 8.
-Verify manually (this is the one non-mechanical check in this wave, call it out explicitly in
-your report): open the Shipyard in-game and read the displayed prices — a level-5 Farm should
-cost less than the cheapest ship, and the Man O'War should cost more than any single building.
-
-### Task 3 — Author captain boarding modifier and hire cost
-Purely data — no script change. `base_boarding_modifier` and `hire_cost_gold` already exist as
-`@export`ed fields on `CaptainData.gd`; they were simply never set on most of the 20 files.
-Use the suggested values in `docs/12_CHARACTER_BIBLE.md` §5 (C1), or an ordering that preserves
-the same relative ranking if you have a design reason to deviate — report which you did.
-
-### Task 4 — Add captain identity fields
-⚠️ Every `home_island_id` / `allegiance_faction_id` value you author must match a real
-`island_id` / `faction_id` from the actual `.tres` files in `resources/world/` and
-`resources/factions/` — do not guess spellings from `docs/12_CHARACTER_BIBLE.md`'s prose, check
-the source files.
-Leave `unlock_chapter_id` and `portrait_path` at their script defaults for now — chapter ids
-don't exist until Wave 2 authors them (Task 13 fills these in later).
-
-### Task 5 — Fix input rebinding (D57)
-⚠️ Read `scripts/ui/SettingsMenu.gd` and `scenes/world/World.tscn` fully before choosing between
-the two approaches in `design.md` A5. This is a "check the actual scene tree before deciding"
-task per the project's D9/D11 lesson — do not assume `InputManager`'s location from the script
-alone.
-The test you write (`tests/test_input_rebinding.gd`) is the point of this task as much as the
-fix itself: this defect shipped in M6 specifically because no test exercised the rebind flow
-through the real UI, only the underlying `InputManager.rebind_action()` in isolation.
-
-### Task 6 — Fix cold start
-⚠️ Guard this on "is this a new game", not "is `home_island_id` empty" — an existing save with
-a different home island must never be overwritten. Find the actual new-game code path rather
-than assuming; `TutorialManager.gd`'s own comments about `SaveManager.delete_save()` are a
-starting point, not the final answer.
-
-### 🛑 Task 7 — CHECKPOINT: economy correction
-**HALT. Do not attempt this task.** A human verifies it in Claude Code using the review prompt
-in section 4.
-
-## Wave 2 — Campaign data model (Tasks 8–12)
-
-### Task 8 — Create DialogueBeatData, ObjectiveData, ChapterData
-Use the schemas in `design.md` Part B1 exactly as written — do not add fields "for later." The
-schema is deliberately the smallest one that covers all 5 authored chapters.
-
-### Task 9 — Create the CampaignManager autoload
-⚠️ This is the largest single task in the milestone. Read `scripts/managers/TutorialManager.gd`
-in full before writing anything — its `wait_for` / `_check_condition()` pattern is what you are
-reusing, not reinventing (hazard #7).
-Register the new autoload in `project.godot` in the exact position `design.md` B2 specifies:
-immediately after `EmpireManager`, before `TutorialManager`.
-`get_save_data()` must return **duplicates**, never the live `Array`/`Dictionary` — this exact
-mistake in `FleetManager` was a real bug (`docs/05_CURRENT_SYSTEMS.md` D12).
-Check whether `EmpireManager` already exposes a way to ask "is region X active" before adding a
-new method — `design.md` flags this as something to verify, not assume.
-
-### Task 10 — Generalize TutorialManager
-⚠️ This task requires a judgment call `design.md` Part C deliberately leaves to you: retire
-`TutorialManager`'s step logic outright, or reduce it to a thin wrapper. Before choosing, search
-the codebase for every caller of `TutorialManager.is_ui_unlocked()` and similar methods — if
-that search comes back large, report it and prefer the wrapper approach rather than a risky
-large deletion.
-Whatever you choose, `user://tutorial_state.json`'s completion flag must still work — test this
-explicitly, not just by reading the code.
-
-### Task 11 — Small enablers: boss id, discovery write path
-Check whether bosses already carry an identifiable id (e.g. via `ShipStats.ship_id` from Task 1)
-before adding a second id field for this purpose.
-
-### 🛑 Task 12 — CHECKPOINT: campaign data model
-**HALT.**
-
-## Wave 3 — Content authoring (Tasks 13–21)
-
-### Tasks 14–18 — Author Chapters 1–5
-⚠️ These are content-authoring tasks, not coding tasks, but the same "fails silently" rule
-applies to every `target_id` in every `ObjectiveData` — it must match a real building/island/
-faction/captain id, checked against the actual resource file, not typed from memory of
-`docs/13_CAMPAIGN_LEVELS_1-5.md`'s prose.
-Task 14 (Chapter 1) specifically replaces `TutorialManager`'s 8 old steps — do not leave both
-systems' content live simultaneously.
-Chapters 3 and 5 gate on `required_region_id`, **not** a raw notoriety number authored a second
-time — `design.md` Part B1 explains why duplicating the threshold is a drift risk.
-
-### Task 19 — Verify Cartagena as a second buildable island
-This is a verification task that may turn into a fix task. If `IslandMenu` or `Island.gd` turns
-out to assume "there is only one buildable island" somewhere non-obvious, fix it here and report
-exactly what you found — this is exactly the kind of assumption Rule 5
-(`docs/07_AI_AGENT_WORKFLOW.md`) says to report rather than silently patch around if it looks
-like an architecture decision, not a bug.
-
-### Task 20 — Objective-integrity test
-This test is the automated version of the "check every id" warning repeated above — write it to
-actually fail if a bad id slips through, not just to exist.
-
-### 🛑 Task 21 — CHECKPOINT: content authoring
-**HALT.**
-
-## Wave 4 — UI and polish (Tasks 22–26)
-
-### Task 24 — Dialogue beat queue support
-Check whether `TutorialDialogue.gd` already supports advancing through multiple beats before
-assuming it needs extending — it may already be closer to what's needed than `design.md` D3
-guesses.
-
-### Task 25 — Update docs/05_CURRENT_SYSTEMS.md
-Document `CampaignManager`, the corrected autoload registry, and mark D53–D58 resolved.
-
-### 🛑 Task 26 — CHECKPOINT: M7 complete
-**HALT.**
+Numbering should match `.kiro/specs/milestone-<MILESTONE>/tasks.md` exactly. Read the entry for
+a task before starting it. Tasks with no extra notes carry no hazards beyond the standing rules
+— implement them straight from `tasks.md` and `design.md`.
 
 ---
 
@@ -383,42 +286,44 @@ Document `CampaignManager`, the corrected autoload registry, and mark D53–D58 
 Do **not** paste this to Antigravity. When Gemini halts at a 🛑, open Claude Code and paste:
 
 ```
-Review the milestone-m7 work completed since the last checkpoint in the Godot project at
-d:\Pirate-game.
+Review the milestone-<MILESTONE> work completed since the last checkpoint in the Godot project
+at d:\Pirate-game.
 
-Read .kiro/specs/milestone-m7-campaign-spine/tasks.md and find the checkpoint task Gemini halted
-at. Verify its criteria are ACTUALLY met — run the GUT suite yourself
+Read .kiro/specs/milestone-<MILESTONE>/tasks.md and find the checkpoint task Gemini halted at.
+Verify its criteria are ACTUALLY met — run the GUT suite yourself
 (--headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit) rather than trusting Gemini's
 self-report, and read the real diff.
 
 Do not trust a hardcoded baseline number from an old prompt — read the count recorded at this
-milestone's own last verified checkpoint (or, if this is the first checkpoint, the 126 tests /
-125 passing / 1 known LOD failure baseline recorded in docs/05_CURRENT_SYSTEMS.md as of
-2026-08-14) and compare against that. Any new failure, or a drop in the total count, is a
-regression.
+milestone's own last verified checkpoint (or, if this is the first checkpoint, the most recent
+baseline recorded in docs/05_CURRENT_SYSTEMS.md / docs/14_SYSTEM_INVENTORY.md §0) and compare
+against that. Any new failure, or a drop in the total count, is a regression.
 
 Also confirm Gemini did not regress any of the known-fragile areas listed in
-docs/08_PROMPT_LIBRARY.md section 2: ship stability, hull-basis cannon direction, enemy obstacle
-avoidance, test_ship_combat.gd passing unmodified, and — new to M7 — that no ship's price still
-derives from `mass` and that TutorialManager's content was replaced, not duplicated alongside
-CampaignManager.
+docs/08_PROMPT_LIBRARY.md section 2 ("Things in this codebase that have broken before"), plus
+anything specific to this milestone's own hazards.
 
-Fix anything broken before the milestone continues, then tell me whether Wave N+1 is cleared to
-start.
+Fix anything broken before the milestone continues, then tell me whether the next wave is
+cleared to start.
 ```
 
 ---
 
 # 5. Starting the next milestone
 
-When M6 is complete and its final checkpoint has passed:
+When a milestone is complete and its final checkpoint has passed (this is the current state —
+see the note at the top of this file):
 
-1. Delete section 3 (the M6 per-task notes).
-2. Write the new milestone's `.kiro/specs/milestone-mN-<name>/{requirements,design,tasks}.md`.
-3. Re-point section 1.1's spec path at the new milestone and author a fresh section 3.
-   The two lines you type in chat do NOT change — only the milestone name in them.
+1. Delete section 3 (the completed milestone's per-task notes) — already done for M7/M7.5.
+2. Write the new milestone's `.kiro/specs/milestone-mN-<name>/{requirements,design,tasks}.md`
+   per `docs/15_MASTER_PLAN.md`'s roadmap (M9 — The Legible World is next).
+3. Re-point section 1.1's spec path (replace every `<MILESTONE>` placeholder) at the new
+   milestone and author a fresh section 3. The two lines typed in chat do NOT change — only the
+   milestone name in them.
 4. Carry section 2 forward unchanged, adding any new "has broken before" hazards discovered
-   during the completed milestone.
+   during the completed milestone (D64/D65 were added this way after M7.5).
+5. Add the completed milestone's own condensed entry to `docs/16_MILESTONE_HISTORY.md` before
+   moving on — that file is the durable record once this file's per-task detail is deleted.
 
 The Operating Contract and Standing Rules are milestone-agnostic by design — only 1.1's spec
 path and section 3 change between milestones. That is the whole point of the split: the thing

@@ -24,7 +24,11 @@ boarding · 10 building chains at 5 levels each · island tiers · 5 resources w
 ladder · 6 factions · 3 regions gated by notoriety · home-island raids · save/load with offline
 catch-up · a real 5-chapter campaign (replacing the old hardcoded tutorial steps) · 13 UI screens.
 
-**Test baseline (measured, not reported):** 320 tests, 319 passing, 1 known LOD failure.
+**Test baseline (measured, not reported):** 323 tests, 322 passing, 1 known LOD failure — after
+the M7.5 stabilization pass (D64/D65, `docs/05_CURRENT_SYSTEMS.md`), which found and fixed two
+defects the GUT suite could not see: a save/load bug that could silently teleport the player ship
+into Port Royal's own collision (found only by rendering the game and looking at the result), and
+Chapters 4/5's bosses having no in-world trigger at all.
 
 **Execution note:** M8 (Combat Identity Rework) was actually completed *before* M7 in this
 project's real history, reversing the sequencing this document originally proposed below. Combat
@@ -89,10 +93,11 @@ the cheapest possible retention intervention — it is content on top of systems
 - A new player can complete Chapter 1 in one session without touching a wiki. — **Not verified.**
   Mechanically wired and testable (`tests/test_chapter1_playthrough.gd`), but "without touching a
   wiki" is a human-legibility judgment this pass cannot make headlessly.
-- Chapters 2–5 are completable, with every objective resolved by an existing signal. — **Met**,
-  with two disclosed simplifications: Ch3 objective 3.5 checks `OWN_SHIP_CLASS` only (not also a
-  "Defend Home" flag), and the two boss encounters (Ch4/Ch5) have no in-world trigger yet — reachable
-  only via a manual `EncounterManager.start_encounter()` call, not through normal play.
+- Chapters 2–5 are completable, with every objective resolved by an existing signal. — **Met**.
+  One disclosed simplification remains: Ch3 objective 3.5 checks `OWN_SHIP_CLASS` only, not also
+  a "Defend Home" flag. The Ch4/Ch5 boss encounters originally had no in-world trigger at all
+  (D65) — fixed in the 2026-08-25 M7.5 stabilization pass via a chapter-gated ambient-pool entry,
+  so both are now reachable through normal play, not just a manual `start_encounter()` call.
 - A Man O'War costs more than a level-5 Farm, and reaching island tier 5 provably requires
   combat loot (M6 Req 7.4, finally testable). — **Met**, closed in M8 Phase 2 (D53/D54), ahead of
   M7 due to the M8-before-M7 execution-order swap noted above.
@@ -258,7 +263,7 @@ Extends `Prd.md` §22 with what that list omits. A player must be able to:
 5. Lose a fight, and want another go.
 6. Close the game, return the next day, and find something meaningful happened.
 7. Own a second developable island (Cartagena).
-8. Rebind their controls and have it actually work *(currently D57 — dead)*.
+8. Rebind their controls and have it actually work *(D57 — fixed in M7)*.
 9. Play it on an Android phone at a stable frame rate.
 10. Explain their empire to a friend in one sentence.
 
@@ -266,14 +271,14 @@ Extends `Prd.md` §22 with what that list omits. A player must be able to:
 
 # 7. Immediate next actions
 
-1. ✅ **Baseline verified** — 118/117, binary located. Correct the `103` figure everywhere it
-   appears (M6 spec header, `docs/05_CURRENT_SYSTEMS.md`).
-2. ✅ Docs 06, 11–15 written; `AGENTS.md` carve-out applied; D53–D59 logged.
-3. **Reposition the map** in `scenes/world/World.tscn` and re-run the suite.
-4. **Scaffold `.kiro/specs/milestone-m7-campaign-spine/`** with the M7 scope above, task waves
-   separated by blocking checkpoints, and the economy correction as Wave 1 — because everything
-   else is tuned against it.
-5. **Hand Wave 1 to Gemini** via `docs/08_PROMPT_LIBRARY.md` prompts.
+All of the original list here (baseline verification, docs 06/11-15, map repositioning,
+scaffolding and completing M7, the M7.5 stabilization pass closing D64/D65) is done — condensed
+in `docs/16_MILESTONE_HISTORY.md`. Current next actions:
+
+1. **Scaffold `.kiro/specs/milestone-m9-<slug>/`** (The Legible World) via the `spec-new` skill —
+   ocean LOD first, since it gates the Expanded map per §4's critical path.
+2. **Hand Wave 1 to Gemini** via `docs/08_PROMPT_LIBRARY.md` once section 1.1/3 are re-pointed at
+   M9 (see that file's section 5).
 
 ---
 
@@ -299,3 +304,4 @@ Extends `Prd.md` §22 with what that list omits. A player must be able to:
 | `docs/13_CAMPAIGN_LEVELS_1-5.md` | What happens in the first five chapters? |
 | `docs/14_SYSTEM_INVENTORY.md` | **Everything that must exist, and its status.** |
 | `docs/15_MASTER_PLAN.md` | In what order do we build the rest? |
+| `docs/16_MILESTONE_HISTORY.md` | What happened in each completed milestone, condensed? |

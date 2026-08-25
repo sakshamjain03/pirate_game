@@ -71,7 +71,8 @@ It earns every system the game already has:
 
 **Adventure, not grimdark. Consequence, not cruelty.**
 
-Reference stack, in priority order (matches `.kiro/specs/milestone-m6-.../requirements.md`):
+Reference stack, in priority order (matches M6's own requirements, per
+`docs/16_MILESTONE_HISTORY.md`):
 
 1. **AC IV: Black Flag** — the *feel*. Wind, weather, a hull that shows what it has survived,
    a shanty on the way home. Piracy as a working trade with a ledger.

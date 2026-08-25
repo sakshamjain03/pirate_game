@@ -148,6 +148,29 @@ func test_catch_up_never_assumes_an_incomplete_chapter_is_done():
 	assert_false(CampaignManager.is_chapter_completed("ch1"))
 
 
+func test_catch_up_does_not_abandon_an_in_progress_chapter_for_a_region_gated_next_chapter():
+	## The D65 ambient-boss gate (EncounterManager) keys reachability off
+	## is_chapter_current(), which is current_chapter_index-based. If
+	## _catch_up() ever advanced past an incomplete chapter just because a
+	## later, region-only-gated chapter's condition happened to already be
+	## open, that chapter's objectives, boss, and reward would become
+	## silently and permanently unreachable.
+	EmpireManager._region_active["contested_waters"] = true
+	var obj := _objective("2.1", ObjectiveData.Condition.RECRUIT_CAPTAIN)
+	var ch1 := _chapter("ch1", 1, [])
+	var ch2 := _chapter("ch2", 2, [obj], "ch1")
+	var ch3 := _chapter("ch3", 3, [], "", "contested_waters")
+	CampaignManager.chapters = [ch1, ch2, ch3]
+	CampaignManager.completed_chapter_ids = ["ch1"]
+	CampaignManager.current_chapter_index = 1   # ch2 already in progress, as if loaded from a save
+
+	CampaignManager._catch_up()
+
+	assert_eq(CampaignManager.current_chapter_index, 1,
+		"ch2's real objective is untouched — catch-up must not abandon it for ch3 just because ch3's own region gate happens to already be open")
+	assert_false(CampaignManager.is_chapter_completed("ch2"))
+
+
 # === Objective dispatch ===
 
 func test_a_counting_objective_completes_at_its_target_count():

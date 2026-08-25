@@ -529,7 +529,7 @@ func _start_random_ambient() -> void:
 		return
 	var candidates: Array[EncounterData] = []
 	for e in encounter_pool:
-		if e:
+		if e and CampaignManager.is_chapter_current(e.required_chapter_id):
 			candidates.append(e)
 	if candidates.is_empty():
 		return

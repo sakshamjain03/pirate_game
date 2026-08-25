@@ -9,6 +9,7 @@ script = ExtResource("1_enc")
 encounter_id = "cardenas_escort_boss"
 display_name = "Cárdenas' Escort"
 announce_text = "Almirante Cárdenas' flagship crosses your bow — the treasure fleet's whole reason to be brave."
+required_chapter_id = "ch5_the_silver_fleet"
 kind = 4
 objective = 0
 objective_count = 1

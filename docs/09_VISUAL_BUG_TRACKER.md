@@ -298,6 +298,47 @@ no `export_presets.cfg`) — that is a ~1 GB download plus export configuration.
 
 ---
 
+## V12 — Ship spawns black on load, no error anywhere `[~]`
+
+**Found by screenshot, not reported.** A fresh headful `CaptureHarness` run (M7.5 stabilization
+pass, 2026-08-25) rendered correctly at t=0/1/3s, then the entire 3D viewport went solid black
+from ~t=4s onward and stayed black through t=12s — while the HUD kept updating normally the whole
+time (resource bar, notoriety label, and a combat-ability reload percentage visibly advancing from
+13% to 48%, proving the game logic was still running fine underneath).
+
+**Wrong theories, disproved by measurement, in order tried:**
+1. *"The day/night cycle is running too fast and it's just gone to night."* Disproved by printing
+   `EnvironmentController.current_time`/sun energy/sun color every capture frame: the sun was
+   getting *brighter* (`0.950 → 0.960`) the entire time, not dimmer.
+2. *"The camera lost its active flag, or the WorldEnvironment/sky broke."* Disproved the same way
+   — `get_viewport().get_camera_3d()` returned the same valid camera every frame, and
+   `WorldEnvironment`'s background mode/ambient energy/sky reference never changed.
+3. *"An ambient encounter or the in-battle upgrade screen started and paused the game."* Disproved
+   by `EncounterManager.is_active()` staying `false` throughout, and by the reload-percentage HUD
+   readout visibly advancing — `UpgradeChoiceScreen`/a paused tree would have frozen that number.
+
+**Actual root cause:** printing the camera's own `global_position` (not just whether it existed)
+showed it collapsing toward the tracked ship's height and staying there — the `SpringArm3D` had
+collided with something close and stayed collapsed. Printing the *ship's* `global_position` showed
+it sitting at almost exactly `(0, -2.49, 0)` — the game's authored spawn is `(0, 0.3, 40)`, 40
+units clear of Port Royal. A stale `user://save_data.json` (left over from a prior session's
+verification run, with `"player": {}` — no position ever recorded) explained it:
+`SaveManager.load_game()` defaulted a missing position to `Vector3(0, 1, 0)`, which is Port
+Royal's own island origin now that M7 made it the home island. The ship loaded embedded in the
+island's terrain; the camera's spring arm (collision mask includes terrain, V2) collapsed into
+that same terrain from point-blank range, filling the frame with unlit close-up geometry.
+
+**Fix:** `SaveManager.gd` — `save_game()` no longer writes a `"player"` key at all when no
+`player_ship` exists to read from; `load_game()` only restores position/rotation when the save
+actually recorded `pos_x`. Full detail: `docs/05_CURRENT_SYSTEMS.md` D64,
+`.kiro/specs/milestone-m7.5-stabilization/`.
+
+**Validation:** re-ran the identical capture with the same corrupting save still on disk after the
+fix — world renders normally through t=12s (ship sailing away from Port Royal under fire, full
+lighting, wake/smoke particles, no camera collapse).
+
+---
+
 ## Wrong turns (kept deliberately, so they are not repeated)
 
 1. **"The stability torque axes are swapped."** Wrong. The axis was correct;
@@ -316,11 +357,20 @@ no `export_presets.cfg`) — that is a ~1 GB download plus export configuration.
 5. **"The launcher works."** It never did — it was written and reported as done
    without once being run (V11). It failed on the very first line of the file.
    Caught only by actually executing it and reading the output.
+6. **"The world went black because of the day/night cycle / camera state / an
+   encounter starting."** All three (V12) were disproved the same way, in
+   order, by printing the actual values instead of reasoning about what a
+   plausible cause would look like — the sun was getting brighter, the camera
+   object was valid, no encounter was active. The real cause (a stale save
+   defaulting the ship's position into the home island's own collision) only
+   surfaced once the *ship's and camera's own position* were printed, not just
+   whether the systems around them looked healthy.
 
-The pattern in all five: a plausible story that a two-minute measurement
-disproved. **Measure first, and re-measure after the fix** — three of these were
-only caught because a fix that "should have worked" visibly didn't, and one
-because a deliverable that was never run was assumed to work.
+The pattern in all six: a plausible story that a two-minute measurement
+disproved. **Measure first, and re-measure after the fix** — four of these were
+only caught because a fix (or a healthy-looking system) that "should have
+explained it" visibly didn't, and one because a deliverable that was never run
+was assumed to work.
 
 A note on how V11 stayed hidden: two earlier attempts to verify it used
 `Start-Process` and concluded "FAILED — no Godot process", which was a false

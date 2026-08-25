@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3]
+[gd_scene load_steps=36 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/EnvironmentController.gd" id="1_env"]
 [ext_resource type="PackedScene" path="res://scenes/world/Ocean.tscn" id="2_ocean"]
@@ -37,6 +37,8 @@
 [ext_resource type="Resource" path="res://resources/world/FrozenIsland.tres" id="21_frozen"]
 [ext_resource type="Resource" path="res://resources/world/CartagenaOutpost.tres" id="22_cartagena"]
 [ext_resource type="Script" path="res://scripts/combat/BoardingSystem.gd" id="23_boarding"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/IntransigentBoss.tres" id="40_e7"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/CardenasBoss.tres" id="41_e8"]
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_world"]
 sky_top_color = Color(0.04, 0.32, 0.68, 1)
 sky_horizon_color = Color(0.62, 0.76, 0.88, 1)
@@ -184,7 +186,7 @@ script = ExtResource("15_spawner")
 ; fight gets a start, an objective, an end and a payout.
 [node name="EncounterManager" type="Node" parent="Systems"]
 script = ExtResource("19_enc_mgr")
-encounter_pool = Array[EncounterData]([ExtResource("24_e1"), ExtResource("25_e2"), ExtResource("26_e3"), ExtResource("27_e4"), ExtResource("28_e5"), ExtResource("29_e6")])
+encounter_pool = Array[EncounterData]([ExtResource("24_e1"), ExtResource("25_e2"), ExtResource("26_e3"), ExtResource("27_e4"), ExtResource("28_e5"), ExtResource("29_e6"), ExtResource("40_e7"), ExtResource("41_e8")])
 upgrade_pool = Array[BattleUpgradeData]([ExtResource("30_u"), ExtResource("31_u"), ExtResource("32_u"), ExtResource("33_u"), ExtResource("34_u"), ExtResource("35_u"), ExtResource("36_u"), ExtResource("37_u"), ExtResource("38_u"), ExtResource("39_u")])
 
 [node name="BoardingSystem" type="Node" parent="Systems"]

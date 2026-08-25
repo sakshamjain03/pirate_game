@@ -1,17 +1,22 @@
 extends GutTest
 
 # test_tutorial_manager.gd
-# Property-based tests for TutorialManager (light onboarding tutorial FSM).
+# TutorialManager is now a thin wrapper (M7 Task 10): it no longer drives an
+# 8-step dialogue sequence — Chapter 1's own opening/closing beats
+# (docs/13_CAMPAIGN_LEVELS_1-5.md §3) took over that narrative role. What
+# remains is UI-tab unlock tracking, driven by CampaignManager's objective/
+# chapter signals, plus the one-time completion flag.
+#
 # Uses a fresh instance of the script (like test_empire_manager.gd) rather
-# than the global autoload singleton, so these tests can't interfere with
-# any real gameplay session's tutorial state.
+# than the global autoload singleton, so these tests can't interfere with any
+# real gameplay session's tutorial state.
 #
 # IMPORTANT: TutorialManager.COMPLETION_PATH is a hardcoded user:// path
-# shared by every instance (fresh test instances included), not just the
-# real autoload singleton. Tests here call skip_tutorial()/reset_and_replay(),
-# which write to that real file — so before_all/after_all back up and
-# restore whatever was on disk, otherwise running this suite permanently
-# marks the real game's tutorial as completed on the test machine.
+# shared by every instance (fresh test instances included), not just the real
+# autoload singleton. Tests here call skip_tutorial()/reset_and_replay(),
+# which write to that real file — so before_all/after_all back up and restore
+# whatever was on disk, otherwise running this suite permanently marks the
+# real game's tutorial as completed on the test machine.
 
 const _COMPLETION_PATH := "user://tutorial_state.json"
 
@@ -46,54 +51,17 @@ func before_each():
 	# user://tutorial_state.json left over on the test machine.
 	tm.tutorial_completed = false
 	tm.tutorial_active = false
-	tm.current_step_index = -1
-	tm._ready_to_advance = false
+	tm._unlocked_ui.clear()
 
 func test_start_new_game_session_arms_tutorial_when_not_completed():
 	tm.start_new_game_session()
 	assert_true(tm.tutorial_active, "a never-completed tutorial must arm on New Game")
-	assert_eq(tm.current_step_index, 0)
+	assert_eq(tm._unlocked_ui.size(), 0)
 
 func test_start_new_game_session_skips_when_already_completed():
 	tm.tutorial_completed = true
 	tm.start_new_game_session()
 	assert_false(tm.tutorial_active, "a completed tutorial must not replay on New Game")
-	assert_eq(tm.current_step_index, -1)
-
-func test_advance_step_blocks_until_wait_for_condition_is_met():
-	tm.start_new_game_session()          # step 0: welcome (no wait_for)
-	tm.advance_step()
-	assert_eq(tm.current_step_index, 1, "narration-only step must advance on Next")
-
-	tm.advance_step()                    # step 1: sail, wait_for="speed", min_value=5.0
-	assert_eq(tm.current_step_index, 1, "gated step must not advance before its condition fires")
-
-	tm._on_ship_speed_changed(2.0)
-	assert_false(tm._ready_to_advance, "speed below min_value must not satisfy the condition")
-	tm.advance_step()
-	assert_eq(tm.current_step_index, 1, "must not advance below the min_value threshold")
-
-	tm._on_ship_speed_changed(6.0)
-	assert_true(tm._ready_to_advance, "speed at/above min_value must satisfy the condition")
-	tm.advance_step()
-	assert_eq(tm.current_step_index, 2, "must advance once the condition is met")
-
-func test_condition_dispatch_ignores_signals_for_other_steps():
-	tm.start_new_game_session()
-	tm.advance_step()                    # -> step 1 (sail)
-	tm._on_player_docked("port_royal")   # wrong condition for the current step
-	assert_false(tm._ready_to_advance, "a signal for a different condition must not satisfy the current step")
-
-func test_skip_tutorial_completes_immediately_and_unlocks_all_ui():
-	tm.start_new_game_session()
-	tm.skip_tutorial()
-
-	assert_true(tm.tutorial_completed)
-	assert_false(tm.tutorial_active)
-	assert_eq(tm.current_step_index, -1)
-	assert_true(tm.is_ui_unlocked("tab_fleet"))
-	assert_true(tm.is_ui_unlocked("tab_research"))
-	assert_true(tm.is_ui_unlocked("tab_trade"))
 
 func test_is_ui_unlocked_true_when_tutorial_not_active():
 	tm.tutorial_active = false
@@ -104,22 +72,66 @@ func test_is_ui_unlocked_false_for_a_locked_id_while_active():
 	tm.tutorial_active = true
 	assert_false(tm.is_ui_unlocked("tab_fleet"), "a freshly-armed tutorial must start with no unlocked tabs")
 
-func test_save_load_round_trip():
-	# Drive state through the public API (never poke _unlocked_ui directly)
-	# so this also exercises the unlock-on-advance behavior end to end.
-	tm.start_new_game_session()          # step 0: welcome
-	tm.advance_step()                    # -> step 1: sail
-	tm._on_ship_speed_changed(6.0)
-	tm.advance_step()                    # -> step 2: dock
-	tm._on_player_docked("port_royal")
-	tm.advance_step()                    # -> step 3: build
-	tm._on_structure_changed("lumber_mill", false)
-	tm.advance_step()                    # -> step 4: recruit
-	tm._on_captain_recruited(null)
-	tm.advance_step()                    # -> step 5: combat (applies "recruit" step's tab_fleet unlock)
+func test_completing_the_recruit_objective_unlocks_the_fleet_tab():
+	tm.start_new_game_session()
+	assert_false(tm.is_ui_unlocked("tab_fleet"), "Precondition: locked")
 
-	assert_eq(tm.current_step_index, 5)
-	assert_true(tm.is_ui_unlocked("tab_fleet"), "leaving the recruit step must unlock the fleet tab")
+	tm._on_objective_completed("1.7")  # docs/13 §3: "Sign your first captain"
+
+	assert_true(tm.is_ui_unlocked("tab_fleet"))
+	assert_false(tm.is_ui_unlocked("tab_research"), "an unrelated objective must not unlock other tabs")
+
+func test_completing_the_combat_objective_unlocks_the_research_tab():
+	tm.start_new_game_session()
+	tm._on_objective_completed("1.5")  # docs/13 §3: "Sink whatever comes sniffing"
+	assert_true(tm.is_ui_unlocked("tab_research"))
+
+func test_an_unmapped_objective_id_unlocks_nothing():
+	tm.start_new_game_session()
+	tm._on_objective_completed("2.3")  # a Chapter 2 objective, not in the unlock map
+	assert_eq(tm._unlocked_ui.size(), 0)
+
+func test_completing_chapter_1_unlocks_trade_and_finishes_onboarding():
+	tm.start_new_game_session()
+	watch_signals(tm)
+
+	var ch1 := ChapterData.new()
+	ch1.chapter_id = "ch1_the_drowned_port"
+	tm._on_chapter_completed(ch1)
+
+	assert_true(tm.is_ui_unlocked("tab_trade"),
+		"the old 'capture' step's unlock has no successor objective — it moves to chapter completion")
+	assert_true(tm.tutorial_completed)
+	assert_false(tm.tutorial_active)
+	assert_signal_emitted(tm, "tutorial_finished")
+
+func test_completing_a_later_chapter_does_not_replay_the_finished_signal():
+	tm.start_new_game_session()
+	var ch1 := ChapterData.new()
+	ch1.chapter_id = "ch1_the_drowned_port"
+	tm._on_chapter_completed(ch1)
+	watch_signals(tm)
+
+	var ch2 := ChapterData.new()
+	ch2.chapter_id = "ch2_blood_in_the_shallows"
+	tm._on_chapter_completed(ch2)
+
+	assert_signal_not_emitted(tm, "tutorial_finished",
+		"onboarding is already finished — a later chapter must not re-fire it")
+
+func test_skip_tutorial_completes_immediately_and_unlocks_all_ui():
+	tm.start_new_game_session()
+	tm.skip_tutorial()
+
+	assert_true(tm.tutorial_completed)
+	assert_false(tm.tutorial_active)
+	assert_true(tm.is_ui_unlocked("tab_fleet"))
+	assert_true(tm.is_ui_unlocked("tab_research"))
+	assert_true(tm.is_ui_unlocked("tab_trade"))
+
+func test_save_load_round_trip():
+	tm.start_new_game_session()
+	tm._on_objective_completed("1.7")
 
 	var saved = tm.get_save_data()
 
@@ -127,7 +139,6 @@ func test_save_load_round_trip():
 	add_child_autoqfree(tm2)
 	tm2.load_save_data(saved)
 
-	assert_eq(tm2.current_step_index, 5)
 	assert_true(tm2.tutorial_active)
 	assert_true(tm2.is_ui_unlocked("tab_fleet"), "unlocked UI ids must survive save/load")
 	assert_false(tm2.is_ui_unlocked("tab_research"), "ids not yet unlocked must not leak in")
@@ -138,4 +149,4 @@ func test_reset_and_replay_rearms_a_completed_tutorial():
 
 	assert_false(tm.tutorial_completed)
 	assert_true(tm.tutorial_active)
-	assert_eq(tm.current_step_index, 0)
+	assert_eq(tm._unlocked_ui.size(), 0)

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BattleUpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/BattleUpgradeData.gd" id="1_up"]
+
+[resource]
+script = ExtResource("1_up")
+upgrade_id = "rally_the_crew"
+display_name = "Rally the Crew"
+description = "Hands back to their stations. Restore 30% of maximum crew."
+icon = "🧑"
+effect = 8
+magnitude = 0.3
+max_stacks = 3
+weight = 1.0

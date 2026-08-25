@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ShipModuleData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipModuleData.gd" id="1_mod"]
+
+[resource]
+script = ExtResource("1_mod")
+module_id = "extra_berths"
+display_name = "Extra Berths"
+description = "More crew aboard means the guns stay at optimal rate longer."
+slot = 3
+cost_gold = 900
+cost_wood = 250
+cost_iron = 40
+max_crew_mult = 1.25

@@ -34,8 +34,13 @@ enum AIState {
 
 @export_group("Detection")
 @export var detection_range: float = 80.0
-@export var attack_range: float = 40.0
 @export var lose_interest_range: float = 120.0
+## `attack_range` used to be a second, independent firing range (40) that
+## disagreed with the authored `ShipStats.cannon_range`. Firing range now comes
+## from the hull's own stats via `FiringSolver`, so a bigger gun genuinely
+## reaches further. This multiplier only decides how close the AI *chooses* to
+## close before switching from CHASE to ATTACK.
+@export_range(0.1, 2.0) var attack_range_fraction: float = 0.9
 
 @export_group("Patrol")
 @export var patrol_radius: float = 30.0
@@ -74,6 +79,7 @@ enum AIState {
 var current_state: AIState = AIState.IDLE
 var ship_controller: ShipController
 var ship_combat: ShipCombat
+var firing_solver: FiringSolver
 var player_ship: ShipController
 
 # Patrol
@@ -100,7 +106,13 @@ func _ready() -> void:
 		return
 
 	ship_combat = ship_controller.get_node_or_null("ShipCombat") as ShipCombat
-	
+	firing_solver = ship_controller.get_node_or_null("FiringSolver") as FiringSolver
+
+	# Feed the profile's gun-crew discipline into the shared solver instead of
+	# keeping a second copy of the arc check here.
+	if firing_solver and broadside_angle_tolerance > 0.0:
+		firing_solver.arc_override_degrees = broadside_angle_tolerance
+
 	if ai_profile and ship_combat:
 		var ammo_path = "res://resources/combat/ammo/" + ai_profile.get("ammo_preference") + ".tres"
 		var ammo_res = load(ammo_path)
@@ -120,15 +132,57 @@ func _ready() -> void:
 
 
 func _find_player() -> void:
-	## Locate the player ship in the scene tree
+	## Despite the name/type, this holds "my current hostile target" — the
+	## player for an ordinary enemy, or the nearest hostile hull for a
+	## `friendly_ship`-grouped AI support ship (Slice 7). Re-run whenever the
+	## current target is freed (the `not player_ship` guard in
+	## `_physics_process`, which Godot nulls automatically for a freed typed
+	## reference), so a destroyed target is re-acquired without any extra
+	## polling logic.
+	if ship_controller and ship_controller.is_in_group("friendly_ship"):
+		player_ship = _find_nearest_hostile_enemy()
+		return
 	var found = get_tree().get_first_node_in_group("player_ship")
 	if found and found is ShipController:
 		player_ship = found
 
 
+func _find_nearest_hostile_enemy() -> ShipController:
+	if not ship_controller:
+		return null
+	var best: ShipController = null
+	var best_dist := INF
+	for node in get_tree().get_nodes_in_group("enemy_ship"):
+		if not is_instance_valid(node) or node == ship_controller or not (node is ShipController):
+			continue
+		var dmg = node.get_node_or_null("ShipDamage")
+		if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
+			continue
+		var d: float = ship_controller.global_position.distance_to(node.global_position)
+		# Bounded like every other detection path here (_can_detect_player()) —
+		# an ally has no reason to omnisciently lock onto a hostile clear across
+		# the map the instant it spawns.
+		if d > detection_range:
+			continue
+		if d < best_dist:
+			best_dist = d
+			best = node
+	return best
+
+
 func _physics_process(delta: float) -> void:
 	if not ship_controller or ship_controller.is_docked:
 		return
+
+	# A Support-role ship's whole job is keeping a wounded ally afloat — that
+	# takes priority over the normal detect/chase/attack state machine, but only
+	# while someone actually needs it, so a lone Support hull still fights like
+	# any other profile's numbers say it should.
+	if ai_profile and int(ai_profile.get("role")) == AIProfileData.Role.SUPPORT:
+		var ally := _find_wounded_ally()
+		if ally:
+			_process_support(delta, ally)
+			return
 
 	if not player_ship:
 		_find_player()
@@ -206,7 +260,7 @@ func _process_chase(delta: float) -> void:
 		return
 
 	# Close enough to attack
-	if dist < attack_range:
+	if dist < _get_attack_range():
 		_change_state(AIState.ATTACK)
 		return
 
@@ -231,18 +285,18 @@ func _process_attack(delta: float) -> void:
 	var to_player = player_ship.global_position - ship_controller.global_position
 	var dist = Vector2(to_player.x, to_player.z).length()
 
-	# If player escaped attack range, chase again
-	if dist > attack_range * 1.5:
+	# If player escaped weapons range, chase again
+	if dist > _get_attack_range() * 1.5:
 		_change_state(AIState.CHASE)
 		return
 
 	# Decide which side to present — pick the one closer to facing the player
-	var ship_right = ship_controller.global_transform.basis.x.normalized()
 	var to_player_flat = Vector3(to_player.x, 0, to_player.z).normalized()
-	var right_dot = ship_right.dot(to_player_flat)
-
-	# If player is more to our right, present starboard; otherwise port
-	broadside_side = "starboard" if right_dot > 0 else "port"
+	if firing_solver:
+		broadside_side = firing_solver.side_for_direction(to_player_flat)
+	else:
+		var ship_right = ship_controller.global_transform.basis.x.normalized()
+		broadside_side = "starboard" if ship_right.dot(to_player_flat) > 0 else "port"
 
 	# We want to sail so the player is perpendicular to us (broadside).
 	# Perpendicular to the player-relative axis, in the horizontal plane —
@@ -259,10 +313,60 @@ func _process_attack(delta: float) -> void:
 	# Steer towards the ideal broadside position
 	_steer_towards(ideal_position, 0.5)
 
-	# Check if we have a good broadside angle to fire
-	var angle_to_player = _get_broadside_angle(to_player_flat)
-	if angle_to_player < broadside_angle_tolerance and dist < attack_range:
-		ship_controller.fire_cannons(broadside_side)
+	# Firing itself is no longer the AI's job. ShipCombat's auto-fire loop reads
+	# the same FiringSolver and pulls the trigger the instant the arc lines up,
+	# for enemies exactly as for the player — so an enemy that manoeuvres well
+	# shoots well, and there is only one firing rule in the game. The AI's job
+	# in ATTACK is purely to *get into* that arc, which _steer_towards() above
+	# does. Kept as a fallback only for a ship with no solver attached.
+	if not firing_solver:
+		var right_flat := ship_controller.global_transform.basis.x.normalized()
+		var angle: float = rad_to_deg(acos(clamp(abs(right_flat.dot(to_player_flat)), 0.0, 1.0)))
+		if angle < broadside_angle_tolerance and dist < _get_attack_range():
+			ship_controller.fire_cannons(broadside_side)
+
+
+func _process_support(delta: float, ally: Node3D) -> void:
+	## Close on a wounded ally and repair their hull once in range, rather than
+	## engaging the player. Reuses `ShipDamage.repair()` (Slice 0) — no second
+	## healing system.
+	var heal_range: float = ai_profile.get("support_heal_range") if ai_profile else 15.0
+	var dist := _flat_distance_to(ally.global_position)
+	if dist > heal_range:
+		_steer_towards(ally.global_position, 0.8)
+		return
+
+	ship_controller.set_input(0.0, 0.0)
+	var dmg = ally.get_node_or_null("ShipDamage")
+	if dmg and dmg.has_method("repair"):
+		var rate: float = ai_profile.get("support_heal_rate") if ai_profile else 15.0
+		dmg.repair("hull", rate * delta)
+
+
+func _find_wounded_ally() -> Node3D:
+	if not ship_controller:
+		return null
+	var threshold: float = ai_profile.get("support_heal_threshold") if ai_profile else 0.6
+
+	var best: Node3D = null
+	var best_dist := INF
+	for node in get_tree().get_nodes_in_group("enemy_ship"):
+		if node == ship_controller or not is_instance_valid(node):
+			continue
+		var dmg = node.get_node_or_null("ShipDamage")
+		if not dmg or (dmg.has_method("is_destroyed") and dmg.is_destroyed()):
+			continue
+		var max_hp: float = dmg.get_effective_max_health() if dmg.has_method("get_effective_max_health") else 1.0
+		if max_hp <= 0.0:
+			continue
+		var pct: float = dmg.hull / max_hp
+		if pct <= 0.0 or pct >= threshold:
+			continue
+		var d := _flat_distance_to(node.global_position)
+		if d < best_dist:
+			best_dist = d
+			best = node
+	return best
 
 
 func _process_flee(delta: float) -> void:
@@ -397,6 +501,10 @@ func _probe(space: PhysicsDirectSpaceState3D, origin: Vector3, dir: Vector3) -> 
 # === UTILITY ===
 
 func _is_hostile_to_player() -> bool:
+	if ship_controller and ship_controller.is_in_group("friendly_ship"):
+		# _find_player() only ever assigns a hostile hull from "enemy_ship" for
+		# a friendly-grouped AI, so a valid target is hostile by construction.
+		return is_instance_valid(player_ship)
 	if "faction" in ship_controller and ship_controller.faction:
 		var faction_id = ship_controller.faction.faction_id
 		if FactionManager and not FactionManager.is_hostile(faction_id):
@@ -427,14 +535,17 @@ func _flat_distance_to(target: Vector3) -> float:
 	return Vector2(diff.x, diff.z).length()
 
 
-func _get_broadside_angle(to_target_dir: Vector3) -> float:
-	## Returns angle (degrees) between the ship's side and the target direction.
-	## 0 = perfect broadside, 90 = target is directly ahead/behind
-	var ship_right = ship_controller.global_transform.basis.x.normalized()
-	var right_flat = Vector3(ship_right.x, 0, ship_right.z).normalized()
-	var dot = abs(right_flat.dot(to_target_dir))
-	# dot of 1.0 = perfect broadside (target perpendicular), 0.0 = target ahead/behind
-	return rad_to_deg(acos(clamp(dot, 0.0, 1.0)))
+func _get_attack_range() -> float:
+	## How close the AI closes before committing to ATTACK, derived from the hull's
+	## real weapons range rather than a second hardcoded number.
+	## `_get_broadside_angle()` used to live here too; it is now
+	## `FiringSolver.get_broadside_angle()`, shared with the player's auto-fire.
+	var weapons_range: float = 40.0
+	if firing_solver:
+		weapons_range = firing_solver.get_range()
+	elif ship_combat and ship_combat.ship_stats:
+		weapons_range = ship_combat.ship_stats.cannon_range
+	return weapons_range * attack_range_fraction
 
 
 func _generate_patrol_waypoints() -> void:

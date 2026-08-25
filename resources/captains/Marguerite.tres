@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CaptainData" format=3]
+[gd_resource type="Resource" script_class="CaptainData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
+[ext_resource type="Resource" path="res://resources/captains/abilities/Marguerite.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_cd")
@@ -8,6 +9,11 @@ captain_id = "marguerite"
 captain_name = "\"Marguerite\" the Merciless"
 background = "Shows no quarter to the Royal Navy after what they did to her port."
 hire_cost_gold = 1780
+home_island_id = ""
+allegiance_faction_id = "player"
+unlock_chapter_id = "ch2_blood_in_the_shallows"
 base_speed_modifier = 0.95
 base_turn_rate_modifier = 0.95
 base_damage_modifier = 1.45
+base_boarding_modifier = 1.2
+active_ability = ExtResource("2_ability")

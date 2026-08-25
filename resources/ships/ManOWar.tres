@@ -4,6 +4,12 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "man_o_war"
+display_name = "Man O'War"
+ship_class = 5
+cost_gold = 28000
+cost_wood = 2400
+cost_iron = 1200
 max_speed = 22.0
 acceleration = 0.6
 deceleration = 0.6
@@ -28,5 +34,10 @@ stern_arc_degrees = 60.0
 min_speed_fraction = 0.35
 cannon_damage = 50.0
 fire_rate = 0.5
-cannon_range = 400.0
+cannon_range = 125.0
 cannon_speed = 150.0
+has_bow_chaser = true
+has_stern_chaser = true
+chaser_damage = 25.0
+chaser_range = 160.0
+chaser_arc_degrees = 15.0

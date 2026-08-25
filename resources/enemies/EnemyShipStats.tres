@@ -4,6 +4,9 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "enemy_raider"
+display_name = "Raider"
+ship_class = 2
 max_speed = 20.0
 acceleration = 1.5
 deceleration = 1.0
@@ -23,5 +26,5 @@ material_path = ""
 max_health = 150.0
 cannon_damage = 10.0
 fire_rate = 1.5
-cannon_range = 180.0
+cannon_range = 66.0
 cannon_speed = 80.0

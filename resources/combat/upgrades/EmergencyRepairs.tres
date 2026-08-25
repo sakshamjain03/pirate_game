@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BattleUpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/BattleUpgradeData.gd" id="1_up"]
+
+[resource]
+script = ExtResource("1_up")
+upgrade_id = "emergency_repairs"
+display_name = "Emergency Repairs"
+description = "Patch the hull. Restore 25% of maximum hull."
+icon = "🛡"
+effect = 6
+magnitude = 0.25
+max_stacks = 3
+weight = 1.4

@@ -15,15 +15,24 @@
 
 ---
 
-# 1. Where the project actually is (verified 2026-08-14)
+# 1. Where the project actually is (updated 2026-08-25 — M7 campaign spine complete)
 
 **Built and working:** ocean with GPU waves and CPU buoyancy · ship physics that no longer
 capsizes · combat with three ammunition types, hull/sails/crew damage pools, stern crits, and
 boarding · 10 building chains at 5 levels each · island tiers · 5 resources with storage caps ·
-20 captains · 8 ships · 6 factions · 3 regions gated by notoriety · home-island raids · save/load
-with offline catch-up · a tutorial · 12 UI screens.
+20 captains (now with home/allegiance/unlock-chapter identity) · 8 ships with an authored cost
+ladder · 6 factions · 3 regions gated by notoriety · home-island raids · save/load with offline
+catch-up · a real 5-chapter campaign (replacing the old hardcoded tutorial steps) · 13 UI screens.
 
-**Test baseline (measured, not reported):** 118 tests, 117 passing, 1 known LOD failure.
+**Test baseline (measured, not reported):** 320 tests, 319 passing, 1 known LOD failure.
+
+**Execution note:** M8 (Combat Identity Rework) was actually completed *before* M7 in this
+project's real history, reversing the sequencing this document originally proposed below. Combat
+identity landed first because it was the immediately-requested work at the time; the campaign
+spine's chapter objectives were then written and tested against the post-M8 combat model rather
+than the pre-M8 manual-fire model this section originally assumed. Both are complete as of
+2026-08-25 — see `docs/05_CURRENT_SYSTEMS.md`'s "M8 Combat Identity Rework — Phase 2" and
+"M7 — Campaign Spine" sections for the real implementation record.
 
 **What it is missing is not features. It is *reasons*.** Six islands sit on an ocean with no
 geography logic; 20 captains are stat blocks with no home; the economy's ship ladder is
@@ -46,6 +55,9 @@ Everything sequenced below serves that sentence. Anything that does not is defer
 # 3. Roadmap
 
 ## M7 — Campaign Spine & Economy Correction
+
+**Status: COMPLETE (2026-08-25).** See `docs/05_CURRENT_SYSTEMS.md`'s "M7 — Campaign Spine"
+section for the full implementation record and the exit-criteria results below.
 
 **Goal:** the game acquires a reason and a working economy.
 **Why first:** D53 makes every economy number downstream of it meaningless, and the campaign is
@@ -73,14 +85,23 @@ the cheapest possible retention intervention — it is content on top of systems
 5. **Small enablers the chapters need:** a boss id on the boss-death signal; a write path for
    `IslandData.discovered`; verify Cartagena works as a second buildable island.
 
-**Exit criteria**
-- A new player can complete Chapter 1 in one session without touching a wiki.
-- Chapters 2–5 are completable, with every objective resolved by an existing signal.
+**Exit criteria — results (2026-08-25)**
+- A new player can complete Chapter 1 in one session without touching a wiki. — **Not verified.**
+  Mechanically wired and testable (`tests/test_chapter1_playthrough.gd`), but "without touching a
+  wiki" is a human-legibility judgment this pass cannot make headlessly.
+- Chapters 2–5 are completable, with every objective resolved by an existing signal. — **Met**,
+  with two disclosed simplifications: Ch3 objective 3.5 checks `OWN_SHIP_CLASS` only (not also a
+  "Defend Home" flag), and the two boss encounters (Ch4/Ch5) have no in-world trigger yet — reachable
+  only via a manual `EncounterManager.start_encounter()` call, not through normal play.
 - A Man O'War costs more than a level-5 Farm, and reaching island tier 5 provably requires
-  combat loot (M6 Req 7.4, finally testable).
+  combat loot (M6 Req 7.4, finally testable). — **Met**, closed in M8 Phase 2 (D53/D54), ahead of
+  M7 due to the M8-before-M7 execution-order swap noted above.
 - Adding a hypothetical Chapter 6 requires **zero** script changes — proven by writing one
-  throwaway `.tres` and loading it.
-- 118 → ~140 tests, all passing except the known LOD failure.
+  throwaway `.tres` and loading it. — **Met and verified**: `Ch6_Throwaway.tres` loaded and was
+  picked up by `CampaignManager._load_chapters()` with no script edits, then deleted.
+- 118 → ~140 tests, all passing except the known LOD failure. — **Exceeded**: 320 tests / 319
+  passing (the jump past ~140 reflects M8's own test growth plus M1/M2 tail work done in the same
+  pass, not scope creep within M7 itself).
 
 **Deliberately not in M7:** ocean LOD, fog/discovery UI, the world map, weather, new islands, and
 the combat-identity rework below — M7's chapter objectives are written against today's

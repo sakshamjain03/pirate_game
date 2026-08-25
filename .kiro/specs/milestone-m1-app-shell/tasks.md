@@ -185,23 +185,28 @@ Every task builds directly on the previous one so there is no orphaned code.
   - Confirm no script directly calls into UI scene node methods from an autoload singleton
   - Confirm every new `.gd` file has a documentation header per AGENTS.md rules
 
-- [ ] 10. Write integration tests for navigation flow
+- [x] 10. Write integration tests for navigation flow
   - Note: not actually written (tests/ only contains property tests for SceneManager/AudioManager/SettingsManager/SettingsMenu, no dedicated Boot->MainMenu/back-navigation integration suite). Previously mis-marked [x]; corrected during the M1/M2 bug-fix pass on 2026-08-02.
-  - [ ] 10.1 Write integration test for Boot → MainMenu transition
+  - Done 2026-08-25: written for real in `tests/test_navigation_integration.gd` (6 tests, covers 10.1-10.4 plus both MainMenu targets). Unlike `test_scene_manager_history.gd` (which proxies SceneManager to avoid touching the engine scene tree), these exercise the real `SceneManager` autoload against real, lightweight UI scenes only (Boot/MainMenu/SettingsMenu/CreditsScreen — never `World.tscn`). `get_tree().current_scene` and `SceneManager._scene_history` are saved/restored around every test so this file can't leave state behind for other test files that check `if not get_tree().current_scene: create one`. Full suite: 306 tests / 305 passing / 1 known LOD failure (up from the 300/299 baseline, +6, no regressions).
+  - [x] 10.1 Write integration test for Boot → MainMenu transition
     - Instantiate a headless SceneTree, load Boot scene, assert that `SceneManager.scene_changed` fires with `"res://scenes/ui/MainMenu.tscn"` within the transition duration
     - _Requirements: 1.1, 1.2, 1.3, 13.1_
+    - Done 2026-08-25: `test_boot_transitions_to_main_menu` — instantiates real `Boot.tscn`, awaits the real `scene_changed` signal, asserts history and `get_tree().current_scene is MainMenu`.
 
-  - [ ] 10.2 Write integration test for MainMenu button navigation
+  - [x] 10.2 Write integration test for MainMenu button navigation
     - For each of Settings, Credits navigation paths: press the corresponding button programmatically; assert `SceneManager._scene_history` contains the expected path as its last entry
     - _Requirements: 5.2, 5.4, 5.5, 13.2_
+    - Done 2026-08-25: `test_main_menu_settings_button_navigates_and_pushes_history` and `test_main_menu_credits_button_navigates_and_pushes_history` — call `_on_settings_pressed()`/`_on_credits_pressed()` on a real instantiated `MainMenu`, assert history + real `current_scene` type.
 
-  - [ ] 10.3 Write integration test for go_back() returning to MainMenu
+  - [x] 10.3 Write integration test for go_back() returning to MainMenu
     - Push `"res://scenes/ui/MainMenu.tscn"` onto history, call `go_back()`, assert `scene_changed` fires with `"res://scenes/ui/MainMenu.tscn"` and history is empty
     - _Requirements: 4.1, 4.2, 13.5_
+    - Done 2026-08-25: `test_go_back_returns_to_main_menu` — seeds `_scene_history` with `[MainMenu, SettingsMenu]`, calls the real `SceneManager.go_back()`, asserts it pops back to MainMenu (matches the real `go_back()` contract, which leaves the popped-to entry on the stack rather than emptying it).
 
-  - [ ] 10.4 Write integration test for ui_cancel back navigation
+  - [x] 10.4 Write integration test for ui_cancel back navigation
     - In SettingsMenu and CreditsScreen scenes: inject a mock `InputEventAction` for `"ui_cancel"`, assert `SceneManager.go_back()` is called
     - _Requirements: 6.8, 7.4, 12.1, 12.2, 12.3_
+    - Done 2026-08-25: `test_ui_cancel_navigates_back_from_settings_menu` and `test_ui_cancel_navigates_back_from_credits_screen` — inject a real `InputEventAction("ui_cancel")` into each scene's real `_unhandled_input()`, assert real navigation back to MainMenu.
 
 - [x] 11. Final checkpoint — full pass
   - Verify that `project.godot` autoload order is: `GameManager`, `SaveManager`, `SceneManager`, `SettingsManager`, `AudioManager`

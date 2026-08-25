@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CaptainData" format=3]
+[gd_resource type="Resource" script_class="CaptainData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
+[ext_resource type="Resource" path="res://resources/captains/abilities/Whistler.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_cd")
@@ -8,7 +9,12 @@ captain_id = "whistler"
 captain_name = "\"Whistler\" Wade"
 background = "Can read the wind better than any chart."
 hire_cost_gold = 1575
+home_island_id = "tortuga"
+allegiance_faction_id = "player"
+unlock_chapter_id = "ch1_the_drowned_port"
 base_speed_modifier = 1.4
 base_turn_rate_modifier = 1.15
 base_damage_modifier = 0.8
 base_health_modifier = 0.9
+base_boarding_modifier = 0.9
+active_ability = ExtResource("2_ability")

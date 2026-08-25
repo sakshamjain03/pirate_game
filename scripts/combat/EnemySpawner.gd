@@ -31,6 +31,13 @@ signal enemy_destroyed(enemy: Node3D)
 @export_group("Variety")
 @export var enemy_scene: PackedScene = preload("res://scenes/world/EnemyShip.tscn")
 
+## Ambient spawning is paused by `EncounterManager` for the duration of a bounded
+## encounter: the point of an encounter is a known composition, and a background
+## spawner trickling extra hulls in would keep polluting it (and would make the
+## DESTROY_ALL objective unwinnable). `spawn_hunter()` deliberately ignores this —
+## a faction hunter is a directed consequence of the player's own reputation.
+@export var spawning_enabled: bool = true
+
 var _active_enemies: Array[Node3D] = []
 var _spawn_timer: float = 0.0
 var _player_ship: Node3D = null
@@ -80,6 +87,9 @@ func _process(delta: float) -> void:
 			_active_enemies.remove_at(i)
 
 	# Spawn replacements on a timer
+	if not spawning_enabled:
+		return
+
 	if _active_enemies.size() < max_enemies:
 		_spawn_timer += delta
 		if _spawn_timer >= spawn_interval:

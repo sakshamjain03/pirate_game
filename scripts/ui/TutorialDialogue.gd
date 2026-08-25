@@ -1,50 +1,72 @@
 class_name TutorialDialogue extends Control
 
-## Purpose: Onboarding guide-assistant dialogue box (Quartermaster Higgins).
-## Responsibilities: Renders the current TutorialManager step and relays
-##                   Next/Skip presses back to it. Purely reactive — holds no
-##                   step logic of its own.
-## Dependencies: TutorialManager, PirateThemeBuilder
+## Purpose: chapter dialogue box (Quartermaster Higgins and the rest of the
+## named cast). Renders a `ChapterData`'s `opening_beats`/`closing_beats` queue
+## as `CampaignManager` starts/completes chapters.
+## Responsibilities: purely reactive — holds no story logic of its own, only
+## queue position. Beats are narration (no wait-for-gameplay-condition concept
+## in `DialogueBeatData`); a chapter's real pacing comes from its objectives,
+## tracked separately by `CaptainsLog`/`WorldHUD`, not by holding this dialogue
+## open.
+## Dependencies: CampaignManager, PirateThemeBuilder
 
 @onready var name_label: Label = %MentorNameLabel
 @onready var text_label: Label = %MentorTextLabel
 @onready var next_button: Button = %NextButton
 @onready var skip_button: Button = %SkipButton
 
+var _queue: Array[DialogueBeatData] = []
+var _queue_index: int = -1
+
+
 func _ready() -> void:
 	hide()
-	# No pause is ever applied for this dialogue (several steps require the
-	# player to act while it's visible), but PROCESS_MODE_ALWAYS keeps it
-	# consistent with the rest of the modal UI in case that ever changes.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
 
 	next_button.pressed.connect(_on_next_pressed)
 	skip_button.pressed.connect(_on_skip_pressed)
 
-	TutorialManager.step_changed.connect(_on_step_changed)
-	TutorialManager.step_condition_met.connect(_on_condition_met)
-	TutorialManager.tutorial_finished.connect(_on_tutorial_finished)
+	CampaignManager.chapter_started.connect(_on_chapter_started)
+	CampaignManager.chapter_completed.connect(_on_chapter_completed)
 
-	if TutorialManager.tutorial_active:
-		var step := TutorialManager.get_current_step()
-		if not step.is_empty():
-			_on_step_changed(step)
 
-func _on_step_changed(step: Dictionary) -> void:
-	name_label.text = step.get("mentor", "Quartermaster Higgins")
-	text_label.text = step.get("text", "")
-	next_button.visible = not step.has("wait_for")
+func _on_chapter_started(chapter: ChapterData) -> void:
+	_show_queue(chapter.opening_beats)
+
+
+func _on_chapter_completed(chapter: ChapterData) -> void:
+	_show_queue(chapter.closing_beats)
+
+
+func _show_queue(beats: Array[DialogueBeatData]) -> void:
+	if beats.is_empty():
+		return
+	_queue = beats
+	_queue_index = 0
+	_render_current_beat()
 	show()
 
-func _on_condition_met() -> void:
-	next_button.visible = true
+
+func _render_current_beat() -> void:
+	if _queue_index < 0 or _queue_index >= _queue.size():
+		hide()
+		return
+	var beat := _queue[_queue_index]
+	name_label.text = beat.speaker_name if not beat.speaker_name.is_empty() else beat.speaker_id
+	text_label.text = beat.text
+
 
 func _on_next_pressed() -> void:
-	TutorialManager.advance_step()
+	_queue_index += 1
+	if _queue_index >= _queue.size():
+		hide()
+	else:
+		_render_current_beat()
+
 
 func _on_skip_pressed() -> void:
-	TutorialManager.skip_tutorial()
-
-func _on_tutorial_finished() -> void:
+	## Dismisses the current dialogue queue only — there is no "skip the whole
+	## campaign" concept anymore; objectives are real gameplay, not a step list.
+	_queue_index = _queue.size()
 	hide()

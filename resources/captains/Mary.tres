@@ -1,13 +1,19 @@
-[gd_resource type="Resource" script_class="CaptainData" format=3]
+[gd_resource type="Resource" script_class="CaptainData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
+[ext_resource type="Resource" path="res://resources/captains/abilities/Mary.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_cd")
 captain_id = "mary"
 captain_name = "\"Lucky\" Mary"
 background = "Strikes hard and fast, but her luck runs out if cornered."
+hire_cost_gold = 900
+home_island_id = "tortuga"
+allegiance_faction_id = "pirate_clans"
 base_speed_modifier = 1.1
 base_turn_rate_modifier = 1.1
 base_damage_modifier = 1.1
 base_health_modifier = 0.9
+base_boarding_modifier = 1.0
+active_ability = ExtResource("2_ability")

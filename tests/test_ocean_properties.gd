@@ -93,6 +93,18 @@ func test_property_21_lod_distance_transitions():
 			
 	assert_true(passed, "LOD transitions must occur based on defined distance thresholds")
 
+# M2 Task 12.1: quality_level must track SettingsManager.graphics_quality
+func test_quality_level_syncs_from_settings_manager():
+	var saved_quality = SettingsManager.graphics_quality
+	for quality in [0, 1, 2]:
+		SettingsManager.graphics_quality = quality
+		var ocean = OceanControllerClass.new()
+		ocean._sync_quality_from_settings()
+		assert_eq(ocean.quality_level, quality,
+			"OceanController.quality_level must be pulled from SettingsManager.graphics_quality")
+		ocean.free()
+	SettingsManager.graphics_quality = saved_quality
+
 # Property 22: Day/Night Cycle Consistency
 func test_property_22_day_night_cycle_consistency():
 	var passed = true

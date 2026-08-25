@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CaptainData" format=3]
+[gd_resource type="Resource" script_class="CaptainData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
+[ext_resource type="Resource" path="res://resources/captains/abilities/Barnaby.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_cd")
@@ -8,7 +9,12 @@ captain_id = "barnaby"
 captain_name = "\"Bruiser\" Barnaby"
 background = "Won his ship in a bare-knuckle bet and has defended it the same way since."
 hire_cost_gold = 2920
+home_island_id = "skull_cove"
+allegiance_faction_id = "pirate_clans"
+unlock_chapter_id = "ch3_the_kings_answer"
 base_speed_modifier = 0.85
 base_turn_rate_modifier = 0.9
 base_damage_modifier = 1.5
 base_health_modifier = 1.2
+base_boarding_modifier = 1.35
+active_ability = ExtResource("2_ability")

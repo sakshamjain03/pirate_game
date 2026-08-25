@@ -205,3 +205,21 @@ func test_property_11_apply_audio_calls_set_bus_volume():
 			break
 			
 	assert_true(passed, "apply_audio_settings must call set_bus_volume exactly three times with correct arguments")
+
+# M2 Task 12.1: graphics_quality round-trips through save/load like every other setting
+func test_graphics_quality_round_trips():
+	for quality in [0, 1, 2]:
+		sm.graphics_quality = quality
+		sm.save_settings()
+
+		var sm2 = TestableSettingsManager.new()
+		sm2._settings_path = temp_cfg_path
+		sm2.audio_manager = mock_am
+		add_child(sm2)
+		sm2.load_settings()
+
+		assert_eq(sm2.graphics_quality, quality, "graphics_quality must round-trip through save/load")
+		sm2.queue_free()
+
+func test_graphics_quality_defaults_when_absent():
+	assert_eq(sm.graphics_quality, SettingsManagerClass.DEFAULT_GRAPHICS_QUALITY)

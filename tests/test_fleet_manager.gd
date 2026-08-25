@@ -41,8 +41,12 @@ func _setup_two_ship_fleet() -> Dictionary:
 
 	var ship_a = ShipStats.new()
 	var ship_b = ShipStats.new()
-	FleetManager.owned_ships.append(ship_a)
-	FleetManager.owned_ships.append(ship_b)
+	var owned_a := OwnedShipData.new()
+	owned_a.ship_stats = ship_a
+	var owned_b := OwnedShipData.new()
+	owned_b.ship_stats = ship_b
+	FleetManager.owned_ships.append(owned_a)
+	FleetManager.owned_ships.append(owned_b)
 
 	var captain = CaptainData.new()
 	captain.level = 3
@@ -123,8 +127,12 @@ func test_save_load_round_trip():
 	var dinghy = load("res://resources/ships/Dinghy.tres")
 	var sloop = load("res://resources/ships/Sloop.tres")
 	var jack = load("res://resources/captains/Jack.tres")
-	FleetManager.owned_ships.append(dinghy)
-	FleetManager.owned_ships.append(sloop)
+	var owned_dinghy := OwnedShipData.new()
+	owned_dinghy.ship_stats = dinghy
+	var owned_sloop := OwnedShipData.new()
+	owned_sloop.ship_stats = sloop
+	FleetManager.owned_ships.append(owned_dinghy)
+	FleetManager.owned_ships.append(owned_sloop)
 	FleetManager.owned_captains.append(jack)
 	FleetManager.active_ship_index = 1
 	FleetManager.active_captain_index = 0

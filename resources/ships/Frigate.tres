@@ -4,6 +4,12 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "frigate"
+display_name = "Frigate"
+ship_class = 3
+cost_gold = 6500
+cost_wood = 700
+cost_iron = 300
 max_speed = 25.0
 acceleration = 1.2
 deceleration = 1.0
@@ -28,5 +34,9 @@ stern_arc_degrees = 60.0
 min_speed_fraction = 0.35
 cannon_damage = 30.0
 fire_rate = 1.0
-cannon_range = 300.0
+cannon_range = 108.0
 cannon_speed = 130.0
+has_bow_chaser = true
+chaser_damage = 18.0
+chaser_range = 140.0
+chaser_arc_degrees = 15.0

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ShipController.gd" id="1_ship"]
 [ext_resource type="Script" path="res://scripts/world/ShipMovement.gd" id="2_mov"]
@@ -7,6 +7,9 @@
 [ext_resource type="Resource" path="res://resources/ships/Sloop.tres" id="5_stats"]
 [ext_resource type="Script" path="res://scripts/world/ShipCombat.gd" id="10_combat"]
 [ext_resource type="Script" path="res://scripts/world/ShipDamage.gd" id="12_damage"]
+[ext_resource type="Script" path="res://scripts/combat/FiringSolver.gd" id="20_solver"]
+[ext_resource type="Script" path="res://scripts/combat/CombatModifiers.gd" id="21_mods"]
+[ext_resource type="Script" path="res://scripts/combat/CaptainAbility.gd" id="22_ability"]
 [ext_resource type="Resource" path="res://resources/captains/Jack.tres" id="11_jack"]
 
 ; Matches the Kenney hull footprint (x = -2.40..2.40, and ~9 long in Z for the
@@ -57,6 +60,16 @@ ship_stats = ExtResource("5_stats")
 script = ExtResource("12_damage")
 ship_stats = ExtResource("5_stats")
 
+[node name="CombatModifiers" type="Node" parent="."]
+script = ExtResource("21_mods")
+
+[node name="CaptainAbility" type="Node" parent="."]
+script = ExtResource("22_ability")
+
+[node name="FiringSolver" type="Node" parent="."]
+script = ExtResource("20_solver")
+ship_stats = ExtResource("5_stats")
+
 [node name="ShipCombat" type="Node" parent="."]
 script = ExtResource("10_combat")
 ship_stats = ExtResource("5_stats")
@@ -101,6 +114,16 @@ transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 2.05, 1.7, 0)
 
 [node name="StarboardMarker3" type="Marker3D" parent="."]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 2.05, 1.7, 2.4)
+
+; Chaser mounts (docs/navalCombat.md §3: bow/stern weapon slots). Present on
+; every hull since ship_stats — not the scene — swap when the player changes
+; hulls; ShipCombat/FiringSolver only activate a mount when the currently
+; equipped ShipStats authors has_bow_chaser/has_stern_chaser.
+[node name="BowMarker" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, -4.3)
+
+[node name="SternMarker" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 4.3)
 
 [node name="WakeSpawnPoint" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 4.5)

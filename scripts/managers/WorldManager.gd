@@ -31,7 +31,10 @@ const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
 func _ready() -> void:
 	_docking_system = get_node_or_null("../DockingSystem")
 	_boarding_system = get_node_or_null("../BoardingSystem")
-	_input_manager = get_node_or_null("../InputManager")
+	# InputManager was promoted to an autoload in M7 (D57): rebinding is reachable
+	# from the main menu, where no World scene — and so no scene-local
+	# InputManager — exists.
+	_input_manager = InputManager
 	_camera_rig = get_node_or_null("../../CameraRig")
 
 	if _docking_system:
@@ -73,6 +76,30 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not is_world_loaded or not player_ship or not player_ship.has_method("fire_cannons"):
 		return
 
+	var combat = player_ship.get_node_or_null("ShipCombat")
+
+	# The special broadside is the player's active firing verb now. Ordinary
+	# broadsides fire themselves whenever the arc lines up
+	# (`ShipCombat._physics_process`), so tapping is no longer how damage happens
+	# — positioning is (`docs/navalCombat.md` §4).
+	if event.is_action_pressed("special_broadside"):
+		if combat and combat.has_method("fire_special_broadside"):
+			combat.fire_special_broadside()
+		get_viewport().set_input_as_handled()
+		return
+
+	# The captain's ability — the other half of the player's active verbs
+	# (`docs/navalCombat.md` §10). Follows the captain, not the ship.
+	if event.is_action_pressed("captain_ability"):
+		var ability_node = player_ship.get_node_or_null("CaptainAbility")
+		if ability_node and ability_node.has_method("activate"):
+			ability_node.activate()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Manual per-side fire is retained only as an escape hatch while auto-fire is
+	# being verified, per the M8 risk-register mitigation. With auto_fire_enabled
+	# true it is redundant, not harmful: the same per-side reload gates both.
 	if event.is_action_pressed("fire_port"):
 		player_ship.fire_cannons("port")
 		get_viewport().set_input_as_handled()

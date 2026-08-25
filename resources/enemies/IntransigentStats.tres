@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ShipStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipStats.gd" id="1_stats"]
+
+[resource]
+script = ExtResource("1_stats")
+ship_id = "intransigent"
+display_name = "HMS Intransigent"
+ship_class = 5
+max_speed = 20.0
+acceleration = 0.5
+deceleration = 0.5
+turn_rate = 0.35
+drift_factor = 0.0
+mass = 32000.0
+buoyancy = 0.5
+stability = 1.0
+reverse_turn_modifier = 0.1
+drift_compensation_multiplier = 10.0
+water_drag_multiplier = 5.0
+stability_torque_multiplier = 25.0
+linear_damp = 0.9
+angular_damp = 5.0
+model_path = "res://assets/models/ship-pirate-large.glb"
+material_path = "res://resources/materials/wood_dark.tres"
+max_health = 600.0
+max_sails = 250.0
+max_crew = 80.0
+stern_crit_multiplier = 1.8
+stern_arc_degrees = 60.0
+min_speed_fraction = 0.35
+cannon_damage = 50.0
+fire_rate = 0.5
+cannon_range = 125.0
+cannon_speed = 150.0
+special_broadside_cooldown = 12.0
+special_broadside_damage_multiplier = 1.75

@@ -4,6 +4,12 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "galleon"
+display_name = "Galleon"
+ship_class = 4
+cost_gold = 14000
+cost_wood = 1300
+cost_iron = 650
 max_speed = 20.0
 acceleration = 0.8
 deceleration = 0.8
@@ -28,5 +34,9 @@ stern_arc_degrees = 60.0
 min_speed_fraction = 0.35
 cannon_damage = 35.0
 fire_rate = 0.8
-cannon_range = 350.0
+cannon_range = 116.0
 cannon_speed = 140.0
+has_bow_chaser = true
+chaser_damage = 20.0
+chaser_range = 150.0
+chaser_arc_degrees = 15.0

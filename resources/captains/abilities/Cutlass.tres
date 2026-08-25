@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CaptainAbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/CaptainAbilityData.gd" id="1_ab"]
+
+[resource]
+script = ExtResource("1_ab")
+ability_id = "board_first"
+display_name = "Board First"
+description = "Close the distance, guns swinging wide."
+icon = "⚔"
+duration = 6.0
+cooldown = 30.0
+damage_mult = 1.25
+fire_rate_mult = 1.0
+speed_mult = 1.5
+range_mult = 1.0
+arc_bonus_degrees = 14.0
+instant_hull_fraction = 0.0
+instant_sails_fraction = 0.0
+instant_crew_fraction = 0.0

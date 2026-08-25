@@ -7,9 +7,21 @@ class_name ShipCombat extends Node
 signal health_changed(new_health: float, max_health: float)
 signal died()
 signal fired(side: String)
+## Emitted when a side gains or loses a valid target in its firing arc. This is
+## what drives the broadside indicator in `WorldHUD` — the player needs to see
+## alignment *before* the guns speak, not only after (`docs/navalCombat.md` §5.2).
+signal arc_lock_changed(side: String, locked: bool)
+signal special_broadside_fired()
+signal special_broadside_ready()
 
 @export var ship_stats: ShipStats
 @export var current_ammo: AmmoData
+## When true, this ship fires automatically as soon as a hostile is inside a
+## side's arc and that side has reloaded — the model `docs/navalCombat.md` §4
+## locks in. Player skill moves from tapping to positioning. Off leaves the
+## pre-rework manual trigger as the only way to fire, which is how
+## `tests/test_ship_combat.gd` still exercises `fire_broadside()` directly.
+@export var auto_fire_enabled: bool = true
 
 func set_ammo(ammo: AmmoData) -> void:
 	current_ammo = ammo
@@ -20,20 +32,69 @@ var cannon_model_scene: PackedScene = preload("res://assets/models/cannon.glb")
 
 var can_fire_port: bool = true
 var can_fire_starboard: bool = true
+var can_fire_bow: bool = true
+var can_fire_stern: bool = true
 
 # References to marker nodes on the ship where cannonballs spawn
 var port_markers: Array[Node3D] = []
 var starboard_markers: Array[Node3D] = []
+## Chaser mounts (`docs/navalCombat.md` §3) — empty on any hull that doesn't
+## author a BowMarker/SternMarker node, regardless of `ship_stats.has_*_chaser`.
+var bow_markers: Array[Node3D] = []
+var stern_markers: Array[Node3D] = []
 
 var _fallback_health: float = -1.0
 
 var current_health: float:
 	get:
-		var parent = get_parent()
-		var dmg = parent.get_node_or_null("ShipDamage") if parent else null
+		var dmg = _get_damage()
 		if dmg:
 			return dmg.hull
 		return _fallback_health
+	set(value):
+		## M6 made this property getter-only when it became a proxy onto
+		## ShipDamage.hull, but left five callers still assigning to it —
+		## ShipController.respawn(), ShipController._apply_tech_modifiers(),
+		## DockingSystem._process_healing(), SaveManager.load_game() and
+		## IslandMenu's ship-purchase path. All five silently wrote to nothing,
+		## which is why respawn produced an unkillable hull-0 ship and shipyard
+		## repair did not repair. Forwarding here fixes all of them at once and
+		## keeps `current_health` a legitimate part of the public API that
+		## test_ship_combat.gd and EnemyAI already read.
+		var dmg = _get_damage()
+		if dmg:
+			var delta_hp: float = value - dmg.hull
+			if delta_hp > 0.0:
+				dmg.repair("hull", delta_hp)
+			elif delta_hp < 0.0:
+				dmg.hull = maxf(value, 0.0)
+				dmg.pool_changed.emit("hull", dmg.hull, dmg.get_pool_maximum("hull"))
+		else:
+			_fallback_health = value
+
+func _get_damage() -> Node:
+	var parent = get_parent()
+	return parent.get_node_or_null("ShipDamage") if parent else null
+
+func _get_solver() -> FiringSolver:
+	var parent = get_parent()
+	if not parent:
+		return null
+	return parent.get_node_or_null("FiringSolver") as FiringSolver
+
+func _get_modifiers() -> CombatModifiers:
+	var parent = get_parent()
+	if not parent:
+		return null
+	return parent.get_node_or_null("CombatModifiers") as CombatModifiers
+
+## Damage multiplier applied to the next volley. The special broadside uses this
+## rather than mutating ship_stats.cannon_damage, because a ShipStats resource is
+## shared by every ship of that class — the same duplicate-never-mutate rule
+## `EnemySpawner.compute_spawn_multiplier()` follows.
+var _volley_damage_multiplier: float = 1.0
+var _special_cooldown_remaining: float = 0.0
+var _arc_locked := {"port": false, "starboard": false, "bow": false, "stern": false}
 
 func _ready() -> void:
 	if not ship_stats:
@@ -49,6 +110,10 @@ func _ready() -> void:
 					port_markers.append(child)
 				elif child.name.begins_with("StarboardMarker"):
 					starboard_markers.append(child)
+				elif child.name.begins_with("BowMarker"):
+					bow_markers.append(child)
+				elif child.name.begins_with("SternMarker"):
+					stern_markers.append(child)
 					
 	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
 	if dmg:
@@ -80,7 +145,16 @@ func _on_pool_changed(pool: String, current: float, maximum: float) -> void:
 func _spawn_cannon_models() -> void:
 	if not cannon_model_scene:
 		return
-	for marker in port_markers + starboard_markers:
+	# Bow/stern mounts exist on the shared PlayerShip/EnemyShip scenes regardless
+	# of which ShipStats is currently equipped (hulls swap stats, not scenes), so
+	# whether a chaser is actually there to model is a `ship_stats` question, not
+	# a "does the marker node exist" one.
+	var chaser_markers: Array[Node3D] = []
+	if ship_stats.has_bow_chaser:
+		chaser_markers.append_array(bow_markers)
+	if ship_stats.has_stern_chaser:
+		chaser_markers.append_array(stern_markers)
+	for marker in port_markers + starboard_markers + chaser_markers:
 		var cannon = cannon_model_scene.instantiate()
 		marker.add_child(cannon)
 		# cannon.glb is a ~2-unit cube with a centred pivot, which on a 4.6-wide
@@ -133,6 +207,116 @@ func die() -> void:
 	died.emit()
 	# Handled by ShipController._on_died(), connected to this signal.
 
+
+func _physics_process(delta: float) -> void:
+	if _special_cooldown_remaining > 0.0:
+		_special_cooldown_remaining -= delta
+		if _special_cooldown_remaining <= 0.0:
+			_special_cooldown_remaining = 0.0
+			special_broadside_ready.emit()
+
+	var solver := _get_solver()
+	if not solver:
+		return
+
+	# Publish arc state every frame regardless of auto-fire, so the indicator
+	# still reads correctly for a ship with auto-fire switched off. Bow/stern
+	# only enter rotation for a hull that actually carries that mount.
+	var sides: Array[String] = [FiringSolver.SIDE_PORT, FiringSolver.SIDE_STARBOARD]
+	if not bow_markers.is_empty() and ship_stats.has_bow_chaser:
+		sides.append(FiringSolver.SIDE_BOW)
+	if not stern_markers.is_empty() and ship_stats.has_stern_chaser:
+		sides.append(FiringSolver.SIDE_STERN)
+
+	for side in sides:
+		var locked: bool = solver.is_aligned(side)
+		if locked != _arc_locked[side]:
+			_arc_locked[side] = locked
+			arc_lock_changed.emit(side, locked)
+
+	if not auto_fire_enabled:
+		return
+
+	var parent = get_parent()
+	if parent and "is_docked" in parent and parent.is_docked:
+		return
+
+	# Automatic fire: the reload gate is the existing per-side cooldown, and the
+	# aim gate is the solver. Nothing else — positioning is the whole skill.
+	for side in sides:
+		if _arc_locked[side]:
+			_fire_through_controller(side)
+
+
+func _fire_through_controller(side: String) -> void:
+	## Route through ShipController.fire_cannons() when possible so recoil, smoke
+	## and the cannon SFX fire too — those live on the controller and would be
+	## silently lost if auto-fire called fire_broadside() directly.
+	var parent = get_parent()
+	if parent and parent.has_method("fire_cannons"):
+		parent.fire_cannons(side)
+	else:
+		fire_broadside(side)
+
+
+func is_special_broadside_ready() -> bool:
+	return _special_cooldown_remaining <= 0.0
+
+
+func get_special_cooldown_fraction() -> float:
+	## 0.0 = just fired, 1.0 = ready. For the HUD.
+	if not ship_stats or ship_stats.special_broadside_cooldown <= 0.0:
+		return 1.0
+	var elapsed: float = ship_stats.special_broadside_cooldown - _special_cooldown_remaining
+	return clamp(elapsed / ship_stats.special_broadside_cooldown, 0.0, 1.0)
+
+
+func fire_special_broadside() -> bool:
+	## The player-timed full volley of `docs/navalCombat.md` §4: both sides at
+	## once, at a damage premium, ignoring the per-side reload but gated on its
+	## own longer cooldown. This is the active verb that replaces tapping.
+	if not ship_stats or not is_special_broadside_ready():
+		return false
+
+	var dmg = _get_damage()
+	if dmg and dmg.crew <= 0.0:
+		return false
+
+	var parent = get_parent()
+	if parent and "is_docked" in parent and parent.is_docked:
+		return false
+
+	var solver := _get_solver()
+	if solver:
+		solver.force_rescan()
+
+	_volley_damage_multiplier = ship_stats.special_broadside_damage_multiplier
+	# Bypass the reload gate — that is what makes this a *special*.
+	var was_port := can_fire_port
+	var was_starboard := can_fire_starboard
+	can_fire_port = true
+	can_fire_starboard = true
+
+	var any := false
+	for side in [FiringSolver.SIDE_PORT, FiringSolver.SIDE_STARBOARD]:
+		if not (port_markers if side == FiringSolver.SIDE_PORT else starboard_markers).is_empty():
+			_fire_through_controller(side)
+			any = true
+
+	_volley_damage_multiplier = 1.0
+
+	if not any:
+		can_fire_port = was_port
+		can_fire_starboard = was_starboard
+		return false
+
+	var mods := _get_modifiers()
+	var cd_mult: float = mods.special_cooldown_mult if mods else 1.0
+	_special_cooldown_remaining = ship_stats.special_broadside_cooldown * cd_mult
+	special_broadside_fired.emit()
+	return true
+
+
 func fire_broadside(side: String) -> bool:
 	if not ship_stats:
 		return false
@@ -142,12 +326,14 @@ func fire_broadside(side: String) -> bool:
 	if dmg and dmg.crew <= 0.0:
 		return false
 
-	if side == "port" and not can_fire_port:
-		return false
-	if side == "starboard" and not can_fire_starboard:
+	var can_fire := {"port": can_fire_port, "starboard": can_fire_starboard,
+		"bow": can_fire_bow, "stern": can_fire_stern}
+	if side in can_fire and not can_fire[side]:
 		return false
 
-	var markers = port_markers if side == "port" else starboard_markers
+	var markers_by_side := {"port": port_markers, "starboard": starboard_markers,
+		"bow": bow_markers, "stern": stern_markers}
+	var markers: Array[Node3D] = markers_by_side.get(side, [])
 	var fired_any = false
 
 	for marker in markers:
@@ -185,18 +371,35 @@ func _spawn_cannonball(marker: Node3D, side: String) -> void:
 				var TechManager = get_tree().root.get_node("TechManager")
 				dmg_mod *= TechManager.global_damage_mod
 				
-			ball.damage = ship_stats.cannon_damage * dmg_mod
+			# Temporary battle upgrades and captain abilities stack in here,
+			# alongside the captain passive and tech modifiers already applied
+			# above — never by mutating the shared ShipStats resource.
+			var mods := _get_modifiers()
+			if mods:
+				dmg_mod *= mods.damage_mult
+
+			var base_damage: float = ship_stats.chaser_damage \
+				if (side == FiringSolver.SIDE_BOW or side == FiringSolver.SIDE_STERN) \
+				else ship_stats.cannon_damage
+			ball.damage = base_damage * dmg_mod * _volley_damage_multiplier
 			ball.source_ship = parent
 			ball.ammo = ammo_data
-		
+
 		# Launch direction comes from the ship hull's own basis rather than the
-		# marker's own rotation
+		# marker's own rotation. Broadside guns fire along the beam (basis.x);
+		# chasers fire along the keel (basis.z) instead.
 		var parent = get_parent()
 		var forward = Vector3.RIGHT
 		if parent is Node3D:
-			forward = parent.global_transform.basis.x.normalized()
-		if side == "port":
-			forward = -forward
+			match side:
+				FiringSolver.SIDE_BOW:
+					forward = -parent.global_transform.basis.z.normalized()
+				FiringSolver.SIDE_STERN:
+					forward = parent.global_transform.basis.z.normalized()
+				FiringSolver.SIDE_PORT:
+					forward = -parent.global_transform.basis.x.normalized()
+				_:
+					forward = parent.global_transform.basis.x.normalized()
 			
 		if ammo_data.spread_degrees > 0.0:
 			var spread_rad = deg_to_rad(ammo_data.spread_degrees)
@@ -235,11 +438,24 @@ func _start_cooldown(side: String) -> void:
 			var penalty = crew_pct / ship_stats.optimal_crew_fraction
 			rate *= max(penalty, 0.1)
 			
+	# "Rapid Reload"-style upgrades multiply the rate here rather than writing to
+	# ship_stats.fire_rate, which is shared by every hull of this class.
+	var mods := _get_modifiers()
+	if mods:
+		rate *= mods.fire_rate_mult
+
 	var cooldown_time = 1.0 / max(rate, 0.1)
-	
-	if side == "port":
-		can_fire_port = false
-		get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_port = true)
-	else:
-		can_fire_starboard = false
-		get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_starboard = true)
+
+	match side:
+		FiringSolver.SIDE_PORT:
+			can_fire_port = false
+			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_port = true)
+		FiringSolver.SIDE_BOW:
+			can_fire_bow = false
+			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_bow = true)
+		FiringSolver.SIDE_STERN:
+			can_fire_stern = false
+			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_stern = true)
+		_:
+			can_fire_starboard = false
+			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_starboard = true)

@@ -1,0 +1,133 @@
+[gd_resource type="Resource" script_class="ChapterData" load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
+[ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
+[ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+
+[sub_resource type="Resource" id="Open_1"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Six weeks, the Admiral said. It's been five."
+mood = 0
+
+[sub_resource type="Resource" id="Open_2"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Cárdenas stages out of Cartagena and coals at Mount Brimstone — that volcano's the whole reason the crossing works. Cut the mountain and the fleet crosses thirsty."
+mood = 0
+
+[sub_resource type="Resource" id="Open_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "I've never in my life advised anyone to attack an empire. I'm advising it now. I'd like the record to show I've changed."
+mood = 4
+
+[sub_resource type="Resource" id="Obj_5_1"]
+script = ExtResource("2_objective")
+objective_id = "5.1"
+description = "Cut the supply"
+condition = 6
+target_id = "volcano_island"
+target_count = 1
+
+[sub_resource type="Resource" id="Obj_5_2"]
+script = ExtResource("2_objective")
+objective_id = "5.2"
+description = "Sink the escort screen"
+condition = 3
+target_id = "spanish_empire"
+target_count = 12
+
+[sub_resource type="Resource" id="Obj_5_3"]
+script = ExtResource("2_objective")
+objective_id = "5.3"
+description = "Buy a ship of the line"
+condition = 10
+target_count = 1
+target_value = 4.0
+
+[sub_resource type="Resource" id="Obj_5_4"]
+script = ExtResource("2_objective")
+objective_id = "5.4"
+description = "Raise the port to tier 5"
+condition = 2
+target_id = "port_royal"
+target_count = 5
+hint_text = "Every building on Port Royal at level 5 — production alone will not get you there. Combat loot must carry the rest."
+
+[sub_resource type="Resource" id="Obj_5_5"]
+script = ExtResource("2_objective")
+objective_id = "5.5"
+description = "Break Cárdenas' escort"
+condition = 5
+target_id = "cardenas_escort"
+target_count = 1
+
+[sub_resource type="Resource" id="Obj_5_6"]
+script = ExtResource("2_objective")
+objective_id = "5.6"
+description = "Take Cartagena"
+condition = 6
+target_id = "cartagena_outpost"
+target_count = 1
+
+[sub_resource type="Resource" id="Obj_5_7"]
+script = ExtResource("2_objective")
+objective_id = "5.7"
+description = "Board the flagship"
+condition = 4
+target_id = "cardenas_escort"
+target_count = 1
+is_optional = true
+
+[sub_resource type="Resource" id="Obj_5_8"]
+script = ExtResource("2_objective")
+objective_id = "5.8"
+description = "Own a Man O'War"
+condition = 10
+target_count = 1
+target_value = 5.0
+is_optional = true
+
+[sub_resource type="Resource" id="Close_1"]
+script = ExtResource("3_beat")
+speaker_id = "cardenas"
+speaker_name = "Almirante Beatriz de Cárdenas"
+text = "You imagine you have taken something from Spain. You have taken one crossing. There will be another in the spring, and I will be commanding it."
+mood = 0
+
+[sub_resource type="Resource" id="Close_2"]
+script = ExtResource("3_beat")
+speaker_id = "cardenas"
+speaker_name = "Almirante Beatriz de Cárdenas"
+text = "Enjoy your harbour, Captain. It is a very small piece of a very large ocean."
+mood = 0
+
+[sub_resource type="Resource" id="Close_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Captain. There's a chart in here that shouldn't be. There's an island on it that isn't on anything else I've ever seen — and I know this hand. This is Solomon Vane's hand, and Vane went down with the Wandering Widow forty years back."
+mood = 3
+
+[sub_resource type="Resource" id="Close_4"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "…I'd very much like you to tell me I'm wrong."
+mood = 3
+
+[resource]
+script = ExtResource("1_chapter")
+chapter_id = "ch5_the_silver_fleet"
+chapter_number = 5
+title = "The Silver Fleet"
+log_summary = "Cut Cárdenas' supply, broke her escort, and took Cartagena — the v1 finale, and a chart that shouldn't exist."
+required_region_id = "imperial_waters"
+opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
+objectives = Array[ObjectiveData]([SubResource("Obj_5_1"), SubResource("Obj_5_2"), SubResource("Obj_5_3"), SubResource("Obj_5_4"), SubResource("Obj_5_5"), SubResource("Obj_5_6"), SubResource("Obj_5_7"), SubResource("Obj_5_8")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3"), SubResource("Close_4")])
+reward_gold = 6000

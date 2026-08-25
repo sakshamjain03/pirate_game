@@ -20,12 +20,32 @@ func _ready() -> void:
 	if docking_system and docking_system.has_method("initialize") and ship:
 		docking_system.initialize(ship)
 
+	# D58 cold start fix: a genuinely new game (no save file at all — Continue
+	# always leaves one) starts owning no island and no production, gated behind
+	# an unreachable 1000-gold colonize cost against a 200-gold starting purse.
+	# Guarded on "is this a new game", never "is home_island_id empty" — an
+	# existing save with a different home island must never be overwritten.
+	if not SaveManager.has_save_data():
+		call_deferred("_seed_port_royal_as_home", islands)
+
 	# Load game state (if coming from Continue)
 	if SaveManager.has_method("load_game"):
 		# Use call_deferred to ensure physics and all nodes are fully ready
 		SaveManager.call_deferred("load_game")
 
-	# Deferred (and queued after load_game above) so a resumed tutorial step
-	# index from a loaded save is already in place before the dialogue reads it.
-	if world_manager and TutorialManager.has_method("on_world_ready"):
-		TutorialManager.call_deferred("on_world_ready", world_manager)
+	# Deferred (and queued after load_game above) so resumed campaign progress
+	# from a loaded save is already in place before signals start firing.
+	if world_manager and CampaignManager.has_method("on_world_ready"):
+		CampaignManager.call_deferred("on_world_ready", world_manager)
+
+
+func _seed_port_royal_as_home(islands: Array) -> void:
+	for island in islands:
+		if not (island.has_method("get_island_id") and island.get_island_id() == "port_royal"):
+			continue
+		if not island.island_data:
+			return
+		island.island_data.island_type = IslandData.IslandType.CAPITAL
+		island.island_data.owner_faction = load("res://resources/factions/PlayerFaction.tres")
+		EmpireManager.home_island_id = "port_royal"
+		return

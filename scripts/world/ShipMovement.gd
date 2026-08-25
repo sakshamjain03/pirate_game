@@ -45,6 +45,12 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 	if dmg and dmg.has_method("get_speed_multiplier"):
 		speed_mod *= dmg.get_speed_multiplier()
 
+	# Temporary battle upgrades and captain abilities. Applied to the speed target
+	# only — the buoyancy/stability block is deliberately untouched (V1/D33/D34).
+	var mods = body.get_node_or_null("CombatModifiers")
+	if mods:
+		speed_mod *= mods.speed_mult
+
 	# Forward/Backward movement (Propulsion)
 	var forward_dir = -body.global_transform.basis.z.normalized()
 	var current_speed = body.linear_velocity.dot(forward_dir)

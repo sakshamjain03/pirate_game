@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ShipModuleData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipModuleData.gd" id="1_mod"]
+
+[resource]
+script = ExtResource("1_mod")
+module_id = "copper_bottom"
+display_name = "Copper Bottom"
+description = "A cleaner hull cuts through the water: faster, and sails last longer. The special that makes a Speed build."
+slot = 4
+cost_gold = 2400
+cost_wood = 300
+cost_iron = 250
+max_speed_mult = 1.15
+max_sails_mult = 1.15

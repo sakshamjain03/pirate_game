@@ -94,16 +94,7 @@ func _is_friendly(body: Node) -> bool:
 	if not source_ship or not is_instance_valid(source_ship):
 		return false
 
-	var shooter_is_player = source_ship.is_in_group("player_ship")
-	var target_is_player = body.is_in_group("player_ship")
-	# The player carries no FactionData, and every enemy that engages the
-	# player is hostile to them by construction — always a valid hit.
-	if shooter_is_player != target_is_player:
-		return false
-
-	var shooter_faction = source_ship.get("faction") if "faction" in source_ship else null
-	var target_faction = body.get("faction") if "faction" in body else null
-	if shooter_faction == null or target_faction == null:
-		return false
-
-	return shooter_faction.get("faction_id") == target_faction.get("faction_id")
+	# One rule, one place. FiringSolver.are_hostile() is the same test the
+	# auto-fire target picker uses, so the solver can never lock onto a ship this
+	# cannonball would refuse to damage.
+	return not FiringSolver.are_hostile(source_ship, body)

@@ -20,6 +20,11 @@ func _ready() -> void:
 
 	_setup_material()
 	_apply_settings()
+	_sync_quality_from_settings()
+	SettingsManager.settings_changed.connect(_sync_quality_from_settings)
+
+func _sync_quality_from_settings() -> void:
+	quality_level = SettingsManager.graphics_quality
 	_apply_quality()
 
 func _process(_delta: float) -> void:

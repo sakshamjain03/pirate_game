@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="ShipStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipStats.gd" id="1_stats"]
+
+[resource]
+script = ExtResource("1_stats")
+ship_id = "cardenas_escort"
+display_name = "Cárdenas' Flagship"
+ship_class = 5
+max_speed = 21.0
+acceleration = 0.7
+deceleration = 0.6
+turn_rate = 0.55
+drift_factor = 0.0
+mass = 22000.0
+buoyancy = 0.55
+stability = 0.95
+reverse_turn_modifier = 0.15
+drift_compensation_multiplier = 9.0
+water_drag_multiplier = 4.5
+stability_torque_multiplier = 22.0
+linear_damp = 0.85
+angular_damp = 4.5
+model_path = "res://assets/models/ship-pirate-large.glb"
+material_path = "res://resources/materials/wood_dark.tres"
+max_health = 500.0
+max_sails = 220.0
+max_crew = 70.0
+stern_crit_multiplier = 1.6
+stern_arc_degrees = 60.0
+min_speed_fraction = 0.35
+cannon_damage = 42.0
+fire_rate = 0.6
+; The longest cannon_range in the game (docs/13_CAMPAIGN_LEVELS_1-5.md §7):
+; closing costs hull the whole way in.
+cannon_range = 135.0
+cannon_speed = 155.0
+has_bow_chaser = true
+chaser_damage = 22.0
+chaser_range = 165.0
+chaser_arc_degrees = 15.0
+special_broadside_cooldown = 12.0
+special_broadside_damage_multiplier = 1.75

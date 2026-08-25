@@ -15,30 +15,34 @@
 
 ---
 
-# 0. Architecture snapshot (verified 2026-08-14)
+# 0. Architecture snapshot (verified 2026-08-25, M7 campaign spine)
 
-**Autoloads** (`project.godot` `[autoload]`, in load order) — 11 registered, and not the same set
-`docs/05_CURRENT_SYSTEMS.md` §4 used to name (that list was stale; it has now been corrected):
+**Autoloads** (`project.godot` `[autoload]`, in load order) — 13 registered:
 
 ```
-SaveManager, SceneManager, SettingsManager, AudioManager, ResourceManager,
-FleetManager, TechManager, EventManager, FactionManager, EmpireManager, TutorialManager
+SaveManager, SceneManager, SettingsManager, InputManager, AudioManager, ResourceManager,
+FleetManager, TechManager, EventManager, FactionManager, EmpireManager, CampaignManager,
+TutorialManager
 ```
 
-`GameManager` is **gone** — only an orphaned `scripts/managers/GameManager.gd.uid` remains, while
-§4 of CURRENT_SYSTEMS still lists it and omits `TutorialManager`.
+`GameManager` is **gone** — only an orphaned `scripts/managers/GameManager.gd.uid` remains.
+`InputManager` (D57) and `CampaignManager` (M7) were newly promoted to/created as autoloads this
+pass; both were previously scene-local or nonexistent.
 
 **Scene-local systems** (children of `World/Systems` in `scenes/world/World.tscn`) — these are
 *not* autoloads, which matters for anything outside the World scene trying to reach them:
 
 ```
-WorldManager, InputManager, DockingSystem, EnemySpawner, WorldEventManager, BoardingSystem
+WorldManager, DockingSystem, EnemySpawner, EncounterManager, BoardingSystem
 ```
 
-**Test baseline (measured 2026-08-14, Godot 4.7.1):** **118 tests, 117 passing, 1 failing** —
-`test_property_21_lod_distance_transitions`, the known LOD gap. The `103` baseline quoted
-throughout the M6 spec and CURRENT_SYSTEMS is stale by 15 tests (Wave 3's three files were never
-counted). **118/117 is the number to regress against.**
+`WorldEventManager` was **deleted in M8** — `EncounterManager` absorbed its boss timer.
+`InputManager` moved out of this list into the autoload list above (D57, M7).
+
+**Test baseline (measured 2026-08-25 after M7 campaign spine, Godot 4.7.1):** **320 tests, 319
+passing, 1 failing** — `test_property_21_lod_distance_transitions`, the known LOD gap, unchanged
+since M6. **320/319 is the number to regress against.** (History: 103 → 118/117 (stale count
+fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7 campaign spine + M1/M2 tail).)
 
 ---
 
@@ -67,15 +71,15 @@ counted). **118/117 is the number to regress against.**
 | Difficulty scaling by region + notoriety | `EnemySpawner.compute_spawn_multiplier()` | ✅ | `is_empire` factions only |
 | Home-island raids | `EmpireManager._resolve_raid()` | ✅ | 15 min roll, defence vs attack score |
 | Loot tables + class/notoriety scaling | `LootTableData`, `ShipController`, `BoardingSystem` | ✅ | M6 Task 22 |
-| Island colonise / capture | `Island.capture_island()` | 🟡 | works; **D58** makes the *first* one unreachable |
+| Island colonise / capture | `Island.capture_island()` | ✅ | **D58 fixed M7**: `World._seed_port_royal_as_home()` grants Port Royal on a genuinely new game, so the first colonise is no longer unreachable |
 | Random world events | `EventManager` | 🟡 | 3 event types; text is generic, not chapter-aware |
-| Boss encounters | `WorldEventManager` + `BossShip.tscn` | 🟡 | one ghost-ship boss; no boss id on the death signal |
+| Boss encounters | `EncounterManager` + dedicated boss scenes | 🟡 | **M7:** two dedicated bosses (HMS Intransigent, Cárdenas' escort) with their own `ShipStats`/`EncounterData`, matched by `ship_id` on `DEFEAT_BOSS`. Not in `World.tscn`'s ambient pool — no in-world trigger exists yet, reachable only via a manual `EncounterManager.start_encounter()` call |
 | Save / load | `SaveManager` | ✅ | `get_save_data()`/`load_save_data()` convention |
 | Offline catch-up (capped 4 h) | `SaveManager` | ✅ | M5; deliberately does not re-emit the tick signal |
-| Tutorial / onboarding | `TutorialManager` | 🟡 | works, but 8 steps are **hardcoded** in the script |
-| **Campaign / chapter director** | — | ❌ **M7** | `CampaignManager` + `ChapterData`/`ObjectiveData` |
-| **Objective tracking + progress** | — | ❌ **M7** | |
-| **Island discovery / fog of war** | — | ❌ **M9** | `IslandData.discovered` authored, **never written** |
+| Tutorial / onboarding | `TutorialManager` | ✅ | **M7:** reduced to a thin wrapper — UI-unlock/replay logic only; the 8 hardcoded steps are gone, replaced by `CampaignManager` |
+| **Campaign / chapter director** | `CampaignManager` | ✅ **M7** | 5 authored chapters, gated by region activation / prior-chapter completion, cascading catch-up |
+| **Objective tracking + progress** | `CampaignManager` | ✅ **M7** | 15-condition `ObjectiveData.Condition` enum, dispatched off real gameplay signals |
+| **Island discovery / fog of war** | `CampaignManager._on_player_docked()` | 🟡 | **M7:** `IslandData.discovered` now has a real write path (on dock). Full fog-of-war UI (M9) still not built |
 | Diplomacy (treaties, tribute) | — | ❌ M10 | PRD §16 |
 | Trade routes as placeable objects | — | ❌ M10 | today: abstract missions only |
 | Multiplayer / PvP / guilds | — | 🚫 | permanently out for v1 |
@@ -98,22 +102,26 @@ counted). **118/117 is the number to regress against.**
 | Wind as a mechanic | — | ❌ M10 | Black Flag's sail-trim layer; not simulated; excluded from v1 combat per `docs/navalCombat.md` §3 |
 | Weather (storms, squalls, visibility) | `EnvironmentController` | 🟡 | time-of-day + fog only; no storms, no per-region weather |
 | Projectile flight | `Cannonball` (`RigidBody3D`) | 🟡 | straight-line; **no arcing** — a documented gap |
-| Damage pools (hull/sails/crew) | `ShipDamage` | ✅ | M6 |
+| Damage pools (hull/sails/crew) | `ShipDamage` | ✅ | M6; **M8 added the write path** (`repair`/`restore_all`) — D60, it was entirely dead |
 | Directional / stern-arc crits | `ShipDamage.apply_hit()` | ✅ | M6 |
 | Ammunition types (round/chain/grape) | `AmmoData` + 3 `.tres` | ✅ | M6 |
 | Boarding resolution | `BoardingSystem` | ✅ | D49 fixed the double-boarding exploit |
-| Auto-fire on arc alignment + broadside indicator | — | ❌ **M8** | firing is currently manual-only (`fire_port`/`fire_starboard` key press → `ShipCombat.fire_broadside()`), with no arc check; `docs/navalCombat.md` §4 locks the target design |
-| Bow / stern / special weapon slots | — | ❌ M8 | only port/starboard broadside markers exist today |
-| Captain active abilities (in-battle) | — | ❌ M8 | `CaptainData` has passives only; `docs/navalCombat.md` §10 |
-| Temporary in-battle upgrade offers | — | ❌ M8 | net-new roguelite layer; `docs/navalCombat.md` §11 |
-| Ship modules + a ship Level distinct from captain Level | — | ❌ M8 | ships are fixed once bought today; `docs/navalCombat.md` §13 |
-| AI-controlled support ships fighting in real-time | — | ❌ M8 | `FleetManager` support ships only run background trade/patrol missions |
+| Auto-fire on arc alignment + broadside indicator | `FiringSolver` + `ShipCombat` | ✅ | **M8.** Arc geometry lives once in `FiringSolver`, shared by the player and `EnemyAI`; `arc_lock_changed` drives the `WorldHUD` indicator. Manual `fire_port`/`fire_starboard` retained as a deprecated escape hatch |
+| Player-timed full broadside (special) | `ShipCombat.fire_special_broadside()` | ✅ | **M8.** Both sides at once, damage premium, own cooldown, bypasses the per-side reload |
+| Bow / stern / special weapon *slots* | `FiringSolver` (`SIDE_BOW`/`SIDE_STERN`) + `ShipStats` | ✅ | **M8 Phase 2.** Narrow, longer-range chaser cone gated on `has_bow_chaser`/`has_stern_chaser`; authored on Frigate/Galleon/Man O'War |
+| Captain active abilities (in-battle) | `CaptainAbility` + `CaptainAbilityData` | ✅ | **M8.** 20 authored, one per captain, keyed to their six-word read in `docs/12_CHARACTER_BIBLE.md` §4. Follows the captain, not the ship |
+| Temporary in-battle upgrade offers | `EncounterManager` + `BattleUpgradeData` + `UpgradeChoiceScreen` | ✅ | **M8.** 10 authored; cadence per `EncounterData`; applied via `CombatModifiers` and cleared on `encounter_ended` |
+| Runtime combat modifier layer | `CombatModifiers` | ✅ | **M8.** Battle-long + timed layers; never mutates a shared `ShipStats` |
+| Bounded encounter lifecycle (start/objective/end/rewards) | `EncounterManager` | ✅ | **M8.** Absorbed and deleted `WorldEventManager` |
+| Ship modules + a ship Level distinct from captain Level | `OwnedShipData` + `ShipModuleData` | ✅ | **M8 Phase 2.** `FleetManager.owned_ships` wraps each hull's shared `ShipStats` template with per-instance level (max 5) + up to 5 modules (one per slot); `get_effective_stats()` applies both to a duplicate, never the template. 10 modules authored |
+| AI-controlled support ships fighting in real-time | `EncounterData.ally_scene` + `EnemyAI` | ✅ | **M8 Phase 2.** Allies join a `friendly_ship` group (not `player_ship` — see D-note below) and keep their `EnemyAI`/auto-fire; `EnemyAI._find_player()` resolves to the nearest hostile `enemy_ship` hull for a friendly-grouped AI instead of the human player |
 | Hull-facing armour variance | — | ❌ M10 | only the stern arc differentiates today |
 | Collision layer registry | scene files | ✅ | **1** = ships, **2** = enemy ships, **5** = terrain (islands = 17), camera arm masks 16 (D31) |
 | Docking + alignment | `DockingSystem` | ✅ | D19 clamped the slerp weight |
 | Camera rig + spring arm | `CameraRig` | ✅ | D31 stopped it burying inside the hull; ORBIT/LOOK still deferred stubs |
 | Enemy obstacle avoidance | `EnemyAI._get_avoidance_turn()` | ✅ | D39 — three-feeler whisker probe on terrain layer only |
-| Enemy AI state machine | `EnemyAI` | ✅ | 5 states + `AIProfileData` (3 profiles) |
+| Enemy AI state machine | `EnemyAI` | ✅ | 5 states + `AIProfileData` (6 profiles) |
+| Enemy role differentiation (Raider/Artillery/Tank/Support/Boss) | `AIProfileData.role` | ✅ | **M8 Phase 2.** A content tag, not a second numeric system — a role is authored aggression/distance/flee values, not a code-side multiplier. `SUPPORT` is the one role with its own behavior: repairs a wounded ally instead of attacking |
 | Multi-ship fleet coordination in combat | — | 🚫 v1 | player commands one ship |
 | Ocean LOD | — | ❌ **M9** | the project's one known failing test; **gates map scale** |
 | Spatial partitioning / culling for a large map | — | ❌ M9 | needed with LOD |
@@ -130,7 +138,7 @@ counted). **118/117 is the number to regress against.**
 | Sky / time of day / fog | `EnvironmentController` + `EnvironmentSettings.tres` | ✅ | D35: `EnvironmentSettings` is the single source of truth |
 | Water surface + shoreline | `water.gdshader` | ✅ | D25 fixed the ocean being hidden by oversized beaches |
 | Wake / spray VFX | `WakeParticles.tscn` | 🟡 | wake only; no impact spray, no muzzle smoke |
-| Damage state on hulls | — | ❌ M9 | Black Flag's "ship shows what it survived"; pools exist, visuals don't |
+| Damage state on hulls | `ShipVisuals` | ✅ | **M8 Phase 2.** Below `hull_damaged_threshold` a smoke `GPUParticles3D` fades in; below `hull_critical_threshold` the toon-shader albedo blends toward a scorch tint, reverting exactly on repair |
 | Building visual level-up | `Island._spawn_building_visual()` | 🟡 | **scale** only, not distinct models per level |
 | Floating damage numbers | `FloatingDamage.tscn` | ✅ | |
 | Enemy health bars | `EnemyHealthBar.tscn` | ✅ | |
@@ -139,7 +147,7 @@ counted). **118/117 is the number to regress against.**
 | Audio buses + SFX | `AudioManager` + `default_bus_layout.tres` | 🟡 | manager works; **no authored SFX set** |
 | Music / shanties | — | ❌ M10 | `AGENTS.md`: "no silent interactions" is not yet met |
 | Screen inventory | `scenes/ui/` | ✅ | Boot, MainMenu, Settings, Pause, Credits, Death, WorldHUD, IslandMenu, RaidReport, TutorialDialogue |
-| **Captain's Log / objective panel** | — | ❌ **M7** | |
+| **Captain's Log / objective panel** | `CaptainsLog.tscn` | ✅ **M7** | completed chapters + active chapter's objectives with live progress, optional objectives in a distinct section |
 | **World map / navigation UI** | — | ❌ **M9** | player cannot see the map |
 | Codex / lore browser | — | ❌ M11 | |
 | Localisation-ready strings | — | ❌ M11 | all strings are inline literals today |
@@ -150,21 +158,26 @@ counted). **118/117 is the number to regress against.**
 
 | `Resource` schema | Script | Authored count | Status |
 |---|---|---|---|
-| `ShipStats` | `scripts/world/ShipStats.gd` | 8 ships + 2 enemy | 🟡 **D53/D54**: no cost, no `ship_id`, no `display_name`, no `ship_class` |
+| `ShipStats` | `scripts/world/ShipStats.gd` | 8 ships + 2 enemy | ✅ **D53/D54 closed M8 Phase 2**: `cost_gold/wood/iron/rum`, `ship_id`, `display_name`, `ship_class` all authored; bow/stern chaser fields authored on 3 hulls |
 | `BuildingData` | `scripts/world/BuildingData.gd` | 10 chains × 5 = 50 | ✅ |
-| `CaptainData` | `scripts/world/CaptainData.gd` | 20 | 🟡 **D55/D56**; no identity fields (home port, allegiance, unlock chapter, portrait) |
+| `CaptainData` | `scripts/world/CaptainData.gd` | 20 | ✅ **D55/D56 both closed** (`base_boarding_modifier`, `active_ability`, `hire_cost_gold` authored on all 20); **M7**: identity fields (`home_island_id`, `allegiance_faction_id`, `unlock_chapter_id`, `portrait_path`) added and authored on all 20 per `docs/12_CHARACTER_BIBLE.md` §4 |
+| `OwnedShipData` | `scripts/managers/OwnedShipData.gd` | — (per-instance) | ✅ **M8 Phase 2** — wraps a `ShipStats` template with level + installed modules |
+| `ShipModuleData` | `scripts/world/ShipModuleData.gd` | 10 | ✅ **M8 Phase 2** — 2 per slot (Hull/Cannon/Sail/Utility/Special) |
 | `FactionData` | `scripts/world/FactionData.gd` | 6 | ✅ |
-| `IslandData` | `scripts/world/IslandData.gd` | 6 | 🟡 no `world_position`, no `region_id`; `discovered` never written |
+| `IslandData` | `scripts/world/IslandData.gd` | 6 | 🟡 no `world_position`, no `region_id`; **M7**: `discovered` now written on dock via `CampaignManager._on_player_docked()` |
 | `RegionData` | `scripts/world/RegionData.gd` | 3 | ✅ |
 | `TechData` | `scripts/world/TechData.gd` | **2** | 🟡 thin — a tech *tree* needs ~15 |
 | `LootTableData` | `scripts/combat/LootTableData.gd` | 3 | ✅ |
 | `AmmoData` | `scripts/combat/AmmoData.gd` | 3 | ✅ |
-| `AIProfileData` | `scripts/combat/AIProfileData.gd` | 3 | ✅ |
+| `AIProfileData` | `scripts/combat/AIProfileData.gd` | 6 | ✅ M8 Phase 2 — `role` tag covers Raider/Artillery/Tank/Support/Boss |
 | `BoardingData` | `scripts/combat/BoardingData.gd` | 1 | ✅ |
 | `OceanSettings` / `CameraSettings` / `EnvironmentSettings` | `scripts/world/` | 1 each | ✅ |
-| **`ChapterData`** | — | 0 | ❌ **M7** |
-| **`ObjectiveData`** | — | 0 | ❌ **M7** |
-| **`DialogueBeatData`** | — | 0 | ❌ **M7** |
+| **`ChapterData`** | `scripts/world/ChapterData.gd` | 5 | ✅ **M7** |
+| **`ObjectiveData`** | `scripts/world/ObjectiveData.gd` | ~40 across the 5 chapters | ✅ **M7** — 15-value `Condition` enum |
+| **`DialogueBeatData`** | `scripts/world/DialogueBeatData.gd` | ~15 across the 5 chapters | ✅ **M7** |
+| **`EncounterData`** | `scripts/combat/EncounterData.gd` | 6 | ✅ M8 — Encounter/Convoy/Ambush/Elite/Boss/Defense (Defense added M8 Phase 2 with a real `PROTECT_TARGET` escort + optional fighting allies) |
+| **`BattleUpgradeData`** | `scripts/combat/BattleUpgradeData.gd` | 10 | ✅ M8 |
+| **`CaptainAbilityData`** | `scripts/combat/CaptainAbilityData.gd` | 20 | ✅ M8 — one per captain |
 | `EventData` (world events as data) | — | 0 | ❌ M9 — `EventManager` hardcodes its events |
 | `EnemyData` / spawn tables per region | — | 0 | ❌ M9 — only stat multipliers differ per region |
 
@@ -196,7 +209,7 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 
 | System | Status | Notes |
 |---|---|---|
-| Input actions + gamepad | ✅ | 11 actions, joypad events added in D10 |
+| Input actions + gamepad | ✅ | 13 actions (M8 added `special_broadside`, `captain_ability`), joypad events added in D10 |
 | Input rebinding | 🟡 | **D57 — silently dead.** `SettingsMenu` looks up `InputManager` as an autoload; it is a scene-local node |
 | Settings persistence | ✅ | `SettingsManager`; D41 made `InputMap` rewriting opt-in |
 | Save file | ✅ | `user://` JSON; pure data, never nodes |
@@ -217,12 +230,12 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 
 | Process | Status | Where it lives |
 |---|---|---|
-| Milestone specs (requirements/design/tasks) | ✅ | `.kiro/specs/milestone-mN-*/` — M1–M6 complete |
+| Milestone specs (requirements/design/tasks) | ✅ | `.kiro/specs/milestone-mN-*/` — M1–M7 complete (M8 combat rework also complete, tracked outside the M1-M7 spec set) |
 | Two-agent workflow (Claude plans, Gemini implements) | ✅ | `docs/07_AI_AGENT_WORKFLOW.md` |
 | Gemini prompt template | ✅ | `docs/08_PROMPT_LIBRARY.md` + `gemini-prompt` skill |
 | Blocking checkpoint review | 🟡 | **the process exists and was skipped**: M6 Task 29 was ticked with *"Skipped local execution of GUT since binary is unavailable"* |
-| Automated test suite | ✅ | GUT, 25 scripts, 118 tests — `godot-verify` skill |
-| Test-count regression guard | ✅ | baseline must be corrected 103 → **118** |
+| Automated test suite | ✅ | GUT, 46 scripts, **320 tests** — `godot-verify` skill |
+| Test-count regression guard | ✅ | baseline is **320 / 319** after the M7 campaign spine + M1/M2 tail (was 249/248 after M8 Phase 2) |
 | Visual verification | ✅ | `scenes/debug/CaptureHarness.tscn` renders the real viewport at ~0/1/3/7/12 s |
 | Manual/feel verification | 🟡 | requires a human; repeatedly and correctly flagged as un-automatable |
 | Ground-truth doc upkeep | ✅ | `docs/05_CURRENT_SYSTEMS.md` + `sync-systems-doc` skill |
@@ -254,13 +267,13 @@ Found by direct code and resource inspection while writing docs 06 and 11–15. 
 
 | ID | Severity | Defect | Fix milestone |
 |---|---|---|---|
-| D53 | 🔴 **critical** | Ship prices computed from physics `mass` in `IslandMenu.gd:357` — Man O'War costs **300 gold** vs a level-5 Farm at 1350. Breaks M6 Req 8's circular economy entirely, and couples balance to buoyancy tuning | M7 |
-| D54 | 🟡 | `ShipStats` has no `ship_id`, `display_name`, or `ship_class`. Shipyard names come from filenames; nothing can rank hulls, so M6 Req 8.4 approximates class via `max_crew` | M7 |
-| D55 | 🟡 | `base_boarding_modifier` set on **0 of 20** captains, so `BoardingSystem.gd:80` always reads 1.0 and captain choice cannot affect boarding — M6 Req 3.2 half-dead. D14 class | M7 |
-| D56 | 🔵 | `hire_cost_gold` unset on 5 of 20 captains; they silently default to 500 | M7 |
-| D57 | 🟡 | `SettingsMenu.gd:104,118` resolve `InputManager` via `get_tree().root.get_node_or_null()` — i.e. as an autoload — but it is scene-local under `World/Systems`. Both return null and are null-guarded, so rebinding **silently does nothing**. M6 Req 9.2 is dead. D15 class | M7 |
-| D58 | 🟡 | Cold start is unplayable-by-design: 200 starting gold vs a 1000-gold colonise cost, and `home_island_id` is only set on capture — so a new player owns no island and has no production | M7 |
-| D59 | 🔵 | Map ring ordering inverted: tier-2 Skull Cove at 54 u from home, tier-1 Tortuga at 94 u | M7 |
+| D53 | 🔴 **critical** | Ship prices computed from physics `mass` in `IslandMenu.gd:357` — Man O'War costs **300 gold** vs a level-5 Farm at 1350. Breaks M6 Req 8's circular economy entirely, and couples balance to buoyancy tuning | **Fixed M8 Phase 2** |
+| D54 | 🟡 | `ShipStats` has no `ship_id`, `display_name`, or `ship_class`. Shipyard names come from filenames; nothing can rank hulls, so M6 Req 8.4 approximates class via `max_crew` | **Fixed M8 Phase 2** |
+| D55 | 🟡 | `base_boarding_modifier` set on **0 of 20** captains, so `BoardingSystem.gd:80` always reads 1.0 and captain choice cannot affect boarding — M6 Req 3.2 half-dead. D14 class | Fixed M8 Phase 1 |
+| D56 | 🔵 | `hire_cost_gold` unset on 5 of 20 captains; they silently default to 500 | **Fixed M8 Phase 2** |
+| D57 | 🟡 | `SettingsMenu.gd:104,118` resolve `InputManager` via `get_tree().root.get_node_or_null()` — i.e. as an autoload — but it is scene-local under `World/Systems`. Both return null and are null-guarded, so rebinding **silently does nothing**. M6 Req 9.2 is dead. D15 class | **Fixed M7** — `InputManager` promoted to an autoload |
+| D58 | 🟡 | Cold start is unplayable-by-design: 200 starting gold vs a 1000-gold colonise cost, and `home_island_id` is only set on capture — so a new player owns no island and has no production | **Fixed M7** — `World._seed_port_royal_as_home()` on a genuinely new game |
+| D59 | 🔵 | Map ring ordering inverted: tier-2 Skull Cove at 54 u from home, tier-1 Tortuga at 94 u | Fixed 2026-08-14 (map-layout pass, predates M7) |
 
 Plus one documentation correction, not a defect: the GUT baseline is **118 tests / 117 passing**,
 not the 103 recorded in the M6 spec and CURRENT_SYSTEMS §2.

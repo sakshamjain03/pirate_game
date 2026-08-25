@@ -78,8 +78,14 @@ func _populate_controls() -> void:
 	for child in controls_vbox.get_children():
 		child.queue_free()
 		
-	var actions = ["ship_forward", "ship_backward", "ship_left", "ship_right", "camera_zoom_in", "camera_zoom_out", "camera_rotate_left", "camera_rotate_right", "dock", "interact", "pause"]
-	for action in actions:
+	_add_input_feel_controls()
+	_add_graphics_quality_control()
+
+	# Was a hardcoded copy of the action list, which had already drifted — it
+	# predated M8 and so offered no way to rebind `special_broadside` or
+	# `captain_ability`. SettingsManager.REBINDABLE_ACTIONS is the single source
+	# of truth the save/load path already uses.
+	for action in SettingsManager.REBINDABLE_ACTIONS:
 		if InputMap.has_action(action):
 			var hbox = HBoxContainer.new()
 			var label = Label.new()
@@ -101,12 +107,83 @@ func _populate_controls() -> void:
 	var reset_btn = Button.new()
 	reset_btn.text = "Reset to Defaults"
 	reset_btn.pressed.connect(func():
-		var im = get_tree().root.get_node_or_null("InputManager")
-		if im and im.has_method("reset_to_defaults"):
-			im.reset_to_defaults()
-			_populate_controls()
+		InputManager.reset_to_defaults()
+		_populate_controls()
 	)
 	controls_vbox.add_child(reset_btn)
+
+func _add_input_feel_controls() -> void:
+	## M2 Task 6.3 — adjustable sensitivity and dead zone. Persisted through
+	## SettingsManager alongside every other setting; InputManager picks the new
+	## values up from its `settings_changed` connection.
+	_add_input_slider("Sensitivity", 0.1, 3.0, 0.05, settings_manager.input_sensitivity,
+		func(v: float):
+			settings_manager.input_sensitivity = v
+			InputManager.set_sensitivity(v)
+			settings_manager.save_settings())
+
+	_add_input_slider("Dead Zone", 0.0, 0.9, 0.05, settings_manager.input_dead_zone,
+		func(v: float):
+			settings_manager.input_dead_zone = v
+			InputManager.set_dead_zone(v)
+			settings_manager.save_settings())
+
+	controls_vbox.add_child(HSeparator.new())
+
+
+func _add_graphics_quality_control() -> void:
+	## M2 Task 12.1 — quality settings adaptation. Drives
+	## OceanController.quality_level (currently the only quality-scaled
+	## system) via SettingsManager.settings_changed, the same pattern
+	## InputManager uses for sensitivity/dead zone.
+	var hbox := HBoxContainer.new()
+	var label := Label.new()
+	label.text = "Graphics Quality"
+	label.custom_minimum_size.x = 200
+	hbox.add_child(label)
+
+	var option := OptionButton.new()
+	option.add_item("Low", 0)
+	option.add_item("Medium", 1)
+	option.add_item("High", 2)
+	option.select(settings_manager.graphics_quality)
+	option.item_selected.connect(func(index: int):
+		settings_manager.graphics_quality = index
+		settings_manager.save_settings())
+	hbox.add_child(option)
+
+	controls_vbox.add_child(hbox)
+	controls_vbox.add_child(HSeparator.new())
+
+
+func _add_input_slider(label_text: String, min_v: float, max_v: float, step: float,
+		value: float, on_changed: Callable) -> void:
+	var hbox := HBoxContainer.new()
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size.x = 200
+	hbox.add_child(label)
+
+	var slider := HSlider.new()
+	slider.min_value = min_v
+	slider.max_value = max_v
+	slider.step = step
+	slider.value = value
+	slider.custom_minimum_size.x = 200
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(slider)
+
+	var value_label := Label.new()
+	value_label.text = "%.2f" % value
+	value_label.custom_minimum_size.x = 50
+	hbox.add_child(value_label)
+
+	slider.value_changed.connect(func(v: float):
+		value_label.text = "%.2f" % v
+		on_changed.call(v))
+
+	controls_vbox.add_child(hbox)
+
 
 func _on_rebind_pressed(action: String, btn: Button) -> void:
 	_awaiting_rebind = action
@@ -115,9 +192,10 @@ func _on_rebind_pressed(action: String, btn: Button) -> void:
 func _input(event: InputEvent) -> void:
 	if _awaiting_rebind != "" and event is InputEventKey and event.pressed:
 		get_viewport().set_input_as_handled()
-		var im = get_tree().root.get_node_or_null("InputManager")
-		if im and im.has_method("rebind_action"):
-			im.rebind_action(_awaiting_rebind, event)
+		# Was `get_tree().root.get_node_or_null("InputManager")` — a lookup for an
+		# autoload that did not exist, so it always returned null, the null guard
+		# swallowed the keypress, and rebinding silently did nothing (D57).
+		InputManager.rebind_action(_awaiting_rebind, event)
 		_awaiting_rebind = ""
 		_populate_controls()
 

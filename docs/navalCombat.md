@@ -13,12 +13,27 @@
 
 # 0. Reconciliation — what this changes about the shipped game
 
+> **Status update, 2026-08-16 — M8 Phase 2 shipped everything §15 still listed as open.** Phase 1
+> (2026-08-14) built automatic fire on arc alignment (§4/§5) with a shared `FiringSolver` and a HUD
+> broadside indicator, the player-timed full broadside (§4), a bounded encounter lifecycle with
+> objectives, victory/defeat/escape and rewards (§13/§16/§17/§18), temporary in-battle upgrades
+> (§11/§12), and one authored active ability per captain (§10). Phase 2 built the rest: the M7
+> economy correction this milestone's own §14 note said modules were gated on (ship
+> cost/class/identity fields), real per-kind encounter behavior for `DEFENSE`'s escort objective
+> (§15), enemy role differentiation via `AIProfileData.role` (§9/§14), bow/stern chaser weapon
+> slots (§3/§15), hull damage visuals (§7), AI-controlled support ships in battle (§9/§15), and
+> ship level + modules (§13). See `docs/05_CURRENT_SYSTEMS.md`'s "M8 Combat Identity Rework" and
+> "M8 Combat Identity Rework — Phase 2" sections for the shipped detail, D60–D63 (Phase 1's damage-
+> model audit), and D53/D54/D56 (the economy fields Phase 2 closed).
+>
+> The tables below are kept as written, as the record of what was true before M8.
+
 This document **locks the target design**. Before treating anything below as already true, three
 real gaps against the current code, found while writing this doc on 2026-08-14:
 
 | # | This doc says | Code currently does | Verdict |
 |---|---|---|---|
-| ⚠️ R1 | §4: cannons fire **automatically** when the arc is aligned and reloaded; player skill is positioning | `ShipController.fire_cannons(side)` fires **only on a manual key press** (`fire_port` / `fire_starboard` input actions, `ShipCombat.fire_broadside()`) | **Design change, not yet built.** This is the single biggest mechanical shift in this doc — see §14 |
+| ✅ R1 | §4: cannons fire **automatically** when the arc is aligned and reloaded; player skill is positioning | *(was)* `ShipController.fire_cannons(side)` fired **only on a manual key press** | **Built in M8.** `FiringSolver` + `ShipCombat`'s auto-fire loop. The arc check already existed inside `EnemyAI` and was moved into the shared solver rather than duplicated. Manual fire is retained as a deprecated escape hatch |
 | ⚠️ R2 | §7: hull + sails, "don't implement crew simulation" | M6 already shipped **crew** as a third damage pool (`ShipDamage.crew`, gates firing, feeds boarding) plus a full boarding system | **Superseded by an already-shipped decision.** Ripping crew out would delete working M6 content for no gain — see §14 |
 | ⚠️ R3 | §22: "❌ Boarding minigame" locked out | M6 already shipped **boarding** (non-minigame: a deterministic crew-count comparison through the existing UI) | **Not a conflict** — this doc only excludes a *minigame*, and the shipped system isn't one. Recorded for clarity, not as a defect |
 
@@ -337,19 +352,31 @@ its own milestone, inserted after M7 and before M9 in the roadmap:**
 in `docs/15_MASTER_PLAN.md` to M8.5, or folds it in — reconcile numbering when this milestone is
 actually scaffolded)*
 
-- Arc-alignment detection + broadside indicator + auto-fire loop, replacing the manual
-  `fire_port`/`fire_starboard` trigger with an optional player-timed full-broadside special.
-- Bow/stern/special weapon slots on `ShipStats`.
-- Captain active abilities (one per captain, keyed to their existing passive flavour in
-  `docs/12_CHARACTER_BIBLE.md`).
-- Temporary in-battle upgrade offers (roguelite layer), 2–4 choices per normal encounter.
-- Ship modules (Hull/Cannon/Sail/Utility/Special) + a ship Level separate from captain Level.
-- AI-controlled support ships fighting alongside the player.
-- Enemy behavior differentiation by role (Raider/Artillery/Tank/Support/Boss), extending
-  `AIProfileData` rather than replacing it.
-- Encounter-type framework: Encounter / Convoy / Ambush / Elite / Boss / Defense, as data
-  (`EventData`, already scoped in `docs/14_SYSTEM_INVENTORY.md` §1).
+> **All eight items below are built, as of 2026-08-16 (Phase 1: 2026-08-14, Phase 2: 2026-08-16).**
+> Kept as originally written for the historical record of what was scoped; see
+> `docs/05_CURRENT_SYSTEMS.md`'s two "M8 Combat Identity Rework" sections for the shipped detail.
 
-This is deliberately **not** small — it touches the core input loop of the game — and should get
-its own `requirements.md`/`design.md`/`tasks.md` under `.kiro/specs/`, planned in the same way
-M1–M6 were, rather than being absorbed as a task inside another milestone.
+- ✅ Arc-alignment detection + broadside indicator + auto-fire loop, replacing the manual
+  `fire_port`/`fire_starboard` trigger with an optional player-timed full-broadside special.
+  *(Phase 1)*
+- ✅ Bow/stern/special weapon slots on `ShipStats`. *(Phase 2 — chasers gated on
+  `has_bow_chaser`/`has_stern_chaser`, authored on Frigate/Galleon/Man O'War; the special volley
+  from Phase 1 already covers the "special weapon" slot.)*
+- ✅ Captain active abilities (one per captain, keyed to their existing passive flavour in
+  `docs/12_CHARACTER_BIBLE.md`). *(Phase 1)*
+- ✅ Temporary in-battle upgrade offers (roguelite layer), 2–4 choices per normal encounter.
+  *(Phase 1)*
+- ✅ Ship modules (Hull/Cannon/Sail/Utility/Special) + a ship Level separate from captain Level.
+  *(Phase 2 — gated on the M7 economy correction as planned; `OwnedShipData` wraps each owned hull's
+  shared `ShipStats` template with per-instance level + modules.)*
+- ✅ AI-controlled support ships fighting alongside the player. *(Phase 2 — join a `friendly_ship`
+  group rather than `player_ship`; see the Phase 2 doc section for why.)*
+- ✅ Enemy behavior differentiation by role (Raider/Artillery/Tank/Support/Boss), extending
+  `AIProfileData` rather than replacing it. *(Phase 2 — `role` is a content tag; only `SUPPORT`
+  drives its own code branch, repairing a wounded ally instead of attacking.)*
+- ✅ Encounter-type framework: Encounter / Convoy / Ambush / Elite / Boss / Defense, as data
+  (`EventData`, already scoped in `docs/14_SYSTEM_INVENTORY.md` §1). *(Phase 2 — `DEFENSE` gained
+  a real `PROTECT_TARGET` objective with an escort and optional fighting allies; `CONVOY` already
+  diverged via its `DESTROY_COUNT` objective and reward tuning.)*
+
+This was deliberately **not** small — it touched the core input loop of the game.

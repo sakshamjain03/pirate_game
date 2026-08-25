@@ -119,7 +119,7 @@ func test_resolution_is_deterministic_failure():
 	# assert_signal_emitted_with_parameters()'s 4th argument is an emission INDEX,
 	# not a message — passing a String there made GUT compare "String == int" and
 	# then deep-diff against a null parameter list.
-	assert_signal_emitted_with_parameters(boarding_system, "boarding_resolved", [false, {}])
+	assert_signal_emitted_with_parameters(boarding_system, "boarding_resolved", [false, {}, "", ""])
 	
 	assert_eq(p_dmg.crew, 0.0, "Attacker should lose 50% max_crew (50-50) on loss")
 	assert_eq(e_dmg.hull, 100.0, "Enemy hull should remain intact on attacker loss")

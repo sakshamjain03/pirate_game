@@ -1,10 +1,19 @@
 # Pirate Empire
 # Product Requirements Document (PRD)
 **Version:** 1.0  
-**Status:** Vision Document  
+**Status:** Vision Document — pre-production, written before any implementation existed  
 **Engine:** Godot 4.x  
 **Platform:** Android (Primary), PC (Secondary)  
 **Genre:** Single Player Pirate Strategy / Empire Builder / Exploration
+
+> ⚠️ **For anyone writing code: this file is aspirational, not a spec.** Several sections below
+> name specific resources, buildings, ship classes, factions, and captain traits that were never
+> built and do not exist in the project — they were brainstormed before M1 and superseded by what
+> M1–M6 actually implemented. Per `AGENTS.md`, `docs/05_CURRENT_SYSTEMS.md` is the ground truth
+> for what exists; where this file's specifics conflict with it, **the current systems doc wins,
+> always.** Sections that have since been superseded by a more detailed, accurate doc say so
+> inline and link to it instead of repeating stale specifics. Read this file only for the
+> original tone/pillars/vision — never to learn what to build.
 
 ---
 
@@ -155,26 +164,11 @@ Eventually grows into
 
 # 6. World Structure
 
-The world consists of multiple regions.
-
-Example
-
-- Beginner Waters
-- Tropical Seas
-- Merchant Routes
-- Pirate Territory
-- Frozen Sea
-- Volcanic Sea
-- Royal Navy Waters
-- Ancient Ocean
-
-Each region contains
-
-- Islands
-- Resources
-- Enemies
-- Events
-- Hidden treasures
+The world is a set of regions, each containing islands, resources, enemies, events, and hidden
+treasures — that shape held. **The specific region names below were brainstormed pre-production
+and were not all built as named.** The 3 regions that actually exist (Beginner/Contested/Imperial
+Waters) and their 6 islands are in `docs/11_WORLD_MAP.md`, with 2 further region ids reserved for
+post-launch content.
 
 ---
 
@@ -216,85 +210,27 @@ Contains unique rewards.
 
 # 8. Colony System
 
-Players establish colonies.
-
-Each colony contains
-
-- Town Hall
-- Harbor
-- Shipyard
-- Warehouse
-- Houses
-- Resource Buildings
-- Military Buildings
-- Decorative Structures
-
-Colonies produce resources automatically.
+Players establish and grow a home island that produces resources automatically. Concrete
+building list superseded — see `docs/10_ASSET_REQUESTS.md`'s footprint and
+`docs/14_SYSTEM_INVENTORY.md` §1/§4 for what's actually implemented.
 
 ---
 
 # 9. Resource System
 
-Core resources
-
-- Gold
-- Wood
-- Iron
-- Stone
-- Food
-- Rum
-- Cannonballs
-
-Rare resources
-
-- Gems
-- Ancient Artifacts
-- Magic Relics
-- Black Powder
-- Silk
-
-Resources are required for
-
-- Building
-- Ship construction
-- Fleet upgrades
-- Research
-- Trading
+The original brainstorm listed 12 resources including Stone, Food, Cannonballs, Gems, and Magic
+Relics — none of those shipped. `AGENTS.md` deliberately locks the launch set to **4: Gold, Wood,
+Iron, Rum** (plus Research, added during implementation) and forbids introducing new currencies.
+Resources are required for building, ship construction, fleet upgrades, research, and trading.
 
 ---
 
 # 10. Building System
 
-Example buildings
-
-Economic
-
-- Lumber Mill
-- Mine
-- Farm
-- Warehouse
-
-Military
-
-- Barracks
-- Cannon Foundry
-- Fort
-- Watchtower
-
-Naval
-
-- Dock
-- Shipyard
-- Dry Dock
-- Naval Academy
-
-Utility
-
-- Market
-- Tavern
-- Lighthouse
-
-Buildings have multiple upgrade levels.
+10 building types shipped, each with a 5-level upgrade chain — not the Town
+Hall/Barracks/Cannon Foundry/Dry Dock/Lighthouse list originally brainstormed here. The real list
+is in `docs/05_CURRENT_SYSTEMS.md` §1 ("Economy & Buildings") and `docs/14_SYSTEM_INVENTORY.md`
+§4.
 
 ---
 
@@ -322,95 +258,29 @@ Fleets may
 
 # 12. Ship Classes
 
-Small
-
-- Raft
-- Cutter
-- Sloop
-
-Medium
-
-- Brig
-- Brigantine
-- Corvette
-
-Large
-
-- Frigate
-- Galleon
-- Man O' War
-
-Legendary
-
-- Ghost Ship
-- Kraken Hunter
-- Black Flag
-- Royal Flagship
-
-Every ship has
-
-- Hull
-- Speed
-- Cargo
-- Crew
-- Cannons
-- Armor
+8 ships shipped (Dinghy → Man O'War), not the Raft/Cutter/Ghost Ship/Kraken Hunter/Black
+Flag/Royal Flagship roster originally brainstormed here. The real ladder, including the
+in-progress price/class correction, is in `docs/13_CAMPAIGN_LEVELS_1-5.md` §2.
 
 ---
 
 # 13. Captain System
 
-Captains have
-
-- Levels
-- Traits
-- Skills
-- Equipment
-
-Example traits
-
-Positive
-
-- Navigator
-- Lucky
-- Fearless
-- Merchant
-- Tactician
-
-Negative
-
-- Greedy
-- Coward
-- Drunk
-- Slow Learner
-
-Captains gain experience through
-
-- Battles
-- Exploration
-- Trading
-- Events
+20 captains shipped, each with narrative flavor and stat modifiers rather than the discrete
+named-trait system (Navigator/Lucky/Greedy/Coward/etc.) originally brainstormed here. The real
+roster, with each captain's home port, allegiance, and unlock chapter, is in
+`docs/12_CHARACTER_BIBLE.md` §4. Captains gain experience through battles, exploration, trading,
+and events.
 
 ---
 
 # 14. Combat
 
-Real-time tactical naval combat.
-
-Combat includes
-
-- Cannon fire
-- Boarding
-- Ramming
-- Special abilities
-- Wind direction
-- Positioning
-
-Victory grants
-
-- Loot
-- Reputation
-- Experience
+Real-time tactical naval combat: cannon fire, boarding, and positioning shipped; ramming, wind
+direction, and special abilities did not. **`docs/navalCombat.md` is the current, locked design**
+for combat's identity going forward (auto-fire on arc alignment, captain active abilities, ship
+modules) and reconciles this section's original intent against what M6 actually built. Victory
+grants loot, reputation, and experience.
 
 ---
 
@@ -432,21 +302,11 @@ Economic optimization becomes increasingly important as the empire grows.
 
 # 16. Diplomacy
 
-Major factions
-
-- Pirate Clans
-- Merchant Guild
-- Royal Navy
-- Independent Cities
-- Ancient Order
-
-Relationships affect
-
-- Trade
-- Prices
-- War
-- Quests
-- Access
+5 factions shipped (Pirate Clans, Merchant Guild, Royal Navy, Spanish Empire, Ghost Fleet) —
+Independent Cities and Ancient Order from the original brainstorm were never built; do not
+re-propose them without checking `docs/14_SYSTEM_INVENTORY.md` first, since region 4/5 are
+already reserved for different content. Actual diplomacy mechanics (reputation, hostility) are
+in `docs/05_CURRENT_SYSTEMS.md` §1; treaties/tribute remain unbuilt (M10).
 
 ---
 
@@ -542,3 +402,8 @@ Pirate Empire is complete when a player can:
 - Become the undisputed ruler of the seas
 
 The game should provide at least **20–40 hours** of meaningful progression for a single playthrough, with replayability driven by different strategies, exploration paths, and empire-building decisions.
+
+> This figure predates scoping. The actual v1 campaign (`docs/13_CAMPAIGN_LEVELS_1-5.md`) targets
+> **5–8 hours** to complete Chapters 1–5 — `docs/15_MASTER_PLAN.md` §6 is the current, scoped
+> definition of done for v1; this 20–40 hour figure describes a longer-term live-service target
+> (`docs/00_VISION.md` §17/§20), not the v1 launch bar.

@@ -4,6 +4,12 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "schooner"
+display_name = "Schooner"
+ship_class = 2
+cost_gold = 1200
+cost_wood = 200
+cost_iron = 60
 max_speed = 35.0
 acceleration = 2.5
 deceleration = 1.8
@@ -28,5 +34,5 @@ stern_arc_degrees = 60.0
 min_speed_fraction = 0.35
 cannon_damage = 15.0
 fire_rate = 2.0
-cannon_range = 200.0
+cannon_range = 85.0
 cannon_speed = 100.0

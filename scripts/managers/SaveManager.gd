@@ -16,6 +16,12 @@ extends Node
 ## reading pending_raid_report / _pending_offline_ticks synchronously at scene start.
 signal game_loaded()
 
+## M2 Task 12.3 — emitted instead of silently falling through to a blank
+## game whenever load_game() can't use the save it found on disk. WorldHUD
+## surfaces this to the player via announce_event() rather than leaving a
+## lost save unexplained.
+signal load_failed(reason: String)
+
 const SAVE_PATH := "user://save_data.json"
 const MAX_OFFLINE_SECONDS := 4 * 60 * 60
 
@@ -53,8 +59,18 @@ func save_game() -> void:
 		save_dict["player"]["pos_z"] = player.global_position.z
 		save_dict["player"]["rot_y"] = player.global_rotation.y
 
+		# ShipDamage owns all three pools and has always had the
+		# get_save_data()/load_save_data() pair the autoload convention expects —
+		# it was simply never called from here, so sails and crew were not
+		# persisted at all and hull went through the (dead) current_health write.
+		var dmg = player.get_node_or_null("ShipDamage")
+		if dmg and dmg.has_method("get_save_data"):
+			save_dict["player"]["damage"] = dmg.get_save_data()
+
 		var combat = player.get_node_or_null("ShipCombat")
 		if combat:
+			# Kept for backward compatibility with saves written before the
+			# "damage" section existed; load prefers "damage" when present.
 			save_dict["player"]["health"] = combat.current_health
 
 		if "active_captain" in player and player.active_captain:
@@ -91,6 +107,10 @@ func save_game() -> void:
 	if TutorialManager.has_method("get_save_data"):
 		save_dict["tutorial"] = TutorialManager.get_save_data()
 
+	# 9. Campaign State (M7)
+	if CampaignManager.has_method("get_save_data"):
+		save_dict["campaign"] = CampaignManager.get_save_data()
+
 	# Write to disk
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -108,6 +128,7 @@ func load_game() -> void:
 	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if not file:
 		push_error("SaveManager: Failed to open save file for reading.")
+		load_failed.emit("could not open save file")
 		game_loaded.emit()
 		return
 
@@ -118,12 +139,14 @@ func load_game() -> void:
 	var error = json.parse(json_string)
 	if error != OK:
 		push_error("SaveManager: JSON Parse Error: ", json.get_error_message())
+		load_failed.emit("save file is corrupted")
 		game_loaded.emit()
 		return
 
 	var data = json.data
 	if typeof(data) != TYPE_DICTIONARY:
 		push_error("SaveManager: Save data is not a valid dictionary.")
+		load_failed.emit("save file is corrupted")
 		game_loaded.emit()
 		return
 
@@ -160,11 +183,22 @@ func load_game() -> void:
 	# 4. Player health (independent of whether a fleet section was present in this save)
 	if player and is_instance_valid(player):
 		var combat = player.get_node_or_null("ShipCombat")
-		if combat:
-			var player_data = data.get("player", {})
+		var dmg = player.get_node_or_null("ShipDamage")
+		var player_data = data.get("player", {})
+
+		if dmg and dmg.has_method("load_save_data"):
+			if player_data.has("damage"):
+				dmg.load_save_data(player_data["damage"])
+			elif player_data.has("health"):
+				# Pre-"damage" save: hull only, sails/crew default to max.
+				dmg.load_save_data({"hull": player_data["health"]})
+			else:
+				dmg.restore_all()
+			if combat and combat.has_signal("health_changed"):
+				combat.health_changed.emit(dmg.hull, dmg.get_pool_maximum("hull"))
+		elif combat:
 			if player_data.has("health"):
 				combat.current_health = player_data["health"]
-
 			var cap = player.active_captain if "active_captain" in player else null
 			var max_hp = combat.ship_stats.max_health
 			if cap: max_hp *= cap.health_modifier
@@ -197,6 +231,10 @@ func load_game() -> void:
 	# 9. Tutorial State (progress only)
 	if data.has("tutorial") and TutorialManager.has_method("load_save_data"):
 		TutorialManager.load_save_data(data["tutorial"])
+
+	# 9b. Campaign State (M7)
+	if data.has("campaign") and CampaignManager.has_method("load_save_data"):
+		CampaignManager.load_save_data(data["campaign"])
 
 	# 10. Offline catch-up (must run after islands and fleet are restored above)
 	if data.has("last_saved_unix"):

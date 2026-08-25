@@ -26,13 +26,21 @@ const GESTURE_TAP = "tap"
 const GESTURE_PINCH = "pinch"
 
 var sensitivity: float = 1.0
+## Analogue input below this magnitude is discarded, so a drifting stick does
+## not creep the ship. Authored by the player in Settings (M2 Task 6.3).
+var dead_zone: float = 0.2
 var active_input_method: String = "keyboard" # keyboard, gamepad, touch
 
 func _ready() -> void:
-	pass
+	# Promoted to an autoload in M7 (D57) — rebinding is reachable from the main
+	# menu, where no World scene and so no scene-local InputManager exists.
+	apply_settings()
+	if SettingsManager.has_signal("settings_changed"):
+		SettingsManager.settings_changed.connect(apply_settings)
 
-func _process(delta: float) -> void:
-	pass
+func apply_settings() -> void:
+	sensitivity = SettingsManager.input_sensitivity
+	set_dead_zone(SettingsManager.input_dead_zone)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(ACTION_DOCK):
@@ -76,6 +84,16 @@ func get_movement_vector() -> Vector2:
 
 func set_sensitivity(val: float) -> void:
 	sensitivity = val
+
+func set_dead_zone(val: float) -> void:
+	## Godot's own per-action deadzone (`InputMap.action_set_deadzone`), not a
+	## post-hoc filter on `get_movement_vector()` — that would have clipped the
+	## exact key-press-to-strength mapping `test_input_properties.gd`'s
+	## `Input.action_press(action, strength)` calls pin down as precise.
+	dead_zone = clampf(val, 0.0, 0.9)
+	for action in [ACTION_SHIP_FORWARD, ACTION_SHIP_BACKWARD, ACTION_SHIP_LEFT, ACTION_SHIP_RIGHT]:
+		if InputMap.has_action(action):
+			InputMap.action_set_deadzone(action, dead_zone)
 
 func rebind_action(action: String, event: InputEvent) -> bool:
 	if not InputMap.has_action(action): return false

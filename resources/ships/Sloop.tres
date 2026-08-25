@@ -4,6 +4,12 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "sloop"
+display_name = "Sloop"
+ship_class = 1
+cost_gold = 400
+cost_wood = 90
+cost_iron = 25
 max_speed = 30.0
 acceleration = 2.0
 deceleration = 1.5
@@ -20,8 +26,15 @@ linear_damp = 0.5
 angular_damp = 2.0
 model_path = "res://assets/models/ship-small.glb"
 material_path = "res://resources/materials/wood_light.tres"
+max_health = 100.0
 max_sails = 70.0
 max_crew = 15.0
 stern_crit_multiplier = 1.5
 stern_arc_degrees = 60.0
 min_speed_fraction = 0.35
+optimal_crew_fraction = 0.5
+cannon_damage = 15.0
+fire_rate = 2.0
+cannon_range = 85.0
+cannon_speed = 100.0
+firing_arc_degrees = 40.0

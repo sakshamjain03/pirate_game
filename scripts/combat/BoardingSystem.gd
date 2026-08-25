@@ -2,7 +2,12 @@ class_name BoardingSystem extends Node
 
 signal boarding_prompt_available(enemy_ship: Node)
 signal boarding_prompt_unavailable()
-signal boarding_resolved(success: bool, loot: Dictionary)
+## `target_faction_id`/`target_ship_id` let `CampaignManager` resolve
+## BOARD_SHIPS objectives against a specific faction or a specific dedicated
+## boss hull (`docs/13_CAMPAIGN_LEVELS_1-5.md` §8, M7 Task 11) — captured before
+## `_eligible_enemy` is cleared, since the signal used to carry nothing that
+## identified what was actually boarded.
+signal boarding_resolved(success: bool, loot: Dictionary, target_faction_id: String, target_ship_id: String)
 
 @export var boarding_data: BoardingData
 
@@ -126,12 +131,22 @@ func attempt_boarding() -> bool:
 	else:
 		player_dmg.crew = max(0.0, player_dmg.crew - player_dmg.ship_stats.max_crew * boarding_data.lose_crew_loss_fraction)
 		# enemy survives
-		
+
+	# Read identity before clearing eligibility below — a dedicated (non-shared)
+	# boss ShipStats authors a unique ship_id, so this doubles as boss
+	# identification without a second id field.
+	var target_faction_id := ""
+	if "faction" in _eligible_enemy and _eligible_enemy.get("faction"):
+		target_faction_id = str(_eligible_enemy.get("faction").get("faction_id"))
+	var target_ship_id := ""
+	if enemy_dmg.ship_stats:
+		target_ship_id = enemy_dmg.ship_stats.ship_id
+
 	# Clear eligibility either way. On a win the target is a wreck; on a loss the
 	# player must re-close and re-qualify rather than mashing the prompt against
 	# the same enemy until the deterministic comparison happens to flip.
 	_eligible_enemy = null
 
-	boarding_resolved.emit(success, loot)
+	boarding_resolved.emit(success, loot, target_faction_id, target_ship_id)
 	_clear_prompt()
 	return true

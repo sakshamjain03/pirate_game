@@ -28,17 +28,91 @@ the same pull request.
 ## Combat — fully working
 `scripts/combat/` + `scripts/world/ShipCombat.gd`
 
-- `ShipCombat.gd` — health, damage, broadside fire, fire-rate cooldown, `died` signal. Applies
-  captain + tech modifiers to damage.
-- `Cannonball.gd` — `RigidBody3D` projectile, straight-line velocity, despawns on contact or timeout.
-- `EnemyAI.gd` — state machine (IDLE/PATROL/CHASE/ATTACK/FLEE), picks broadside side, checks
-  `FactionManager` hostility, flees at low HP. Assigns `AIProfileData` resources (e.g. `HarassingSloop.tres`, `AggressiveGalleon.tres`) to govern aggression, distance, flee threshold, and ammo preference.
-- `EnemySpawner.gd` — spawns/caps enemy population, weights faction selection by reputation
-  (worse reputation with a faction → more of their ships spawn), exposes `spawn_hunter()`.
-- `LootDrop.gd` / `LootTableData.gd` / `BoardingSystem.gd` — death drops and boarding rewards rolled from a faction/boss-specific loot table. Rewards dynamically scale with the destroyed ship's class (`max_crew`) and current empire `notoriety`.
+**Firing is automatic on arc alignment (M8).** The player does not tap to shoot — they position.
+See `docs/navalCombat.md` §4/§5 for the locked design.
 
-**Known gaps:** no cannonball arcing (straight-line only), no armor/hull-facing variance, no
-boarding, no multi-ship fleet coordination.
+- `FiringSolver.gd` — **the single source of truth for "is a hostile in this side's arc?"** Owns
+  the arc geometry (`get_broadside_angle`), side selection, range gate, and target choice
+  (nearest valid hull per side, wrecks excluded). Its `static are_hostile()` is also what
+  `Cannonball._is_friendly()` calls, so the solver can never lock onto a hull its own shot would
+  refuse to damage. `target_groups` is exported so a future friendly consort gets a different
+  candidate scope rather than a second targeting implementation.
+  *This logic used to live privately inside `EnemyAI._get_broadside_angle()`; it was moved here
+  and `EnemyAI` now consumes it, so player and AI cannot disagree about "aligned".*
+- `ShipCombat.gd` — damage forwarding, per-side reload, `died`, plus the M8 auto-fire loop
+  (`_physics_process` fires a side the instant the solver locks and the reload is up),
+  `arc_lock_changed` (drives the broadside indicator), and `fire_special_broadside()` — the
+  player-timed full volley on both sides at a damage premium, gated on its own longer cooldown.
+  Applies captain + tech + `CombatModifiers` to damage.
+- `CombatModifiers.gd` — per-ship runtime multipliers (damage / reload / speed / range / arc /
+  special cooldown) in two layers: a **battle-long** layer for temporary upgrades and a **timed**
+  layer for captain abilities. **Never mutates a `ShipStats` resource** — a `.tres` is shared by
+  every hull of its class, so an in-place buff would apply to every Sloop in the game and persist
+  into saves. Same duplicate-never-mutate rule as `EnemySpawner.compute_spawn_multiplier()`.
+- `EncounterManager.gd` (`World/Systems`) — **the battle boundary.** `start_encounter(EncounterData)`
+  spawns a composition, pauses ambient spawning, tracks the objective off existing signals,
+  drives the upgrade-offer cadence, resolves victory / defeat / escape, grants rewards, and
+  clears all temporary modifiers. Also schedules ambient encounters from an authored pool.
+  **Replaced and deleted `WorldEventManager`**, whose whole job was a 5-minute boss timer — the
+  boss is now just a Boss-kind `EncounterData`.
+- `CaptainAbility.gd` — the player's captain ability button. Reads the *active captain's*
+  `active_ability`, so swapping captains swaps the verb and resets the cooldown.
+- `Cannonball.gd` — `RigidBody3D` projectile, straight-line velocity, despawns on contact or timeout.
+- `EnemyAI.gd` — state machine (IDLE/PATROL/CHASE/ATTACK/FLEE), checks `FactionManager`
+  hostility, flees at low HP, three-feeler terrain avoidance. `AIProfileData` governs aggression,
+  distance, flee threshold and ammo preference; its `broadside_angle_tolerance` now feeds the
+  shared `FiringSolver` as a per-profile arc override. **The AI no longer fires directly** — it
+  manoeuvres, and the same auto-fire loop the player uses pulls the trigger. Its old
+  `attack_range` (a second, independent firing range of 40 that disagreed with the authored
+  `ShipStats.cannon_range`) is gone, replaced by `attack_range_fraction` of the hull's real range.
+- `EnemySpawner.gd` — spawns/caps enemy population, weights faction selection by reputation,
+  exposes `spawn_hunter()`, and `spawning_enabled` (paused during an encounter).
+- `LootDrop.gd` / `LootTableData.gd` / `BoardingSystem.gd` — death drops and boarding rewards
+  rolled from a faction/boss-specific loot table, scaled by the destroyed ship's class
+  (`max_crew`) and current empire `notoriety`.
+- `ShipDamage.gd` — hull/sails/crew pools, stern-arc crits, and (M8) the **write** side:
+  `repair(pool, amount)`, `restore_all()`, `get_pool_maximum()`, and a timed speed penalty fed by
+  `AmmoData.speed_penalty` (authored on ChainShot since M6 and read by nothing until now).
+- **Chaser mounts (bow/stern, M8 Phase 2).** `FiringSolver` gained `SIDE_BOW`/`SIDE_STERN`
+  alongside the broadside sides — a narrow, longer-range cone centred on the hull's forward/aft
+  axis rather than the beam. Gated on `ShipStats.has_bow_chaser`/`has_stern_chaser` (most hulls
+  have neither, per `docs/navalCombat.md` §3), not on marker presence — `PlayerShip`/`EnemyShip`/
+  `BossShip` all carry a `BowMarker`/`SternMarker` regardless of the currently equipped
+  `ShipStats`, since a hull's stats swap at runtime while its scene doesn't.
+- **Hull damage visuals (M8 Phase 2).** `ShipVisuals` now listens to `ShipDamage.pool_changed`:
+  below `hull_damaged_threshold` a procedural smoke `GPUParticles3D` fades in, below
+  `hull_critical_threshold` every surface's toon-shader `albedo` blends toward
+  `scorch_tint_color`. Clean colors are cached once per surface right after
+  `KenneyMaterialApplier` runs, so repeated damage/repair cycles always blend from the true
+  original rather than compounding. Closes `docs/navalCombat.md` §7's one remaining open item.
+- **Enemy roles (M8 Phase 2).** `AIProfileData.role` (`Raider`/`Artillery`/`Tank`/`Support`/
+  `Boss`/`Balanced`) is a content tag, not a second numeric system — a Raider is fast/aggressive
+  because its profile authors those values, not because code multiplies a "Raider bonus" into
+  them. The one thing `role` *does* drive in code: a `SUPPORT`-role `EnemyAI` finds the nearest
+  wounded ally below `support_heal_threshold` and repairs it (via the same `ShipDamage.repair()`
+  Slice 0 built) instead of attacking, once nothing needs healing it fights normally.
+- **AI support ships (M8 Phase 2).** `EncounterData.ally_scene`/`ally_count`/`ally_profile` let an
+  encounter (currently `Defense.tres`) spawn real, fighting AI allies — unlike the escort below,
+  they keep their `EnemyAI` and auto-fire. Allies join a `friendly_ship` group rather than
+  `player_ship` (which `BoardingSystem`/`CameraRig` assume has exactly one member), and
+  `FiringSolver.are_hostile()` was extended to treat `friendly_ship` the same as `player_ship` for
+  hostility purposes. `EnemyAI._find_player()` (despite the name) now resolves to "my current
+  hostile target" — the human player for an ordinary enemy, or the nearest live `enemy_ship` hull
+  for a `friendly_ship`-grouped ally — so one code path drives both without a second targeting rule.
+- **Real per-kind encounters (M8 Phase 2).** `EncounterData.Kind.DEFENSE` now has an authored
+  `.tres` and a genuine `PROTECT_TARGET` objective: `EncounterManager` spawns an `escort_scene`
+  hull with its AI/auto-fire stripped (a target, not a combatant) and resolves `DEFEAT` if it sinks
+  before the raiders do — previously `PROTECT_TARGET` silently aliased `DESTROY_ALL` with nothing
+  to actually protect. `CONVOY`/`ELITE`/`BOSS` already diverged meaningfully via
+  `strength_multiplier`/rewards/`upgrade_offers`; only `DEFENSE` needed new code.
+
+**Combat data:** `resources/combat/encounters/*.tres` (6 encounter types),
+`resources/combat/upgrades/*.tres` (10 battle upgrades),
+`resources/captains/abilities/*.tres` (20 captain abilities, one per captain),
+`resources/combat/ai_profiles/*.tres` (6 AI profiles covering all 5 combat roles).
+
+**Known gaps:** no cannonball arcing (straight-line only), no armor/hull-facing variance beyond the
+existing stern-crit arc, no region-specific mixed-role compositions beyond `EliteHunters.tres`.
 
 ## Economy & Buildings — fully working
 `scripts/managers/ResourceManager.gd` + `scripts/world/Island.gd` + `scripts/world/BuildingData.gd`
@@ -65,6 +139,18 @@ production chains), colonize/capture flow is broken (see §2).
 
 - `FleetManager`: owned ships/captains rosters, active ship/captain index, background trade/patrol
   missions that tick gold/reputation on a timer, save/load.
+- **Ship level + modules (M8 Phase 2, `docs/navalCombat.md` §13).** `owned_ships` is now
+  `Array[OwnedShipData]` rather than a bare `Array[ShipStats]` — a `ShipStats` `.tres` is shared by
+  every hull of its class, so two owned Sloops could not otherwise each carry their own level/
+  module state without a shared-mutable-record bug. `OwnedShipData.get_effective_stats()` applies
+  level (flat +5%/level to health/damage/speed, max level 5) and up to one module per slot (Hull/
+  Cannon/Sail/Utility/Special, 10 authored in `resources/modules/*.tres`) to a **duplicated**
+  `ShipStats` — the template itself is never touched, same rule `EncounterManager._apply_strength()`
+  and `CombatModifiers` already follow. `FleetManager.get_active_ship()` keeps returning a plain
+  `ShipStats` (now the effective one) so every existing caller — `IslandMenu`'s ship-switch,
+  `SaveManager`'s fleet load — needed no change. `IslandMenu`'s Fleet tab gained a level-up row and
+  a per-slot module row per owned ship. Save format is backward-compatible: a pre-M8 flat array of
+  ship paths loads as level-1, no-modules `OwnedShipData` entries.
 - `CaptainData`: XP/level curve with computed speed/turn/damage/health modifiers, plus a
   `hire_cost_gold` field (M5) so recruitment cost scales with roster depth. 20 populated
   captains (Redbeard, Anne, Bartholomew, Jack, Mary, Isabela, Diego, Grace, OldTom, Fiona,
@@ -239,14 +325,14 @@ milestone-m4-empire-escalation (see that spec's `RegionData` resource).
 
 # 4. Autoload registry (current, for reference)
 
-Re-read directly from `project.godot` on 2026-08-14. The previous version of this section was
-**stale**: it listed `GameManager`, which no longer exists (only an orphaned
-`scripts/managers/GameManager.gd.uid` remains), and omitted `TutorialManager`, which *is*
-registered.
+Re-read directly from `project.godot` on 2026-08-25 (M7 campaign spine). `InputManager` (D57) and
+`CampaignManager` (M7 Task 9) were both newly promoted to/created as autoloads this pass;
+`WorldEventManager` was deleted outright (its one job — a timer that spawned ambient ocean events
+— was absorbed into `EventManager`).
 
 ```
-SaveManager, SceneManager, SettingsManager, AudioManager, ResourceManager,
-FleetManager, TechManager, EventManager, FactionManager, EmpireManager,
+SaveManager, SceneManager, SettingsManager, InputManager, AudioManager, ResourceManager,
+FleetManager, TechManager, EventManager, FactionManager, EmpireManager, CampaignManager,
 TutorialManager
 ```
 
@@ -255,21 +341,18 @@ per its own header comment.
 
 **Not autoloads — scene-local nodes** under `World/Systems` in `scenes/world/World.tscn`. This
 distinction matters: anything outside the World scene that tries to reach one of these via
-`get_tree().root.get_node_or_null(...)` gets null (see D55).
+`get_tree().root.get_node_or_null(...)` gets null (see D55). `InputManager` moved out of this list
+(see D57); `EncounterManager` (M8) and `BoardingSystem` are the two combat-era additions.
 
 ```
-WorldManager, InputManager, DockingSystem, EnemySpawner, WorldEventManager, BoardingSystem
+WorldManager, DockingSystem, EnemySpawner, BoardingSystem, EncounterManager
 ```
 
-## No narrative, quest, or discovery system exists
+## Campaign spine (M7, 2026-08-25)
 
-As of 2026-08-14 there is no campaign, chapter, quest, or objective system of any kind. The only
-narrative content in the project is the **8 hardcoded steps** in
-`scripts/managers/TutorialManager.gd` (an `Array[Dictionary]` in the script body, not a
-`Resource` — a standing `AGENTS.md` data-driven violation). `IslandData.discovered` is authored
-on all 6 islands and **never written to by any code**, so there is no discovery or fog system
-either. Both are M7/M8 scope; see `docs/06_NARRATIVE_AND_WORLD.md` and
-`docs/14_SYSTEM_INVENTORY.md`.
+Superseded by the "M7 — Campaign Spine" section at the end of this document. `TutorialManager`'s 8
+hardcoded steps were retired in favor of `CampaignManager` + authored `ChapterData` resources;
+`IslandData.discovered` now has a real write path off the `player_docked` signal.
 
 ---
 
@@ -397,6 +480,67 @@ from `scenes/debug/CaptureHarness.tscn`, which captures the real viewport at
 
 ---
 
+## M8 Combat Identity Rework (2026-08-14)
+
+Implemented against `docs/navalCombat.md`. **Suite: 126 → 214 tests, 213 passing, still exactly
+one known LOD failure** (`test_property_21_lod_distance_transitions`). Note the pre-M8 baseline
+measured 126, not the 118 recorded in `docs/14_SYSTEM_INVENTORY.md` §0 — that figure was itself
+stale. **214 / 213 is the number to regress against.**
+
+### Defects found and fixed during the audit (D60–D63)
+
+| # | Defect | Resolution |
+|---|--------|------------|
+| D60 | 🔴 **The entire damage-model write path was dead.** M6 made `ShipCombat.current_health` a getter-only proxy onto `ShipDamage.hull` and left **five** callers assigning to it — `ShipController.respawn()`, `ShipController._apply_tech_modifiers()`, `DockingSystem._process_healing()`, `SaveManager.load_game()` and `IslandMenu`'s ship-purchase path. All five wrote to nothing. Consequences: **respawn left hull at 0 *and* `_is_destroyed` true, so the respawned player was an invulnerable wreck**; **shipyard repair did nothing**; loading a save did not restore hull. `docs/navalCombat.md` §17 describes this defeat→repair→retry loop as "already the shipped behaviour" — it was entirely non-functional. | **Fixed.** `ShipDamage` gained `repair()` / `restore_all()` / `get_pool_maximum()`; `current_health` gained a forwarding setter so all five callers work; `respawn()` now calls `restore_all()`; shipyard repair repairs hull *and* sails (crew is deliberately excluded — it is bought at a Tavern). Guarded by 8 new tests in `test_damage_model.gd`. |
+| D61 | 🟡 **`ShipDamage.get_save_data()` / `load_save_data()` had no callers.** Built in M6 Task 3, never wired into `SaveManager`, so **sails and crew were not persisted at all** and hull went through the dead `current_health` write. M6 Req 2.7 passed only in isolation. | **Fixed.** `SaveManager` now round-trips a `player.damage` section through `ShipDamage`'s own pair, falling back to the legacy hull-only `player.health` key for pre-M8 saves. |
+| D62 | 🟡 **`AmmoData.speed_penalty` / `speed_penalty_duration` were read by nothing.** `ChainShot.tres` authored `0.5 / 10.0`; `apply_hit()` ignored both, so chain shot's "cripple mobility" effect was only its sail damage. M6 `design.md` §A3 specified a `chain_debuff` term that was never implemented. D14 class. | **Fixed.** `ShipDamage` applies a timed penalty folded into the existing `get_speed_multiplier()` (so `ShipMovement` needed no change), still floored at `min_speed_fraction` so a crippled ship can always limp away. |
+| D63 | 🟡 **A captain's health bonus was shaved off on the first hit.** `_ready()` filled hull from `get_effective_max_health()` (captain/tech modified) but `apply_hit()` clamped to the raw `ship_stats.max_health`, and reported that wrong maximum to the HUD. | **Fixed.** `get_pool_maximum()` is now the single source of truth for every pool ceiling. |
+
+### Balance correction — `cannon_range` was unreachable
+
+`cannon_range` was authored at **150–400** across the fleet. A cannonball leaves the gun port at
+y≈1.7 with `gravity_scale = 0.5`, so it splashes down after ~0.83 s and travels roughly
+`cannon_speed * 0.83` — **65–125 units**. Harmless while firing was a manual key press; fatal for
+auto-fire, which would have fired endlessly at hulls it could never reach. All 10 ship/enemy
+`ShipStats` were re-authored to their real ballistic reach, preserving the size ladder
+(Dinghy 100 → ManOWar 125, EnemyShip 66). `test_combat_integration.gd` now asserts this
+relationship holds, so the two numbers cannot drift apart again.
+
+### D55 closed as a side effect
+
+`base_boarding_modifier` was authored on **0 of 20** captains, so `BoardingSystem`'s live read
+always returned the 1.0 default and captain choice had no effect on boarding. Now authored on all
+20 to the values in `docs/12_CHARACTER_BIBLE.md` §5, so `"Cutlass" Kane` — whose entire authored
+personality is *"prefers boarding actions to broadsides"* — is finally mechanically the best
+boarder. (`hire_cost_gold`, D56, is untouched: economy, not combat. Still open for M7.)
+
+### Systems removed rather than left as duplicates
+
+- **`scripts/managers/WorldEventManager.gd` — deleted.** Its whole job was a 5-minute boss timer;
+  the boss is now `resources/combat/encounters/GhostShipBoss.tres`.
+- **`EnemyAI._get_broadside_angle()` — removed**, moved into the shared `FiringSolver`.
+- **`EnemyAI.attack_range` — removed**, a second firing range that disagreed with `cannon_range`.
+- **`Cannonball._is_friendly()`'s duplicate faction logic — removed**, delegates to
+  `FiringSolver.are_hostile()`.
+- **Manual per-side fire is deprecated, not deleted.** `fire_port`/`fire_starboard` still work as
+  an escape hatch while auto-fire is verified on real hardware (the `docs/15_MASTER_PLAN.md` §5
+  risk-register mitigation). `ShipCombat.auto_fire_enabled` toggles the new path off entirely.
+
+### New input actions
+
+`special_broadside` (Space / joypad 0) and `captain_ability` (R / joypad 1), both added to
+`SettingsManager.REBINDABLE_ACTIONS`.
+
+### Not verifiable headlessly
+
+Auto-fire *feel*, broadside-indicator legibility, upgrade-card pacing, and whether encounters land
+in `docs/navalCombat.md` §13's 2–5 / 5–8 / 5–12 minute bands all need a human at the controls.
+The loop's *mechanics* are covered by `test_combat_loop_end_to_end.gd`, which drives
+World → battle → ability → auto-fire → upgrade choice → victory → rewards → world through the real
+`PlayerShip.tscn` and `EnemyShip.tscn`. **Balance is unvalidated by playtest.**
+
+---
+
 ## Pre-M7 audit (2026-08-14)
 
 Found while writing `docs/06_NARRATIVE_AND_WORLD.md` and `docs/11`–`15`, by direct inspection of
@@ -408,10 +552,188 @@ Also confirmed in this pass, and now fixed in this document: §4's autoload regi
 
 | # | Defect | Status |
 |---|--------|--------|
-| D53 | 🔴 **Ship prices are computed from hull `mass`, in a UI script.** `IslandMenu.gd:357-359` derives `cost_gold = int(ship.mass / 100)`, `cost_wood = mass / 200`, `cost_iron = mass / 400`. The resulting ladder is catastrophically cheap: **Man O'War = 300 gold / 150 wood / 75 iron** (600 HP, 50 damage) against a starting purse of 200 gold and a level-5 Farm at **1350 gold**. Every hull is also affordable within the starting storage caps, so nothing gates it. This defeats **M6 Requirement 8 in full** — the circular economy in which combat loot funds the empire and the empire funds a better ship — because the ship half of that circle is free. It additionally violates `AGENTS.md` ("hardcoded values are forbidden"; "balance belongs inside Resources") *and* couples balance to physics: any future change to a hull's `mass` for buoyancy reasons silently re-prices it. | **Open — M7 Wave 1, priority 1.** Add `cost_gold`/`cost_wood`/`cost_iron`/`cost_rum` to `ShipStats`, author per hull to the ladder in `docs/13_CAMPAIGN_LEVELS_1-5.md` §2, and delete the mass formula. |
-| D54 | `ShipStats` has no `ship_id`, no `display_name`, and no `ship_class`. `IslandMenu._create_ship_entry()` therefore derives the shown name from the **filename** (`ship.resource_path.get_file().split(".")`), so the Shipyard reads "ManOWar" and no hull can be renamed, re-skinned, or localised. The missing class field is also why M6 Requirement 8.4 (enemy hulls trend larger as notoriety rises) has to approximate tier via `max_crew`. | **Open — M7 Wave 1.** |
-| D55 | **`base_boarding_modifier` is authored on 0 of 20 captains.** `CaptainData.gd:21` exports it and `BoardingSystem.gd:80` reads `boarding_modifier` off the active captain, so the code path is live — but with no captain setting it, every captain returns the `1.0` default and **captain choice has no effect on boarding at all**. M6 Requirement 3.2 ("modified by captain traits") is half-dead. Exactly the D14 failure mode: schema exists, data was never authored, feature silently inert. Also a flavour/mechanics contradiction — `Cutlass.tres`'s entire authored personality is *"Prefers boarding actions to broadsides"* and he is mechanically no better at it than any other captain. | **Open — M7 Wave 1.** Suggested values in `docs/12_CHARACTER_BIBLE.md` §5. |
-| D56 | `hire_cost_gold` is set on only **15 of 20** captains; the other five silently fall through to the `500` default, so they are mispriced relative to their stats. The field was added in M5 specifically so recruitment cost scales with roster depth. | **Open — M7 Wave 1.** |
-| D57 | **Input rebinding is silently dead.** `SettingsMenu.gd:104` and `:118` resolve the rebinding target with `get_tree().root.get_node_or_null("InputManager")` — i.e. as an autoload. `InputManager` is **not** an autoload; it is a scene-local node at `World/Systems/InputManager`. Both lookups always return null, both are null-guarded, so pressing a key in the rebind flow swallows the input (`set_input_as_handled()`), clears `_awaiting_rebind`, and re-renders the *old* binding — no error, no crash, no rebinding. **M6 Requirement 9.2 / Task 27 does not work.** Same class as D15: a feature checkpoint-verified in isolation but dead in the real tree. | **Open — M7 Wave 1.** Fix by group lookup or by promoting `InputManager` to an autoload. |
-| D58 | **Cold start is unplayable by construction.** `ResourceManager` starts the player on **200 gold**; `IslandMenu`'s colonize button costs **1000**; and `EmpireManager.home_island_id` is only ever assigned by `Island.gd:124` on a successful capture. A new player therefore owns no island, has no production, and must grind 800 gold from combat loot alone before the game's central verb (building) becomes available. | **Open — M7.** Resolution in `docs/13_CAMPAIGN_LEVELS_1-5.md` §3: a new game starts with Port Royal owned and set as home; the 1000-gold colonise cost applies to additional islands only. |
+| D53 | 🔴 **Ship prices are computed from hull `mass`, in a UI script.** `IslandMenu.gd:357-359` derives `cost_gold = int(ship.mass / 100)`, `cost_wood = mass / 200`, `cost_iron = mass / 400`. The resulting ladder is catastrophically cheap: **Man O'War = 300 gold / 150 wood / 75 iron** (600 HP, 50 damage) against a starting purse of 200 gold and a level-5 Farm at **1350 gold**. Every hull is also affordable within the starting storage caps, so nothing gates it. This defeats **M6 Requirement 8 in full** — the circular economy in which combat loot funds the empire and the empire funds a better ship — because the ship half of that circle is free. It additionally violates `AGENTS.md` ("hardcoded values are forbidden"; "balance belongs inside Resources") *and* couples balance to physics: any future change to a hull's `mass` for buoyancy reasons silently re-prices it. | **Fixed 2026-08-16.** `ShipStats` gained `cost_gold`/`cost_wood`/`cost_iron`/`cost_rum`, authored on all 8 hulls to the ladder in `docs/13_CAMPAIGN_LEVELS_1-5.md` §2; the mass formula in `IslandMenu.gd` is deleted. |
+| D54 | `ShipStats` has no `ship_id`, no `display_name`, and no `ship_class`. `IslandMenu._create_ship_entry()` therefore derives the shown name from the **filename** (`ship.resource_path.get_file().split(".")`), so the Shipyard reads "ManOWar" and no hull can be renamed, re-skinned, or localised. The missing class field is also why M6 Requirement 8.4 (enemy hulls trend larger as notoriety rises) has to approximate tier via `max_crew`. | **Fixed 2026-08-16.** `ShipStats` gained `ship_id`/`display_name`/`ship_class` (1–5), authored on all 8 player hulls plus the enemy raider and ghost-ship boss stats. |
+| D55 | **`base_boarding_modifier` is authored on 0 of 20 captains.** `CaptainData.gd:21` exports it and `BoardingSystem.gd:80` reads `boarding_modifier` off the active captain, so the code path is live — but with no captain setting it, every captain returns the `1.0` default and **captain choice has no effect on boarding at all**. M6 Requirement 3.2 ("modified by captain traits") is half-dead. Exactly the D14 failure mode: schema exists, data was never authored, feature silently inert. Also a flavour/mechanics contradiction — `Cutlass.tres`'s entire authored personality is *"Prefers boarding actions to broadsides"* and he is mechanically no better at it than any other captain. | **Fixed** (closed during the M8 combat rework — see above). |
+| D56 | `hire_cost_gold` is set on only **15 of 20** captains; the other five silently fall through to the `500` default, so they are mispriced relative to their stats. The field was added in M5 specifically so recruitment cost scales with roster depth. | **Fixed 2026-08-16.** Authored on Anne, Bartholomew, Jack, Mary, Redbeard, matching the tier the other 15 already establish. |
+| D57 | **Input rebinding is silently dead.** `SettingsMenu.gd:104` and `:118` resolve the rebinding target with `get_tree().root.get_node_or_null("InputManager")` — i.e. as an autoload. `InputManager` is **not** an autoload; it is a scene-local node at `World/Systems/InputManager`. Both lookups always return null, both are null-guarded, so pressing a key in the rebind flow swallows the input (`set_input_as_handled()`), clears `_awaiting_rebind`, and re-renders the *old* binding — no error, no crash, no rebinding. **M6 Requirement 9.2 / Task 27 does not work.** Same class as D15: a feature checkpoint-verified in isolation but dead in the real tree. | **Fixed 2026-08-25.** `InputManager` promoted to a real autoload (registered after `SettingsManager`); `WorldManager`'s sibling lookup and `SettingsMenu`'s two dead root lookups now reference it directly. `tests/test_input_rebinding.gd` pins a real rebind reaching `InputMap`. |
+| D58 | **Cold start is unplayable by construction.** `ResourceManager` starts the player on **200 gold**; `IslandMenu`'s colonize button costs **1000**; and `EmpireManager.home_island_id` is only ever assigned by `Island.gd:124` on a successful capture. A new player therefore owns no island, has no production, and must grind 800 gold from combat loot alone before the game's central verb (building) becomes available. | **Fixed 2026-08-25.** `World._seed_port_royal_as_home()` grants Port Royal as an owned `CAPITAL` and sets `EmpireManager.home_island_id`, guarded on "no save file exists" (a genuinely new game), never on "home_island_id happens to be empty" — an existing save with a different home island is never overwritten. `tests/test_cold_start.gd`. |
 | D59 | **Map ring ordering is inverted.** In `scenes/world/World.tscn`, tier-2 `skull_cove` sits **54 u** from the home island while tier-1 `tortuga` sits **94 u**, so the first thing a new player sails toward is the tier-2 pirate stronghold. Distance stops signalling danger, which is the map's primary spatial read. | **Fixed 2026-08-14** — see the map-layout entry below. |
+
+---
+
+## M8 Combat Identity Rework — Phase 2 (2026-08-16)
+
+Everything Phase 1 deferred: the M7 economy correction (D53/D54/D56, a hard prerequisite for ship
+modules) and the four remaining `docs/navalCombat.md` §15 items — real per-kind encounter
+behavior, enemy roles, bow/stern chasers, hull damage visuals, AI support ships, and ship level +
+modules. **Suite: 214 → 249 tests, 248 passing, still exactly one known LOD failure**
+(`test_property_21_lod_distance_transitions`). **249 / 248 is the number to regress against.**
+
+Sequenced as seven waves — M7 first (Slice 8 depends on it), then cheapest/most-contained to
+riskiest, so a course correction after any wave wouldn't waste work on the biggest ones:
+
+1. **M7 economy correction** — closed D53/D54/D56, see the table above.
+2. **Real per-kind encounters** — `DEFENSE`/`PROTECT_TARGET`, see the Combat section above.
+3. **Enemy roles** — `AIProfileData.role` + Support behavior, see the Combat section above.
+4. **Bow/stern chasers** — see the Combat section above.
+5. **Hull damage visuals** — see the Combat section above.
+6. **AI support ships** — see the Combat section above and the `friendly_ship` group note.
+7. **Ship level + modules** — see the Fleet section above.
+
+### A design correction made mid-plan
+
+The approved plan for Wave B assumed `Objective.PROTECT_TARGET` belonged on `ConvoyRaid.tres`.
+Re-reading `EncounterData.Kind`'s own doc comments caught the mismatch before implementation:
+`CONVOY` is annotated *"merchant fleet to break"* (the player raids it for loot — already
+`DESTROY_ALL`/`DESTROY_COUNT`, needed no change) while `DEFENSE` is *"protect a friendly hull or
+island"* — the actual match for an escort objective. `PROTECT_TARGET` and the new `escort_scene`
+went on `Defense.tres` instead.
+
+### A second correction: `friendly_ship`, not `player_ship`
+
+The approved plan for Waves B/F called for adding escorts/allies to the `player_ship` group.
+Before implementing, a check of every `get_first_node_in_group("player_ship")` /
+`get_nodes_in_group("player_ship")` call site found two that assume the group has **exactly one**
+member: `CameraRig._ready()`'s fallback target, and `BoardingSystem`'s `players[0]` lookups (twice).
+Joining an escort or ally to `player_ship` risked the camera or a boarding prompt silently latching
+onto a support ship instead of the real player. Escorts/allies join a new `friendly_ship` group
+instead, and `FiringSolver.are_hostile()` was extended to treat it identically to `player_ship` for
+hostility purposes — the literal group stays single-member everywhere else in the codebase.
+
+### Not verifiable headlessly
+
+Whether the damage-visual thresholds actually read as "damaged" to a player, whether an AI ally
+feels helpful rather than chaotic, and whether the module/level UI's pricing and pacing feel right
+all need a human at the controls, same caveat as Phase 1's auto-fire feel.
+
+---
+
+## M7 — Campaign Spine (2026-08-25)
+
+Closes D57/D58 (see §2's table) and replaces `TutorialManager`'s 8 hardcoded steps with a real,
+data-driven, 5-chapter campaign. **Suite: 249 → 320 tests, 319 passing, still exactly one known
+LOD failure** (`test_property_21_lod_distance_transitions`). **320 / 319 is the number to regress
+against.**
+
+### New data model — `scripts/world/`
+
+- `DialogueBeatData.gd`: `speaker_id`, `speaker_name`, `portrait_path`, `text` (multiline),
+  `Mood` enum (NEUTRAL/WARM/GRIM/ANGRY/AMUSED).
+- `ObjectiveData.gd`: `objective_id`, `description`, `condition` (a 15-value `Condition` enum —
+  `BUILD_STRUCTURE`, `UPGRADE_STRUCTURE_TO_LEVEL`, `REACH_ISLAND_TIER`, `DESTROY_SHIPS`,
+  `BOARD_SHIPS`, `DEFEAT_BOSS`, `CAPTURE_ISLAND`, `DISCOVER_ISLAND`, `DOCK_AT_ISLAND`,
+  `RECRUIT_CAPTAIN`, `OWN_SHIP_CLASS`, `UNLOCK_TECH`, `ACCUMULATE_RESOURCE`, `REACH_NOTORIETY`,
+  `SURVIVE_RAID`), `target_id`, `target_count`, `target_value`, `is_optional`, `hint_text`.
+  `REACH_ISLAND_TIER`/`REACH_NOTORIETY`/`ACCUMULATE_RESOURCE` are **level checks, not counters** —
+  progress is set to the current absolute value, not incremented.
+- `ChapterData.gd`: `chapter_id`, `chapter_number`, `title`, `log_summary`, `required_region_id`,
+  `required_previous_chapter`, `opening_beats`/`closing_beats` (`Array[DialogueBeatData]`),
+  `objectives` (`Array[ObjectiveData]`), `reward_gold`/`reward_captain_id`/`reward_ship_id`/
+  `reward_tech_id`. `required_notoriety` was deliberately dropped — a region's activation
+  threshold already lives in `RegionData`, and keeping it in two places invites drift.
+
+### `CampaignManager` (new autoload, registered after `EmpireManager`)
+
+`scripts/managers/CampaignManager.gd` — loads every `resources/campaign/chapters/*.tres` via a
+`DirAccess` scan (mirrors `EmpireManager`'s region loading), sorted by `chapter_number`. Gates the
+next chapter on `_gate_satisfied()` (region-active via `EmpireManager.is_region_active()`, or the
+previous chapter's completion), and cascades through any number of already-satisfied gates in one
+pass (`_catch_up()`) rather than advancing one chapter per signal. Listens to the same real
+gameplay signals `TutorialManager` used to (docking, structure changes, ship destruction, boarding
+resolution, captain recruitment, fleet changes, tech unlocks, island capture/tier change,
+notoriety change, resource change, raid resolution) and dispatches them against the active
+chapter's objectives by `Condition`. `get_save_data()`/`load_save_data()` return duplicates, never
+live containers (the established `FleetManager` D12 convention).
+
+Two content-authoring bugs the objective-integrity test (`tests/test_campaign_content.gd`) exists
+specifically to catch: `BuildingData.building_id` is **level-suffixed** (`"farm_l1"`, not
+`"farm"`), and a `BOARD_SHIPS` objective can target either a faction id or a dedicated boss
+`ship_id` — the registry-selection logic must union both id pools, not faction-only.
+
+### `TutorialManager` reduced to a thin wrapper
+
+Kept (not retired outright) specifically so `tests/test_tutorial_manager.gd`'s coverage isn't
+lost — a drop in total test count is treated as a regression in this project. Now just:
+`_UNLOCK_ON_OBJECTIVE`/`_UNLOCK_ON_CHAPTER_COMPLETE` maps from `CampaignManager` signals to
+`is_ui_unlocked()` flags, plus the `user://tutorial_state.json` completion-flag file I/O that
+suppresses a replay for existing players. `TutorialDialogue.gd` now listens to
+`CampaignManager.chapter_started`/`chapter_completed` directly and advances through a chapter's
+`opening_beats`/`closing_beats` array on Continue.
+
+### D57 — `InputManager` promoted to an autoload
+
+`MainMenu.gd`'s Settings button is a **full scene change** (`SceneManager.change_scene_with_fade`),
+so no `World` scene exists when `SettingsMenu` is open — a scene-local `InputManager` was
+unreachable from there by construction, not just by a wrong lookup path. `InputManager` had no
+scene-local dependency to begin with (`rebind_action()`/`reset_to_defaults()` only touch
+`InputMap`/`SettingsManager`), so promotion cost nothing. `WorldManager.gd`'s sibling lookup and
+`SettingsMenu.gd`'s two dead `get_tree().root.get_node_or_null("InputManager")` calls now reference
+the autoload directly. `SettingsMenu` also gained sensitivity/dead-zone sliders (M2 Task 6.3),
+persisted through `SettingsManager` and applied via `InputMap.action_set_deadzone()` — deliberately
+**not** post-hoc filtering inside `get_movement_vector()`, which clips the exact
+key-press-to-strength values `test_input_properties.gd`'s keyboard-precision property pins down.
+
+### D58 — cold start
+
+`World._seed_port_royal_as_home()`, called deferred from `World.gd._ready()` and guarded on
+`not SaveManager.has_save_data()` (a genuinely new game only — an existing save with a different
+home island is never touched), grants Port Royal as an owned `CAPITAL` and sets
+`EmpireManager.home_island_id`. The old tutorial-driven "capture Port Royal" step is removed;
+Chapter 1's objectives start from ownership already established.
+
+### Content — 5 chapters, `resources/campaign/chapters/*.tres`
+
+Authored verbatim against `docs/13_CAMPAIGN_LEVELS_1-5.md` §3-§7: **Ch1 The Drowned Port** (no
+gate — starts immediately), **Ch2 Blood in the Shallows** (`required_previous_chapter = ch1`),
+**Ch3 The King's Answer** (`required_region_id = "contested_waters"`), **Ch4 The Admiral's Gambit**
+(`required_previous_chapter = ch3`), **Ch5 The Silver Fleet**
+(`required_region_id = "imperial_waters"`). ~40 objectives, ~15 dialogue beats total. All 20
+captains' `unlock_chapter_id` authored per `docs/12_CHARACTER_BIBLE.md` §4;
+`IslandMenu._refresh_captains()` now hides a captain until `CampaignManager.is_chapter_completed()`
+for their unlock chapter. One deliberate simplification: Chapter 3's objective 3.5 checks
+`OWN_SHIP_CLASS` only, not also a "Defend Home" flag — extending the fixed `Condition` enum for one
+objective wasn't judged worth it.
+
+Two bosses got **fully dedicated** `ShipStats`/AI profile/scene/`EncounterData` (HMS Intransigent,
+Cárdenas' escort) rather than reusing a shared template — `CampaignManager.DEFEAT_BOSS` matches by
+`ShipStats.ship_id`, and a player-owned copy of a shared class (e.g. `ManOWar.tres`) would have
+falsely satisfied the objective. **Neither boss encounter is wired into `World.tscn`'s ambient
+encounter pool** — there's no in-world trigger mechanism (location/chapter-gated spawn) yet, so
+they're reachable only via a manual `EncounterManager.start_encounter()` call. Building a real
+trigger is a system, not content, and is out of this pass's scope. Chapter 4's "two escort
+Corvettes" and Chapter 5's "screen + shore guns" multi-stage fights are both simplified to
+single-boss encounters for the same reason.
+
+### UI — Captain's Log, HUD objective feedback
+
+`scripts/ui/CaptainsLog.gd` + `scenes/ui/CaptainsLog.tscn`: lists completed chapters (with their
+`log_summary`) and the active chapter's objectives with live progress, optional objectives in a
+visually distinct section. Opened from a new `WorldHUD` button, dynamically positioned top-right
+(anchored inward, not squeezed into the already-tightly-sized `TopBar`). `WorldHUD` connects to
+`CampaignManager.objective_completed`/`chapter_completed`/`chapter_started`/`objective_progressed`
+and routes through the existing `announce_event()` — no new announcement system — including an
+objective-stall hint (`hint_text`) after 90s of no progress.
+
+### Exit criterion verified
+
+A throwaway `Ch6_Throwaway.tres` (a `ChapterData` with one objective) was authored, confirmed to
+load and be picked up by `CampaignManager._load_chapters()` with **zero script changes**, then
+deleted. The data model is real, not just sufficient for the 5 authored chapters.
+
+### Two latent test-isolation bugs found and fixed while writing this pass's tests
+
+Both `tests/test_cold_start.gd` and (a pre-existing) `tests/test_region_gates.gd` instantiate a
+real `World.gd`/`World.tscn`, whose `_ready()` unconditionally defers a real
+`SaveManager.load_game()` call — so whatever save happens to be on disk (e.g. leftover manual-test
+progress) gets applied to the real `EmpireManager`/`SaveManager` autoloads. Region activation is
+sticky (`EmpireManager._check_region_activation()` only ever sets a region *to* active, never back
+to dormant), so a stale save with real notoriety would silently and permanently activate a region
+for every test that ran afterward in the same suite. Separately, `test_region_gates.gd` also tried
+to construct an "isolated" `EmpireManager` node and `add_child()` it under `get_tree().root` with
+`name = "EmpireManager"` — Godot rejects the colliding name on the **new** node rather than
+renaming the pre-existing one (confirmed empirically), so this "isolated" instance was always
+inert and every lookup, including the test's own `after_each()` `queue_free()` call, was actually
+targeting the real autoload. Both files now back up/restore the real save file around their run
+and save/restore `EmpireManager.notoriety`/`_region_active` directly instead of trying to shadow
+the autoload.

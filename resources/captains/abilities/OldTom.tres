@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CaptainAbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/CaptainAbilityData.gd" id="1_ab"]
+
+[resource]
+script = ExtResource("1_ab")
+ability_id = "never_rush"
+display_name = "Never Rush"
+description = "Decades of practice. Slow, deliberate, devastating."
+icon = "⏳"
+duration = 9.0
+cooldown = 38.0
+damage_mult = 1.7
+fire_rate_mult = 1.0
+speed_mult = 0.9
+range_mult = 1.25
+arc_bonus_degrees = 0.0
+instant_hull_fraction = 0.0
+instant_sails_fraction = 0.0
+instant_crew_fraction = 0.0

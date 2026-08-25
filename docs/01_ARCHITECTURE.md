@@ -61,14 +61,16 @@ Avoid hardcoding gameplay values inside scripts.
 
 Favor small reusable components instead of deep inheritance trees.
 
-Example
+Example (actual components — see `CLAUDE.md` for the current list)
 
 Ship
- ├── HealthComponent
- ├── WeaponComponent
- ├── MovementComponent
- ├── CrewComponent
- └── CargoComponent
+ ├── ShipController
+ ├── ShipMovement
+ ├── ShipVisuals
+ ├── ShipCombat / ShipDamage
+ ├── BuoyancySimulator
+ ├── DockingSystem
+ └── CameraRig
 
 ---
 

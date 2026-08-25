@@ -12,7 +12,10 @@ class MockSettingsManager extends Node:
 	var fullscreen: bool = false
 	var resolution: String = "1920x1080"
 	var vsync: bool = false
-	
+	var input_sensitivity: float = 1.0
+	var input_dead_zone: float = 0.2
+	var graphics_quality: int = 1
+
 	var calls: Array[String] = []
 	
 	func save_settings() -> void:

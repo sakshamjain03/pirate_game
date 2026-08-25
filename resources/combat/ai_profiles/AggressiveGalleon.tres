@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_ai_prof")
+role = 3
 aggression = 1.0
 preferred_combat_distance = 20.0
 flee_health_threshold = 0.0

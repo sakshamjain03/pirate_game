@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CaptainData" format=3]
+[gd_resource type="Resource" script_class="CaptainData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/CaptainData.gd" id="1_cd"]
+[ext_resource type="Resource" path="res://resources/captains/abilities/Fiona.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_cd")
@@ -8,6 +9,11 @@ captain_id = "fiona"
 captain_name = "\"Flint\" Fiona"
 background = "Trained her crew to reload cannons blind, in the dark, in a storm."
 hire_cost_gold = 1230
+home_island_id = "skull_cove"
+allegiance_faction_id = "pirate_clans"
+unlock_chapter_id = "ch1_the_drowned_port"
 base_turn_rate_modifier = 0.9
 base_damage_modifier = 1.4
 base_health_modifier = 0.85
+base_boarding_modifier = 1.0
+active_ability = ExtResource("2_ability")

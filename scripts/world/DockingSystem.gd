@@ -24,6 +24,9 @@ var ship_controller: ShipController = null
 @export var alignment_speed: float = 4.0
 @export var position_tolerance: float = 1.0
 @export var repair_rate: float = 5.0
+## Sail repair per second as a fraction of repair_rate. Rigging is quicker to
+## re-rig than planking is to replace, so sails come back faster than hull.
+@export_range(0.0, 4.0) var sail_repair_fraction: float = 2.0
 
 var _repair_timer: float = 0.0
 
@@ -167,8 +170,15 @@ func _process_healing(delta: float) -> void:
 			_repair_timer -= 1.0
 			
 			var combat = ship_controller.combat
-			if combat.current_health < combat.ship_stats.max_health:
+			var dmg = ship_controller.get_node_or_null("ShipDamage")
+			if dmg:
+				# Repair hull and sails at the same rate; crew is deliberately
+				# excluded — it is recruited at a Tavern for gold/rum (M6 Task 12),
+				# and healing it free here would undercut that cost.
+				var repaired: float = dmg.repair("hull", repair_rate)
+				repaired += dmg.repair("sails", repair_rate * sail_repair_fraction)
+				if repaired > 0.0:
+					combat.health_changed.emit(dmg.hull, dmg.get_pool_maximum("hull"))
+			elif combat.current_health < combat.ship_stats.max_health:
 				combat.current_health = min(combat.current_health + repair_rate, combat.ship_stats.max_health)
-				if combat.health_changed:
-					combat.health_changed.emit(combat.current_health, combat.ship_stats.max_health)
-				# Optional: Spawn a tiny heal particle or just let the HUD show it
+				combat.health_changed.emit(combat.current_health, combat.ship_stats.max_health)

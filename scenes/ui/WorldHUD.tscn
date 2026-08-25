@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -6,6 +6,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/DeathScreen.tscn" id="3_death_screen"]
 [ext_resource type="PackedScene" path="res://scenes/ui/TutorialDialogue.tscn" id="4_tutorial_dialogue"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="5_pause_menu"]
+[ext_resource type="PackedScene" path="res://scenes/ui/UpgradeChoiceScreen.tscn" id="6_upgrade_choice"]
+[ext_resource type="PackedScene" path="res://scenes/ui/CaptainsLog.tscn" id="7_captains_log"]
 
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HealthBg"]
@@ -409,6 +411,14 @@ unique_name_in_owner = true
 visible = false
 
 [node name="PauseMenu" parent="." instance=ExtResource("5_pause_menu")]
+unique_name_in_owner = true
+visible = false
+
+[node name="UpgradeChoiceScreen" parent="." instance=ExtResource("6_upgrade_choice")]
+unique_name_in_owner = true
+visible = false
+
+[node name="CaptainsLog" parent="." instance=ExtResource("7_captains_log")]
 unique_name_in_owner = true
 visible = false
 

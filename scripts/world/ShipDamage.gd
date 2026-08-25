@@ -11,6 +11,15 @@ var crew: float = 0.0
 
 var _is_destroyed: bool = false
 
+# Timed mobility debuff, driven by AmmoData.speed_penalty / speed_penalty_duration
+# (chain shot). Authored on ChainShot.tres since M6 but read by nothing until now:
+# sail damage was the only thing that touched speed, so chain shot's "crippling"
+# effect was entirely the sail pool. Folded into get_speed_multiplier() rather
+# than applied in ShipMovement, because ShipMovement already queries this node
+# for its speed multiplier and needs no change.
+var _speed_penalty: float = 0.0
+var _speed_penalty_remaining: float = 0.0
+
 func get_effective_max_health() -> float:
 	if not ship_stats:
 		return 100.0
@@ -31,6 +40,27 @@ func _ready() -> void:
 			sails = ship_stats.max_sails
 		if crew <= 0.0:
 			crew = ship_stats.max_crew
+
+func _process(delta: float) -> void:
+	if _speed_penalty_remaining > 0.0:
+		_speed_penalty_remaining -= delta
+		if _speed_penalty_remaining <= 0.0:
+			_speed_penalty_remaining = 0.0
+			_speed_penalty = 0.0
+
+func get_pool_maximum(pool: String) -> float:
+	## Single source of truth for each pool's ceiling. Hull uses the captain/tech
+	## modified maximum, not the raw ShipStats value — clamping hull to
+	## ship_stats.max_health while _ready() filled it from
+	## get_effective_max_health() meant a captain's health bonus was silently
+	## shaved off on the ship's first hit, and the HUD was told the wrong maximum.
+	if not ship_stats:
+		return 0.0
+	match pool:
+		"hull": return get_effective_max_health()
+		"sails": return ship_stats.max_sails
+		"crew": return ship_stats.max_crew
+	return 0.0
 
 func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 	if _is_destroyed or not ship_stats or not ammo:
@@ -58,17 +88,20 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 	var crew_dmg = total_amount * ammo.crew_damage_mult
 	
 	if hull_dmg > 0.0:
-		hull = clamp(hull - hull_dmg, 0.0, ship_stats.max_health)
-		pool_changed.emit("hull", hull, ship_stats.max_health)
-	
+		hull = clamp(hull - hull_dmg, 0.0, get_pool_maximum("hull"))
+		pool_changed.emit("hull", hull, get_pool_maximum("hull"))
+
 	if sail_dmg > 0.0:
 		sails = clamp(sails - sail_dmg, 0.0, ship_stats.max_sails)
 		pool_changed.emit("sails", sails, ship_stats.max_sails)
-		
+
 	if crew_dmg > 0.0:
 		crew = clamp(crew - crew_dmg, 0.0, ship_stats.max_crew)
 		pool_changed.emit("crew", crew, ship_stats.max_crew)
-		
+
+	if ammo.speed_penalty > 0.0 and ammo.speed_penalty_duration > 0.0:
+		apply_speed_penalty(ammo.speed_penalty, ammo.speed_penalty_duration)
+
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
 		destroyed.emit()
@@ -90,11 +123,85 @@ func mark_destroyed() -> void:
 	destroyed.emit()
 
 
+func repair(pool: String, amount: float) -> float:
+	## Restores a single pool, clamped to its maximum. Returns the amount actually
+	## restored so callers can report or bill for it. This is the write path M6
+	## never built: ShipCombat.current_health became a getter-only proxy onto
+	## `hull`, so every existing repair/respawn/load call site was silently
+	## writing to nothing (shipyard repair, respawn, save-load, ship purchase).
+	if not ship_stats or amount <= 0.0:
+		return 0.0
+	var maximum := get_pool_maximum(pool)
+	var before := 0.0
+	match pool:
+		"hull": before = hull
+		"sails": before = sails
+		"crew": before = crew
+		_:
+			push_error("ShipDamage.repair: unknown pool '%s'" % pool)
+			return 0.0
+
+	var after: float = clamp(before + amount, 0.0, maximum)
+	if is_equal_approx(after, before):
+		return 0.0
+
+	match pool:
+		"hull": hull = after
+		"sails": sails = after
+		"crew": crew = after
+
+	# Repairing a wreck's hull back above zero makes it a live ship again —
+	# otherwise apply_hit() keeps early-returning on _is_destroyed and the
+	# ship is permanently invulnerable.
+	if pool == "hull" and after > 0.0:
+		_is_destroyed = false
+
+	pool_changed.emit(pool, after, maximum)
+	return after - before
+
+
+func restore_all() -> void:
+	## Full restore of all three pools, clearing the destroyed flag. Used by
+	## respawn and by buying/switching a ship.
+	if not ship_stats:
+		return
+	hull = get_pool_maximum("hull")
+	sails = get_pool_maximum("sails")
+	crew = get_pool_maximum("crew")
+	_is_destroyed = false
+	_speed_penalty = 0.0
+	_speed_penalty_remaining = 0.0
+	pool_changed.emit("hull", hull, get_pool_maximum("hull"))
+	pool_changed.emit("sails", sails, get_pool_maximum("sails"))
+	pool_changed.emit("crew", crew, get_pool_maximum("crew"))
+
+
+func apply_speed_penalty(fraction: float, duration: float) -> void:
+	## Timed mobility debuff (chain shot). A stronger penalty replaces a weaker
+	## one; an equal-or-weaker one only refreshes the remaining duration, so
+	## sustained chain fire keeps a target crippled without stacking to zero speed.
+	var f: float = clamp(fraction, 0.0, 1.0)
+	if f >= _speed_penalty:
+		_speed_penalty = f
+		_speed_penalty_remaining = max(_speed_penalty_remaining, duration)
+	else:
+		_speed_penalty_remaining = max(_speed_penalty_remaining, duration)
+
+
+func get_speed_penalty() -> float:
+	return _speed_penalty if _speed_penalty_remaining > 0.0 else 0.0
+
+
 func get_speed_multiplier() -> float:
 	if not ship_stats or ship_stats.max_sails <= 0.0:
 		return 1.0
 	var sail_ratio = clamp(sails / ship_stats.max_sails, 0.0, 1.0)
-	return lerp(ship_stats.min_speed_fraction, 1.0, sail_ratio)
+	var sail_mult: float = lerp(ship_stats.min_speed_fraction, 1.0, sail_ratio)
+	# The timed debuff multiplies on top of sail damage but is still floored at
+	# min_speed_fraction, so a crippled ship can always limp away rather than
+	# being frozen in place — the same guarantee sail damage already made.
+	var penalised: float = sail_mult * (1.0 - get_speed_penalty())
+	return max(penalised, ship_stats.min_speed_fraction)
 
 func get_save_data() -> Dictionary:
 	return {
@@ -108,10 +215,10 @@ func load_save_data(data: Dictionary) -> void:
 		return
 		
 	if data.has("hull"):
-		hull = clamp(data["hull"], 0.0, ship_stats.max_health)
+		hull = clamp(data["hull"], 0.0, get_pool_maximum("hull"))
 	else:
-		hull = ship_stats.max_health
-		
+		hull = get_pool_maximum("hull")
+
 	if data.has("sails"):
 		sails = clamp(data["sails"], 0.0, ship_stats.max_sails)
 	else:
@@ -121,5 +228,7 @@ func load_save_data(data: Dictionary) -> void:
 		crew = clamp(data["crew"], 0.0, ship_stats.max_crew)
 	else:
 		crew = ship_stats.max_crew
-		
+
 	_is_destroyed = hull <= 0.0
+	_speed_penalty = 0.0
+	_speed_penalty_remaining = 0.0

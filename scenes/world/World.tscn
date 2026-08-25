@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/EnvironmentController.gd" id="1_env"]
 [ext_resource type="PackedScene" path="res://scenes/world/Ocean.tscn" id="2_ocean"]
@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" path="res://scenes/world/Island.tscn" id="5_isl"]
 [ext_resource type="PackedScene" path="res://scenes/ui/WorldHUD.tscn" id="6_hud"]
 [ext_resource type="Script" path="res://scripts/managers/WorldManager.gd" id="7_w_mgr"]
-[ext_resource type="Script" path="res://scripts/managers/InputManager.gd" id="8_i_mgr"]
 [ext_resource type="Script" path="res://scripts/world/DockingSystem.gd" id="10_dock"]
 [ext_resource type="Resource" path="res://resources/world/EnvironmentSettings.tres" id="11_env_settings"]
 [ext_resource type="Resource" path="res://resources/world/CameraSettings.tres" id="12_cam_settings"]
@@ -17,7 +16,23 @@
 [ext_resource type="Resource" path="res://resources/world/PortRoyal.tres" id="16_port_royal"]
 [ext_resource type="Resource" path="res://resources/world/Tortuga.tres" id="17_tortuga"]
 [ext_resource type="Resource" path="res://resources/world/SkullCove.tres" id="18_skull_cove"]
-[ext_resource type="Script" path="res://scripts/managers/WorldEventManager.gd" id="19_wem"]
+[ext_resource type="Script" path="res://scripts/combat/EncounterManager.gd" id="19_enc_mgr"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/Skirmish.tres" id="24_e1"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/ConvoyRaid.tres" id="25_e2"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/Ambush.tres" id="26_e3"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/EliteHunters.tres" id="27_e4"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/GhostShipBoss.tres" id="28_e5"]
+[ext_resource type="Resource" path="res://resources/combat/encounters/Defense.tres" id="29_e6"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/HeavyVolley.tres" id="30_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/BurningShot.tres" id="31_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/RapidReload.tres" id="32_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/EmergencyRepairs.tres" id="33_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/PatchTheRigging.tres" id="34_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/RallyTheCrew.tres" id="35_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/FullSail.tres" id="36_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/LongNines.tres" id="37_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/SteadyGunners.tres" id="38_u"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/PrimedCharges.tres" id="39_u"]
 [ext_resource type="Resource" path="res://resources/world/VolcanoIsland.tres" id="20_volcano"]
 [ext_resource type="Resource" path="res://resources/world/FrozenIsland.tres" id="21_frozen"]
 [ext_resource type="Resource" path="res://resources/world/CartagenaOutpost.tres" id="22_cartagena"]
@@ -158,17 +173,19 @@ island_data = ExtResource("22_cartagena")
 [node name="WorldManager" type="Node" parent="Systems"]
 script = ExtResource("7_w_mgr")
 
-[node name="InputManager" type="Node" parent="Systems"]
-script = ExtResource("8_i_mgr")
-
 [node name="DockingSystem" type="Node" parent="Systems"]
 script = ExtResource("10_dock")
 
 [node name="EnemySpawner" type="Node" parent="Systems"]
 script = ExtResource("15_spawner")
 
-[node name="WorldEventManager" type="Node" parent="Systems"]
-script = ExtResource("19_wem")
+; Replaces WorldEventManager, whose whole job was a 5-minute timer that spawned
+; the boss. A boss is now just a Boss-kind EncounterData in this pool, and every
+; fight gets a start, an objective, an end and a payout.
+[node name="EncounterManager" type="Node" parent="Systems"]
+script = ExtResource("19_enc_mgr")
+encounter_pool = Array[EncounterData]([ExtResource("24_e1"), ExtResource("25_e2"), ExtResource("26_e3"), ExtResource("27_e4"), ExtResource("28_e5"), ExtResource("29_e6")])
+upgrade_pool = Array[BattleUpgradeData]([ExtResource("30_u"), ExtResource("31_u"), ExtResource("32_u"), ExtResource("33_u"), ExtResource("34_u"), ExtResource("35_u"), ExtResource("36_u"), ExtResource("37_u"), ExtResource("38_u"), ExtResource("39_u")])
 
 [node name="BoardingSystem" type="Node" parent="Systems"]
 script = ExtResource("23_boarding")

@@ -26,6 +26,7 @@ var available_buildings: Array[BuildingData] = []
 var available_ships: Array[ShipStats] = []
 var available_captains: Array[CaptainData] = []
 var available_techs: Array[TechData] = []
+var available_modules: Array[ShipModuleData] = []
 
 var colonize_btn: Button
 
@@ -91,7 +92,15 @@ func _load_building_data() -> void:
 	for c in cap_names:
 		var cap = load("res://resources/captains/" + c + ".tres")
 		if cap: available_captains.append(cap)
-		
+
+	# Load Modules (M8 §13: ship level + modules)
+	var module_names = ["ReinforcedPlanking", "IronHull", "HeavyCannons", "SwiftLoaders",
+		"FullCanvas", "ReinforcedRigging", "ExtraBerths", "LongGlass",
+		"MasterGunners", "CopperBottom"]
+	for m in module_names:
+		var module = load("res://resources/modules/" + m + ".tres")
+		if module: available_modules.append(module)
+
 	# Load Techs
 	var t1 = load("res://resources/techs/ReinforcedHulls.tres")
 	if t1: available_techs.append(t1)
@@ -342,33 +351,30 @@ func _create_ship_entry(ship: ShipStats) -> void:
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	var name_lbl = Label.new()
-	var path_parts = ship.resource_path.get_file().split(".")
-	name_lbl.text = path_parts[0] if path_parts.size() > 0 else "Unknown Ship"
+	name_lbl.text = ship.display_name if not ship.display_name.is_empty() else "Unknown Ship"
 	name_lbl.add_theme_font_size_override("font_size", 18)
-	
+
 	var desc_lbl = Label.new()
 	desc_lbl.text = "HP: %d | DMG: %d | SPD: %d | TRN: %.1f" % [ship.max_health, ship.cannon_damage, ship.max_speed, ship.turn_rate]
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	
+
 	info_vbox.add_child(name_lbl)
 	info_vbox.add_child(desc_lbl)
-	
-	# Cost - Dynamic based on mass
-	var cost_gold = int(ship.mass / 100)
-	var cost_wood = int(ship.mass / 200)
-	var cost_iron = int(ship.mass / 400)
-	var cost_dict = {"gold": cost_gold, "wood": cost_wood, "iron": cost_iron}
-	
+
+	var cost_dict = {"gold": ship.cost_gold, "wood": ship.cost_wood, "iron": ship.cost_iron}
+	if ship.cost_rum > 0:
+		cost_dict["rum"] = ship.cost_rum
+
 	var cost_lbl = Label.new()
-	cost_lbl.text = "%d Gold  %d Wood  %d Iron  " % [cost_gold, cost_wood, cost_iron]
+	cost_lbl.text = "%d Gold  %d Wood  %d Iron  " % [ship.cost_gold, ship.cost_wood, ship.cost_iron]
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	
 	var btn = Button.new()
 	btn.text = "Buy"
 	btn.custom_minimum_size = Vector2(80, 40)
 	
-	if ship in FleetManager.owned_ships:
+	if FleetManager.owns_ship_stats(ship):
 		btn.text = "Owned"
 		btn.disabled = true
 	elif not ResourceManager.can_afford(cost_dict):
@@ -397,8 +403,13 @@ func _refresh_captains() -> void:
 		child.queue_free()
 		
 	_create_crew_recruitment_entry()
-	
+
 	for cap in available_captains:
+		# A captain whose chapter hasn't been reached is excluded entirely, not
+		# shown disabled — a locked list of 20 is noise on a phone
+		# (docs/12_CHARACTER_BIBLE.md §6).
+		if not CampaignManager.is_chapter_completed(cap.unlock_chapter_id):
+			continue
 		_create_captain_entry(cap)
 
 func _create_crew_recruitment_entry() -> void:
@@ -522,21 +533,22 @@ func _refresh_fleet() -> void:
 		return
 	for child in fleet_container.get_children():
 		child.queue_free()
-		
-	for i in range(FleetManager.owned_ships.size()):
-		var ship = FleetManager.owned_ships[i]
-		_create_fleet_entry(ship, i)
 
-func _create_fleet_entry(ship: ShipStats, index: int) -> void:
+	for i in range(FleetManager.owned_ships.size()):
+		var owned = FleetManager.owned_ships[i]
+		_create_fleet_entry(owned, i)
+
+func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
+	var ship: ShipStats = owned.ship_stats
 	var hbox = HBoxContainer.new()
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	
+
 	var name_lbl = Label.new()
-	var path_parts = ship.resource_path.get_file().split(".")
-	name_lbl.text = path_parts[0] if path_parts.size() > 0 else "Unknown Ship"
+	var ship_name = ship.display_name if ship and not ship.display_name.is_empty() else "Unknown Ship"
+	name_lbl.text = "%s (Lvl %d)" % [ship_name, owned.level]
 	name_lbl.add_theme_font_size_override("font_size", 18)
-	
+
 	var cap_index = index if index < FleetManager.owned_captains.size() else 0
 	var assigned_cap = FleetManager.owned_captains[cap_index]
 	
@@ -593,9 +605,78 @@ func _create_fleet_entry(ship: ShipStats, index: int) -> void:
 		make_active_btn.custom_minimum_size = Vector2(100, 40)
 		make_active_btn.pressed.connect(func(): _on_make_active_pressed(index))
 		hbox.add_child(make_active_btn)
-	
+
 	fleet_container.add_child(hbox)
+	_create_progression_rows(owned, index)
 	fleet_container.add_child(HSeparator.new())
+
+func _create_progression_rows(owned: OwnedShipData, index: int) -> void:
+	## Ship level + modules (`docs/navalCombat.md` §13) — one row for leveling
+	## the hull, one per module slot. List-based like the rest of this menu
+	## rather than a dedicated equip screen.
+	var level_row = HBoxContainer.new()
+	var level_lbl = Label.new()
+	if owned.level >= OwnedShipData.MAX_LEVEL:
+		level_lbl.text = "Level: MAX"
+	else:
+		var cost = owned.get_level_up_cost()
+		level_lbl.text = "Level Up: %d Gold  %d Wood" % [cost.get("gold", 0), cost.get("wood", 0)]
+	level_lbl.add_theme_font_size_override("font_size", 12)
+	level_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	level_row.add_child(level_lbl)
+
+	if owned.level < OwnedShipData.MAX_LEVEL:
+		var level_btn = Button.new()
+		level_btn.text = "Level Up"
+		level_btn.custom_minimum_size = Vector2(90, 32)
+		if not ResourceManager.can_afford(owned.get_level_up_cost()):
+			level_btn.disabled = true
+		else:
+			level_btn.pressed.connect(func(): _on_level_up_pressed(index))
+		level_row.add_child(level_btn)
+	fleet_container.add_child(level_row)
+
+	for slot in [ShipModuleData.Slot.HULL, ShipModuleData.Slot.CANNON,
+			ShipModuleData.Slot.SAIL, ShipModuleData.Slot.UTILITY, ShipModuleData.Slot.SPECIAL]:
+		_create_module_slot_row(owned, index, slot)
+
+func _create_module_slot_row(owned: OwnedShipData, index: int, slot: int) -> void:
+	var row = HBoxContainer.new()
+	var equipped: ShipModuleData = owned.get_module_in_slot(slot)
+
+	var slot_lbl = Label.new()
+	slot_lbl.custom_minimum_size = Vector2(160, 0)
+	slot_lbl.text = "%s: %s" % [
+		ShipModuleData.Slot.keys()[slot].capitalize(),
+		equipped.display_name if equipped else "Empty"]
+	slot_lbl.add_theme_font_size_override("font_size", 12)
+	slot_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	row.add_child(slot_lbl)
+
+	for module in available_modules:
+		if module.slot != slot:
+			continue
+		var btn = Button.new()
+		btn.text = module.display_name
+		btn.custom_minimum_size = Vector2(120, 32)
+		if module == equipped:
+			btn.text = "%s [Equipped]" % module.display_name
+			btn.disabled = true
+		elif not ResourceManager.can_afford({"gold": module.cost_gold, "wood": module.cost_wood, "iron": module.cost_iron}):
+			btn.disabled = true
+		else:
+			btn.pressed.connect(func(): _on_equip_module_pressed(index, module))
+		row.add_child(btn)
+
+	fleet_container.add_child(row)
+
+func _on_level_up_pressed(index: int) -> void:
+	if FleetManager.level_up_ship(index):
+		_refresh_fleet()
+
+func _on_equip_module_pressed(index: int, module: ShipModuleData) -> void:
+	if FleetManager.equip_module(index, module):
+		_refresh_fleet()
 
 func _on_mission_pressed(ship_idx: int, cap_idx: int, type: String) -> void:
 	FleetManager.assign_mission(ship_idx, cap_idx, type)
@@ -624,13 +705,21 @@ func _on_make_active_pressed(index: int) -> void:
 		if cap:
 			player.active_captain = cap
 			
+		# A newly bought or swapped hull arrives fresh: restore every pool through
+		# ShipDamage rather than only setting hull, so sails and crew match the
+		# new ship's maxima instead of carrying over the old hull's damage.
 		var combat = player.get_node_or_null("ShipCombat")
-		if combat:
+		var dmg = player.get_node_or_null("ShipDamage")
+		if dmg:
+			# ship_stats propagation is handled by ShipController._apply_ship_stats().
+			dmg.restore_all()
+			if combat and combat.has_signal("health_changed"):
+				combat.health_changed.emit(dmg.hull, dmg.get_pool_maximum("hull"))
+		elif combat:
 			var max_hp = ship.max_health
 			if cap:
 				max_hp *= cap.health_modifier
 			max_hp *= TechManager.global_health_mod
-			
 			combat.current_health = max_hp
 			if combat.has_signal("health_changed"):
 				combat.health_changed.emit(combat.current_health, max_hp)

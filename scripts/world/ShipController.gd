@@ -124,6 +124,14 @@ func _apply_ship_stats() -> void:
 		buoyancy.ship_stats = ship_stats
 	if combat:
 		combat.ship_stats = ship_stats
+	# ShipDamage was left out of this propagation when M6 added it, so swapping
+	# hulls at runtime left the damage pools clamped to the *old* ship's maxima.
+	var dmg = get_node_or_null("ShipDamage")
+	if dmg:
+		dmg.ship_stats = ship_stats
+	var solver = get_node_or_null("FiringSolver")
+	if solver:
+		solver.ship_stats = ship_stats
 
 	mass = ship_stats.mass
 	# ship_stats.linear_damp/angular_damp are intentionally NOT applied here.
@@ -330,7 +338,17 @@ func respawn(location: Vector3) -> void:
 		# come back still tilted and partially submerged.
 		model.transform = _model_initial_transform
 
-	if combat and ship_stats:
+	# Restore every damage pool and clear the destroyed flag. Assigning
+	# combat.current_health alone is not enough: ShipDamage._is_destroyed stays
+	# true, apply_hit() early-returns on it, and the respawned ship becomes
+	# invulnerable at zero hull. Sails and crew also have to come back or the
+	# ship respawns crippled.
+	var dmg = get_node_or_null("ShipDamage")
+	if dmg:
+		dmg.restore_all()
+		if combat:
+			combat.health_changed.emit(dmg.hull, dmg.get_pool_maximum("hull"))
+	elif combat and ship_stats:
 		combat.current_health = ship_stats.max_health
 		combat.health_changed.emit(combat.current_health, ship_stats.max_health)
 

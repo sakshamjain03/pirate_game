@@ -4,6 +4,12 @@
 
 [resource]
 script = ExtResource("1_stats")
+ship_id = "corvette"
+display_name = "Corvette"
+ship_class = 2
+cost_gold = 1800
+cost_wood = 280
+cost_iron = 90
 max_speed = 32.0
 acceleration = 2.2
 deceleration = 1.5
@@ -28,5 +34,5 @@ stern_arc_degrees = 60.0
 min_speed_fraction = 0.35
 cannon_damage = 20.0
 fire_rate = 2.0
-cannon_range = 220.0
+cannon_range = 92.0
 cannon_speed = 110.0

@@ -64,9 +64,13 @@ step. Read `docs/05_CURRENT_SYSTEMS.md` and this spec's `design.md` in full befo
     longer gap), confirm resources increased and the mission's captain gained XP without the
     mission having "double-fired" or the game hanging during the catch-up loop
   - Do not proceed to Task 5 until this checkpoint passes cleanly
-
-- [ ] 4. Checkpoint — offline economy sanity pass (deferred: needs interactive/timed play,
-  not verifiable headlessly in this environment; same precedent as M3 Task 14/M4 Task 22)
+  - Note 2026-08-25: this task was previously duplicated as two separate "4." entries in this
+    file; merged into one. Left unchecked — deferred, needs interactive/timed play across a real
+    save/close/reopen cycle, not verifiable headlessly in this environment (same precedent as
+    M3 Task 14 / M4 Task 22). The *mechanics* this checkpoint would exercise are covered
+    headlessly by `tests/test_save_manager_offline.gd` (capped/uncapped offline-tick math) and
+    `tests/test_ship_progression.gd`/`tests/test_fleet_manager*` (mission XP), but "does it feel
+    right and not hang" requires a human at the controls.
 
 - [x] 5. Offline-return notice in WorldHUD
   - Done 2026-08-06: `_check_offline_return()` added, called from `_ready()`; reads and

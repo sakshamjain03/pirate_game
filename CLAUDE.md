@@ -91,6 +91,26 @@ describes intent/vision. Read it before touching `scripts/world/`, `scripts/mana
 `scripts/combat/`, or `scripts/ui/IslandMenu.gd`; it exists specifically to stop systems from being
 silently reimplemented. When you change a documented system, update its entry in the same change.
 
+### Commit and push after each major phase
+
+Once a coherent unit of work is done and verified — a task wave, a milestone checkpoint, or any
+other natural stopping point where the GUT suite passes and the working tree is in a state you'd
+be comfortable handing off — commit and push to `origin/main` without waiting to be asked each
+time. This is a standing instruction, not a one-off approval: the user does not need to say
+"commit and push" again for it to apply going forward. Before committing:
+
+- Run the GUT suite (`docs/07_AI_AGENT_WORKFLOW.md`/the `godot-verify` skill) and confirm it
+  passes — never commit a state you haven't verified.
+- Check `git status`/`git diff` for anything unexpected before staging broadly (`.env` and similar
+  secret-bearing files must already be gitignored — verify, don't assume).
+- Write a real commit message describing what changed and why, matching this repo's existing
+  style (see `git log`) — not a generic "checkpoint" placeholder.
+
+The one case where this default doesn't apply: if a destructive or history-rewriting action would
+be needed (force-push, rewriting existing commits, resolving a real conflict against another
+session's push) — stop and ask, per this project's general safety rules; a plain fast-forward
+commit+push is not itself something to ask permission for anymore.
+
 ### AI agent workflow (this repo specifically)
 
 **As of 2026-08-26, this project is built entirely by Claude Code** — planning, implementation, and

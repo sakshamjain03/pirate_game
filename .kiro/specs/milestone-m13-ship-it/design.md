@@ -12,15 +12,22 @@ been device-verified, not a pre-fix one).
 
 ## Requirement 1 — Engine version
 
-This is a decision, not a mechanical task — investigate first. Check whether anything in the
-project actually depends on 4.3-specific behavior (unlikely, given every fix in this project's
-history since the visual pass has been validated against 4.7.1 specifically, and no 4.3-only API
-usage has been flagged anywhere in `docs/05_CURRENT_SYSTEMS.md`). The likely correct outcome:
-update `project.godot`'s `config/features` to declare 4.7, since that's what's actually been
-running and tested this whole time — the declared-4.3 value looks like a stale artifact from
-project creation, not a deliberate compatibility target. If investigation finds a real reason 4.3
-was intentional (e.g. a specific export template availability concern), document that reasoning
-explicitly rather than silently keeping the mismatch.
+**Resolved before this milestone started work, by `docs/20_PLATFORM_MATRIX.md` §2 (2026-08-27):
+stay on 4.3 through the M13 launch.** This paragraph originally guessed the opposite outcome
+(update to 4.7) based on the assumption that 4.7.1 was what had actually been running and tested —
+that assumption was true through M9, but stopped being true at M10: no 4.3 binary existed on the
+dev machine at that point, the only installed Godot was a 4.7.1 that **failed outright** to parse
+this project (`CampaignManager.gd`, `TutorialManager.gd`, and the GUT addon itself all failed to
+parse — a real cross-version GDScript incompatibility, not a one-liner fix), so a real 4.3 was
+installed side-by-side and has been the actual verification binary for M10/M11/M12 (326→391→396
+tests green). `docs/20_PLATFORM_MATRIX.md` §2 made the resulting decision explicit and durable:
+the project is greener on 4.3 than it would be re-baselined on a newer engine, the renderer is
+Forward+ with a GPU-wave/CPU-buoyancy sync risk (D11) that makes an engine bump the highest-risk
+possible change to this codebase, and nothing through M13 needs a newer engine feature. Re-confirmed
+2026-08-28: `project.godot` still correctly declares `"4.3"`, and the only Godot binary present on
+this machine is `Godot_v4.3-stable_win64.exe` — no mismatch exists. **No `project.godot` change for
+this milestone.** The revisit point is already recorded (post-M13, before M20/iOS) — see that
+document for the full rationale rather than re-deciding it here.
 
 ## Requirement 2 — Android export pipeline
 

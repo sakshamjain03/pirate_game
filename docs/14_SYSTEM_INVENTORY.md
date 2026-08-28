@@ -231,19 +231,19 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 | Save file | ✅ | `user://` JSON; pure data, never nodes |
 | Save backup / corruption recovery | ✅ **M12** | rotating `save_data.json.bak` written before every overwrite; `load_game()` falls back to it on primary-file failure before giving up |
 | Save schema versioning | ✅ **M12** | `SaveManager._migrate()`, one `match` arm per transition on top of M10's `save_schema_version` stamp; `0→1` (island-array → discovery record) is the first real transition |
-| Cloud saves | ❌ M15 | Supabase-backed, opt-in only — was 🚫 v1 until explicitly instructed 2026-08-27, per `AGENTS.md`'s own "future milestones... do not implement unless instructed" carve-out |
-| Account sign-in (email/password + Google) | ❌ M15 | optional and opt-in, permanently — never required to play, per `AGENTS.md`'s single-player-first design |
-| Password reset | ❌ M15 | shares Google Sign-In's deep-link plumbing but has a fully-functional browser-only fallback if that's deferred |
-| Account deletion | ❌ M15 | in-app + a documented web-accessible support-contact path, per Google Play's User Data policy; hard delete, no grace period |
-| Privacy policy / Play Console Data Safety | ❌ M13 | new requirement added 2026-08-27, content sourced from M15's data-collection enumeration if it exists yet, honest-minimal disclosure otherwise; hosted via GitHub Pages |
+| Cloud saves | 🟡 M15 | **Code landed 2026-08-29 (`SaveManager` sync/conflict resolution, uncommitted-WIP-turned-commit `be46960`) but M15 has not yet written its own `docs/05_CURRENT_SYSTEMS.md` section — this row is stale relative to the actual codebase until that pass happens.** Supabase-backed, opt-in only |
+| Account sign-in (email/password + Google) | 🟡 M15 | **Email/password landed 2026-08-29** (`AuthManager.gd`, `SettingsMenu` Account tab) — Google Sign-In not yet built. Same doc-lag caveat as the row above; optional/opt-in, never required to play |
+| Password reset | ✅ M15 | `AuthManager.request_password_reset()` landed 2026-08-29; same doc-lag caveat |
+| Account deletion | ✅ M15 | `AuthManager.delete_account()` + a Supabase Edge Function (`supabase/functions/delete-account/`) landed 2026-08-29; in-app path exists, web-accessible path is M13's privacy-policy contact email (below). Same doc-lag caveat |
+| Privacy policy / Play Console Data Safety | 🟡 M13 | Page published to the `gh-pages` branch (content sourced from M15's real Requirement 9.2 enumeration, since M15 had already landed by the time this was written) — **GitHub Pages itself is not yet enabled in repo Settings, and the Play Console Data Safety form has not been filled out** (no Play Console access in this environment). See `docs/05_CURRENT_SYSTEMS.md`'s M13 section |
 | Remote config / feature flags | ❌ M15 | flat public key/value table, no per-user targeting; consumed by M14's seasonal-event scheduling and content kill-switch, always with a safe local fallback |
 | Analytics / telemetry | ✅ **M12** | `AnalyticsManager` — local JSON-lines funnel log (`user://telemetry/`), no Firebase/backend configured yet; the documented fallback, not a stopgap |
 | Crash reporting | ✅ **M12** | `CrashReporter` — local, opt-in-disclosed report bundle; no configured support endpoint to send it to yet |
 | Localisation | ✅ **M12** | see "Localisation-ready strings" above |
 | Push notifications (offline-completion events) | 🟡 **M12** | `LocalNotificationManager` implemented and tested (no-op-safe adapter, lazy permission request, no forced re-prompt); re-scoped to raid-resolution only after verifying buildings/missions have no real completion timer to schedule against; **no Android plugin bundled and no device verification done** |
-| Android export + signing | ❌ M13 | **export templates are not installed on the dev machine** |
-| Touch/mobile performance profiling | ❌ M13 | never run on a device |
-| Store assets (icon, screenshots, listing) | 🟡 | project icon exists (D38); nothing else |
+| Android export + signing | 🟡 M13 | SDK/JDK/templates/keystores all installed and configured 2026-08-29; **a successful export has not been produced** — blocked on a well-investigated, likely engine-side bug in this Godot build. See `docs/05_CURRENT_SYSTEMS.md`'s M13 section and `docs/RELEASE_CHECKLIST.md` step 4 |
+| Touch/mobile performance profiling | ❌ M13 | never run on a device — blocked on the export issue above (no installable build exists yet) |
+| Store assets (icon, screenshots, listing) | 🟡 M13 | listing copy written (`docs/STORE_LISTING.md`); icon is a placeholder and screenshots aren't captured, both deprioritized behind the export blocker |
 | Monetisation hooks | 🚫 v1 | `AGENTS.md`: no microtransactions in v1 |
 
 ---
@@ -264,7 +264,7 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 | Asset request pipeline | ✅ | `docs/10_ASSET_REQUESTS.md` |
 | Balance tuning pass | ✅ **M11/M12** | `docs/BALANCE_MODEL.md` — started M11 (ship ladder, techs, bosses, events), extended M12 (buildings, modules, captains, raid theft fraction, loot tables). Every resource/encounter category with a cost or reward field now traces to it — the artefact D53 was missing |
 | Content authoring guide (for a non-coder) | ❌ M10 | needed before chapters/techs scale |
-| Release checklist | ❌ M13 | |
+| Release checklist | ✅ M13 | `docs/RELEASE_CHECKLIST.md` — executed against this milestone's own release as its first real use; found real gaps (export blocker, deferred icon/screenshots) rather than passing cleanly |
 | Playtest protocol | 🟡 **M12** | `docs/PLAYTEST_PROTOCOL.md` written; **no real round has been run yet** — nobody outside the project has played it. Requires a human to actually execute; not something an AI session can do alone |
 
 ## Two process failures worth naming

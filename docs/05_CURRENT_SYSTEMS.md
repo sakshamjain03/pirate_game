@@ -1472,3 +1472,143 @@ have landed in the shared working tree since that entry was written; M11 owns up
 section). 5 new tests added: `test_localization.gd` (3) and two additions to
 `test_local_notification_manager.gd` (raid-wording drift guard, permission-request-once guard).
 **396/396 is the new number to regress against.**
+
+---
+
+## M13 — Ship It (2026-08-29, partial — see "What's not done" below)
+
+**Note found while starting this milestone:** the working tree already contained substantial,
+uncommitted `.kiro/specs/milestone-m15-backend-cloud-services/` work (Supabase email/password auth,
+Account settings UI, cloud save sync) from a session working in parallel. It has since been
+committed and pushed to `origin/main` (`e0b8e35`, `be46960`) but **M15 has not written its own
+`docs/05_CURRENT_SYSTEMS.md` section or updated `docs/14_SYSTEM_INVENTORY.md`'s Meta/platform
+table yet** — both still read as if M15 hadn't started. This section documents only M13's own
+scope; M15's implementing session still owes its own documentation pass per Rule 6. M13's Wave 3
+privacy-policy work below was written directly against the actual landed M15 code (per
+`.kiro/specs/milestone-m13-ship-it/` Requirement 7.2's instruction to source from M15's real state,
+not guess), since M15's data-collection enumeration (Requirement 9.2: email address + gameplay save
+data) was true at the time this milestone shipped its policy page, regardless of M15's own doc gap.
+
+### Requirement 1 — Engine version
+
+**Already resolved before this milestone started**, by `docs/20_PLATFORM_MATRIX.md` §2
+(2026-08-27): stay on Godot 4.3 through the M13 launch. Re-confirmed here: the only Godot binary on
+the dev machine is `Godot_v4.3-stable_win64.exe` (WinGet), matching `project.godot`'s declared
+`"4.3"` — no mismatch, no code change. `.kiro/specs/milestone-m13-ship-it/design.md`'s own original
+guess (update to 4.7) was written before that decision existed and has been corrected in place.
+
+### Requirement 2 — Android export pipeline
+
+**Partially complete — the pipeline is built and configured, but a working export has not been
+produced.** Installed on the dev machine this pass: a portable Eclipse Temurin 17 JDK (no
+admin/UAC available in this environment, so the zip distribution was used instead of the winget
+MSI installer, which hung on a UAC prompt that can never be answered non-interactively), the
+Android SDK command-line tools + `platform-tools` + `build-tools;34.0.0` + `platforms;android-34`
+(direct download from Google's official distribution — no clean winget package exists for this),
+and the Godot 4.3-stable Android export templates (`android_debug.apk`/`android_release.apk`,
+matching the running engine exactly). `export_presets.cfg` is configured (package id
+`com.sakshamjain03.pirateempire`, gitignored — never committed, contains real keystore passwords).
+A debug and a release keystore were generated via `keytool` and stored outside the repo at
+`C:\Users\saksham\AppData\Roaming\Godot\keystores\` (never committed; `.gitignore` extended with
+`*.jks`/`*.keystore`). The Android Gradle build template was installed into `res://android/build/`
+(gitignored — regenerable from the official template, same rationale as the engine binary itself).
+
+**What did not work:** `godot --headless --export-debug "Android" ...` fails consistently with
+`ERROR: Cannot export project with preset "Android" due to configuration errors:` followed by no
+further detail. Extensively bisected (see `docs/RELEASE_CHECKLIST.md` step 4 for the full
+reproduction record) — ruled out: keystore format (JKS vs PKCS12), missing Android build template
+version marker, stale `.godot` cache (a full headless-editor rescan was tried, matching this
+project's own M10 precedent for exactly this class of issue), package name value, missing launcher
+icons, project name containing a space, gradle vs non-gradle build mode, headless vs headful
+invocation, and PowerShell vs Bash as the invoking shell. The one reliable trigger: the blank error
+appears as soon as `package/unique_name` is explicitly set to *any* value; leaving it unset
+produces a normal, specific message instead. This strongly points to an engine-side defect in this
+exact build (`v4.3.stable.official.77dcf97d8`) rather than a project misconfiguration, but that is
+not proven — logged as an honest blocking finding, not worked around.
+
+### Requirement 3 / 4 — Device profiling and touch-control verification
+
+**Not done — blocked by Requirement 2.** Both require a real installable build, which does not yet
+exist. The user has a device available and intends to connect it once export is unblocked.
+
+**`MobileControls.tscn`/`.gd` fixed anyway, ahead of device access, since it needed code changes
+independent of hardware:** the scene previously wired only 5 of the ~8 actions this requirement's
+own acceptance criteria expect (`ship_forward`/`ship_left`/`ship_right`/`fire_port`/
+`fire_starboard`), with no backward, dock/interact, pause, captain ability, or special broadside
+button — and the two fire buttons drove M8's deprecated manual-fire escape hatch, not anything
+relevant to the current arc-alignment auto-fire combat model (confirmed via
+`ShipCombat.auto_fire_enabled` defaulting `true` and `WorldManager._unhandled_input()`'s real
+action consumers). Added `BtnBackward` (→ `ship_backward`) and a new `Actions` control with
+`BtnDock` (→ `dock`, the actual consumer in `WorldManager._process()` — `interact` exists as a
+separate action but has zero consumers anywhere in the codebase, so no redundant button was added
+for it), `BtnPause` (→ `pause`), `BtnCaptainAbility` (→ `captain_ability`), and
+`BtnSpecialBroadside` (→ `special_broadside`), following the existing `_setup_button()` pattern.
+The pre-existing fire buttons were left in place as the documented manual escape hatch. **Touch
+target sizing and actual on-device functionality remain unverified** — the wiring is provably
+correct via the existing action system, but "usable on a real screen" per Requirement 4.2 needs the
+still-blocked device pass.
+
+### Requirement 5 — Store listing and release assets
+
+`docs/STORE_LISTING.md` — title, short/long description drawn from `docs/00_VISION.md` §1–§4's
+existing positioning, category, and privacy policy URL. **Screenshots and a real app icon are not
+done** — both were deliberately deprioritized behind getting the export pipeline working (there's
+no point capturing "current gameplay" screenshots from a build that can't yet be produced), and the
+launcher icon referenced in `export_presets.cfg` (`assets/icons/*.png`) is a flat placeholder color,
+not real art rasterized from `icon.svg`.
+
+### Requirement 6 — Release checklist
+
+`docs/RELEASE_CHECKLIST.md` — 8 steps (GUT, capture review, version bump, export, signing, device
+smoke test, store listing update, privacy/Data-Safety re-check). Executed against this milestone's
+own release as its first real use, per Requirement 6.2 — found real gaps (see the checklist's own
+"First real use" section): step 4 hit the export blocker above, and step 6 is a direct casualty of
+it. This is exactly the kind of gap this requirement exists to surface before the checklist is
+relied on for a future release, not a failure of the checklist itself.
+
+### Requirement 7 — Privacy policy and Play Console data compliance
+
+Published to a dedicated `gh-pages` branch (not the existing `docs/` folder, which holds ~20
+internal design docs that shouldn't become the Pages site root) — `index.html`, `privacy.html`,
+`terms.html` — pushed to `origin/gh-pages`. **The user still needs to flip
+Settings → Pages → Source → `gh-pages` in the GitHub web UI** (no `gh` CLI available in this
+environment to do it via API) before `https://sakshamjain03.github.io/pirate_game/privacy.html`
+actually resolves. Content sourced directly from the landed M15 code (see the note at the top of
+this section) per Requirement 7.2/9.2's data enumeration: email address + gameplay save data when
+an account is created, otherwise nothing collected or transmitted at all — matching
+`AnalyticsManager`/`CrashReporter`'s confirmed local-only, non-identifying design. Account deletion
+section covers both the in-app path (`SettingsMenu` → Account → "Delete my account", per M15
+Requirement 8) and the web-accessible without-app-installed path (a support contact email, per M15
+Requirement 8.5). A `terms.html` was added too, beyond this requirement's literal text, because
+M15's already-merged sign-up UI (`SettingsMenu.gd`'s `TERMS_URL` constant) already links to it —
+leaving it a dead link would have shipped a real defect. **Play Console Data Safety form entry
+(Requirement 7.4/7.5) was not done** — no Play Console account access exists in this environment;
+documented as an exact manual step in `docs/RELEASE_CHECKLIST.md` step 8 instead.
+
+### Test suite
+
+**411 tests, 411 passing, 0 known failures** (up from a re-verified clean-`origin/main` baseline of
+396/396 — the difference is M15's already-merged, already-tested `test_auth_manager.gd` growth and
+new `test_save_manager_sync.gd`, not M13's own additions; M13 touched no test files). Confirmed by
+a real Godot 4.3 GUT run against the working tree with all of this milestone's changes applied.
+**411/411 is the number to regress against** — note this baseline includes M15's tests, since M13
+and M15 share this working tree; a future M15 documentation pass should cross-reference this rather
+than re-deriving its own baseline from scratch.
+
+### What's not done — logged as blocking constraints, not silently skipped
+
+Per this milestone's own design.md ("'We could not verify this' is an acceptable, honest checkpoint
+outcome; 'we assumed it would be fine' is not."):
+
+- **Requirement 2.4** — a successful `.apk`/`.aab` export. Blocked on the engine-side issue above.
+- **Requirement 3** (device performance profiling) and **Requirement 4.1–4.3** (on-device touch
+  verification) — blocked on Requirement 2.4; no installable build exists yet.
+- **Requirement 5** — screenshots and a real app icon, deprioritized behind the export blocker.
+- **Requirement 7.4/7.5** — Play Console Data Safety form entry; needs manual account access this
+  environment doesn't have.
+- GitHub Pages is not yet *enabled* on the repo (content is pushed and ready; the Settings toggle
+  is a one-time action only the repo owner can do via the web UI).
+
+This milestone is **not** being marked complete — it's a real, substantial partial delivery with an
+honestly-scoped remainder, per `docs/07_AI_AGENT_WORKFLOW.md` Rule 4's discipline against
+self-reporting a checkpoint that hasn't actually passed.

@@ -338,6 +338,23 @@ already closed earlier.
 
 **Exit criteria:** a signed build a stranger can install and play to Chapter 3.
 
+**Status (2026-08-29): partial, honestly.** The engine-version question was already resolved by
+`docs/20_PLATFORM_MATRIX.md` §2 before this milestone even started (stay on 4.3) — this milestone's
+own original text above, guessing 4.7, predates that decision and is stale. Android SDK, JDK,
+export templates, and both a debug and release signing keystore are installed and configured.
+**A successful `.apk`/`.aab` export could not be produced** — extensively bisected against a
+consistent, unhelpful blank error from the engine itself; full reproduction record in
+`docs/05_CURRENT_SYSTEMS.md`'s M13 section and `docs/RELEASE_CHECKLIST.md` step 4. Device
+performance profiling and touch-control verification are consequently blocked (no installable
+build exists yet), though `MobileControls.tscn`/`.gd` were fixed independently of hardware access
+(it was wiring only 5 of ~8 expected actions, and two of those drove a deprecated combat path).
+Store listing copy, the release checklist, and the privacy policy + account-deletion page (content
+sourced from M15's now-landed Supabase auth work, not guessed) are all done — the privacy page is
+pushed to `gh-pages` but GitHub Pages itself still needs enabling in repo Settings, a step only the
+repo owner can take. Play Console Data Safety submission needs real account access this environment
+doesn't have. **This is not the "signed build a stranger can install" exit criterion** — it's
+real, verified progress with an honestly-scoped remainder, not a completed milestone.
+
 ---
 
 ## M14 — Live Operations

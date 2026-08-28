@@ -14,7 +14,7 @@ REM ===================================================================
 
 setlocal
 
-set "GODOT=%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.1-stable_win64.exe"
+set "GODOT=%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.3-stable_win64.exe"
 
 REM Run from this script's own folder, so the launcher works no matter
 REM what the working directory is when it gets double-clicked.

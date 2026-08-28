@@ -31,3 +31,15 @@ Thumbs.db
 
 # Debug screenshot captures (scenes/debug/CaptureHarness.tscn)
 .capture*/
+
+# Android signing keystores — never committed (M13 Requirement 2.3)
+*.jks
+*.keystore
+
+# Android Gradle build template — regenerable from the official export templates
+# (godot_v4.3-stable android_source.zip), not hand-customized, same rationale as
+# the gitignored engine binary and export templates themselves (M13)
+/android/build/
+
+# Local Android export output
+/builds/

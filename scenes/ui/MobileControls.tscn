@@ -10,7 +10,7 @@ layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -200.0
+offset_top = -280.0
 offset_right = 300.0
 grow_vertical = 0
 
@@ -41,6 +41,15 @@ offset_right = 260.0
 offset_bottom = 180.0
 text = ">"
 
+[node name="BtnBackward" type="Button" parent="Movement"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 180.0
+offset_right = 200.0
+offset_bottom = 260.0
+text = "v"
+
 [node name="Combat" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 3
@@ -70,3 +79,52 @@ offset_top = 100.0
 offset_right = 260.0
 offset_bottom = 180.0
 text = "FIRE STAR"
+
+[node name="Actions" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_top = -150.0
+offset_right = 100.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BtnDock" type="Button" parent="Actions"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 95.0
+offset_bottom = 60.0
+text = "DOCK"
+
+[node name="BtnPause" type="Button" parent="Actions"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 105.0
+offset_top = 0.0
+offset_right = 200.0
+offset_bottom = 60.0
+text = "PAUSE"
+
+[node name="BtnCaptainAbility" type="Button" parent="Actions"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 0.0
+offset_top = 70.0
+offset_right = 95.0
+offset_bottom = 130.0
+text = "ABILITY"
+
+[node name="BtnSpecialBroadside" type="Button" parent="Actions"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 105.0
+offset_top = 70.0
+offset_right = 200.0
+offset_bottom = 130.0
+text = "BROADSIDE"

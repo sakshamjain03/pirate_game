@@ -4,10 +4,15 @@ extends CanvasLayer
 ## Responsibilities: Injects action events into the Input map when virtual buttons are pressed.
 
 @onready var btn_forward = %BtnForward
+@onready var btn_backward = %BtnBackward
 @onready var btn_left = %BtnLeft
 @onready var btn_right = %BtnRight
 @onready var btn_fire_port = %BtnFirePort
 @onready var btn_fire_star = %BtnFireStar
+@onready var btn_dock = %BtnDock
+@onready var btn_pause = %BtnPause
+@onready var btn_captain_ability = %BtnCaptainAbility
+@onready var btn_special_broadside = %BtnSpecialBroadside
 
 func _ready() -> void:
 	# These are on-screen touch buttons — on desktop they just sit on top of
@@ -19,10 +24,15 @@ func _ready() -> void:
 		return
 
 	_setup_button(btn_forward, "ship_forward")
+	_setup_button(btn_backward, "ship_backward")
 	_setup_button(btn_left, "ship_left")
 	_setup_button(btn_right, "ship_right")
 	_setup_button(btn_fire_port, "fire_port")
 	_setup_button(btn_fire_star, "fire_starboard")
+	_setup_button(btn_dock, "dock")
+	_setup_button(btn_pause, "pause")
+	_setup_button(btn_captain_ability, "captain_ability")
+	_setup_button(btn_special_broadside, "special_broadside")
 
 func _setup_button(btn: Button, action_name: String) -> void:
 	btn.button_down.connect(func(): _inject_action(action_name, true))

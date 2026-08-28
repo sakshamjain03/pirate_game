@@ -29,6 +29,7 @@ buses/default_bus_layout="res://default_bus_layout.tres"
 
 SaveManager="*res://scripts/managers/SaveManager.gd"
 AuthManager="*res://scripts/managers/AuthManager.gd"
+RemoteConfigManager="*res://scripts/managers/RemoteConfigManager.gd"
 SceneManager="*res://scripts/managers/SceneManager.gd"
 SettingsManager="*res://scripts/managers/SettingsManager.gd"
 InputManager="*res://scripts/managers/InputManager.gd"

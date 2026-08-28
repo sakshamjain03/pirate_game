@@ -155,17 +155,27 @@
 
 ## Wave 6 — Remote config
 
-- [ ] 27. `RemoteConfigManager` autoload: fetch-once-per-session, in-memory cache,
+- [x] 27. `RemoteConfigManager` autoload: fetch-once-per-session, in-memory cache,
         `get_value(key, default)` that never blocks and never errors on a missing key
         (`design.md`).
   - _Requirements: 11.2, 11.3_
-- [ ] 28. GUT test simulating a fetch failure (wrong URL / network disabled) and confirming
+  - **Done 2026-08-29** — scripts/managers/RemoteConfigManager.gd, registered in
+    project.godot's `[autoload]` after AuthManager.
+- [x] 28. GUT test simulating a fetch failure (wrong URL / network disabled) and confirming
         `get_value()` still returns the caller's supplied default.
   - _Requirements: 11.3_
-- [ ] 29. Confirm this milestone deploys no actual config keys beyond what's needed to prove the
+  - **Done 2026-08-29** — tests/test_remote_config_manager.gd covers a hard failure (500), a
+    network-level error (code 0), and — the case most likely to only get tested by accident
+    otherwise — a *previously successful* fetch's cache surviving a later failed refresh rather
+    than being cleared.
+- [x] 29. Confirm this milestone deploys no actual config keys beyond what's needed to prove the
         mechanism (a throwaway test key is fine) — real keys are
         `.kiro/specs/milestone-m14-live-operations/`'s content to define.
   - _Requirements: 11.4_
+  - **Done 2026-08-29** — inserted one throwaway key (`m15_mechanism_test`) into the real
+    project's `remote_config` table, confirmed it's fetchable with just the anon key (matching
+    `RemoteConfigManager`'s real request shape exactly), then deleted it. `remote_config` is
+    empty in the real project as of this checkpoint.
 
 ## Wave 7 — Documentation and final checkpoint
 

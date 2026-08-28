@@ -1526,6 +1526,19 @@ produces a normal, specific message instead. This strongly points to an engine-s
 exact build (`v4.3.stable.official.77dcf97d8`) rather than a project misconfiguration, but that is
 not proven — logged as an honest blocking finding, not worked around.
 
+**Follow-up pass (same day):** read Godot 4.3-stable's actual export-validation source
+(`export_plugin.cpp`, `editor_export_platform.cpp`, `editor_node.cpp`) — every code path that can
+set the export invalid also appends a real, non-empty message, and this project's actual
+configuration passes every check on inspection, so the empty message isn't explained by anything
+visible in that source. Also tried Godot's own `--install-android-build-template` CLI flag (instead
+of the earlier manual template copy) and `advanced_options=true` — neither changed the result.
+**`--export-pack "Android" builds/pirate_empire.pck` succeeds** (real ~12MB file, no error) —
+proves the failure is specific to full Android app-assembly validation, not resource packing. A
+fully manual Gradle-based APK assembly from that `.pck` was considered but not pursued — Godot's
+internal manifest-patching/asset-wiring/architecture-`.so`-placement logic has no documented manual
+equivalent, and reverse-engineering it by hand is a larger undertaking than this milestone's
+remaining scope justifies. Full technical trace in `docs/RELEASE_CHECKLIST.md` step 4.
+
 ### Requirement 3 / 4 — Device profiling and touch-control verification
 
 **Not done — blocked by Requirement 2.** Both require a real installable build, which does not yet

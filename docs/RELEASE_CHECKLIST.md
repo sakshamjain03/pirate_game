@@ -52,20 +52,45 @@ Produce a release AAB/APK from the current, GUT-green, capture-reviewed state:
 
 **Known issue as of 2026-08-29 (M13):** this command currently fails on this project/environment
 with `ERROR: Cannot export project with preset "Android" due to configuration errors:` followed by
-**no further detail** — reproduced consistently across gradle and non-gradle builds, headless and
-headful invocation, multiple package-name values, JKS and PKCS12 keystore formats, with and
-without custom launcher icons, after a full `.godot` cache rescan, and after installing the Android
-Gradle build template. The one common factor: it reproduces as soon as `package/unique_name` is
-explicitly set to *any* value in `export_presets.cfg` — leaving it unset produces a normal,
-specific validation message instead ("project name does not meet the requirement..."), which
-strongly suggests an engine-side bug in this exact build (`Godot v4.3.stable.official.77dcf97d8`)
-rather than a project misconfiguration. Everything else in the pipeline (SDK, JDK, keystores,
-Gradle build template, export templates) is confirmed correctly installed and configured — see
-`export_presets.cfg` and the keystores at
-`C:\Users\saksham\AppData\Roaming\Godot\keystores\`. **Next step for whoever picks this up:**
-either test against a different Godot 4.3.x point release, try driving the export through the
-actual editor GUI (where the validation dialog may render the real message the CLI is swallowing),
-or file/search a Godot engine issue for this exact blank-message symptom.
+**no further detail**. Extensively investigated, both empirically and by reading Godot 4.3-stable's
+own source (`platform/android/export/export_plugin.cpp`,
+`editor/export/editor_export_platform.cpp`, `editor/editor_node.cpp`):
+
+- Reproduced consistently across gradle and non-gradle builds, headless and headful invocation,
+  multiple package-name values, JKS and PKCS12 keystore formats, with and without custom launcher
+  icons, `advanced_options` true/false, after a full `.godot` cache rescan, and both after manually
+  copying the Android build template AND after installing it via Godot's own official
+  `--install-android-build-template` CLI flag.
+- The one empirical trigger: the blank error appears as soon as `package/unique_name` is
+  explicitly set to *any* value; leaving it unset produces a normal, specific message instead
+  ("project name does not meet the requirement...").
+- Read the actual validation source: `editor_node.cpp`'s `_fs_changed()` prints
+  `vformat("...due to configuration errors:\n%s", preset_name, config_error)`, where
+  `config_error` is populated by `EditorExportPlatform::can_export()`, which itself concatenates
+  `has_valid_export_configuration()`'s error (SDK/JDK/keystore/template checks — every branch that
+  sets `valid=false` also appends a real, non-empty message; this project's actual config passes
+  every one of those checks on inspection) with `has_valid_project_configuration()`'s error (a loop
+  over every export option's `get_export_option_warning()` — also only produces real messages,
+  including the package-name check itself). Neither function's code, read directly, explains an
+  empty `config_error` reaching the printed message. This is either a genuine defect specific to
+  this build (`Godot v4.3.stable.official.77dcf97d8`) in code not yet located, or something
+  environment-specific (e.g. a translation-catalog issue affecting `TTR()`) outside what static
+  reading of the source can diagnose.
+- **`--export-pack "Android" builds/pirate_empire.pck` succeeds** — produces a real ~12MB `.pck`
+  with no validation error at all. This proves the failure is specific to the *full app-assembly*
+  validation path (`has_valid_export_configuration`'s Android/Gradle branch), not resource packing.
+  A manual APK assembly (place the `.pck` into `android/build/assets/`, run `gradlew.bat
+  assembleDebug` directly) was considered but not completed — Godot's Gradle-build asset wiring,
+  manifest patching (permissions, version, icon), and per-architecture `.so` placement are done
+  internally by the same export code that's failing, with no documented manual equivalent; fully
+  reverse-engineering that by hand is a much larger undertaking than this milestone's remaining
+  scope justifies.
+
+**Next step for whoever picks this up:** try a different Godot 4.3.x point release or a fresh
+4.3-stable download (rule out a corrupted/patched local binary), drive the export through the
+actual editor GUI where the dialog may render text the CLI path is dropping, or search/file a
+Godot engine issue for this exact blank-message symptom with the source trace above as a starting
+point.
 
 ## 5. Signing
 

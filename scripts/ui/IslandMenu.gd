@@ -33,6 +33,7 @@ var colonize_btn: Button
 func _ready() -> void:
 	add_to_group("island_menu")
 	close_button.pressed.connect(_on_close_pressed)
+	tab_container.tab_changed.connect(func(_idx): if AudioManager: AudioManager.play_sound("ui_tab_switch"))
 	_load_building_data()
 	hide()
 
@@ -47,7 +48,7 @@ func _ready() -> void:
 
 	# Create Colonize Button
 	colonize_btn = Button.new()
-	colonize_btn.text = "Colonize (1000 Gold)"
+	colonize_btn.text = tr("Colonize (1000 Gold)")
 	colonize_btn.custom_minimum_size = Vector2(150, 40)
 	colonize_btn.pressed.connect(_on_colonize_pressed)
 	island_name_label.get_parent().add_child(colonize_btn)
@@ -101,16 +102,22 @@ func _load_building_data() -> void:
 		var module = load("res://resources/modules/" + m + ".tres")
 		if module: available_modules.append(module)
 
-	# Load Techs
-	var t1 = load("res://resources/techs/ReinforcedHulls.tres")
-	if t1: available_techs.append(t1)
-	var t2 = load("res://resources/techs/AdvancedCannons.tres")
-	if t2: available_techs.append(t2)
+	# Load Techs — M11: scan resources/techs/ instead of a hardcoded filename list,
+	# the same DirAccess scan pattern EventManager uses for resources/world/events/.
+	var tech_dir = DirAccess.open("res://resources/techs/")
+	if tech_dir:
+		tech_dir.list_dir_begin()
+		var file_name = tech_dir.get_next()
+		while file_name != "":
+			if not tech_dir.current_is_dir() and file_name.ends_with(".tres"):
+				var tech = load("res://resources/techs/" + file_name) as TechData
+				if tech: available_techs.append(tech)
+			file_name = tech_dir.get_next()
 
 func open(island: Node3D) -> void:
 	current_island = island
 	
-	var name_text = "Unknown Island"
+	var name_text = tr("Unknown Island")
 	var type = IslandData.IslandType.NEUTRAL
 	if island.has_method("get_island_name"):
 		name_text = island.get_island_name()
@@ -119,9 +126,9 @@ func open(island: Node3D) -> void:
 		if island.island_data.owner_faction:
 			name_text += " (" + island.island_data.owner_faction.faction_name + ")"
 		elif type == IslandData.IslandType.NEUTRAL:
-			name_text += " (Neutral)"
+			name_text = tr("%s (Neutral)") % name_text
 		elif type == IslandData.IslandType.ENEMY:
-			name_text += " (Enemy)"
+			name_text = tr("%s (Enemy)") % name_text
 			
 	island_name_label.text = name_text
 		
@@ -153,7 +160,7 @@ func open(island: Node3D) -> void:
 		# Task 10: disable if not active
 		if current_island.has_method("_should_be_active") and not current_island._should_be_active():
 			colonize_btn.disabled = true
-			colonize_btn.tooltip_text = "This region has not yet drawn attention"
+			colonize_btn.tooltip_text = tr("This region has not yet drawn attention")
 		else:
 			colonize_btn.disabled = false
 			colonize_btn.tooltip_text = ""
@@ -189,6 +196,7 @@ func _on_resources_changed(_res: Dictionary) -> void:
 	_refresh_trade()
 
 func _on_close_pressed() -> void:
+	if AudioManager: AudioManager.play_sound("ui_click")
 	# Tell the docking system to undock
 	var dock_sys = get_tree().current_scene.get_node_or_null("Systems/DockingSystem")
 	if dock_sys and dock_sys.has_method("attempt_undock"):
@@ -241,13 +249,13 @@ func _create_building_entry(building: BuildingData) -> void:
 	var cost_text = ""
 	var cost_dict = building.get_cost_dict()
 	for k in cost_dict.keys():
-		cost_text += str(cost_dict[k]) + " " + k.capitalize() + "  "
+		cost_text += str(cost_dict[k]) + " " + tr(k.capitalize()) + "  "
 	cost_lbl.text = cost_text
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	
 	# Button
 	var btn = Button.new()
-	btn.text = "Build"
+	btn.text = tr("Build")
 	btn.custom_minimum_size = Vector2(80, 40)
 	
 	# Check if already built
@@ -269,18 +277,18 @@ func _create_building_entry(building: BuildingData) -> void:
 				
 	if is_built and existing_building:
 		if "next_upgrade" in existing_building and existing_building.next_upgrade:
-			btn.text = "Upgrade"
+			btn.text = tr("Upgrade")
 			var next_b = existing_building.next_upgrade
 			
 			if "required_island_tier" in next_b and next_b.required_island_tier > island_tier:
 				btn.disabled = true
-				cost_lbl.text = "Requires Island Tier " + str(next_b.required_island_tier)
+				cost_lbl.text = tr("Requires Island Tier %d") % next_b.required_island_tier
 				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 			else:
 				var up_cost = next_b.get_cost_dict()
 				cost_text = ""
 				for k in up_cost.keys():
-					cost_text += str(up_cost[k]) + " " + k.capitalize() + "  "
+					cost_text += str(up_cost[k]) + " " + tr(k.capitalize()) + "  "
 				cost_lbl.text = cost_text
 				
 				if not ResourceManager.can_afford(up_cost):
@@ -290,13 +298,13 @@ func _create_building_entry(building: BuildingData) -> void:
 					cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 					btn.pressed.connect(func(): _on_upgrade_pressed(existing_building.building_id, next_b))
 		else:
-			btn.text = "Max Lvl"
+			btn.text = tr("Max Lvl")
 			btn.disabled = true
 			cost_lbl.text = ""
 	else:
 		if "required_island_tier" in building and building.required_island_tier > island_tier:
 			btn.disabled = true
-			cost_lbl.text = "Requires Island Tier " + str(building.required_island_tier)
+			cost_lbl.text = tr("Requires Island Tier %d") % building.required_island_tier
 			cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 		else:
 			# Check affordability
@@ -351,11 +359,11 @@ func _create_ship_entry(ship: ShipStats) -> void:
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	var name_lbl = Label.new()
-	name_lbl.text = ship.display_name if not ship.display_name.is_empty() else "Unknown Ship"
+	name_lbl.text = ship.display_name if not ship.display_name.is_empty() else tr("Unknown Ship")
 	name_lbl.add_theme_font_size_override("font_size", 18)
 
 	var desc_lbl = Label.new()
-	desc_lbl.text = "HP: %d | DMG: %d | SPD: %d | TRN: %.1f" % [ship.max_health, ship.cannon_damage, ship.max_speed, ship.turn_rate]
+	desc_lbl.text = tr("HP: %d | DMG: %d | SPD: %d | TRN: %.1f") % [ship.max_health, ship.cannon_damage, ship.max_speed, ship.turn_rate]
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 
@@ -367,15 +375,15 @@ func _create_ship_entry(ship: ShipStats) -> void:
 		cost_dict["rum"] = ship.cost_rum
 
 	var cost_lbl = Label.new()
-	cost_lbl.text = "%d Gold  %d Wood  %d Iron  " % [ship.cost_gold, ship.cost_wood, ship.cost_iron]
+	cost_lbl.text = tr("%d Gold  %d Wood  %d Iron  ") % [ship.cost_gold, ship.cost_wood, ship.cost_iron]
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	
 	var btn = Button.new()
-	btn.text = "Buy"
+	btn.text = tr("Buy")
 	btn.custom_minimum_size = Vector2(80, 40)
 	
 	if FleetManager.owns_ship_stats(ship):
-		btn.text = "Owned"
+		btn.text = tr("Owned")
 		btn.disabled = true
 	elif not ResourceManager.can_afford(cost_dict):
 		btn.disabled = true
@@ -394,6 +402,7 @@ func _create_ship_entry(ship: ShipStats) -> void:
 func _on_buy_ship_pressed(ship: ShipStats, cost: Dictionary) -> void:
 	if ResourceManager.spend_resources(cost):
 		FleetManager.add_ship(ship)
+		if AudioManager: AudioManager.play_sound("ship_purchase")
 		_refresh_ships()
 
 # --- TAVERN ---
@@ -427,11 +436,11 @@ func _create_crew_recruitment_entry() -> void:
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	var name_lbl = Label.new()
-	name_lbl.text = "Recruit Crew (Currently: %d/%d)" % [current_crew, max_crew]
+	name_lbl.text = tr("Recruit Crew (Currently: %d/%d)") % [current_crew, max_crew]
 	name_lbl.add_theme_font_size_override("font_size", 18)
 	
 	var desc_lbl = Label.new()
-	desc_lbl.text = "Cost: 10 Gold & 1 Rum per crew member"
+	desc_lbl.text = tr("Cost: 10 Gold & 1 Rum per crew member")
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	
@@ -443,12 +452,12 @@ func _create_crew_recruitment_entry() -> void:
 		var btn = Button.new()
 		var recruit_amt = min(missing, 5)
 		var cost = {"gold": 10 * recruit_amt, "rum": 1 * recruit_amt}
-		
-		btn.text = "Recruit %d" % recruit_amt
+
+		btn.text = tr("Recruit %d") % recruit_amt
 		btn.custom_minimum_size = Vector2(100, 40)
 		
 		var cost_lbl = Label.new()
-		cost_lbl.text = "%d Gold  %d Rum  " % [cost["gold"], cost["rum"]]
+		cost_lbl.text = tr("%d Gold  %d Rum  ") % [cost["gold"], cost["rum"]]
 		cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		
 		if not ResourceManager.can_afford(cost):
@@ -462,7 +471,7 @@ func _create_crew_recruitment_entry() -> void:
 		hbox.add_child(btn)
 	else:
 		var full_lbl = Label.new()
-		full_lbl.text = "Crew Full"
+		full_lbl.text = tr("Crew Full")
 		full_lbl.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
 		hbox.add_child(full_lbl)
 		
@@ -478,15 +487,34 @@ func _on_recruit_crew_pressed(amount: float, cost: Dictionary, dmg: Node) -> voi
 
 func _create_captain_entry(cap: CaptainData) -> void:
 	var hbox = HBoxContainer.new()
+
+	# M11 Requirement 9 — real portrait art (or the sanctioned flat-color
+	# icon-bust substitute) where it exists, falling back to the existing
+	# monogram treatment otherwise, via PortraitFallback's shared contract.
+	var portrait_slot = Control.new()
+	portrait_slot.custom_minimum_size = Vector2(48, 48)
+	var portrait_rect = TextureRect.new()
+	portrait_rect.custom_minimum_size = Vector2(48, 48)
+	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	var portrait_fallback = Label.new()
+	portrait_fallback.custom_minimum_size = Vector2(48, 48)
+	portrait_fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	portrait_fallback.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	portrait_slot.add_child(portrait_rect)
+	portrait_slot.add_child(portrait_fallback)
+	PortraitFallback.apply_to_texture_rect(portrait_rect, portrait_fallback, cap.portrait_path, cap.captain_name)
+	hbox.add_child(portrait_slot)
+
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	
+
 	var name_lbl = Label.new()
 	name_lbl.text = cap.captain_name
 	name_lbl.add_theme_font_size_override("font_size", 18)
 	
 	var desc_lbl = Label.new()
-	desc_lbl.text = "%s (SPD x%.2f | TRN x%.2f | DMG x%.2f | HP x%.2f)" % [cap.background, cap.speed_modifier, cap.turn_rate_modifier, cap.damage_modifier, cap.health_modifier]
+	desc_lbl.text = tr("%s (SPD x%.2f | TRN x%.2f | DMG x%.2f | HP x%.2f)") % [cap.background, cap.speed_modifier, cap.turn_rate_modifier, cap.damage_modifier, cap.health_modifier]
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	
@@ -497,15 +525,15 @@ func _create_captain_entry(cap: CaptainData) -> void:
 	var cost_dict = {"gold": cap.hire_cost_gold}
 
 	var cost_lbl = Label.new()
-	cost_lbl.text = "%d Gold  " % cap.hire_cost_gold
+	cost_lbl.text = tr("%d Gold  ") % cap.hire_cost_gold
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	
 	var btn = Button.new()
-	btn.text = "Hire"
+	btn.text = tr("Hire")
 	btn.custom_minimum_size = Vector2(80, 40)
 	
 	if cap in FleetManager.owned_captains:
-		btn.text = "Hired"
+		btn.text = tr("Hired")
 		btn.disabled = true
 	elif not ResourceManager.can_afford(cost_dict):
 		btn.disabled = true
@@ -524,6 +552,7 @@ func _create_captain_entry(cap: CaptainData) -> void:
 func _on_hire_captain_pressed(cap: CaptainData, cost: Dictionary) -> void:
 	if ResourceManager.spend_resources(cost):
 		FleetManager.add_captain(cap)
+		if AudioManager: AudioManager.play_sound("captain_recruit")
 		_refresh_captains()
 
 # --- FLEET ---
@@ -545,8 +574,8 @@ func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var name_lbl = Label.new()
-	var ship_name = ship.display_name if ship and not ship.display_name.is_empty() else "Unknown Ship"
-	name_lbl.text = "%s (Lvl %d)" % [ship_name, owned.level]
+	var ship_name = ship.display_name if ship and not ship.display_name.is_empty() else tr("Unknown Ship")
+	name_lbl.text = tr("%s (Lvl %d)") % [ship_name, owned.level]
 	name_lbl.add_theme_font_size_override("font_size", 18)
 
 	var cap_index = index if index < FleetManager.owned_captains.size() else 0
@@ -554,14 +583,14 @@ func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
 	
 	var desc_lbl = Label.new()
 	if index == FleetManager.active_ship_index:
-		desc_lbl.text = "Active Player Ship | %s (Lvl %d)" % [assigned_cap.captain_name, assigned_cap.level]
+		desc_lbl.text = tr("Active Player Ship | %s (Lvl %d)") % [assigned_cap.captain_name, assigned_cap.level]
 		desc_lbl.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
 	elif FleetManager.is_on_mission(index):
-		var mission = FleetManager.active_missions[index]["mission_type"]
-		desc_lbl.text = "On Mission: %s | %s (Lvl %d)" % [mission.capitalize(), assigned_cap.captain_name, assigned_cap.level]
+		var mission_label = FleetManager.get_mission_display_text(index)
+		desc_lbl.text = tr("On Mission: %s | %s (Lvl %d)") % [mission_label, assigned_cap.captain_name, assigned_cap.level]
 		desc_lbl.add_theme_color_override("font_color", Color(0.2, 0.6, 0.8))
 	else:
-		desc_lbl.text = "Idle at Port | %s (Lvl %d)" % [assigned_cap.captain_name, assigned_cap.level]
+		desc_lbl.text = tr("Idle at Port | %s (Lvl %d)") % [assigned_cap.captain_name, assigned_cap.level]
 		desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	
 	desc_lbl.add_theme_font_size_override("font_size", 12)
@@ -574,26 +603,26 @@ func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
 	if index != FleetManager.active_ship_index:
 		if FleetManager.is_on_mission(index):
 			var cancel_btn = Button.new()
-			cancel_btn.text = "Recall"
+			cancel_btn.text = tr("Recall")
 			cancel_btn.custom_minimum_size = Vector2(80, 40)
 			cancel_btn.pressed.connect(func(): _on_recall_pressed(index))
 			hbox.add_child(cancel_btn)
 		else:
 			var trade_btn = Button.new()
-			trade_btn.text = "Trade"
-			trade_btn.custom_minimum_size = Vector2(80, 40)
-			trade_btn.pressed.connect(func(): _on_mission_pressed(index, cap_index, "trade"))
+			trade_btn.text = tr("Trade Route")
+			trade_btn.custom_minimum_size = Vector2(90, 40)
+			trade_btn.pressed.connect(func(): _on_trade_route_pressed(index, cap_index))
 			hbox.add_child(trade_btn)
 			
 			var patrol_btn = Button.new()
-			patrol_btn.text = "Patrol"
+			patrol_btn.text = tr("Patrol")
 			patrol_btn.custom_minimum_size = Vector2(80, 40)
 			patrol_btn.pressed.connect(func(): _on_mission_pressed(index, cap_index, "patrol"))
 			hbox.add_child(patrol_btn)
 			
 			var defend_btn = Button.new()
 			var is_defending = FleetManager.has_method("is_defending_home") and FleetManager.is_defending_home(index)
-			defend_btn.text = "Defend: ON" if is_defending else "Defend: OFF"
+			defend_btn.text = tr("Defend: ON") if is_defending else tr("Defend: OFF")
 			defend_btn.custom_minimum_size = Vector2(100, 40)
 			if is_defending:
 				defend_btn.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
@@ -601,7 +630,7 @@ func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
 			hbox.add_child(defend_btn)
 			
 		var make_active_btn = Button.new()
-		make_active_btn.text = "Make Active"
+		make_active_btn.text = tr("Make Active")
 		make_active_btn.custom_minimum_size = Vector2(100, 40)
 		make_active_btn.pressed.connect(func(): _on_make_active_pressed(index))
 		hbox.add_child(make_active_btn)
@@ -617,17 +646,17 @@ func _create_progression_rows(owned: OwnedShipData, index: int) -> void:
 	var level_row = HBoxContainer.new()
 	var level_lbl = Label.new()
 	if owned.level >= OwnedShipData.MAX_LEVEL:
-		level_lbl.text = "Level: MAX"
+		level_lbl.text = tr("Level: MAX")
 	else:
 		var cost = owned.get_level_up_cost()
-		level_lbl.text = "Level Up: %d Gold  %d Wood" % [cost.get("gold", 0), cost.get("wood", 0)]
+		level_lbl.text = tr("Level Up: %d Gold  %d Wood") % [cost.get("gold", 0), cost.get("wood", 0)]
 	level_lbl.add_theme_font_size_override("font_size", 12)
 	level_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	level_row.add_child(level_lbl)
 
 	if owned.level < OwnedShipData.MAX_LEVEL:
 		var level_btn = Button.new()
-		level_btn.text = "Level Up"
+		level_btn.text = tr("Level Up")
 		level_btn.custom_minimum_size = Vector2(90, 32)
 		if not ResourceManager.can_afford(owned.get_level_up_cost()):
 			level_btn.disabled = true
@@ -646,9 +675,9 @@ func _create_module_slot_row(owned: OwnedShipData, index: int, slot: int) -> voi
 
 	var slot_lbl = Label.new()
 	slot_lbl.custom_minimum_size = Vector2(160, 0)
-	slot_lbl.text = "%s: %s" % [
-		ShipModuleData.Slot.keys()[slot].capitalize(),
-		equipped.display_name if equipped else "Empty"]
+	slot_lbl.text = tr("%s: %s") % [
+		tr(ShipModuleData.Slot.keys()[slot].capitalize()),
+		equipped.display_name if equipped else tr("Empty")]
 	slot_lbl.add_theme_font_size_override("font_size", 12)
 	slot_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	row.add_child(slot_lbl)
@@ -660,7 +689,7 @@ func _create_module_slot_row(owned: OwnedShipData, index: int, slot: int) -> voi
 		btn.text = module.display_name
 		btn.custom_minimum_size = Vector2(120, 32)
 		if module == equipped:
-			btn.text = "%s [Equipped]" % module.display_name
+			btn.text = tr("%s [Equipped]") % module.display_name
 			btn.disabled = true
 		elif not ResourceManager.can_afford({"gold": module.cost_gold, "wood": module.cost_wood, "iron": module.cost_iron}):
 			btn.disabled = true
@@ -680,6 +709,20 @@ func _on_equip_module_pressed(index: int, module: ShipModuleData) -> void:
 
 func _on_mission_pressed(ship_idx: int, cap_idx: int, type: String) -> void:
 	FleetManager.assign_mission(ship_idx, cap_idx, type)
+	_refresh_fleet()
+
+func _on_trade_route_pressed(ship_idx: int, cap_idx: int) -> void:
+	## M11 Requirement 6 — a trade route is tied to the port it's opened from
+	## (region-derived tier and name), rather than the player picking an
+	## abstract distance out of nowhere.
+	var region_tier = 1
+	var route_name = "Local Route"
+	if current_island and current_island.has_method("get_island_id") and EmpireManager:
+		var region = EmpireManager.get_region_for_island(current_island.get_island_id())
+		if region:
+			region_tier = region.tier
+			route_name = region.display_name + " Route"
+	FleetManager.assign_trade_route(ship_idx, cap_idx, route_name, region_tier)
 	_refresh_fleet()
 
 func _on_recall_pressed(ship_idx: int) -> void:
@@ -758,17 +801,28 @@ func _create_research_entry(tech: TechData) -> void:
 	var cost_lbl = Label.new()
 	var cost_text = ""
 	for k in cost_dict.keys():
-		cost_text += str(cost_dict[k]) + " " + k.capitalize() + "  "
+		cost_text += str(cost_dict[k]) + " " + tr(k.capitalize()) + "  "
 	cost_lbl.text = cost_text
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	
 	var btn = Button.new()
-	btn.text = "Research"
+	btn.text = tr("Research")
 	btn.custom_minimum_size = Vector2(100, 40)
-	
+
+	var island_tier = 1
+	if current_island and current_island.has_method("get_island_tier"):
+		island_tier = current_island.get_island_tier()
+
 	if TechManager.is_unlocked(tech.tech_id):
-		btn.text = "Researched"
+		btn.text = tr("Researched")
 		btn.disabled = true
+	elif not TechManager.can_research(tech, island_tier):
+		btn.disabled = true
+		if tech.required_island_tier > island_tier:
+			cost_lbl.text = tr("Requires Island Tier %d") % tech.required_island_tier
+		else:
+			cost_lbl.text = tr("Requires prior research")
+		cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 	elif not ResourceManager.can_afford(cost_dict):
 		btn.disabled = true
 		cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
@@ -786,6 +840,7 @@ func _create_research_entry(tech: TechData) -> void:
 func _on_unlock_tech_pressed(tech: TechData, cost: Dictionary) -> void:
 	if ResourceManager.spend_resources(cost):
 		TechManager.unlock_tech(tech)
+		if AudioManager: AudioManager.play_sound("tech_unlock")
 		_refresh_research()
 
 # --- TRADE ---
@@ -800,17 +855,73 @@ func _refresh_trade() -> void:
 	_create_trade_entry("Iron", 5, 100)  # Sell 5 Iron for 100 Gold
 	_create_trade_entry("Rum", 5, 150)   # Sell 5 Rum for 150 Gold
 
+	var diplomacy_header = Label.new()
+	diplomacy_header.text = tr("Diplomacy")
+	diplomacy_header.add_theme_font_size_override("font_size", 20)
+	trade_container.add_child(diplomacy_header)
+
+	for faction_id in ["pirate_clans", "royal_navy", "merchant_guild"]:
+		_create_tribute_entry(faction_id)
+
+func _create_tribute_entry(faction_id: String) -> void:
+	## M11 Requirement 6 — the inverse of the existing "attacking a faction's
+	## ship reduces reputation" dynamic: spend resources for a reputation
+	## bump, on a cooldown (FactionManager.pay_tribute()) so it can't be
+	## spammed back to friendly.
+	var hbox = HBoxContainer.new()
+	var info_vbox = VBoxContainer.new()
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var rep = FactionManager.get_reputation(faction_id)
+	var name_lbl = Label.new()
+	name_lbl.text = tr("Pay Tribute — %s") % tr(faction_id.capitalize().replace("_", " "))
+	name_lbl.add_theme_font_size_override("font_size", 18)
+
+	var desc_lbl = Label.new()
+	var cooldown = FactionManager.get_tribute_cooldown_remaining(faction_id)
+	if cooldown > 0.0:
+		desc_lbl.text = tr("Reputation: %d | Cools down in %ds") % [rep, ceili(cooldown)]
+	else:
+		desc_lbl.text = tr("Reputation: %d | %d Gold for +%d reputation") % [
+			rep, FactionManager.TRIBUTE_COST_GOLD, FactionManager.TRIBUTE_REPUTATION_GAIN]
+	desc_lbl.add_theme_font_size_override("font_size", 12)
+	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+
+	info_vbox.add_child(name_lbl)
+	info_vbox.add_child(desc_lbl)
+
+	var btn = Button.new()
+	btn.text = tr("Tribute")
+	btn.custom_minimum_size = Vector2(100, 40)
+	if not FactionManager.can_pay_tribute(faction_id) or not ResourceManager.can_afford({"gold": FactionManager.TRIBUTE_COST_GOLD}):
+		btn.disabled = true
+	else:
+		btn.pressed.connect(func(): _on_pay_tribute_pressed(faction_id))
+
+	hbox.add_child(info_vbox)
+	hbox.add_child(btn)
+
+	trade_container.add_child(hbox)
+	trade_container.add_child(HSeparator.new())
+
+func _on_pay_tribute_pressed(faction_id: String) -> void:
+	if FactionManager.pay_tribute(faction_id):
+		if AudioManager: AudioManager.play_sound("ui_confirm")
+		_refresh_trade()
+	elif AudioManager:
+		AudioManager.play_sound("ui_error")
+
 func _create_trade_entry(resource_name: String, amount: int, gold_value: int) -> void:
 	var hbox = HBoxContainer.new()
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	var name_lbl = Label.new()
-	name_lbl.text = "Sell " + str(amount) + " " + resource_name
+	name_lbl.text = tr("Sell %d %s") % [amount, resource_name]
 	name_lbl.add_theme_font_size_override("font_size", 18)
 	
 	var desc_lbl = Label.new()
-	desc_lbl.text = "Receive " + str(gold_value) + " Gold"
+	desc_lbl.text = tr("Receive %d Gold") % gold_value
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2)) # Gold color
 	
@@ -818,7 +929,7 @@ func _create_trade_entry(resource_name: String, amount: int, gold_value: int) ->
 	info_vbox.add_child(desc_lbl)
 	
 	var btn = Button.new()
-	btn.text = "Sell"
+	btn.text = tr("Sell")
 	btn.custom_minimum_size = Vector2(100, 40)
 	
 	var res_key = resource_name.to_lower()

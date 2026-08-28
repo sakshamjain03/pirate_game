@@ -21,6 +21,7 @@ var _mgr: EncounterManager
 var _spawner: MockSpawner
 var _player: MockPlayer
 var _resources_backup: Dictionary
+var _created_test_scene: Node3D = null
 
 
 func before_each():
@@ -40,6 +41,7 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 
 	_root = Node.new()
 	_root.name = "Systems"
@@ -73,6 +75,14 @@ func before_each():
 
 func after_each():
 	ResourceManager.current_resources = _resources_backup
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 
 func _player_stats() -> ShipStats:

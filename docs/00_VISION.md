@@ -546,6 +546,38 @@ Artificial waiting
 
 Gameplay should remain fair.
 
+## 19.1 The committed model (decided 2026-08-27)
+
+The philosophy above lists what *may* be acceptable. This is what the game actually commits to.
+
+Pirate Empire is **free to play in full**. The entire campaign, every island, captain, ship,
+tech and region is reachable without spending a rupee. Revenue comes from three places only:
+
+1. **Cosmetics** — ship skins, sail patterns, flags, figureheads, island decorations. Purely
+   visual. Never a stat.
+2. **The Pirate King Supporter Pack** — a single one-time purchase: permanently ad-free, a
+   cosmetic bundle, and extra save slots.
+3. **Opt-in rewarded advertisements** — the player chooses to watch one, in exchange for a
+   convenience bonus (for example, doubling already-earned offline income, or rerolling a world
+   event). Never interstitial, never on a timer, never nagged.
+
+**Deferred, and not committed:** Battle Pass and Premium Account. Both remain listed above as
+philosophically acceptable, but neither is planned. A Battle Pass would require live operations
+(M14) and the backend (M15) to be running first, and would be reconsidered only after launch
+data exists.
+
+**Not permitted under any circumstances**, restating the never-list as testable rules:
+
+- No hard or premium currency of any kind.
+- No purchase or advertisement may grant, accelerate, or unlock anything that affects gameplay.
+- No energy, stamina, or fuel meter that gates play.
+- No forced, interstitial, or unskippable advertisement.
+- No artificial timer whose only purpose is to sell the removal of that timer.
+- No cosmetic may be sold that was previously earnable, without keeping the earnable path.
+
+The engineering constraints derived from this section live in `AGENTS.md`; the SKU list, price
+points and entitlement model live in `docs/17_MONETIZATION.md`.
+
 ---
 
 # 20. Live Service Philosophy

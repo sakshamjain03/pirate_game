@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3]
+[gd_scene load_steps=39 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/EnvironmentController.gd" id="1_env"]
 [ext_resource type="PackedScene" path="res://scenes/world/Ocean.tscn" id="2_ocean"]
@@ -39,6 +39,9 @@
 [ext_resource type="Script" path="res://scripts/combat/BoardingSystem.gd" id="23_boarding"]
 [ext_resource type="Resource" path="res://resources/combat/encounters/IntransigentBoss.tres" id="40_e7"]
 [ext_resource type="Resource" path="res://resources/combat/encounters/CardenasBoss.tres" id="41_e8"]
+[ext_resource type="Resource" path="res://resources/world/PelicanCay.tres" id="42_pelican"]
+[ext_resource type="Resource" path="res://resources/world/BlackwaterShoal.tres" id="43_blackwater"]
+[ext_resource type="Resource" path="res://resources/world/IslaDelRey.tres" id="44_isladelrey"]
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_world"]
 sky_top_color = Color(0.04, 0.32, 0.68, 1)
 sky_horizon_color = Color(0.62, 0.76, 0.88, 1)
@@ -115,58 +118,82 @@ shadow_enabled = false
 [node name="Ocean" parent="." instance=ExtResource("2_ocean")]
 
 ; Port Royal now sits at the origin, so the player spawns 40u south of it in open
-; water rather than inside the island's collision cylinder. 40u clears the 13.7u
-; terrain union and the dock marker at local x=16.
+; water rather than inside the island's collision cylinder. Position scaled
+; x2.5 for the M10 Expanded layout (docs/11_WORLD_MAP.md §4b) along with
+; every island below; the 13.7u terrain union radius is a fixed physical
+; prop size and does not scale, so clearance only improves at this distance.
 [node name="PlayerShip" parent="." instance=ExtResource("3_ship")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 40)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 100)
 
 [node name="Enemies" type="Node3D" parent="."]
 
-; The three authored enemies are re-seated into the Beginner ring (85-95u from
-; home), each >=40u clear of every island. Rotations are unchanged.
+; The three authored enemies are re-seated into the Beginner ring (212.5-237.5u
+; from home in the Expanded layout, x2.5 of the original Compact 85-95u),
+; each clear of every island by an even wider margin than Compact (uniform
+; scaling only increases separation). Rotations are unchanged.
 [node name="EnemyShip1" parent="Enemies" instance=ExtResource("13_enemy_ship")]
-transform = Transform3D(0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866025, 85, 0.3, 30)
+transform = Transform3D(0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866025, 212.5, 0.3, 75)
 
 [node name="EnemyShip2" parent="Enemies" instance=ExtResource("13_enemy_ship")]
-transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, -40, 0.3, -75)
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, -100, 0.3, -187.5)
 
 [node name="EnemyShip3" parent="Enemies" instance=ExtResource("13_enemy_ship")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.3, 95)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0.3, 237.5)
 
 [node name="CameraRig" parent="." instance=ExtResource("4_cam")]
 settings = ExtResource("12_cam_settings")
 
 [node name="Islands" type="Node3D" parent="."]
 
-; Island layout follows the "Compact" ring bands in docs/11_WORLD_MAP.md §4a:
-; home at the origin, Beginner 60-110u, Contested 140-180u, Imperial 220-270u.
-; Distance from home is the game's primary danger signal, so region tier and
-; distance must agree — before 2026-08-14 they did not (D59: tier-2 Skull Cove
-; sat 54u out while tier-1 Tortuga sat 94u). Every pair is >=40u apart, which
-; clears the 13.7u terrain union radius plus navigation room on both hulls.
+; Island layout follows the "Expanded" ring bands in docs/11_WORLD_MAP.md §4b
+; (M10 — all Compact coordinates x2.5): home at the origin, Beginner
+; 150-275u, Contested 350-450u, Imperial 550-675u. Distance from home is the
+; game's primary danger signal, so region tier and distance must agree — the
+; Compact layout's D59 fix (tier ordering must hold) carries forward exactly
+; under uniform scaling. Every pair remains well clear of the 13.7u terrain
+; union radius (a fixed physical prop size, unaffected by this scale change)
+; plus navigation room on both hulls. These transforms are also the values
+; Island.gd::_ready() now writes back from IslandData.world_position at
+; runtime (M10 Requirement 2) — kept in sync here for accurate editor preview.
 [node name="Island" parent="Islands" instance=ExtResource("5_isl")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 island_data = ExtResource("16_port_royal")
 
 [node name="Island2" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0, 55)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -175, 0, 137.5)
 island_data = ExtResource("17_tortuga")
 
 [node name="Island3" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, -150)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, -375)
 island_data = ExtResource("18_skull_cove")
 
 [node name="Island4" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -180, 0, -150)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -450, 0, -375)
 island_data = ExtResource("20_volcano")
 
 [node name="Island5" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 150, 0, 60)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 375, 0, 150)
 island_data = ExtResource("21_frozen")
 
 [node name="Island6" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -200, 0, 160)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -500, 0, 400)
 island_data = ExtResource("22_cartagena")
+
+; M10 Requirement 7 — three new islands, one per existing region, filling
+; out each region's ring band rather than clustering (docs/11_WORLD_MAP.md
+; §6/§8). All >=40u clear of every neighbour; see the .tres files for full
+; dossiers.
+[node name="Island7" parent="Islands" instance=ExtResource("5_isl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 200, 0, 120)
+island_data = ExtResource("42_pelican")
+
+[node name="Island8" parent="Islands" instance=ExtResource("5_isl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 0, -430)
+island_data = ExtResource("43_blackwater")
+
+[node name="Island9" parent="Islands" instance=ExtResource("5_isl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -620, 0, -180)
+island_data = ExtResource("44_isladelrey")
 
 [node name="WorldUI" parent="." instance=ExtResource("6_hud")]
 

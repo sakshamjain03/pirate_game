@@ -61,16 +61,33 @@ class_name ShipStats extends Resource
 @export_range(1.0, 200.0) var max_crew: float = 20.0
 @export_range(1.0, 5.0) var stern_crit_multiplier: float = 1.5
 @export_range(0.0, 180.0) var stern_arc_degrees: float = 60.0
+## M11 Requirement 4 — hull-facing armor, extending (not replacing) the
+## stern-crit model above. Unlike stern_crit_multiplier (>1.0, a weak point
+## that takes MORE damage), these are armor values that REDUCE incoming
+## damage — thick forward timbers make the bow the most protected facing.
+## Applied in ShipDamage.apply_hit(): stern arc takes priority (unchanged
+## behavior) over the bow arc; anything outside both arcs takes the
+## broadside baseline. A hit can only ever land in one facing.
+## bow_arc_degrees defaults to 0 (off) — a pre-M11 ShipStats (or a test
+## building one from scratch) gets no new behavior until a ship is actually
+## authored with a real arc, the same opt-in convention required_island_tier
+## etc. already use elsewhere in this project.
+@export_range(0.4, 1.0) var bow_armor_multiplier: float = 0.75
+@export_range(0.6, 1.2) var broadside_armor_multiplier: float = 1.0
+@export_range(0.0, 180.0) var bow_arc_degrees: float = 0.0
 @export_range(0.0, 1.0) var min_speed_fraction: float = 0.35
 @export_range(0.0, 1.0) var optimal_crew_fraction: float = 0.5
 @export_range(1.0, 100.0) var cannon_damage: float = 15.0
 @export_range(0.1, 10.0) var fire_rate: float = 2.0
 ## Effective firing range. This is the range the auto-fire solver gates on, so it
 ## must be a distance a cannonball can actually reach: a ball leaves the gun port
-## at y≈1.7 with `gravity_scale = 0.5`, so it splashes down after ~0.83 s and
-## travels roughly `cannon_speed * 0.83`. The pre-auto-fire values (200–400) were
-## 2–3× beyond that, which was harmless while firing was a manual key press but
-## would have made auto-fire shoot endlessly at targets it could never hit.
+## at y≈1.7 with `gravity_scale = 0.7` (M11 — raised from 0.5 for a genuinely more
+## pronounced ballistic arc; each ship's `cannon_speed` was compensated upward at
+## the same time so authored reach didn't shrink, only flight time did — see
+## docs/05_CURRENT_SYSTEMS.md's M11 section), so it splashes down after ~0.70 s
+## and travels roughly `cannon_speed * 0.70`. The pre-auto-fire values (200–400)
+## were 2-3x beyond that, which was harmless while firing was a manual key press
+## but would have made auto-fire shoot endlessly at targets it could never hit.
 @export_range(10.0, 1000.0) var cannon_range: float = 85.0
 @export_range(10.0, 200.0) var cannon_speed: float = 100.0
 ## Half-width of the broadside firing cone, measured off the beam. Cannons

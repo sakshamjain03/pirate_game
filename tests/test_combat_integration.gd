@@ -10,6 +10,7 @@ const ENEMY_SHIP := "res://scenes/world/EnemyShip.tscn"
 const BOSS_SHIP := "res://scenes/world/BossShip.tscn"
 
 var _root: Node3D
+var _created_test_scene: Node3D = null
 
 func before_each():
 	# ShipCombat spawns cannonballs, muzzle flashes and floating damage into
@@ -19,9 +20,20 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 	_root = Node3D.new()
 	_root.name = "IntegrationRoot"
 	add_child_autoqfree(_root)
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func _spawn(path: String, pos: Vector3) -> Node3D:
 	var ship = load(path).instantiate() as Node3D
@@ -60,7 +72,11 @@ func test_authored_cannon_range_is_actually_reachable_by_a_cannonball():
 	## cannon_range used to be authored at 150-400 while a ball launched from
 	## y≈1.7 with gravity_scale 0.5 splashes after ~0.83 s. Auto-fire gates on
 	## this number, so a fantasy range means firing at hulls it can never hit.
-	const FALL_TIME := 0.83
+	## M11: gravity_scale raised to 0.7 for a genuinely more pronounced arc
+	## (Requirement 3); every ship's cannon_speed was compensated upward at the
+	## same time so authored reach didn't shrink, only flight time did — this
+	## constant tracks that new flight time, not the range values themselves.
+	const FALL_TIME := 0.70
 	const TOLERANCE := 1.35  # ship's own forward speed extends reach somewhat
 	var paths := [
 		"res://resources/ships/Dinghy.tres", "res://resources/ships/Schooner.tres",

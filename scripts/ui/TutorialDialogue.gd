@@ -12,6 +12,7 @@ class_name TutorialDialogue extends Control
 
 @onready var name_label: Label = %MentorNameLabel
 @onready var text_label: Label = %MentorTextLabel
+@onready var portrait_label: Label = %PortraitLabel
 @onready var next_button: Button = %NextButton
 @onready var skip_button: Button = %SkipButton
 
@@ -23,12 +24,20 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	# M9 Requirement 5 — lets EncounterManager gate ambient encounters while
+	# this dialogue has focus without a direct node reference, mirroring the
+	# "hud" group WorldHUD already registers itself under for the same reason.
+	add_to_group("tutorial_dialogue")
 
 	next_button.pressed.connect(_on_next_pressed)
 	skip_button.pressed.connect(_on_skip_pressed)
 
 	CampaignManager.chapter_started.connect(_on_chapter_started)
 	CampaignManager.chapter_completed.connect(_on_chapter_completed)
+
+
+func is_blocking() -> bool:
+	return visible
 
 
 func _on_chapter_started(chapter: ChapterData) -> void:
@@ -55,6 +64,7 @@ func _render_current_beat() -> void:
 	var beat := _queue[_queue_index]
 	name_label.text = beat.speaker_name if not beat.speaker_name.is_empty() else beat.speaker_id
 	text_label.text = beat.text
+	PortraitFallback.apply_to_label(portrait_label, beat.portrait_path, name_label.text)
 
 
 func _on_next_pressed() -> void:

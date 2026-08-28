@@ -7,6 +7,7 @@
 script = ExtResource("1_cd")
 captain_id = "rook"
 captain_name = "\"Rook\" Ramirez"
+portrait_path = "res://assets/portraits/Rook.svg"
 background = "A silent tactician who plots every raid three moves ahead."
 hire_cost_gold = 2280
 home_island_id = "skull_cove"

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TechData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/TechData.gd" id="1_td"]
+
+[resource]
+script = ExtResource("1_td")
+tech_id = "swifter_sails"
+tech_name = "Swifter Sails"
+description = "Refined rigging increases ship max speed by 15%."
+cost_gold = 300
+cost_wood = 180
+cost_iron = 60
+required_island_tier = 2
+required_prerequisite_tech_id = ""
+health_modifier = 1.0
+damage_modifier = 1.0
+speed_modifier = 1.15
+storage_modifier = 1.0

@@ -7,6 +7,7 @@
 script = ExtResource("1_cd")
 captain_id = "ophelia"
 captain_name = "\"Siren\" Ophelia"
+portrait_path = "res://assets/portraits/Ophelia.svg"
 background = "Legend says she can talk any crew into following her off a cliff, or into a fortune."
 hire_cost_gold = 4000
 home_island_id = "cartagena_outpost"

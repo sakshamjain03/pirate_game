@@ -26,6 +26,7 @@ class MockShip extends RigidBody3D:
 # this file's scans and the "no target" assertions fail depending on run order.
 var _scope: String = ""
 var _scope_counter: int = 0
+var _created_test_scene: Node3D = null
 
 func before_each():
 	if not get_tree().current_scene:
@@ -33,8 +34,19 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 	_scope_counter += 1
 	_scope = "fs_scope_%d" % _scope_counter
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func _stats(cannon_range: float = 100.0, arc: float = 35.0, has_bow: bool = false,
 		has_stern: bool = false, chaser_range: float = 100.0, chaser_arc: float = 15.0) -> ShipStats:

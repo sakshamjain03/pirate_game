@@ -15,6 +15,7 @@ var _mods: CombatModifiers
 var _ability_node: CaptainAbility
 var _dmg: Node
 var _stats: ShipStats
+var _created_test_scene: Node3D = null
 
 
 func before_each():
@@ -23,6 +24,7 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 
 	_stats = ShipStats.new()
 	_stats.max_health = 200.0
@@ -47,6 +49,17 @@ func before_each():
 	_ship.add_child(_ability_node)
 
 	add_child_autoqfree(_ship)
+
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 
 func _ability(dur: float = 5.0, cd: float = 20.0) -> CaptainAbilityData:

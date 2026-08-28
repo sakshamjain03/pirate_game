@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TechData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/TechData.gd" id="1_td"]
+
+[resource]
+script = ExtResource("1_td")
+tech_id = "heavy_plating"
+tech_name = "Heavy Plating"
+description = "Iron-sheathed hulls increase ship max health by a further 20%."
+cost_gold = 2400
+cost_wood = 1300
+cost_iron = 500
+required_island_tier = 4
+required_prerequisite_tech_id = "sturdier_hulls"
+health_modifier = 1.20
+damage_modifier = 1.0
+speed_modifier = 1.0
+storage_modifier = 1.0

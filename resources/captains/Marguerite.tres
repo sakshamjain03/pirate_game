@@ -7,6 +7,7 @@
 script = ExtResource("1_cd")
 captain_id = "marguerite"
 captain_name = "\"Marguerite\" the Merciless"
+portrait_path = "res://assets/portraits/Marguerite.svg"
 background = "Shows no quarter to the Royal Navy after what they did to her port."
 hire_cost_gold = 1780
 home_island_id = ""

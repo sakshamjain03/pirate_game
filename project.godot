@@ -17,6 +17,10 @@ run/main_scene="res://scenes/core/Boot.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 config/icon="res://icon.svg"
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://translations/en.en.translation")
+
 [audio]
 
 buses/default_bus_layout="res://default_bus_layout.tres"
@@ -36,6 +40,9 @@ FactionManager="*res://scripts/managers/FactionManager.gd"
 EmpireManager="*res://scripts/managers/EmpireManager.gd"
 CampaignManager="*res://scripts/managers/CampaignManager.gd"
 TutorialManager="*res://scripts/managers/TutorialManager.gd"
+CrashReporter="*res://scripts/managers/CrashReporter.gd"
+AnalyticsManager="*res://scripts/managers/AnalyticsManager.gd"
+LocalNotificationManager="*res://scripts/managers/LocalNotificationManager.gd"
 
 [display]
 
@@ -43,6 +50,7 @@ window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
+
 
 [input]
 
@@ -164,4 +172,3 @@ textures/canvas_textures/default_texture_filter=0
 ; clock after an hour of play, since only one of the two wraps. Raised well
 ; past any realistic play session.
 limits/time/time_rollover_secs=86400
-

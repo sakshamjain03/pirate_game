@@ -67,22 +67,38 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 		return
 		
 	var total_amount = amount
-	
-	if ship_stats.stern_arc_degrees > 0.0:
-		var parent = get_parent()
-		if parent and parent is Node3D:
-			var aft = parent.global_transform.basis.z.normalized()
-			var hit_dir_flat = Vector3(hit_direction.x, 0.0, hit_direction.z).normalized()
-			var aft_flat = Vector3(aft.x, 0.0, aft.z).normalized()
-			
-			if hit_dir_flat.length_squared() > 0.01:
+
+	# M11 Requirement 4 — per-facing armor, extending the existing stern-crit
+	# model. Priority: stern (unchanged, existing behavior) > bow > broadside
+	# baseline default — a hit lands in exactly one facing.
+	var facing_mult = ship_stats.broadside_armor_multiplier
+	var parent = get_parent()
+	if parent and parent is Node3D:
+		var hit_dir_flat = Vector3(hit_direction.x, 0.0, hit_direction.z).normalized()
+		if hit_dir_flat.length_squared() > 0.01:
+			var stern_hit = false
+			if ship_stats.stern_arc_degrees > 0.0:
+				var aft = parent.global_transform.basis.z.normalized()
+				var aft_flat = Vector3(aft.x, 0.0, aft.z).normalized()
 				var dot = hit_dir_flat.dot(aft_flat)
 				var angle = rad_to_deg(acos(clamp(dot, -1.0, 1.0)))
-				
+
 				# If the hit came from within the stern arc
 				if angle <= ship_stats.stern_arc_degrees * 0.5:
-					total_amount *= ship_stats.stern_crit_multiplier
-				
+					facing_mult = ship_stats.stern_crit_multiplier
+					stern_hit = true
+
+			if not stern_hit and ship_stats.bow_arc_degrees > 0.0:
+				var fwd = -parent.global_transform.basis.z.normalized()
+				var fwd_flat = Vector3(fwd.x, 0.0, fwd.z).normalized()
+				var bow_dot = hit_dir_flat.dot(fwd_flat)
+				var bow_angle = rad_to_deg(acos(clamp(bow_dot, -1.0, 1.0)))
+
+				if bow_angle <= ship_stats.bow_arc_degrees * 0.5:
+					facing_mult = ship_stats.bow_armor_multiplier
+
+	total_amount *= facing_mult
+
 	var hull_dmg = total_amount * ammo.hull_damage_mult
 	var sail_dmg = total_amount * ammo.sail_damage_mult
 	var crew_dmg = total_amount * ammo.crew_damage_mult

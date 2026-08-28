@@ -9,12 +9,25 @@ extends GutTest
 class MockShipParent extends Node3D:
 	var active_captain: CaptainData = null
 
+var _created_test_scene: Node3D = null
+
 func before_each():
 	if not get_tree().current_scene:
 		var scene = Node3D.new()
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func _make_ship(stats: ShipStats, captain: CaptainData = null) -> Dictionary:
 	var parent = MockShipParent.new()

@@ -2,6 +2,7 @@ extends GutTest
 
 var spawner: Node
 var empire_manager: Node
+var _created_test_scene: Node3D = null
 
 func before_all():
 	# If EmpireManager is not in the tree (autoload), we instantiate one
@@ -26,9 +27,20 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
-		
+		_created_test_scene = scene
+
 	add_child_autoqfree(spawner)
 	await wait_process_frames(1)
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func test_compute_spawn_multiplier():
 	if empire_manager:

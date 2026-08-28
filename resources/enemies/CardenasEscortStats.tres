@@ -28,13 +28,15 @@ max_sails = 220.0
 max_crew = 70.0
 stern_crit_multiplier = 1.6
 stern_arc_degrees = 60.0
+bow_armor_multiplier = 0.75
+bow_arc_degrees = 60.0
 min_speed_fraction = 0.35
 cannon_damage = 42.0
 fire_rate = 0.6
 ; The longest cannon_range in the game (docs/13_CAMPAIGN_LEVELS_1-5.md §7):
 ; closing costs hull the whole way in.
 cannon_range = 135.0
-cannon_speed = 155.0
+cannon_speed = 184.0
 has_bow_chaser = true
 chaser_damage = 22.0
 chaser_range = 165.0

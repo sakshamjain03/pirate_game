@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EventData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/EventData.gd" id="1_event"]
+
+[resource]
+script = ExtResource("1_event")
+event_id = "royal_navy_patrol"
+display_text = "A Navy patrol changes heading to intercept — someone reported you."
+weight = 0.2
+min_region_tier = 2

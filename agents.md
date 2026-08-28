@@ -757,11 +757,18 @@ Never remove public APIs without migration.
 
 Never hardcode balance values.
 
-Never introduce paid features.
+No paid feature ships before the M13 launch build. After M13, monetization is permitted only
+within the bounds of `docs/00_VISION.md` §19 and `docs/17_MONETIZATION.md`. The §19 never-list
+— pay-to-win, energy systems, forced advertisements, artificial waiting — is absolute and
+unamendable.
 
 Never introduce multiplayer.
 
-Never introduce new currencies.
+Never introduce a hard or premium currency. Cosmetic entitlements are one-time, non-tradeable,
+non-consumable, and never purchasable with gameplay-affecting power.
+
+Never gate campaign progression, islands, captains, ships, or any gameplay-affecting stat behind
+money or an advertisement.
 
 Never break save compatibility.
 
@@ -793,6 +800,9 @@ Before submitting code
 
 ✓ Clean architecture
 
+✓ Monetization gate — does this change put anything gameplay-affecting behind a purchase or an
+advertisement? If yes, reject it.
+
 ---
 
 # Out of Scope (Version 1)
@@ -811,7 +821,8 @@ Competitive Seasons
 
 Real-time Multiplayer
 
-Microtransactions
+Microtransactions (see the monetization rules above — cosmetic-only entitlements are permitted
+from M16 onward, and never in a v1/M13 launch build)
 
 Battle Pass
 

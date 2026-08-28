@@ -28,6 +28,7 @@ class_name SettingsMenu
 ## - Implement debounce for rapid setting changes (e.g., fast slider movement)
 ## - Add visual feedback for successful settings save
 
+@onready var root_control: Control = $Control
 @onready var master_slider: HSlider = $Control/TabContainer/General/GridContainer/MasterSlider
 @onready var music_slider: HSlider = $Control/TabContainer/General/GridContainer/MusicSlider
 @onready var sfx_slider: HSlider = $Control/TabContainer/General/GridContainer/SFXSlider
@@ -45,6 +46,10 @@ var settings_manager: Node = SettingsManager
 var audio_manager: Node = AudioManager
 
 func _ready() -> void:
+	# M9 Requirement 3 (D70) — the only screen in scenes/ui/ that never applied
+	# the theme, rendering as raw default Godot UI.
+	root_control.theme = PirateThemeBuilder.build()
+
 	# Populate controls from SettingsManager
 	master_slider.value = settings_manager.master_volume
 	music_slider.value = settings_manager.music_volume
@@ -89,7 +94,7 @@ func _populate_controls() -> void:
 		if InputMap.has_action(action):
 			var hbox = HBoxContainer.new()
 			var label = Label.new()
-			label.text = action.capitalize().replace("_", " ")
+			label.text = tr(action.capitalize().replace("_", " "))
 			label.custom_minimum_size.x = 200
 			hbox.add_child(label)
 			
@@ -98,14 +103,14 @@ func _populate_controls() -> void:
 			if events.size() > 0 and events[0] is InputEventKey:
 				btn.text = OS.get_keycode_string(events[0].keycode)
 			else:
-				btn.text = "Unbound"
+				btn.text = tr("Unbound")
 			
 			btn.pressed.connect(func(): _on_rebind_pressed(action, btn))
 			hbox.add_child(btn)
 			controls_vbox.add_child(hbox)
 			
 	var reset_btn = Button.new()
-	reset_btn.text = "Reset to Defaults"
+	reset_btn.text = tr("Reset to Defaults")
 	reset_btn.pressed.connect(func():
 		InputManager.reset_to_defaults()
 		_populate_controls()
@@ -116,13 +121,13 @@ func _add_input_feel_controls() -> void:
 	## M2 Task 6.3 — adjustable sensitivity and dead zone. Persisted through
 	## SettingsManager alongside every other setting; InputManager picks the new
 	## values up from its `settings_changed` connection.
-	_add_input_slider("Sensitivity", 0.1, 3.0, 0.05, settings_manager.input_sensitivity,
+	_add_input_slider(tr("Sensitivity"), 0.1, 3.0, 0.05, settings_manager.input_sensitivity,
 		func(v: float):
 			settings_manager.input_sensitivity = v
 			InputManager.set_sensitivity(v)
 			settings_manager.save_settings())
 
-	_add_input_slider("Dead Zone", 0.0, 0.9, 0.05, settings_manager.input_dead_zone,
+	_add_input_slider(tr("Dead Zone"), 0.0, 0.9, 0.05, settings_manager.input_dead_zone,
 		func(v: float):
 			settings_manager.input_dead_zone = v
 			InputManager.set_dead_zone(v)
@@ -138,14 +143,14 @@ func _add_graphics_quality_control() -> void:
 	## InputManager uses for sensitivity/dead zone.
 	var hbox := HBoxContainer.new()
 	var label := Label.new()
-	label.text = "Graphics Quality"
+	label.text = tr("Graphics Quality")
 	label.custom_minimum_size.x = 200
 	hbox.add_child(label)
 
 	var option := OptionButton.new()
-	option.add_item("Low", 0)
-	option.add_item("Medium", 1)
-	option.add_item("High", 2)
+	option.add_item(tr("Low"), 0)
+	option.add_item(tr("Medium"), 1)
+	option.add_item(tr("High"), 2)
 	option.select(settings_manager.graphics_quality)
 	option.item_selected.connect(func(index: int):
 		settings_manager.graphics_quality = index
@@ -187,7 +192,7 @@ func _add_input_slider(label_text: String, min_v: float, max_v: float, step: flo
 
 func _on_rebind_pressed(action: String, btn: Button) -> void:
 	_awaiting_rebind = action
-	btn.text = "Press any key..."
+	btn.text = tr("Press any key...")
 
 func _input(event: InputEvent) -> void:
 	if _awaiting_rebind != "" and event is InputEventKey and event.pressed:

@@ -77,6 +77,10 @@ func on_world_ready(world_manager: Node) -> void:
 		if not world_manager.player_docked.is_connected(_on_player_docked):
 			world_manager.player_docked.connect(_on_player_docked)
 
+	if world_manager and world_manager.has_signal("island_discovered"):
+		if not world_manager.island_discovered.is_connected(_on_island_discovered):
+			world_manager.island_discovered.connect(_on_island_discovered)
+
 	var island_menu := get_tree().get_first_node_in_group("island_menu")
 	if island_menu and island_menu.has_signal("structure_changed"):
 		if not island_menu.structure_changed.is_connected(_on_structure_changed):
@@ -260,16 +264,27 @@ func is_chapter_current(chapter_id: String) -> bool:
 # === Condition handlers — one per real signal, mirroring TutorialManager ===
 
 func _on_player_docked(island_id: String) -> void:
-	_mark_discovered(island_id)
+	_on_island_discovered(island_id)
 	_for_each_matching(ObjectiveData.Condition.DOCK_AT_ISLAND, island_id,
 		func(o): _advance_objective(o, 1))
+
+
+## M10 Requirement 4 — the write path used to be dock-only (docking always
+## implies discovery, so this used to live inline in _on_player_docked).
+## Factored out so WorldManager's new proximity check (reveal-on-approach,
+## not reveal-only-on-dock) can dispatch the same DISCOVER_ISLAND objective
+## progress and discovered-flag write without duplicating either.
+func _on_island_discovered(island_id: String) -> void:
+	_mark_discovered(island_id)
 	_for_each_matching(ObjectiveData.Condition.DISCOVER_ISLAND, island_id,
 		func(o): _advance_objective(o, 1))
 
 
 func _mark_discovered(island_id: String) -> void:
 	## E2: the write path IslandData.discovered was authored but never set by
-	## anything. Docking is enough for v1 — approach-radius detection is M9.
+	## anything until M7 wired the dock path in. M10 added the
+	## WorldManager.island_discovered proximity signal (reveal-on-approach)
+	## alongside it — both paths converge here as the single writer.
 	for island in get_tree().get_nodes_in_group("islands"):
 		if island.has_method("get_island_id") and island.get_island_id() == island_id:
 			if island.island_data and not island.island_data.discovered:

@@ -21,18 +21,28 @@ shader_parameter/sparkle_scale       = 60.0
 shader_parameter/sparkle_speed       = 0.08
 shader_parameter/wave_noise          = ExtResource("5_noise")
 
-[sub_resource type="PlaneMesh" id="PlaneMesh_1"]
+[sub_resource type="PlaneMesh" id="PlaneMesh_Near"]
 material = SubResource("ShaderMaterial_1")
-size = Vector2(600, 600)
-subdivide_width = 120
-subdivide_depth = 120
+size = Vector2(300, 300)
+subdivide_width = 60
+subdivide_depth = 60
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_Far"]
+material = SubResource("ShaderMaterial_1")
+size = Vector2(1200, 1200)
+subdivide_width = 40
+subdivide_depth = 40
 
 [node name="Ocean" type="Node3D"]
 script = ExtResource("1_ocean")
 ocean_settings = ExtResource("3_settings")
 
-[node name="WaterMesh" type="MeshInstance3D" parent="."]
-mesh = SubResource("PlaneMesh_1")
+[node name="WaterMeshNear" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_Near")
+
+[node name="WaterMeshFar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+mesh = SubResource("PlaneMesh_Far")
 
 [node name="WaveGenerator" type="Node" parent="."]
 script = ExtResource("2_wave")

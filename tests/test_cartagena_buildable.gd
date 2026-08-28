@@ -11,6 +11,7 @@ extends GutTest
 var _island: Node
 var _saved_resources: Dictionary
 var _saved_region_active: Dictionary
+var _created_test_scene: Node3D = null
 
 func before_each():
 	if not get_tree().current_scene:
@@ -18,6 +19,7 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 
 	_saved_resources = ResourceManager.current_resources.duplicate()
 	ResourceManager.current_resources["gold"] = 100000
@@ -38,6 +40,14 @@ func before_each():
 func after_each():
 	ResourceManager.current_resources = _saved_resources.duplicate()
 	EmpireManager._region_active = _saved_region_active.duplicate()
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 
 func test_cartagena_starts_owned_by_spain_and_not_buildable():

@@ -5,14 +5,12 @@ class_name EnemySpawner extends Node
 ##   weights faction selection by reputation. Applies M4 empire scaling: compute_spawn_multiplier()
 ##   scales an empire-faction ship's effective max_health/cannon_damage by region tier + notoriety
 ##   at spawn time (via a duplicated ShipStats instance, never mutating the shared resource);
-##   non-empire factions always spawn at multiplier 1.0.
-## Dependencies: EnemyShip.tscn, player_ship group, FactionData.is_empire, EmpireManager.notoriety
-##
-## Limitations:
-##   - No spawn zones or region-specific enemy types yet
+##   non-empire factions always spawn at multiplier 1.0. Selects enemy ship types per region
+##   (M10 Requirement 5) from RegionData.enemy_ship_pool, or falls back to default scene stats.
+## Dependencies: EnemyShip.tscn, player_ship group, FactionData.is_empire, EmpireManager.notoriety,
+##               RegionData.enemy_ship_pool
 ##
 ## TODO:
-##   - M8: Region-specific enemy types
 ##   - M10: Named pirate captain enemies
 
 signal enemy_spawned(enemy: Node3D)
@@ -136,12 +134,21 @@ func _spawn_enemy() -> void:
 			if chosen_faction and chosen_faction.get("is_empire"):
 				var tier = _get_region_tier_for_position(spawn_pos)
 				var mult = compute_spawn_multiplier(tier)
-				
+
 				if enemy.get("ship_stats"):
-					enemy.ship_stats = enemy.ship_stats.duplicate()
+					## M10 Requirement 5 — if this region has an enemy ship pool,
+					## pick a random ship type from it. Otherwise fall back to the
+					## enemy scene's built-in default stats.
+					var region = _get_region_for_position(spawn_pos)
+					if region and not region.enemy_ship_pool.is_empty():
+						var picked_stats = region.enemy_ship_pool.pick_random()
+						if picked_stats:
+							enemy.ship_stats = picked_stats.duplicate()
+					else:
+						enemy.ship_stats = enemy.ship_stats.duplicate()
 					enemy.ship_stats.max_health *= mult
 					enemy.ship_stats.cannon_damage *= mult
-					
+
 	_enemies_container.add_child(enemy)
 	_place_upright(enemy, spawn_pos, randf() * TAU)
 
@@ -222,11 +229,13 @@ func _find_spawn_position() -> Vector3:
 
 	return best_candidate
 
-func _get_region_tier_for_position(pos: Vector3) -> int:
+func _get_region_for_position(pos: Vector3) -> RegionData:
+	## Get the full RegionData for the region containing the closest island to pos.
+	## Reuse this for both tier lookup and enemy ship pool lookup.
 	var islands = get_tree().get_nodes_in_group("islands")
 	if islands.is_empty():
-		return 1
-		
+		return null
+
 	var closest_island = null
 	var min_dist = INF
 	for island in islands:
@@ -234,12 +243,17 @@ func _get_region_tier_for_position(pos: Vector3) -> int:
 		if d < min_dist:
 			min_dist = d
 			closest_island = island
-			
+
 	if closest_island and EmpireManager:
-		var region = EmpireManager.get_region_for_island(closest_island.get_island_id())
-		if region:
-			return region.tier
-			
+		return EmpireManager.get_region_for_island(closest_island.get_island_id())
+
+	return null
+
+func _get_region_tier_for_position(pos: Vector3) -> int:
+	## Convenience wrapper: get tier from the region, or 1 if no region found.
+	var region = _get_region_for_position(pos)
+	if region:
+		return region.tier
 	return 1
 
 func compute_spawn_multiplier(region_tier: int) -> float:
@@ -268,7 +282,14 @@ func spawn_hunter(faction: Resource) -> void:
 			var mult = compute_spawn_multiplier(tier)
 
 			if enemy.get("ship_stats"):
-				enemy.ship_stats = enemy.ship_stats.duplicate(true)
+				## M10 Requirement 5 — apply regional ship pool same as _spawn_enemy().
+				var region = _get_region_for_position(spawn_pos)
+				if region and not region.enemy_ship_pool.is_empty():
+					var picked_stats = region.enemy_ship_pool.pick_random()
+					if picked_stats:
+						enemy.ship_stats = picked_stats.duplicate(true)
+				else:
+					enemy.ship_stats = enemy.ship_stats.duplicate(true)
 				enemy.ship_stats.max_health *= mult
 				enemy.ship_stats.cannon_damage *= mult
 

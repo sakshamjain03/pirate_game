@@ -13,6 +13,7 @@ class MockLootDrop extends Node3D:
 var boarding_system: BoardingSystem
 var player_ship: Node
 var enemy_ship: Node
+var _created_test_scene: Node3D = null
 
 func before_each():
 	if not get_tree().current_scene:
@@ -20,7 +21,8 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
-		
+		_created_test_scene = scene
+
 	boarding_system = load("res://scripts/combat/BoardingSystem.gd").new()
 	var bd = BoardingData.new()
 	bd.hull_threshold = 0.3
@@ -56,6 +58,14 @@ func after_each():
 		if is_instance_valid(p): p.queue_free()
 	for e in get_tree().get_nodes_in_group("enemy_ship"):
 		if is_instance_valid(e): e.queue_free()
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func test_resolution_is_deterministic_success():
 	var p_stats = ShipStats.new()

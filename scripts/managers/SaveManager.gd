@@ -23,7 +23,13 @@ signal game_loaded()
 signal load_failed(reason: String)
 
 const SAVE_PATH := "user://save_data.json"
+const BACKUP_PATH := "user://save_data.json.bak"
 const MAX_OFFLINE_SECONDS := 4 * 60 * 60
+
+## M10 Requirement 9 — a version stamp for M12's full migration/backup pass
+## to build on. Deliberately inert beyond the field itself: no migration
+## logic yet, just recording what schema version wrote a given save.
+const SAVE_SCHEMA_VERSION := 1
 
 var _save_timer: float = 0.0
 var _auto_save_interval: float = 60.0
@@ -40,6 +46,7 @@ func _process(delta: float) -> void:
 
 func save_game() -> void:
 	var save_dict = {
+		"save_schema_version": SAVE_SCHEMA_VERSION,
 		"economy": {},
 		"islands": {},
 		"fleet": {},
@@ -95,7 +102,13 @@ func save_game() -> void:
 	var islands = get_tree().get_nodes_in_group("islands")
 	for island in islands:
 		if island.has_method("get_island_id") and island.has_method("get_built_building_ids"):
-			save_dict["islands"][island.get_island_id()] = island.get_built_building_ids()
+			save_dict["islands"][island.get_island_id()] = {
+				"buildings": island.get_built_building_ids(),
+				# M10 Requirement 4 — IslandData.discovered was never actually
+				# persisted before this; the write path (dock/proximity) set
+				# it at runtime but every load silently reset it to false.
+				"discovered": island.island_data.discovered if island.island_data else false,
+			}
 
 	# 4. Fleet State
 	if FleetManager.has_method("get_save_data"):
@@ -122,7 +135,10 @@ func save_game() -> void:
 	if CampaignManager.has_method("get_save_data"):
 		save_dict["campaign"] = CampaignManager.get_save_data()
 
-	# Write to disk
+	# Preserve the last known save before replacing it. A failed backup is safer
+	# than a write that could destroy the player's only recoverable copy.
+	if not _backup_existing_save():
+		return
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
 		var json_string = JSON.stringify(save_dict, "\t")
@@ -132,34 +148,34 @@ func save_game() -> void:
 		push_error("SaveManager: Failed to open save file for writing.")
 
 func load_game() -> void:
-	if not has_save_data():
+	if not has_recoverable_save_data():
 		game_loaded.emit()
 		return
 
-	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if not file:
-		push_error("SaveManager: Failed to open save file for reading.")
-		load_failed.emit("could not open save file")
+	var primary_result := _read_save_file(SAVE_PATH)
+	var data: Dictionary = primary_result["data"]
+	if data.is_empty():
+		var backup_result := _read_save_file(BACKUP_PATH)
+		data = backup_result["data"]
+		if data.is_empty():
+			push_error("SaveManager: primary and backup saves could not be loaded.")
+			load_failed.emit("save data is corrupted; backup recovery also failed")
+			game_loaded.emit()
+			return
+		load_failed.emit("primary save could not be loaded; recovered the previous backup")
+
+	var loaded_schema_version: int = data.get("save_schema_version", 0)
+	if loaded_schema_version > SAVE_SCHEMA_VERSION:
+		push_error("SaveManager: save schema is newer than this build.")
+		load_failed.emit("save was created by a newer version")
 		game_loaded.emit()
 		return
-
-	var json_string = file.get_as_text()
-	file.close()
-
-	var json = JSON.new()
-	var error = json.parse(json_string)
-	if error != OK:
-		push_error("SaveManager: JSON Parse Error: ", json.get_error_message())
-		load_failed.emit("save file is corrupted")
-		game_loaded.emit()
-		return
-
-	var data = json.data
-	if typeof(data) != TYPE_DICTIONARY:
-		push_error("SaveManager: Save data is not a valid dictionary.")
-		load_failed.emit("save file is corrupted")
-		game_loaded.emit()
-		return
+	if loaded_schema_version < SAVE_SCHEMA_VERSION:
+		data = _migrate(data, loaded_schema_version)
+		if data.is_empty():
+			load_failed.emit("save migration failed")
+			game_loaded.emit()
+			return
 
 	# 1. Player State
 	if data.has("player"):
@@ -235,8 +251,16 @@ func load_game() -> void:
 		var active_islands = get_tree().get_nodes_in_group("islands")
 		for island in active_islands:
 			var island_id = island.get_island_id() if island.has_method("get_island_id") else ""
-			if island_id != "" and islands_data.has(island_id) and island.has_method("restore_buildings"):
-				island.restore_buildings(islands_data[island_id])
+			if island_id == "" or not islands_data.has(island_id):
+				continue
+			var entry = islands_data[island_id]
+			# Pre-M10 saves stored a flat Array of building ids directly;
+			# M10 wraps that in a dict alongside "discovered" (see save_game()).
+			var building_ids: Array = entry if entry is Array else entry.get("buildings", [])
+			if island.has_method("restore_buildings"):
+				island.restore_buildings(building_ids)
+			if entry is Dictionary and island.island_data:
+				island.island_data.discovered = entry.get("discovered", island.island_data.discovered)
 
 	# 6. Tech State
 	if data.has("tech") and TechManager.has_method("load_save_data"):
@@ -276,11 +300,79 @@ func load_game() -> void:
 
 	game_loaded.emit()
 
+
+func _backup_existing_save() -> bool:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return true
+	var source := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if not source:
+		push_error("SaveManager: Failed to open existing save for backup.")
+		return false
+	var backup := FileAccess.open(BACKUP_PATH, FileAccess.WRITE)
+	if not backup:
+		source.close()
+		push_error("SaveManager: Failed to open backup save for writing.")
+		return false
+	backup.store_string(source.get_as_text())
+	source.close()
+	backup.close()
+	return true
+
+
+func _read_save_file(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {"data": {}, "error": "file does not exist"}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if not file:
+		return {"data": {}, "error": "could not open file"}
+	var json := JSON.new()
+	var error := json.parse(file.get_as_text())
+	file.close()
+	if error != OK:
+		return {"data": {}, "error": json.get_error_message()}
+	if typeof(json.data) != TYPE_DICTIONARY:
+		return {"data": {}, "error": "root is not a dictionary"}
+	return {"data": json.data, "error": ""}
+
+
+func _migrate(data: Dictionary, from_version: int) -> Dictionary:
+	## Each arm owns one historical transition. Keep migrations intentionally small
+	## and deterministic: they repair only the old schema, never rebalance data.
+	var migrated := data.duplicate(true)
+	var version := from_version
+	while version < SAVE_SCHEMA_VERSION:
+		match version:
+			0:
+				# M10 wrapped island building arrays so it could persist discovery.
+				# Pre-versioned saves may still use the flat array representation.
+				if migrated.get("islands") is Dictionary:
+					for island_id in migrated["islands"]:
+						if migrated["islands"][island_id] is Array:
+							migrated["islands"][island_id] = {
+								"buildings": migrated["islands"][island_id],
+								"discovered": false,
+							}
+				version = 1
+			_:
+				push_error("SaveManager: no migration exists from schema version %d." % version)
+				return {}
+	migrated["save_schema_version"] = SAVE_SCHEMA_VERSION
+	return migrated
+
+
 func has_save_data() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
+
+func has_recoverable_save_data() -> bool:
+	return FileAccess.file_exists(SAVE_PATH) or FileAccess.file_exists(BACKUP_PATH)
+
+
 func delete_save() -> void:
-	if has_save_data():
-		var dir = DirAccess.open("user://")
-		if dir:
-			dir.remove("save_data.json")
+	var dir := DirAccess.open("user://")
+	if not dir:
+		return
+	if FileAccess.file_exists(SAVE_PATH):
+		dir.remove(SAVE_PATH.get_file())
+	if FileAccess.file_exists(BACKUP_PATH):
+		dir.remove(BACKUP_PATH.get_file())

@@ -78,6 +78,7 @@ func _collect() -> void:
 		return
 	_collected = true
 
+	if AudioManager: AudioManager.play_sound("resource_collect")
 	collected.emit(loot_data)
 
 	# Grant resources via ResourceManager

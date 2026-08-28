@@ -1,9 +1,93 @@
 # 10_ASSET_REQUESTS.md
 
-> Version: 1.0
-> Status: Living Document
+> Version: 1.1
+> Status: Living Document — building-model gap closed (M10), custom-art prompts below kept as
+> historical reference only
 > Owner: Project Lead
 > Companion to: M6 — Black Flag Combat & Island Economy (see `docs/16_MILESTONE_HISTORY.md`)
+
+---
+
+# M10 update (2026-08-27) — building models resolved via stock assets, not custom generation
+
+Per M10 Requirement 8, existing vendored Kenney assets (`assets/models/`) were surveyed before
+assuming custom art was necessary, mirroring the D40 ship-model-remap precedent this doc's §"THE
+GAP THIS FILLS" section already references. Result: **all 50 of 50** building-level combinations
+(`resources/buildings/*.tres`, 10 chains × 5 levels) now have a real `model_path` set, closing the
+gap this document was originally written to fill — the custom-generation prompts below were never
+used.
+
+What was found and assigned (one shared model per whole chain, all 5 levels — the same "3-stage
+reuse" pattern this document's own fallback language anticipated, just at chain granularity):
+Watchtower → `tower-watch.glb`; Fortress → `tower-complete-large.glb`; Academy →
+`tower-middle-windows.glb`; Mine → `tower-base.glb`; Warehouse → `tower-complete-small.glb`;
+Market → `structure-platform-small.glb`; Lumber Mill → `structure-platform.glb`; Shipyard →
+`structure-platform-dock-small.glb`; Tavern → `castle-door.glb`; Farm (actually the Rum Distillery
+chain — an id-naming holdover, see `produces_resource = "rum"` on every `Farm_L*.tres`) →
+`crate-bottles.glb`, found only during the M10 pass (the other nine were already assigned before
+M10 started, from an earlier undocumented pass this document was never updated to reflect).
+
+None of these are bespoke per-level progression art — each chain reuses one representative prop
+across all 5 levels, not 5 visually escalating models. If true per-level visual progression is
+wanted later, the custom-generation prompts below remain valid and unused; until then this is
+considered a closed gap, not a partial one, per Requirement 8 AC2's "a partial improvement... is
+an acceptable outcome" allowance — here the outcome is a full 50/50 assignment, just not bespoke
+per-level art.
+
+---
+
+# M11 update (2026-08-28) — audio closed via stock CC0 assets; portraits partially closed
+
+## Audio (Requirement 8) — closed, 0 → 25 SFX cues + 2 music tracks
+
+Sourced via free/CC0 packs rather than custom generation, mirroring M10's building-art precedent:
+Kenney's UI Audio, Impact Sounds, RPG Audio, and Music Jingles packs (all CC0, kenney.nl — UI Audio
+specifically via github.com/Calinou/kenney-ui-audio, which packages Kenney's own CC0 pack with
+direct per-file download URLs, avoiding a zip-extraction step for just 5 files). Music: "Drunken
+Sailor" (an OPL2 rendering, CC0, opengameart.org) for the main menu; "Pirates!" by Eric Matyas of
+Soundimage.org (CC-BY 4.0 — the one non-CC0 asset in this pass, credited in `CreditsScreen.tscn`)
+for in-world sailing music, since no CC0 looping pirate/nautical track was found in the time this
+pass could spend searching.
+
+All 25 SFX cues Requirement 8.1 lists a category for are covered (cannon, explosion, building
+construct/upgrade, boarding start/success/fail, victory/defeat, resource collection, tech/ship/
+captain purchases, docking, discovery, treasure-found, wind-shift, level-up, and 5 UI cues) — see
+`docs/05_CURRENT_SYSTEMS.md`'s M11 section for the exact file-to-call-site mapping. One authored
+cue (`ui_cancel.wav`) has no call site wired yet. `AudioManager.play_sound()` was extended to check
+`.ogg` before `.wav` (Kenney ships `.ogg`; Godot's own preferred compressed format) rather than
+converting every sourced file to `.wav` — no audio-conversion tool (ffmpeg or equivalent) was
+available in this environment, so this was the correct fix, not a workaround.
+
+**Gap**: no human has listened to any of these 25 cues in the actual running game. This document's
+own standard (survey/source before assuming custom work is needed) was followed for *finding*
+assets; whether the specific ones picked (an impact-sound pack substituting for cannon fire and
+ship destruction, since no dedicated explosion/cannon-boom CC0 pack was found) sound *right* in
+context is unverified and should be a human's first pass, not assumed.
+
+## Portraits (Requirement 9) — 20 of 27 closed, stock-art search came up empty
+
+Unlike M10's building models, no suitable free (CC0 or free-with-attribution) pirate-themed
+character-portrait pack was found. The one strong match — itch.io's "50 Avatar Pirate Icons," 50
+distinct pirate character avatars, 512×512 — requires a $0.70 minimum purchase, which this session
+had no authorization to make on the user's behalf. `opengameart.org`'s "CC0 Portraits" collection
+(200+ portraits, genuinely CC0) was checked directly and confirmed to have no pirate-themed entries
+among them.
+
+Per Requirement 9.2's own explicit fallback ("simple programmatic/stylized portraits — silhouettes,
+flat-color icon busts... if bespoke character art isn't feasible"), 20 originally-generated SVG
+flat-color icon-bust portraits were authored instead — a solid background color, a simple
+silhouette bust shape, and the character's initial, in `assets/portraits/`, one per captain,
+wired via each `CaptainData.portrait_path` and rendered in `IslandMenu.gd`'s Tavern tab through a
+new `PortraitFallback.apply_to_texture_rect()`. These are originally-authored placeholder-grade
+art, not sourced/licensed assets, so no attribution entry was needed.
+
+**Still open**: the 7 named cast (Higgins, Hale, Morrow, Hollis, Vance, Cárdenas, the Cartographer)
+have no portrait art and keep M9's monogram fallback — `TutorialDialogue.gd`'s
+`PortraitFallback.apply_to_label()` call site was left as-is rather than upgraded, since there was
+nothing to show through it yet. If a future milestone finds or commissions real character art for
+either group, `portrait_path` + `apply_to_texture_rect()` are both already in place; only the asset
+files and, for the named cast, a `TutorialDialogue.tscn` `TextureRect` addition (mirroring
+`IslandMenu.gd`'s Tavern-tab pattern) would be needed.
 
 ---
 

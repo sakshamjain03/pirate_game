@@ -79,7 +79,9 @@ func attempt_boarding() -> bool:
 	if enemy_dmg.is_destroyed():
 		_eligible_enemy = null
 		return false
-		
+
+	if AudioManager: AudioManager.play_sound("boarding_start")
+
 	var captain_mod = 1.0
 	if "active_captain" in player and player.active_captain:
 		captain_mod = player.active_captain.get("boarding_modifier") if "boarding_modifier" in player.active_captain else 1.0
@@ -89,7 +91,9 @@ func attempt_boarding() -> bool:
 	
 	var success = attacker_strength > defender_strength
 	var loot = {}
-	
+
+	if AudioManager: AudioManager.play_sound("boarding_success" if success else "boarding_fail")
+
 	if success:
 		player_dmg.crew = max(0.0, player_dmg.crew - player_dmg.ship_stats.max_crew * boarding_data.win_crew_loss_fraction)
 		

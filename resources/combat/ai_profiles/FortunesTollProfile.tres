@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AIProfileData" format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/AIProfileData.gd" id="1_ai_prof"]
+
+[resource]
+script = ExtResource("1_ai_prof")
+role = 5
+aggression = 0.75
+preferred_combat_distance = 35.0
+flee_health_threshold = 0.1
+broadside_angle_tolerance = 35.0
+ammo_preference = "RoundShot"

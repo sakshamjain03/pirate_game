@@ -773,3 +773,702 @@ exactly one known LOD failure. 324 / 323 is the number to regress against.**
 |---|--------|------------|
 | D66 | 🔴 **D65's own fix can be silently defeated by the pre-existing chapter "overshoot" catch-up mechanic.** `CampaignManager._catch_up()` (runs at boot and after every save load) walks `current_chapter_index` forward through any chapter whose gate is satisfied, but only ever checks the *next* chapter's gate — never whether the chapter currently in progress has actually been completed. Chapters 3 and 5 are gated purely by region activation (no `required_previous_chapter`), and region activation tracks notoriety, which rises continuously from ordinary combat throughout every chapter, including the one whose boss hasn't been drawn/beaten yet. A player who keeps fighting while genuinely mid-Chapter-4 can easily cross Imperial Waters' notoriety threshold before defeating HMS Intransigent; the next boot or save load then jumps `_catch_up()` straight to Chapter 5. Chapter 4 is never marked complete, its objectives freeze (dispatch only ever targets `_current_chapter()`), its reward is never granted, and — because of D65's new `required_chapter_id` gate — HMS Intransigent becomes **permanently unreachable** in the ambient pool, since `is_chapter_current("ch4_...")` no longer matches. This is the exact "boss unreachable through normal play" failure D65 was written to close, reintroduced through a different path; the live/mid-play advancement path (`_advance_to_next_chapter()`) already guarded against this, `_catch_up()` was the one caller that didn't. | **Resolved.** `_catch_up()` now stops instead of advancing whenever `current_chapter_index` still points at a real, not-yet-completed chapter (`_current_chapter() != null`) — mirroring the safety `_advance_to_next_chapter()` already had. Verified against all 4 existing catch-up tests (unaffected) plus a new one pinning the exact failure mode: `test_catch_up_does_not_abandon_an_in_progress_chapter_for_a_region_gated_next_chapter` in `tests/test_campaign_manager.gd`. |
 | D67 | 🟡 **The checkpoint's recorded "323/322" GUT result does not reproduce.** A fresh full-suite run measured **323 tests, 321 passing, 2 failing** — the known LOD gap plus `test_destroying_the_composition_wins_and_pays_out` (`tests/test_encounters.gd`), which failed with gold before and after a reward grant both already pinned at the 5000 storage cap. `ResourceManager.current_resources` is a real autoload value nothing resets between test files; running `test_encounters.gd` alone passed cleanly (32/32), confirming pure cross-file state leakage — gold accumulated by earlier tests in the full run — not a defect in reward-crediting itself. Same defect class as the M7 pass's two prior `SaveManager`/`EmpireManager` test-isolation fixes, a third instance, previously undetected only because the full suite hadn't tipped gold over the cap until now. | **Resolved.** `tests/test_encounters.gd` now backs up `ResourceManager.current_resources` in `before_each()`, resets it to a known cap-safe baseline, and restores the backup in a new `after_each()` — the same backup/restore discipline `test_cold_start.gd`/`test_region_gates.gd` already use. Re-verified: full suite now reproduces cleanly at 324/323. |
+
+---
+
+## Presentation audit (2026-08-26) — D32 and D36 reopened, now resolved (M9)
+
+Found by actually running the game (`scenes/debug/CaptureHarness.tscn`, headful, zero input) and
+reading the resulting screenshots directly, then cross-checking the UI scene/script source — not
+by re-reading the fix descriptions below and trusting them. Both defects below were previously
+recorded as "Resolved" in this same document, under "Visual & physics defect sweep" above.
+**Neither reproduction used any input or unusual state — this is default fresh-run behavior.**
+M9 (Presentation Pass) closed all seven rows below; see `.kiro/specs/milestone-m9-presentation-pass/`
+for the full requirements/design/task record.
+
+| # | Defect | Status |
+|---|--------|--------|
+| D32 | Previously "Resolved" (0 errors claimed), then reopened 2026-08-26 (4 `Parameter "material" is null` startup errors reproduced). | **Resolved (M9), real root cause traced.** Not the camera spring arm (D31's fix is confirmed still correctly in place and was never the explanation) and not an ambient encounter/combat spawn path (disproved by disabling `EncounterManager.ambient_enabled` and `EnemySpawner.initial_enemies` — errors persisted regardless). Bisected via ~15 headful reproductions, narrowing by removing whole subsystems from a live `World.tscn` load (Camera → clean removal, no change; Systems managers → no change; WorldUI → no change; Islands → no change; Enemies → no change) until only `Ocean` + `PlayerShip` remained — and even that pairing only reproduced when loaded through the real `World.tscn`, not a synthetic recreation. The actual trigger: `World.gd._ready()` calls `SaveManager.call_deferred("load_game")`; when a save file exists (confirmed by moving `save_data.json` aside — 0 errors — then restoring it — 4 errors, every time), `load_game()` reassigns `player.ship_stats = FleetManager.get_active_ship()` (`SaveManager.gd` line ~220). `ShipController.ship_stats`'s setter (`ShipController.gd` line ~16) emits `ship_stats_changed` once the ship is `is_inside_tree()` — true by the time this deferred call runs — which re-triggers `ShipVisuals._rebuild_model()` a second time, freeing and rebuilding the hull model on a frame after the ship's own `_ready()`-time model (with correctly-applied materials) has already been submitted for that same frame's render. The renderer's dirty-material sync catches the old/new model mid-swap during that single transition. Confirmed harmless: every captured screenshot (including the very first frame) shows the ship correctly modeled and materialed; no test failure, no visible glitch, no gameplay impact — purely a one-time startup log artifact from a legitimate save-triggered model rebuild. Left undisturbed per Requirement 2 AC2's explicit allowance for a conclusively-traced harmless cause, rather than restructuring `ShipVisuals`/`KenneyMaterialApplier`'s rebuild timing for a cosmetic log line. |
+| D36 | Previously "Resolved", then reopened 2026-08-26 (notoriety/escalation label visibly overlapping the resource bar). | **Resolved (M9).** Root cause: `WorldHUD._create_notoriety_label()`'s `offset_top = 52.0` and `ResourceBar`'s own `offset_bottom = 52.0` were two independently-hardcoded constants with no structural link; `ResourceBar`'s actual rendered height (driven by real content) could exceed its authored rect. Fixed by wrapping `ResourceBar`, the notoriety label, and the Captain's Log/World Map buttons together inside a new `TopRightPanel` `VBoxContainer` (`WorldHUD.tscn`) — Godot's own container layout, not a hand-typed offset, now guarantees they can't overlap regardless of content height. A first version of this fix cleared the resource-bar/notoriety-label overlap but silently introduced a *new* one between the notoriety label and the Captain's Log button (which still used an independent hardcoded `offset_top = 100.0` calibrated against the label's old, shorter position) — caught by a fresh headful capture, not by the new GUT test alone, which only checked the original pair. Fixed by moving the Log button into the same `TopRightPanel` stack. `tests/test_world_hud_layout.gd` now checks all three pairwise combinations (resource bar, notoriety label, Log button) at two viewport sizes. |
+
+**New findings from the same pass, now resolved (M9):**
+
+| # | Defect | Status |
+|---|--------|--------|
+| D68 | `announce_event()` rendered its banner as large, unframed, raw red `Label` text directly over the 3D world. | **Resolved (M9).** `WorldHUD.announce_event()` now wraps the label in a themed `PanelContainer` (dark-navy `StyleBoxFlat`, gold border, matching `PauseMenu`/`DeathScreen`). Added `is_warning: bool = false`; default color is gold/cream (`PirateThemeBuilder.COLOR_GOLD_BRIGHT`), the original alarm-red is now opt-in (`_on_dock_speed_exceeded()`, `_on_save_load_failed()`). Full-width auto-wrap and fade tween preserved. |
+| D69 | Tutorial dialogue, the combat cannon-cooldown panel, and ambient encounters rendered with no arbitration between them. | **Resolved (M9).** `TutorialDialogue.gd` joins a `"tutorial_dialogue"` group (mirroring `WorldHUD`'s existing `"hud"` group lookup) and exposes `is_blocking()`. `WorldHUD.gd` connects to its `visibility_changed` signal and dims `CannonsContainer` (`modulate.a = 0.35`) while it's open. `EncounterManager._start_random_ambient()` returns early if a blocking tutorial dialogue is open — a second boolean gate alongside the existing `required_chapter_id` check, not a general focus-stack system. |
+| D70 | `SettingsMenu.tscn`/`CreditsScreen.gd` never called `PirateThemeBuilder.build()`, the only two unthemed screens in `scenes/ui/`. | **Resolved (M9).** Both now apply the theme to their root `Control` child in `_ready()` (their `CanvasLayer` roots can't carry a theme directly, matching `MainMenu.gd`'s existing pattern), and both `.tscn`s gained a `ColorRect(0,0,0,0.7)` background overlay copied from `PauseMenu.tscn`. No settings-functionality changes; `tests/test_settings_menu.gd`'s dependency-injection pattern (`settings_manager`/`audio_manager` exports) is untouched. |
+| D71 | `MainMenu.tscn`'s title had no font-size hierarchy; 2 of 5 buttons were inconsistently styled; a `VignetteOverlay` was authored but dead. | **Resolved (M9).** `TitleLabel` → 56px, `SubtitleLabel` → 20px (title > subtitle > body hierarchy). `CreditsButton`/`QuitButton` now carry the same 28px override as the other three buttons; their emoji prefixes were stripped to match. `VignetteOverlay` deleted (confirmed zero code references first). `MainMenu.gd` navigation logic untouched. |
+| D72 | `IslandMenu.tscn`'s main panel was a hardcoded `custom_minimum_size = Vector2(600, 400)`, not responsive. | **Resolved (M9).** Removed the `CenterContainer` wrapper (which ignored its child's anchors entirely) and reparented `Panel` directly under the root `Control`, with `anchor_left/top = 0.1`, `anchor_right/bottom = 0.9`, and a `Vector2(480, 320)` minimum-size floor. `IslandMenu.gd` resolves every node via `%UniqueName`, so the reparent needed no script changes; all six tabs already used `SIZE_EXPAND_FILL` with no fixed-width assumption. |
+
+**Requirement 8 (portrait fallback) — premise didn't match the codebase.** The M9 spec described
+"a generic purple skull-and-crossbones icon for any character with no portrait" as the problem to
+fix. No skull icon existed anywhere in the codebase. The actual state: `TutorialDialogue.tscn`'s
+`PortraitLabel` was hardcoded to the same 🏴‍☠️ emoji for *every* speaker regardless of
+`portrait_path` (`CaptainData.gd`/`DialogueBeatData.gd`), which was otherwise completely unread by
+any code. Fixed the real underlying problem instead: added `scripts/ui/PortraitFallback.gd`
+(`apply_to_label()`/`apply_to_texture_rect()`) — loads a real portrait if `portrait_path` resolves,
+otherwise renders a themed monogram (the speaker's initial, gold-on-navy) so each character reads as
+a distinct, deliberate design choice rather than one static glyph standing in for all 27. Wired into
+`TutorialDialogue.gd._render_current_beat()`, replacing the static hardcoded emoji. (M11 later added
+real `portrait_path` assets for the 20 captains, exercising the "real portrait" branch for the first
+time; the 7 named cast still fall through to the monogram.)
+
+**Unplanned, found during M9's own verification pass — D73, a pre-existing GUT-suite crash:** the
+full suite segfaulted ("Lambda capture ... was freed") partway through, reproducing identically on
+the pre-M9 codebase (confirmed via `git stash`) — not caused by any M9 change. Root cause: 15 test
+files (`test_ammo_properties.gd`, `test_battle_upgrades.gd`, `test_boarding.gd`,
+`test_captain_abilities.gd`, `test_cartagena_buildable.gd`, `test_combat_integration.gd`,
+`test_combat_loop_end_to_end.gd`, `test_damage_model.gd`, `test_empire_scaling.gd`,
+`test_encounters.gd`, `test_enemy_roles.gd`, `test_firing_solver.gd`, `test_ship_combat.gd`,
+`test_ship_damage_visuals.gd`, `test_ship_progression.gd`) share an identical
+`if not get_tree().current_scene: create a "TestScene" node` pattern with no matching cleanup —
+whichever file runs last (alphabetically) before `test_navigation_integration.gd` leaks a node that
+corrupts that file's later real `get_tree().change_scene_to_file()` call. **Resolved.** All 15 now
+track the node they created (`_created_test_scene`) and free it / restore `current_scene` to `null`
+in `after_each()`. Same defect class as D67 (`ResourceManager.current_resources` leaking across
+test files) — a fourth instance of tests polluting global engine/tree state for whichever file
+happens to run afterward.
+
+**Not a defect, worth recording:** `PirateThemeBuilder.gd` itself (gold/navy palette matching the
+concept art, `Cinzel`/`PirataOne` fonts, bordered `StyleBoxFlat` panels) is a competent, intentional
+theme already applied to every screen (MainMenu, IslandMenu, DeathScreen, PauseMenu, CaptainsLog,
+RaidReportScreen, TutorialDialogue, UpgradeChoiceScreen, WorldHUD, and now SettingsMenu/
+CreditsScreen). D68–D72 were composition/consistency/regression problems, not a wrong visual
+language — a bounded fixing pass, not a redesign. Full audit and the resulting roadmap change (new
+milestone M9 — Presentation Pass, inserted ahead of the world-expansion work):
+`docs/15_MASTER_PLAN.md` §8.
+
+**Lesson, consistent with D9/D11/D15/D42/D57/D66/D67 above:** this is the third distinct class of
+"verified, then didn't hold up" in this project's history — static code review missed scene-file
+wiring (D9/D11), self-reported checkpoints missed real runtime state (D15/D42/D57/D66/D67), and now
+an automated screenshot at fixed timestamps with zero input missed HUD composition problems a
+human looks at once and immediately sees. All three are real gaps in verification method, not
+one-off mistakes — each closed by *changing what "verified" means* for that category of defect, not
+by trying harder at the same method. **M9 adds a fourth instance of the same pattern**, this time
+inside the fix itself: Task 1's own first attempt (the resource-bar/notoriety-label pair) passed its
+own new GUT test and looked correct in isolation, but a fresh headful capture caught a second,
+narrower overlap (notoriety label vs. the Captain's Log button) that the test's original scope
+didn't check. A property test only proves what it actually asserts — widening it to cover every
+sibling in the same layout cluster, not just the two elements named in the original bug report, is
+what actually closed it.
+
+**New, found but not fixed — `CaptureHarness.tscn` hangs, not part of M9's scope.** While capturing
+this milestone's own checkpoint screenshots, `godot --path . scenes/debug/CaptureHarness.tscn
+--capture-dir=<dir>` hung reproducibly (twice, ~15-60 minutes each with declining then near-zero CPU
+usage, zero PNGs written — earlier in the same session, before this started happening, the same
+command had completed normally in ~13 minutes). Isolated: `scenes/world/World.tscn` loaded directly
+via a `-s <script>` `SceneTree` script (bypassing `CaptureHarness.tscn`/`ScreenshotCapture.gd`
+entirely) ran cleanly through all 720 frames every time, including at full scale with every M9/M10/
+M11 system present. The hang is specific to the `CaptureHarness.tscn`-as-declared-main-scene path,
+not `World.tscn` itself. Root cause not diagnosed — out of M9's scope, and chasing it further would
+have meant debugging pre-existing project tooling (`ScreenshotCapture.gd`/`CaptureHarness.tscn`),
+not a presentation-pass defect. Worked around for this milestone's checkpoint by taking the same
+screenshots via a `-s` script instead. Worth a real diagnosis before the next milestone that needs
+`CaptureHarness` for its own checkpoint.
+
+---
+
+## M10 — The Legible World (2026-08-27)
+
+Implemented against `.kiro/specs/milestone-m10-legible-world/`, in parallel with M9 in the same
+working tree (M9 owned presentation/UI-composition files; M10 avoided editing `WorldHUD.gd`/
+`EncounterManager.gd` until M9's own edits to them had settled, then added one small,
+additive change to each). Re-verified the spec's assumptions against the actual codebase before
+starting per the spec's own instruction to do so — several had already drifted (see "Corrections
+found" below).
+
+**Verification status: engine-verified, 2026-08-27.** No Godot 4.3 binary existed anywhere on the
+development machine initially (thorough search: project root, PATH, common install/download
+locations, a full filesystem sweep) — the only one found was a WinGet-installed **4.7.1**, which
+fails outright on this project (`CampaignManager.gd`, `TutorialManager.gd`, and the GUT addon
+itself all fail to parse under it — a real cross-version GDScript incompatibility, not a fixable
+one-liner). Installed a real 4.3 side-by-side (`winget install --id GodotEngine.GodotEngine
+--version 4.3 --force`) and used it to actually run both required checks:
+- **GUT suite: 326/326 passing, 0 failures** — the first 0-known-failures result in the project's
+  history, closing `test_property_21_lod_distance_transitions` for real. Getting here required
+  fixing two real bugs the run itself caught (a GDScript static-typing parse error in
+  `WorldMapScreen.gd`; a stale `.godot` global-class cache from the earlier failed 4.7.1 attempt,
+  which needed a full headless-editor rescan — `godot --headless --editor --quit-after 4000` —
+  not just deletion, to rebuild correctly) and updating a pre-existing test file
+  (`tests/test_world_map_layout.gd`) that still hardcoded the pre-Expanded ring bands and the
+  original 6-island count.
+- **Headful `CaptureHarness`: run and reviewed** (5 frames across the default Chapter 1 boot
+  sequence). Confirmed: no HUD element overlaps another (including the new "Map" button), the
+  ocean renders continuously with no visible LOD seam, tutorial dialogue and its fade-out tween
+  work, live combat HUD updates correctly, the Expanded map's greater scale reads visually (several
+  islands visible on the horizon from a single vantage point). **Not exercised by this particular
+  capture** (it runs the game's default boot sequence, not a scripted tour): opening
+  `WorldMapScreen` itself, an actual LOD near/far ring boundary crossing on screen, a per-region
+  weather change, the new ship-sinking visual state. Each of those is backed by a passing unit
+  test but wants a longer manual playthrough to actually see rendered.
+
+### Corrections found during re-verification (spec assumptions vs. actual code)
+
+The spec (written 2026-08-26, before M9 shipped) assumed several things that had already changed
+or were never quite accurate:
+- `IslandData.world_position`/`region_id` already existed (at Compact-layout values) before M10
+  started — only Wave 2's task 6 ("add the fields") was already done; the *values* still needed
+  moving to Expanded, and `World.tscn`'s node transforms still needed wiring to read from the data.
+- `EnemySpawner`'s spawn box was already **not** the ±100 world-origin box the spec described — it
+  had already been converted to player-relative `min_spawn_distance`/`max_spawn_distance`
+  `@export`s, which self-scale with map size with no change needed.
+- The "three authored ambient-enemy spawn regions" the spec asked to move don't exist as a
+  literal entity — reinterpreted as scaling `World.tscn`'s `PlayerShip`/`EnemyShip1-3` placeholder
+  transforms by the same ×2.5 as the islands.
+- `WorldManager` already had a scaffolded-but-dead `island_discovered` signal, and
+  `CampaignManager` already had a `DISCOVER_ISLAND` dispatch path (wired to docking only) — Wave 4
+  was mostly "add the proximity check that finally calls what already existed," not new plumbing.
+- Building-model art (Wave 8) was already ~90% done (45 of 50 `resources/buildings/*.tres` already
+  had real vendored Kenney models assigned, from an earlier undocumented pass) — the spec's
+  "currently 0 of 54 models" framing was stale. Only the Farm chain (actually the Rum Distillery —
+  an id-naming holdover, see below) had no `model_path` set.
+
+### Requirement 1 — Ocean LOD
+
+Closes the project's one long-standing failing test. `scenes/world/Ocean.tscn`'s single
+14,641-vertex `PlaneMesh` (`600×600`, `120×120` subdivisions, uniformly dense everywhere) is now
+two concentric rings sharing one `ShaderMaterial`: `WaterMeshNear` (`300×300`, `60×60` subdiv —
+same per-quad density as the old mesh) and `WaterMeshFar` (`1200×1200`, `40×40` subdiv, offset
+`-0.05` on Y to avoid z-fighting where the two overlap). Both recenter under the camera together
+every frame exactly as the old single mesh did (`OceanController._follow_camera()`, unchanged) —
+so there's no runtime LOD-level switching and thus nothing to visually pop; it's a fixed
+camera-relative density gradient, not a distance-band transition. `OceanController.get_lod_level(
+distance) -> int` reports which ring a distance falls in (closes
+`test_property_21_lod_distance_transitions`, which only checks for this method's existence).
+`WaveGenerator.get_water_height_at()` (the CPU sampling `BuoyancySimulator` floats ships on) is
+untouched — it's pure math over world position, never mesh geometry, so LOD only affects what's
+drawn.
+
+### Requirement 2 — Expanded map layout
+
+All 6 original islands' `world_position` moved to the Expanded coordinates (Compact × 2.5,
+`docs/11_WORLD_MAP.md` §4b): Port Royal (0,0), Tortuga (−175, 137.5), Skull Cove (100, −375),
+Frostbite Reef (375, 150), Mount Brimstone (−450, −375), Cartagena Outpost (−500, 400).
+`Island.gd::_ready()` now writes the node's `global_position` from `island_data.world_position`
+(XZ only, Y stays whatever the scene authored) whenever `island_data` was actually assigned —
+making the data authoritative rather than agreeing with `World.tscn`'s hand-placed transforms only
+by convention. `World.tscn`'s transforms were also updated to the same values (for accurate editor
+preview) plus `PlayerShip`/`EnemyShip1-3`'s placeholder transforms scaled the same ×2.5.
+`EnemySpawner`'s spawn distances needed no change (see "Corrections" above).
+
+### Requirement 3 — World map UI
+
+New `scenes/ui/WorldMapScreen.tscn` + `scripts/ui/WorldMapScreen.gd`: three concentric region rings
+drawn via `Control._draw()` at radii from the new `RegionData.display_ring_radius` field (275 /
+450 / 675 u), island markers from `IslandData.world_position` for discovered islands only
+(undiscovered islands are omitted entirely, not shown as a "?" — real fog of war, matching
+`docs/00_VISION.md`'s Explore-pillar framing more than a spoiler-y placeholder pin would), a player
+position/heading triangle reusing the same ship `global_position`/`global_rotation_degrees.y`
+`WorldHUD`'s compass needle already reads, and a "View Log" button opening the existing
+`CaptainsLog` rather than duplicating its objective list. Opened via a `WorldHUD` "Map" button
+built with the exact same dynamic-positioning pattern as `_create_captains_log_button()` (a fourth
+child of `TopRightPanel`, container-positioned).
+
+### Requirement 4 — Discovery / fog of war
+
+`WorldManager._check_island_discovery()` (new, called from `_process()`) checks the player's
+distance to every undiscovered island in `active_islands` against a configurable
+`@export var discovery_radius: float = 80.0`, and on first entry emits the previously-scaffolded-
+but-never-called `island_discovered` signal. `CampaignManager` now connects to it (mirroring how it
+already connects to `player_docked`) via a new `_on_island_discovered()` handler, factored out of
+`_on_player_docked()` so both the dock path and the new proximity path share the same
+`_mark_discovered()` write and `DISCOVER_ISLAND` objective dispatch without duplicating either.
+
+**Real bug found and fixed along the way:** `IslandData.discovered` was never actually persisted —
+`SaveManager.save_game()`'s `"islands"` section only ever stored each island's built-building-id
+array, nothing else, so `discovered` silently reset to `false` on every load regardless of how it
+was set at runtime. Now saved as `{"buildings": [...], "discovered": bool}`, with `load_game()`
+handling both the old flat-array format (pre-M10 saves) and the new dict format for backward
+compatibility.
+
+### Requirement 5 — Per-region weather and enemy types
+
+`RegionData` gained `wave_intensity_multiplier`/`fog_density_multiplier` (Beginner 1.0/1.0,
+Contested 1.3/1.2, Imperial 1.6/1.4) and `enemy_ship_pool: Array[ShipStats]`. `EnvironmentController`
+tracks the player's nearest-island region once a second and, on change, scales
+`OceanSettings.wave_height`/`wave_speed` from cached pristine base values (not from the live shared
+resource — see the note below) by `wave_intensity_multiplier`; `fog_density_multiplier` is
+authored but not yet wired to any shader parameter (the water shader's fog is horizon-color tinting,
+not a density value — no hook exists yet). `EnemySpawner._spawn_enemy()`/`spawn_hunter()` pick a
+random `ShipStats` from the current region's `enemy_ship_pool` (Beginner: Sloop/Dinghy, Contested:
+Schooner/Brigantine/Corvette, Imperial: Frigate/Galleon) before applying `compute_spawn_multiplier()`
+on top, falling back to the old single-default-hull behavior when a region's pool is empty. New
+`scripts/world/EventData.gd` resource (`event_id`, `display_text`, `weight`, `min_region_tier`) with
+one `.tres` per existing hardcoded `EventManager` event under `resources/world/events/`, loaded via
+the same `DirAccess`-scan pattern `EmpireManager` uses for regions; `_trigger_random_ocean_event()`
+now does a weighted-random pick gated by the player's current region tier instead of a flat
+`randi() % 3`.
+
+*(This requirement's implementation was drafted by a background agent in an isolated worktree, then
+merged into the main working tree by hand rather than copied verbatim — the worktree branched from
+the last commit and so didn't see this same session's other in-progress M10 changes. Two real bugs
+were caught and fixed during that merge, not present in what shipped: (1) the event-selection
+fallback branch appended to `eligible_events` without a matching `weights` entry, which would have
+thrown an index-out-of-bounds if every loaded event's `min_region_tier` ever exceeded the player's
+current tier; (2) `EnvironmentController` originally cached `_base_ocean_settings` as a reference to
+the same shared `OceanSettings` resource `OceanController` mutates, not a copy — so the "base" value
+would have been overwritten by the first region's multiplier, and a second region change would have
+compounded on top of the first instead of applying fresh. Fixed by caching `_base_wave_height`/
+`_base_wave_speed` as plain floats instead.)*
+
+### Requirement 6 — Ship damage visuals follow-up
+
+`ShipVisuals` gained a `hull_sinking_threshold` (default 0.10, below `hull_critical_threshold`'s
+0.25) — the last open item from `docs/navalCombat.md` §7. Below it: heavier smoke (the existing
+particle system's velocity/scale bumped, not a second system) and a `sinking_list_degrees` (9°)
+roll applied to `_model_instance` only, never the parent `ShipController`'s own transform — so
+`BuoyancySimulator`'s physics and `FiringSolver`'s arc geometry (both of which read the real hull
+transform) are unaffected. Same `ShipDamage.pool_changed` signal M8's damaged/critical states
+already use, same cached-clean-state repair-restores-exactly pattern. New test:
+`tests/test_ship_damage_visuals.gd::test_sinking_damage_lists_the_hull_and_heals_upright`.
+
+### Requirement 7 — 2–4 new islands
+
+Three new islands, one per existing region (not a new region): Pelican Cay (Beginner, neutral —
+a resource-stop island), Blackwater Shoal (Contested, enemy — Royal Navy waystation), Isla del Rey
+(Imperial, enemy — Spanish garrison). Full dossiers in `docs/11_WORLD_MAP.md` §6. All placed within
+their region's Expanded ring band, ≥ 100 u clear of every neighbour (well past the 40 u physical
+minimum). No new mechanics — same shared `Island.tscn`, same `DockingSystem`.
+
+### Requirement 8 — Building-model art sourcing
+
+Closed as a full 50/50 assignment, not a partial one. 45 of 50 `resources/buildings/*.tres` already
+had real vendored Kenney models from an earlier undocumented pass (Watchtower → `tower-watch.glb`,
+Fortress → `tower-complete-large.glb`, Academy → `tower-middle-windows.glb`, Mine →
+`tower-base.glb`, Warehouse → `tower-complete-small.glb`, Market → `structure-platform-small.glb`,
+Lumber Mill → `structure-platform.glb`, Shipyard → `structure-platform-dock-small.glb`, Tavern →
+`castle-door.glb`). The remaining 5 (`Farm_L1..L5.tres` — actually the **Rum Distillery** chain, an
+id-naming holdover unrelated to farming; `building_name`/`description`/`produces_resource` all say
+"rum") got `crate-bottles.glb`, matching the same one-model-per-whole-chain convention every other
+chain already uses. `docs/10_ASSET_REQUESTS.md` updated with a status callout — the custom-art
+generation prompts it contains were never used.
+
+### Requirement 9 — Minimal save-schema version stamp
+
+`SaveManager.SAVE_SCHEMA_VERSION := 1`, written as `save_schema_version` at the top level of
+`save_game()`'s dict, read (not migrated) by `load_game()` defaulting absent values to `0`. Purely
+additive, no other save/load behavior changed.
+
+### Test suite
+
+**326 tests, 326 passing, 0 known failures** — confirmed by a real Godot 4.3 GUT run (see the
+verification-status callout at the top of this section). First 0-known-failures result in the
+project's history; **326/326 is the new number to regress against.** Two new tests were added
+during M10 (`test_ship_damage_visuals.gd`'s sinking-list test for Requirement 6;
+`tests/test_world_map_layout.gd` gained the 3 new islands and Expanded ring bands rather than a
+net-new test file). No existing test's behavior changed.
+
+## M11 — Depth (2026-08-28)
+
+Implemented against `.kiro/specs/milestone-m11-depth/`, entirely in this session (no second
+implementing agent, per `docs/07_AI_AGENT_WORKFLOW.md`). Started only after independently
+re-verifying M10's checkpoint (326/326 GUT, headful capture reviewed) had actually passed, per
+Rule 8. Two spec-drift corrections made with direct evidence before implementing, not guesses: the
+boss-count arithmetic in `requirements.md` ("bringing the total to 3") was stale — 3 boss
+`EncounterData` files already existed pre-M11 (Ghost Ship, Intransigent, Cárdenas), not 1 — so the
+literal "2 new dedicated bosses" acceptance criterion was followed as written, landing at 5 total;
+and the content-volume table in `docs/14_SYSTEM_INVENTORY.md` was refreshed in full (not just the
+M11-owned rows), since several unrelated rows (Chapters, Islands) had been stale since before M7/M10.
+
+**Verification status: engine-verified, 2026-08-28.** Full GUT suite run for real at the final
+checkpoint; the headful `CaptureHarness` capture is from mid-milestone (a final re-run hung — see
+below), not self-reported in either case:
+- **GUT suite: 391/391 passing, 0 failures.** Entered the milestone at M10's verified 326/326
+  baseline; every test added across all 9 waves is additive (65 new tests), no existing test's
+  expected behavior changed except where Wave 3's armor-facing change made an existing test's
+  premise genuinely obsolete (see Requirement 4 below — updated, not weakened). Two real
+  regressions were caught and fixed mid-implementation by this same GUT discipline: a storage-cap
+  interaction that silently zeroed a trade-route gold-gain assertion (`ResourceManager.max_storage
+  ["gold"] = 5000`, and the test's own `before_each()` was topping gold up to exactly that cap —
+  fixed by draining to a known baseline before measuring a delta, not by raising the cap), and a
+  pre-existing `test_combat_loop_end_to_end.gd` gold-increase assertion that was order-dependent on
+  ambient economy-tick timing across the full suite (fixed by pinning gold to a known-low value
+  before capturing `gold_before`, the same fix category).
+- **Headful `CaptureHarness`: run and reviewed mid-milestone (after Wave 3), not successfully
+  re-run at the final checkpoint** (5 frames across the default Chapter 1 boot sequence, same
+  harness M10 validated). Confirmed at that point: world/ship/island rendering intact, no new
+  script errors from Waves 1–4's changes (including wind/arcing/armor), ocean/HUD render
+  correctly. A final re-capture attempt after Waves 5–9 hung indefinitely (~8 minutes, unlike
+  every other run this session) for an unresolved reason and was killed rather than left
+  blocking — Waves 5–9 are content authoring/UI/asset wiring, covered by the 391/391 GUT suite,
+  not a second category of rendering risk the way Wave 3 was. **Not exercised by either capture**
+  (the tutorial dialogue blocks headless progression past the opening beat, and this project has no
+  scripted-input capture tool): the wind indicator's actual on-screen rotation, a live cannon shot's
+  visible arc, hull-facing armor's effect on the damage-tint threshold, and the new captain
+  portraits in the Tavern tab. Each is covered by a passing unit test (wind direction/speed math,
+  cannonball flight-time-to-splash, facing-multiplier composition, portrait asset resolution) but
+  genuinely wants a human playtest to see rendered — flagged explicitly rather than claimed, per
+  this project's established "needs a human at the controls" discipline for camera/gamepad/shader
+  work. **Wave 7 (audio) is the one item in this milestone verifiable by ear, not by screenshot or
+  test** — a human listening pass has not happened.
+- A custom combat-specific capture harness (spawn an enemy, wait for auto-fire, catch a cannonball
+  mid-flight on screen) was attempted and abandoned — it hung indefinitely even after fixing an
+  obvious cause (duplicate node names), for a reason not root-caused given the milestone's scope.
+  The files were deleted rather than left as broken debug tooling in the tree.
+
+### Requirement 1 — Tech tree expansion
+
+`TechData.gd` gained `required_island_tier: int` (mirrors `BuildingData`'s existing tier-gate
+pattern exactly) and `required_prerequisite_tech_id: String`. `TechManager.gd` gained
+`can_research(tech, island_tier) -> bool`, the single gate check both the tier and prerequisite
+conditions route through — `IslandMenu.gd`'s Research tab calls it rather than duplicating the
+tier/prerequisite comparison inline, so there's one source of truth for "can this be researched"
+tested independently of the UI (`tests/test_tech_gating.gd`). Tech loading switched from a
+hardcoded filename list to a `DirAccess` scan of `resources/techs/` (the same pattern
+`EventManager` already used for `resources/world/events/`), so adding a tech no longer requires a
+matching code edit.
+
+11 new techs authored (2 → 13 total, within the 12–15 target), forming two real 4-deep
+prerequisite chains rather than a flat unlock-anything list (Requirement 1.2's explicit "not all
+available from game start"): a health chain (`reinforced_hulls` → `sturdier_hulls` →
+`heavy_plating` → `mastercraft_hulls`) and a damage chain (`advanced_cannons` → `cannon_mastery` →
+`powder_efficiency` → `siege_cannons`), plus a shorter storage chain (`larger_storage` →
+`deep_hold` → `grand_cargo`) and a 2-deep speed chain (`swifter_sails` → `copper_plating`). No 5th
+modifier category was added — every new tech expresses its effect through the 4 categories
+`TechManager` already applies (health/damage/speed/storage). Costs authored against
+`docs/BALANCE_MODEL.md`'s tier bands (see Requirement 10).
+
+### Requirement 2 — Wind and sail-trim mechanic
+
+`RegionData.gd` gained `wind_strength: float` (0–1) and `wind_direction_degrees: float`, authored
+per region on the same calm-to-harsh escalation M10 already established for
+`wave_intensity_multiplier` (Beginner 0.2, Contested 0.5, Imperial 0.8). `ShipMovement.gd`'s
+existing multiplicative `speed_mod` chain (captain ability → sail-damage penalty → battle-upgrade
+`speed_mult`) gained wind as one more term — a ship heading the same way the wind blows (dot +1)
+runs fastest, heading into it (dot −1) is slowest, `lerp(0.85, 1.15, ...)` scaled by the region's
+`wind_strength`. Applies to every ship, player and AI. Deliberately never touches
+`BuoyancySimulator` or the yaw servo — this project's own fragility note on ship stability (4
+stacked historical root causes) made that a hard constraint, not a suggestion.
+
+Wind is discovered via a new `"environment_controller"` group (`EnvironmentController.gd` joins it
+in `_ready()`) and a new `get_current_region() -> RegionData` accessor, looked up once per
+`ShipMovement`/`WorldHUD` instance rather than every physics frame. **Real bug found while wiring
+this**: `if node:` truthy checks on a cached-but-since-freed node reference don't catch a freed
+instance in GDScript (a freed `Object` isn't `null`, just invalid) — this threw "previously freed
+instance" errors across unrelated test files once a fake `EnvironmentController` in one test's
+`after_each()` was freed while another cached reference still pointed at it. Fixed with
+`is_instance_valid()` in both `ShipMovement.gd` and `WorldHUD.gd`.
+
+Visual legibility: `WorldHUD.tscn`'s `CompassPanel`/`CompassNeedle` gained a `WindArrow` label
+nested inside `CompassNeedle` (inherits the same ship-yaw rotation the N/S/E/W letters get "for
+free," so its own local rotation only needs to add the wind's bearing on top), visible only when
+`wind_strength > 0`, opacity scaled by strength.
+
+### Requirement 3 — Cannonball arcing
+
+`Cannonball.tscn`'s `gravity_scale` raised from 0.5 to 0.7 — real, more pronounced curvature than
+the near-flat 0.5 M8 shipped, quantitatively verified (`tests/test_cannonball_arcing.gd` asserts
+the ball drops further at a fixed elapsed time than the old gravity_scale would have, not just
+"some gravity exists"). Rather than accept the resulting ~29% shorter flight time as a stealth
+range nerf across every ship (Requirement 3.3's explicit "shall not regress cannon_range's
+already-balanced reach"), every ship's `cannon_speed` was raised by the exact compensating factor
+(`old_flight_time / new_flight_time ≈ 1.41`) so authored `cannon_range` values didn't need to
+change at all — reach is preserved, only flight time and visual arc changed. `cannon_range`/
+`chaser_range` values across all 11 ship resources are untouched.
+`test_combat_integration.gd`'s reachability assertion (`FALL_TIME`) updated from 0.83 to 0.70 to
+match the real new physics, re-verified against every ship, not weakened. `FiringSolver.gd` needed
+no changes — its range gates are pure distance/angle, no ballistics in the solver itself.
+
+### Requirement 4 — Hull-facing armor variance
+
+`ShipStats.gd` gained `bow_armor_multiplier` (default 0.75 — thick forward timbers *reduce*
+damage, unlike `stern_crit_multiplier` which *increases* it because the stern is the exploitable
+weak point) and `bow_arc_degrees` (**defaults to 0 — off**, not the stern arc's 60°). This was a
+deliberate choice, not an oversight: a nonzero default would have silently changed the damage
+taken by every existing test that reuses `Vector3.FORWARD` as a generic "any direction" hit vector
+(a real, wide-established idiom across 8+ pre-existing test files, since only the stern used to be
+special-cased). `ShipDamage.apply_hit()` now computes facing once — stern arc takes priority
+(unchanged behavior) over bow, anything outside both arcs takes the `broadside_armor_multiplier`
+baseline (default 1.0) — applied before the existing ammo-type multipliers, extending the stack
+rather than replacing the stern-crit line.
+
+`bow_arc_degrees`/`bow_armor_multiplier` were then explicitly authored onto every real ship
+resource (all 8 player ships, `EnemyShipStats`, `GhostShipStats`, `CardenasEscortStats` at the
+standard 60°/0.75; **HMS Intransigent at a wider 70°/0.5** — making the boss's established "heavy
+front armour" flavor text from `docs/13_CAMPAIGN_LEVELS_1-5.md` §6 an actual mechanical incentive
+to out-turn her and work the stern arc, not just narration). One pre-existing test
+(`test_ship_damage_visuals.gd`, 4 assertions tuned to exact hull-fraction thresholds) switched its
+hit vector from `Vector3.FORWARD` to `Vector3.RIGHT` (squarely broadside) since `EnemyShipStats`
+now has real bow armor and a frontal hit would no longer deal the fraction those thresholds were
+authored against — a real, documented behavior change, not a weakened test.
+
+### Requirement 5 — 2 more bosses
+
+**The Iron Vulture** (`resources/enemies/IronVultureStats.tres`, 220 HP, class 3) — an artillery
+specialist: `AIProfileData` role BOSS, `ammo_preference = "ChainShot"` (crippling sails, teaching
+mobility over volume of fire), `cannon_range` authored at ~85% of reachable distance rather than
+every standard hull's ~75%, giving her a genuine outranging advantage that backs the AI flavor with
+real mechanical teeth. Ambient, Contested Waters (`min_region_tier = 2`).
+
+**Fortune's Toll** (`resources/enemies/FortunesTollStats.tres`, 350 HP, class 4) — a balanced
+privateer with `has_bow_chaser = true`, a positioning threat distinct from Intransigent's tanking
+and Cárdenas' multi-stage escalation. Ambient, Imperial-adjacent (`min_region_tier = 3`).
+
+Both follow the dedicated-scene pattern (`IronVultureBoss.tscn`/`FortunesTollBoss.tscn`, cloned
+from `BossShip.tscn`'s structure with only `ship_stats`/`ai_profile` swapped) rather than reusing
+the generic `BossShip.tscn` — **a real architecture finding along the way**: `BossShip.tscn`
+hardcodes `ship_stats = ManOWar.tres` in the scene file itself, and ambient bosses (Ghost Ship)
+don't route through `EncounterData`/`EncounterManager` at all despite `GhostShipBoss.tres`
+(`resources/combat/encounters/`) existing — the real ambient-spawn mechanism is a hardcoded
+`event_id` match-case in `EventManager.gd` calling a dedicated `_spawn_*_boss()` function per boss.
+`GhostShipBoss.tres`'s `EncounterData` file is effectively dead data for the ambient path (only
+chapter-gated bosses actually consume `EncounterData` via `EncounterManager`). Both new bosses
+follow the *real*, working mechanism (`EventData` + a dedicated `_spawn_iron_vulture_boss()`/
+`_spawn_fortunes_toll_boss()` function in `EventManager.gd`) rather than authoring more dead
+`EncounterData` files to match the existing (inconsistent) precedent.
+
+### Requirement 6 — Diplomacy and trade routes
+
+**Tribute**: `FactionManager.pay_tribute(faction_id) -> bool` — spends `TRIBUTE_COST_GOLD` (500) for
+`TRIBUTE_REPUTATION_GAIN` (+15) reputation, gated by a 300-second per-faction cooldown
+(`_tribute_cooldown_remaining`, ticked in a new `_process()`). Surfaced in `IslandMenu.gd`'s Trade
+tab as a "Pay Tribute" entry per faction, disabled while on cooldown or unaffordable. Save format
+kept **flat** (reputation scores directly at the dict's top level, cooldowns under one namespaced
+`_tribute_cooldown_remaining` key) specifically to avoid breaking `test_faction_manager.gd`'s
+existing round-trip test, which reads `saved[faction_id]` directly — a nested
+`{"reputation_scores": {...}}` shape was tried first and reverted once that test caught it.
+
+**Trade routes**: `FleetManager.assign_trade_route(ship_index, captain_index, route_name,
+region_tier)` — a named, region-tied variant of the existing `"trade"` mission using the exact same
+`active_missions` dict and economy-tick mechanism (Requirement 6.2's own framing: "the tick logic
+doesn't need to change, only how it's exposed"), scaled by `region_tier` so a route into more
+dangerous waters pays more. `IslandMenu.gd`'s Fleet tab's old flat "Trade" button now reads
+"Trade Route" and derives the route's name/tier from the island it's opened at
+(`EmpireManager.get_region_for_island()`), and the fleet-status line now shows the route's actual
+name instead of a generic "Trade" label.
+
+### Requirement 7 — World events expansion
+
+6 new `EventData` resources (3 → 9 "variety" events, within the 8–10 target; 11 total files in
+`resources/world/events/` once the 2 boss ambient events from Requirement 5 are counted, though
+those track the boss target, not this one): **Drifting Wreckage**/**Smugglers' Cache** (small/large
+loot spawns, sharing a new parameterized `_spawn_loot()` helper with the existing
+`_spawn_floating_treasure()`), **Pirate Raiding Party**/**Royal Navy Patrol** (hostile ship
+spawns, sharing a new parameterized `_spawn_hostile_ships()` helper with the existing
+`_spawn_merchant_convoy()`), and **Favorable Winds**/**Becalmed** — a direct tie-in to Requirement
+2's new wind mechanic: `EventManager._apply_temporary_wind_modifier(multiplier, duration)`
+temporarily scales the player's current region's live `wind_strength` (a shared `Resource`, same
+instance `ShipMovement`/`WorldHUD` read) and restores the exact original value on a timer, the same
+non-compounding caution `EnvironmentController`'s own per-region weather code already documents.
+
+### Requirement 8 — Full SFX pass and music
+
+`AudioManager.play_sound()` now checks `.ogg` before `.wav` (Kenney's CC0 packs — this project's
+established asset-sourcing precedent for 3D models — ship as `.ogg`; `.wav` stays supported for
+any hand-authored/Bfxr-exported asset). New `play_music(track_name, loop)`/`stop_music()` — a
+persistent `AudioStreamPlayer` on the `Music` bus, idempotent for an already-playing track,
+correctly branching `AudioStreamOggVorbis`'s plain `loop` bool vs. `AudioStreamWAV`'s `loop_mode`
+enum (they are not interchangeable properties).
+
+**25 SFX cues + 2 music tracks sourced and placed** (0 → 25, within the 25–30 target), all
+CC0/CC-BY licensed, real attribution added to `CreditsScreen.tscn`: Kenney's UI Audio/Impact
+Sounds/RPG Audio/Music Jingles packs (CC0, kenney.nl) for SFX and short stingers; "Drunken Sailor"
+(OPL2 rendering, CC0, opengameart.org) for main-menu music; "Pirates!" by Eric Matyas/Soundimage.org
+(CC-BY 4.0, credited) for in-world sailing music. **21 real call sites wired** across the codebase
+covering every category Requirement 8.1 lists — cannon fire and explosion were already wired
+(just silent until now); this pass added building construct/upgrade (`Island.gd`), boarding
+start/success/fail (`BoardingSystem.gd`), victory/defeat (`EncounterManager.gd`), resource
+collection (`LootDrop.gd`), gold-gain-adjacent tech/ship/captain purchases, docking
+(`DockingSystem.gd`), island discovery (`WorldManager.gd`), treasure-found and wind-shift
+(`EventManager.gd`), ship level-up (`FleetManager.gd`), and 5 UI interaction cues (`IslandMenu.gd`
+tab-switching, close, tribute confirm/error). `ui_cancel` has an asset file but no call site yet —
+the only authored-but-unwired cue.
+
+**Found and fixed 3 real pre-existing syntax bugs along the way**: `IslandMenu.gd` had three
+locations with broken indentation (an extra or missing tab breaking the surrounding `if`/`elif`
+block) left over from an earlier, unrelated internationalization pass that wrapped UI strings in
+`tr()` — a hard parse error, not a style issue, cascading into `WorldHUD.gd` failing to load too
+(it references `IslandMenu` as a static type). Found via the GUT suite itself once this session's
+own edits to the same file surfaced them; fixed as straightforward indentation corrections, the
+`tr()` wrapping itself left untouched.
+
+**Human listening pass not done** — no tool available in this environment can confirm audio
+actually sounds right, matching this project's own established discipline for anything only a
+human ear/eye can verify.
+
+### Requirement 9 — Portrait sourcing/integration
+
+`PortraitFallback.gd` gained `apply_to_texture_rect(texture_rect, fallback_label, portrait_path,
+display_name)` — the upgrade path its own doc comment had anticipated since M9: shows real art via
+a `TextureRect` when `portrait_path` resolves, otherwise hides it and falls through to the
+existing monogram `Label` treatment, one shared contract instead of two decision paths per caller.
+`apply_to_label()` (the original, Label-only contract) is unchanged and still used by
+`TutorialDialogue.gd` for the 7 named cast, none of which have portrait art in this pass.
+
+**20 of 27 characters got real portraits** — the 20 captains, not the 7 named cast. Since no
+free, single-download, pirate-themed character-portrait asset pack was found (the one good match,
+itch.io's "50 Avatar Pirate Icons," requires a paid purchase this session didn't have authorization
+to make), portraits are **originally-generated flat-color icon busts** — a solid background color
++ a simple silhouette bust shape + the character's initial, as SVG (Godot imports SVG natively;
+the project's own `icon.svg` already proved this) — exactly the "simple programmatic/stylized
+portraits... if bespoke character art isn't feasible" substitute Requirement 9.2 itself names as
+acceptable, not an invented workaround. 20 distinct files in `assets/portraits/`, each captain's
+`portrait_path` wired, `IslandMenu.gd`'s Tavern tab (`_create_captain_entry`) upgraded with a
+`TextureRect`+fallback-`Label` pair via the new `apply_to_texture_rect()` — the first UI surface
+where a captain portrait actually renders. The 7 named cast keep M9's intentional monogram
+fallback, per Requirement 9.3's explicit allowance that this is a legitimate close-of-milestone
+state, not a regression.
+
+**Discovered along the way**: newly-added binary asset files (audio, SVG portraits) are invisible
+to `ResourceLoader.exists()`/`load()` in a headless GUT run until Godot actually imports them —
+copying files into `assets/` isn't sufficient by itself. Fixed by running
+`<godot-binary> --headless --import --path .` once after adding new assets, which generates the
+`.import` sidecar files the resource system needs; this is now a known step for any future asset
+drop, not just this milestone's.
+
+### Requirement 10 — Balance model
+
+New `docs/BALANCE_MODEL.md`, anchored to the one balance ladder this project has real numbers for
+(`docs/13_CAMPAIGN_LEVELS_1-5.md` §2's ship-cost ladder, verified directly against the live
+`resources/ships/*.tres` `cost_gold`/`cost_wood`/`cost_iron` values — they match exactly). Covers
+tech tier cost bands (T1 existing anchors, T2–T5 derived), boss loot tiers (existing Intransigent/
+Cárdenas rewards as the anchor, the 2 new bosses scaled below), and world-event outcome bands
+(expressed as a percentage of the region-tier-appropriate ship cost, not an isolated guess) — the
+exact discipline the D53 pricing incident (`docs/13_CAMPAIGN_LEVELS_1-5.md` §2) skipped the first
+time.
+
+### Test suite
+
+**391 tests, 391 passing, 0 known failures** — confirmed by a real Godot 4.3 GUT run. Entered this
+milestone at M10's verified 326/326; 65 new tests added across all 9 waves
+(`test_tech_gating.gd`, `test_wind_system.gd`, `test_cannonball_arcing.gd`, `test_armor_facing.gd`,
+`test_boss_ai_profiles.gd`, `test_diplomacy_and_trade_routes.gd`, `test_world_events_expansion.gd`,
+`test_audio_sfx_and_music.gd`, `test_portraits.gd`). Two pre-existing tests were updated to match a
+real, deliberate behavior change (not weakened): `test_damage_model.gd`'s stern-crit test and
+`test_ship_damage_visuals.gd`'s hull-threshold tests both switched from `Vector3.FORWARD` to a
+broadside-safe hit vector now that bow-facing armor is real. **391/391 is the new number to regress
+against.**
+
+## M12 — Playtest & Instrumentation (2026-08-28)
+
+Built concurrently with M11 in the same uncommitted working tree — same caveat M10's entry above
+already recorded for its own overlap with M9: check `git status`/`git diff` before assuming a file
+matches this description.
+
+### Requirement 1 — Analytics
+
+New `AnalyticsManager` autoload (`scripts/managers/AnalyticsManager.gd`). No maintained Firebase/
+Godot integration exists in this repo, so — per its own documented decision, not a workaround —
+events go to an append-only, size-rotated (256KB, one previous-file rotation) JSON-lines log under
+`user://telemetry/funnel.jsonl`. Single public boundary: `log_event(name, params)`, sanitizing to
+primitives only (`_sanitize_params` drops anything else with a warning, never identifying data).
+`log_first_event(name, params)` records a one-time funnel milestone (`first_colonize`,
+`first_raid_survived`/`first_raid_lost`, `first_boss_defeat`, `new_game_started`) via a small
+persisted `first_events.json` so repeats don't reappear. Wired to existing signals only —
+`CampaignManager.chapter_started`/`chapter_completed`, `EmpireManager.island_captured`/
+`raid_resolved`, plus `EncounterManager.encounter_started`/`encounter_ended` via `on_world_ready()`
+(scene-local systems don't exist at autoload `_ready()` time) — no call sites were instrumented a
+second time. A future consented backend can replace the local-log body of `log_event()` without
+touching any caller. Focused test: `test_analytics_manager.gd` (3/3).
+
+### Requirement 2 — Crash reporting
+
+New `CrashReporter` autoload (`scripts/managers/CrashReporter.gd`). A session marker file is
+written on start and removed on `mark_clean_shutdown()` (called from `MainMenu._on_quit_pressed()`);
+finding the marker still present on next boot means the previous session ended abnormally, which
+creates a bounded, non-identifying report bundle (`report_version`, `reason` — no player id, no
+telemetry cross-reference) and exposes `has_pending_report`. `MainMenu._show_crash_report_notice()`
+shows an opt-in `AcceptDialog` disclosing the report's existence without blocking play; nothing is
+sent anywhere automatically — there is no configured support endpoint in this repo to send it to,
+so an honest local-only bundle is the implemented state, not a stopgap. Focused test:
+`test_crash_reporter.gd` (2/2).
+
+### Requirement 3 — Save versioning, backup, migration
+
+`SaveManager.SAVE_SCHEMA_VERSION` (1) built on M10's `save_schema_version` field.
+`_migrate(data, from_version)` (line ~338) runs one `match` arm per historical transition — today
+just `0 → 1`, converting M10's flat per-island building arrays into the
+`{"buildings": [...], "discovered": false}` record shape it later needed for discovery state,
+intentionally not rebalancing anything else. `_backup_existing_save()` copies the current
+`user://save_data.json` to `user://save_data.json.bak` before every overwrite (a single rotating
+backup, not a history). `load_game()` now tries the primary file, falls back to the `.bak` copy on
+failure, and only then gives up and starts fresh — extending the existing `save_load_failed` signal
+path (M2 Task 12.3) rather than adding a new one. `MainMenu` now checks
+`SaveManager.has_recoverable_save_data()` (not the old `has_save_data()`) so the Continue button
+reflects backup-recoverable state too. Focused test: `test_save_migration.gd`.
+
+### Requirement 4 — Localization
+
+Godot's built-in `.csv`/`tr()` translation system, scoped to UI-chrome literals (labels, buttons,
+tooltips, format templates) in `MainMenu.gd`, `WorldHUD.gd`, `IslandMenu.gd`, `SettingsMenu.gd`,
+`CaptainsLog.gd`, plus `CodexScreen.gd` and the raid-outcome text shared between
+`RaidReportScreen.gd`/`LocalNotificationManager.gd` (Requirement 8's own fix touched this too).
+`translations/en.csv` (~150 keys) compiles via Godot's `csv_translation` importer to
+`translations/en.en.translation`, now actually registered via a `[internationalization]` section in
+`project.godot` — that section didn't exist before this milestone, so no `tr()` call resolved
+anything regardless of how much wrapping existed. Every dynamic string follows
+"translate the template, then interpolate" (`tr("Notoriety: %.1f") % val`), never the reverse.
+Explicitly out of scope: strings sourced from `.tres` Resource data (building/tech/captain names &
+descriptions) — localizing game content is a separate, much larger effort with no pipeline decided
+yet. Focused test: `test_localization.gd` (3/3, covers the translate-then-interpolate convention
+and that the compiled resource actually loads/registers).
+
+### Requirement 5 — Playtest protocol
+
+`docs/PLAYTEST_PROTOCOL.md` (new, unnumbered like `docs/BALANCE_MODEL.md` — the sequential `00`–`21`
+numbering is already fully occupied by later milestones' own planning docs). Covers recruitment
+(informal is legitimate for a first round), session structure, when to intervene vs. observe, what
+to record (centered on M7's still-unverified "does Chapter 1 complete without a wiki" question),
+and per-participant/round-summary logging templates with an explicit rule against rounding up or
+asserting the ≥10-participant target without evidence.
+
+**No real round has been run.** This requires recruiting and observing actual external humans,
+which no session working on this repo has a channel to do — the same category of gap as M11's
+Task 13 (human audio listening pass). Real participant count as of this writing: **0**. The
+protocol is ready for the project owner to run; this is flagged honestly rather than asserted.
+
+### Requirement 6 — Balance spreadsheet
+
+`docs/BALANCE_MODEL.md` extended (§5–§9) to cover every remaining resource/encounter category with
+a real cost or reward field: buildings (a uniform 3.5×/18× per-level cost curve confirmed across 4
+building types), ship modules (two price bands by modifier strength/count), captains (cost ranges
+by unlock chapter, cross-referenced against the ship-cost ladder), the raid theft fraction (the
+actual `EmpireManager._resolve_raid()` formula, previously undocumented anywhere), and the
+loot-table-to-encounter mapping (verified each encounter's `loot_table` `ExtResource` reference
+resolves to the intended tier, not just an identically-named local id). Ammo, battle upgrades, and
+AI profiles were confirmed to have no cost/reward fields and are correctly out of scope for an
+economy model.
+
+### Requirement 7 — Codex / lore browser
+
+New `scenes/ui/CodexScreen.tscn`/`scripts/ui/CodexScreen.gd`, opened via a `WorldHUD`-owned
+dynamically-positioned button (`_create_codex_button()`, same container-owned placement pattern as
+the Log/Map buttons beside it). Reuses existing data and gating wholesale — no new "have I met
+this" tracking: completed chapters via `CampaignManager.is_chapter_completed()` +
+`ChapterData.log_summary`, captains via the same `unlock_chapter_id`/owned-roster check
+`IslandMenu`'s Tavern already used, factions derived from the encountered-captain roster's
+`allegiance_faction_id`. Needs a visual capture at checkpoint to confirm on-screen legibility (not
+verifiable headlessly).
+
+### Requirement 8 — Push notifications
+
+`LocalNotificationManager` autoload — a no-op-safe adapter for an optional
+`PirateLocalNotifications` Android engine singleton; no such plugin is bundled in this milestone,
+so every call degrades to a harmless no-op on desktop/unconfigured exports. Re-scoped on verified
+evidence rather than the requirement's original assumption: building/upgrading is instant-on-
+purchase (no timer), fleet missions are recurring/indefinite with no completion event
+(`FleetManager._on_economy_tick()` — confirmed by reading the code, not assumed), and raids are a
+stochastic per-`_process`-tick re-roll (`EmpireManager._check_raid()`, ~900s cadence) with no fixed
+future resolution timestamp to schedule against in advance. The only genuine "resolves whether or
+not you're watching" event is raid resolution, wired reactively via `EmpireManager.raid_resolved`.
+`EmpireManager.describe_raid_outcome(report)` is now the single source of truth for the outcome
+sentence, used by both `RaidReportScreen.gd` (the real raid-outcome UI — not `WorldHUD.announce_event()`,
+which doesn't compose raid text at all, contrary to the original design assumption) and
+`LocalNotificationManager.get_raid_notification_body()`, closing a real wording-drift gap between
+the two surfaces. Permission flow (`_ensure_permission_or_plugin()`) requests lazily, persists a
+"requested" flag so a denial is never re-prompted, and always live-checks `has_permission()` so a
+later OS-settings grant is picked up. Focused test: `test_local_notification_manager.gd` (4/4,
+including a fake-plugin test asserting exactly one permission request across three calls).
+**Device-level verification of the real Android permission dialog has not been done** — no Android
+device/export was available in this environment; flagged rather than assumed passing.
+
+### Test suite
+
+**396 tests, 396 passing, 0 known failures** — confirmed by a real Godot 4.3 GUT run. Entered this
+milestone at M11's 391/391 (which, per this run, now includes a previously-flagged LOD test
+passing that M11's own doc entry above still lists as 0 known failures at 391 — LOD work appears to
+have landed in the shared working tree since that entry was written; M11 owns updating its own
+section). 5 new tests added: `test_localization.gd` (3) and two additions to
+`test_local_notification_manager.gd` (raid-wording drift guard, permission-request-once guard).
+**396/396 is the new number to regress against.**

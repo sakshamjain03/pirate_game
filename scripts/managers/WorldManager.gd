@@ -16,6 +16,13 @@ var is_world_loaded: bool = false
 var player_ship: Node3D = null
 var active_islands: Dictionary = {}
 
+## M10 Requirement 4 — how close the player must sail to an undiscovered
+## island before it reveals (docking already implies discovery via
+## CampaignManager._on_player_docked; this extends that to reveal-on-approach
+## rather than reveal-only-on-dock, per docs/11_WORLD_MAP.md's fog-of-war
+## intent). Configurable rather than hardcoded, per AGENTS.md.
+@export var discovery_radius: float = 80.0
+
 # Cached sibling system references. These are resolved once in _ready()
 # instead of via get_node_or_null() every frame in _process() — repeated
 # string-based node lookups in a hot loop are an explicit perf anti-pattern
@@ -36,12 +43,15 @@ func _ready() -> void:
 	# InputManager — exists.
 	_input_manager = InputManager
 	_camera_rig = get_node_or_null("../../CameraRig")
+	if AudioManager: AudioManager.play_music("in_world")
 
 	if _docking_system:
 		_docking_system.dock_completed.connect(_on_dock_completed)
 
 func _process(delta: float) -> void:
 	if is_world_loaded:
+		_check_island_discovery()
+
 		# Process ship input
 		if player_ship and player_ship.has_method("set_input"):
 			if _input_manager:
@@ -144,7 +154,24 @@ func _check_pending_raid_report() -> void:
 		raid_screen.open(empire.pending_raid_report)
 
 func on_island_discovered(island_id: String) -> void:
+	if AudioManager: AudioManager.play_sound("discovery")
 	emit_signal("island_discovered", island_id)
+
+func _check_island_discovery() -> void:
+	## Read-only distance check — the actual IslandData.discovered write
+	## happens in CampaignManager._on_island_discovered (the existing single
+	## source of truth also used by the dock path), reached via the signal
+	## emitted below. That write is synchronous, so island_data.discovered
+	## is already true by the next frame's check — no local dedup needed here.
+	if not player_ship or not is_instance_valid(player_ship):
+		return
+	for island in active_islands.values():
+		if not is_instance_valid(island) or not island.island_data:
+			continue
+		if island.island_data.discovered:
+			continue
+		if player_ship.global_position.distance_to(island.global_position) <= discovery_radius:
+			on_island_discovered(island.get_island_id())
 
 func on_player_docked(island_id: String) -> void:
 	emit_signal("player_docked", island_id)

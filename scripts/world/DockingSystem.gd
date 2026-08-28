@@ -75,6 +75,7 @@ func attempt_dock() -> bool:
 	
 	# Start alignment
 	current_state = DockState.ALIGNING
+	if AudioManager: AudioManager.play_sound("dock")
 	dock_initiated.emit(current_island_id)
 	
 	# Freeze physics to allow manual transform alignment and disable controls

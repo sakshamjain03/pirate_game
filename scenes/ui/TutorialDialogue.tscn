@@ -55,9 +55,10 @@ size_flags_vertical = 4
 theme_override_styles/panel = SubResource("StyleBoxFlat_PortraitBg")
 
 [node name="PortraitLabel" type="Label" parent="Panel/Margin/HBox/PortraitPanel"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
-text = "🏴‍☠️"
+text = "?"
 horizontal_alignment = 1
 vertical_alignment = 1
 

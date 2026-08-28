@@ -13,6 +13,9 @@ addons/**/*.uid
 # Claude Code local session/tooling directory
 .claude/
 
+# Local credentials (never committed) — see .env for M15 Supabase/auth setup instructions
+.env
+
 # Vendored third-party asset kit (not tracked in-repo)
 /assets_kit/
 

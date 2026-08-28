@@ -173,20 +173,47 @@ horizon, no orange anywhere.
 
 ---
 
-## V5 — `Parameter "material" is null` at startup (×4) `[x]`
+## V5 — `Parameter "material" is null` at startup (×4) `[x]` RESOLVED (M9, real root cause traced)
 
 Four of these were emitted during startup from the renderer
 (`material_casts_shadows`, `material_is_animated`,
 `material_get_instance_shader_parameters`, `material_update_dependency`).
 
-**Resolved as a side effect of V2.** They were the camera spring arm's shape
-cast querying ship hull geometry it had no business touching. Once the arm
-stopped colliding with the ship it is attached to, the errors stopped: a full
-capture run now reports **0 errors** (`.capture_v6`), down from 4.
+**Previously recorded as resolved as a side effect of V2** — believed to be the
+camera spring arm's shape cast querying ship hull geometry, with a full capture
+run reported as "0 errors."
+
+**Reopened 2026-08-26,** then **resolved for real in M9.** The V2/camera fix was
+confirmed still correctly in place and was never the actual explanation. Traced
+via ~15 fast headful reproductions (`godot -s` loading `World.tscn` or pieces of
+it directly, quitting after ~10 frames instead of running the full capture),
+disabling/removing whole subsystems one at a time from a live scene: ambient
+encounters off, `EnemySpawner.initial_enemies = 0`, `CameraRig` removed,
+`Systems` (all managers) removed, `WorldUI` removed, `Islands` removed,
+`Enemies` removed — the 4 errors persisted through every one of those. Only
+`Ocean` + `PlayerShip` remained, and even that pairing only reproduced when
+loaded through the real `World.tscn`, not a synthetic recreation — pointing at
+something in `World.gd`'s own `_ready()`. **Actual cause:** `World.gd` calls
+`SaveManager.call_deferred("load_game")`; confirmed by moving the real save file
+aside (0 errors) and restoring it (4 errors, reproduced twice). When a save
+exists, `load_game()` reassigns `player.ship_stats` to the saved active ship
+(`SaveManager.gd`); `ShipController.ship_stats`'s setter emits
+`ship_stats_changed` once the ship is in the tree (true by then), re-triggering
+`ShipVisuals._rebuild_model()` a second time — freeing and rebuilding the hull
+model on a frame after its first, correctly-materialed build has already been
+submitted for that frame's render. The renderer's dirty-material sync catches
+the old/new model mid-swap during that one transition. **Confirmed harmless:**
+every captured frame (including the very first) shows the ship correctly
+modeled; no test failure, no visible glitch. Documented rather than fixed —
+restructuring `ShipVisuals`/`KenneyMaterialApplier`'s rebuild timing for a
+one-time cosmetic log line is disproportionate. Full detail:
+`docs/05_CURRENT_SYSTEMS.md` D32.
 
 Note the earlier guard added in `KenneyMaterialApplier` against assigning a null
-override is **not** what fixed this — measurement showed it left the count
-unchanged at 4. It is left in place as defensive-only, with a comment saying so.
+override was already measured as **not** what fixed this the first time (count
+unchanged at 4 with the guard alone) — that finding still stands, and is now
+fully explained: the null material was never inside `KenneyMaterialApplier` at
+all. It is left in place as defensive-only, with a comment saying so.
 
 ---
 
@@ -240,7 +267,7 @@ repulsion/no-sail radius around islands.
 
 ---
 
-## V9 — HUD layout defects `[~]`
+## V9 — HUD layout defects `[x]` RESOLVED (M9)
 
 Both found by screenshot, neither reported.
 
@@ -251,6 +278,23 @@ of the screen and printed on top of the resource bar. Replaced with a
 right-aligned, explicitly-offset rect that grows leftwards, positioned below the
 bar.
 
+**Reopened 2026-08-26,** then **resolved for real in M9.** The hardcoded-offset
+fix above never reliably cleared `ResourceBar`. Replaced with a `TopRightPanel`
+`VBoxContainer` (`WorldHUD.tscn`) holding `ResourceBar`, the notoriety label, the
+Captain's Log button, and the World Map button as siblings — Godot's own
+container layout, not a second hand-typed constant, now guarantees none of them
+can overlap regardless of `ResourceBar`'s actual rendered height. A first
+version of this fix cleared the original resource-bar/notoriety-label overlap
+but introduced a *new* one (notoriety label vs. the Log button, still on its own
+independent hardcoded offset) — caught by a follow-up fresh `CaptureHarness`
+capture, not by the new GUT test alone (`tests/test_world_hud_layout.gd`
+originally only checked the one pair the bug report named). Fixed by moving the
+Log button into the same container; the test now checks all three pairwise.
+Validated: fresh headful captures at t=0.00s/1s/3s/7s/12s with real gameplay
+values (non-zero notoriety, populated resource bar) show no overlap between any
+of the four top-right HUD elements. Full detail: `docs/05_CURRENT_SYSTEMS.md`
+D36.
+
 **Announcement banner ran off screen.** `announce_event()` used `PRESET_CENTER`,
 which anchors a zero-width rect at the centre, so a 42px message grew rightwards
 off the frame — "While you were away: your empire kept running (78 ticks)" was
@@ -258,8 +302,15 @@ cut off mid-sentence. Replaced with a full-width wrapping rect. Its tween also
 faded `modulate:a` from 1.0 *to* 1.0 (a no-op "fade in", so the banner popped);
 it now starts transparent and actually fades.
 
+**Still true today, no regression** — the banner is fully on screen, centred,
+and fades in. **But it's a new problem now (see V13):** at full width and no
+panel it renders as a giant unframed red wall of text over the 3D world.
+Fixing "off-screen" wasn't the same as fixing "looks designed."
+
 **Validation:** `.capture_v6/0060_t1.00s.png` — banner fully on screen and
-centred; resource bar and notoriety no longer overlap.
+centred; resource bar and notoriety no longer overlap **(superseded — see the
+2026-08-26 reopening above; that capture predates the regression or never
+actually caught it).**
 
 ---
 
@@ -339,6 +390,105 @@ lighting, wake/smoke particles, no camera collapse).
 
 ---
 
+## V13 — "While you were away" banner has no frame `[x]` RESOLVED (M9)
+
+**Found by screenshot, 2026-08-26.** `announce_event()`'s label renders as
+large, raw red text with no background panel, no border, no styling consistent
+with the rest of the HUD — it cuts directly across the 3D world and the island
+geometry behind it. V9 fixed the banner running off-screen; it never addressed
+how it actually looks once on-screen. Reads as a debug print, not a moment the
+game wants the player to feel good about — especially since Higgins has an
+in-fiction line for the exact same moment one panel down, which the banner
+visually steamrolls. **Resolved (M9):** `announce_event()` now wraps its label
+in a themed `PanelContainer` (dark-navy `StyleBoxFlat`, gold border, matching
+`PauseMenu`/`DeathScreen`), with a new `is_warning` parameter defaulting the
+color to gold/cream — the original alarm-red is now opt-in for genuine
+warnings only. Validated: a fresh capture's "While you were away" banner
+renders as a framed panel, not raw text over the 3D world. Full detail:
+`docs/05_CURRENT_SYSTEMS.md` D68.
+
+---
+
+## V14 — Tutorial dialogue and the combat HUD render stacked, uncoordinated `[x]` RESOLVED (M9)
+
+**Found by screenshot, 2026-08-26.** In the same capture, the Higgins tutorial
+dialogue box sits directly on top of the "STARBOARD CANNONS / RELOADING 48%"
+combat panel, which is visibly bleeding through underneath it — while actual
+cannonfire is happening in the background (confirmed in the run's own log
+output: `fire_cannons` called with zero player input, from an ambient
+encounter). Nothing in `WorldHUD.gd` arbitrates which of tutorial
+dialogue / combat HUD / ambient-encounter feedback should have visual priority.
+**Resolved (M9):** `WorldHUD.gd` dims `CannonsContainer` (`modulate.a = 0.35`)
+while `TutorialDialogue` is visible, via its `visibility_changed` signal.
+`EncounterManager._start_random_ambient()` now checks a new
+`TutorialDialogue.is_blocking()` gate and returns early while a tutorial
+dialogue is open — a second boolean gate alongside the existing
+`required_chapter_id` check, not a general focus-stack system. Full detail:
+`docs/05_CURRENT_SYSTEMS.md` D69.
+
+---
+
+## V15 — Settings and Credits screens are unthemed `[x]` RESOLVED (M9)
+
+**Found by source read, confirmed by grep, 2026-08-26.** Every other screen in
+`scenes/ui/` (MainMenu, IslandMenu, DeathScreen, PauseMenu, CaptainsLog,
+RaidReportScreen, TutorialDialogue, UpgradeChoiceScreen, WorldHUD) calls
+`PirateThemeBuilder.build()`. `SettingsMenu.gd` and `CreditsScreen.gd` do not —
+zero matches for `PirateThemeBuilder` in either file. `SettingsMenu.tscn` has
+no background panel at all, just a bare `Control` + `TabContainer`, so it
+renders as raw default-grey Godot UI. The single most-visited non-gameplay
+screen (everyone checks Settings at least once) looks like a different,
+unfinished game bolted onto the themed one. **Resolved (M9):** both scripts now
+apply `root_control.theme = PirateThemeBuilder.build()` in `_ready()` (their
+`CanvasLayer` roots can't carry a theme directly, matching `MainMenu.gd`'s
+existing pattern), and both `.tscn`s gained a `ColorRect(0,0,0,0.7)` background
+overlay copied from `PauseMenu.tscn`. No settings-functionality regressions —
+`tests/test_settings_menu.gd` still passes unchanged. Full detail:
+`docs/05_CURRENT_SYSTEMS.md` D70.
+
+---
+
+## V16 — MainMenu has no typographic hierarchy `[x]` RESOLVED (M9)
+
+**Found by source read, 2026-08-26.** `MainMenu.tscn`'s `TitleLabel` ("PIRATE
+EMPIRE") and `SubtitleLabel` have no `theme_override_font_sizes` and no
+`label_settings` — they render at the theme's default body size (15px),
+identical to a tooltip, for the game's own title on its own main menu.
+Separately, in the same five-button `VBoxContainer`:
+`ContinueButton`/`NewGameButton`/`SettingsButton` are explicitly sized to 28px,
+but `CreditsButton`/`QuitButton` are not — and only those same two carry an
+emoji prefix ("📜 Credits", "✖ Quit") the other three don't. Three
+inconsistencies stacked in one menu. There's also a `VignetteOverlay`
+`ColorRect` authored at `Color(0,0,0,0)` (fully transparent) that
+`MainMenu.gd` never references — dead, no-op decoration. **Resolved (M9):**
+`TitleLabel` → 56px, `SubtitleLabel` → 20px (title > subtitle > buttons
+hierarchy); `CreditsButton`/`QuitButton` now carry the same 28px override as
+the other three, with their emoji prefixes stripped to match; `VignetteOverlay`
+deleted (confirmed zero code references first). `MainMenu.gd`'s navigation
+logic untouched. Full detail: `docs/05_CURRENT_SYSTEMS.md` D71.
+
+---
+
+## V17 — IslandMenu's main panel is a fixed 600×400px box `[x]` RESOLVED (M9)
+
+**Found by source read, 2026-08-26.** `IslandMenu.tscn`'s `Panel` node sets
+`custom_minimum_size = Vector2(600, 400)` — a hardcoded pixel size, not
+responsive anchoring, for what `docs/05_CURRENT_SYSTEMS.md` calls "the largest
+UI file in the project" (6 tabs: Buildings/Shipyard/Tavern/Fleet/Research/
+Trade) in a project whose `AGENTS.md` states the platform is mobile-first. A
+fixed desktop-monitor box on the game's single most-used management screen.
+**Resolved (M9):** removed the `CenterContainer` wrapper (which ignored its
+child's anchors entirely, silently defeating any anchor-based fix) and
+reparented `Panel` directly under the root `Control`, with
+`anchor_left/top = 0.1`, `anchor_right/bottom = 0.9`, and a
+`Vector2(480, 320)` minimum-size floor for narrow viewports.
+`IslandMenu.gd` resolves every node via `%UniqueName`, so the reparent needed
+no script changes; all six tabs already used `SIZE_EXPAND_FILL` with no
+fixed-width assumption. Tier/ownership gating logic unchanged. Full detail:
+`docs/05_CURRENT_SYSTEMS.md` D72.
+
+---
+
 ## Wrong turns (kept deliberately, so they are not repeated)
 
 1. **"The stability torque axes are swapped."** Wrong. The axis was correct;
@@ -366,11 +516,47 @@ lighting, wake/smoke particles, no camera collapse).
    surfaced once the *ship's and camera's own position* were printed, not just
    whether the systems around them looked healthy.
 
-The pattern in all six: a plausible story that a two-minute measurement
-disproved. **Measure first, and re-measure after the fix** — four of these were
+7. **"V5 and V9 are fixed."** Both were marked resolved on the strength of one
+   validating capture each. Both reproduced cleanly on a completely fresh run
+   nine days later (2026-08-26), with no code changes to those systems in the
+   interim that would explain a regression — meaning the original "fix"
+   probably never fully held, and the one validating capture that seemed to
+   confirm it was not sufficient evidence. One passing screenshot is not the
+   same claim as "always passes." Re-verify on every subsequent capture run
+   that touches anything nearby, not just once at fix time.
+8. **Wrong turn #3 above, itself wrong.** "It was actually the camera spring
+   arm" was believed correct for months (V2's fix genuinely explained the
+   symptom at the time). M9's re-diagnosis of the reopened V5 removed
+   `CameraRig` entirely from a live `World.tscn` load — the 4 errors persisted
+   unchanged. The spring-arm explanation was never re-tested after being
+   accepted; it happened to correlate with a fix that was correct for a
+   *different* reason (D31's collision-mask change was still worth having,
+   just not for this). The real cause, found only by systematically removing
+   whole subsystems one at a time from a live scene until the error
+   disappeared: a save-triggered second `ShipVisuals._rebuild_model()` call
+   racing the renderer's first-frame sync (`docs/05_CURRENT_SYSTEMS.md` D32).
+   A "fix" that correlates with a symptom going away is not the same claim as
+   "explains why it happened" — re-derive the mechanism, don't just note that
+   changing something nearby made the symptom stop.
+9. **"The resource-bar/notoriety-label fix is done" (M9, first pass).** The fix
+   (wrapping both in a shared `VBoxContainer`) was verified by a new GUT
+   property test and looked correct in isolation — but a follow-up headful
+   capture showed the notoriety label now overlapping the Captain's Log
+   button instead, because the Log button still used an independently
+   hardcoded offset calibrated against the label's old position. The GUT test
+   only asserted the two elements the original bug report named; it had no
+   way to catch a *different* pair overlapping. Caught by re-capturing after
+   the fix, not by trusting the passing test — the same discipline #7 above
+   already named, just one layer more specific: a passing test only proves
+   what it actually asserts, not that the whole layout cluster is clean.
+
+The pattern in all nine: a plausible story that a two-minute measurement
+disproved. **Measure first, and re-measure after the fix** — six of these were
 only caught because a fix (or a healthy-looking system) that "should have
-explained it" visibly didn't, and one because a deliverable that was never run
-was assumed to work.
+explained it" visibly didn't, one because a deliverable that was never run
+was assumed to work, and two (V5/V9, both on their M9 re-fix) because
+"validated once" — by one capture, or by one test scoped to the original
+report — was treated as "fixed forever" or "fixed completely."
 
 A note on how V11 stayed hidden: two earlier attempts to verify it used
 `Start-Process` and concluded "FAILED — no Godot process", which was a false
@@ -398,3 +584,15 @@ right property; only the layer number was stale.
 Per `CLAUDE.md`, camera feel and shader appearance cannot be fully verified
 headlessly — but the screenshot harness gives real rendered evidence, which is
 how every item above was confirmed or ruled out.
+
+## 2026-08-26 presentation audit
+
+Ran `CaptureHarness` fresh (see V5/V9 reopenings above) and added V13–V17 from
+direct source reading against what the captures showed. Full narrative
+findings and the resulting roadmap change (new milestone **M9 — Presentation
+Pass**): `docs/15_MASTER_PLAN.md` §8. Ledger entries: `docs/05_CURRENT_SYSTEMS.md`'s
+"Presentation audit (2026-08-26)" section (D32, D36 reopened; D68–D72 new).
+`docs/14_SYSTEM_INVENTORY.md` §7.7 mirrors the same table. This tracker's own
+GUT-suite verification above (103/102) is stale — see
+`docs/14_SYSTEM_INVENTORY.md` §0 for the current baseline (324/323); this pass
+did not run the suite, since none of V5/V9/V13–V17 are asserted by any test.

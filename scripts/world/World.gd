@@ -37,6 +37,8 @@ func _ready() -> void:
 	# from a loaded save is already in place before signals start firing.
 	if world_manager and CampaignManager.has_method("on_world_ready"):
 		CampaignManager.call_deferred("on_world_ready", world_manager)
+	if AnalyticsManager.has_method("on_world_ready"):
+		AnalyticsManager.call_deferred("on_world_ready", self)
 
 
 func _seed_port_royal_as_home(islands: Array) -> void:

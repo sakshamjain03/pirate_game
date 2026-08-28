@@ -19,6 +19,19 @@ func is_unlocked(tech_id: String) -> bool:
 			return true
 	return false
 
+## M11 — whether `tech` can be researched given the player's current home island
+## tier. Mirrors BuildingData's tier-gate pattern plus a prerequisite chain.
+## Does not check affordability — that's ResourceManager's concern, checked
+## separately by the caller.
+func can_research(tech: TechData, island_tier: int) -> bool:
+	if is_unlocked(tech.tech_id):
+		return false
+	if tech.required_island_tier > island_tier:
+		return false
+	if not tech.required_prerequisite_tech_id.is_empty() and not is_unlocked(tech.required_prerequisite_tech_id):
+		return false
+	return true
+
 func unlock_tech(tech: Resource) -> void:
 	if not is_unlocked(tech.tech_id):
 		unlocked_techs.append(tech)

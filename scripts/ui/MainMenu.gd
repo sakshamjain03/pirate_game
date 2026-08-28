@@ -22,6 +22,8 @@ func _ready() -> void:
 	_apply_theme()
 	_animate_title()
 	_connect_buttons()
+	_show_crash_report_notice()
+	if AudioManager: AudioManager.play_music("main_menu")
 
 func _apply_theme() -> void:
 	var theme := PirateThemeBuilder.build()
@@ -34,7 +36,7 @@ func _connect_buttons() -> void:
 	credits_button.pressed.connect(_on_credits_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	
-	if SaveManager.has_save_data():
+	if SaveManager.has_recoverable_save_data():
 		continue_button.visible = true
 		continue_button.grab_focus()
 	else:
@@ -58,6 +60,7 @@ func _on_continue_pressed() -> void:
 
 func _on_new_game_pressed() -> void:
 	SaveManager.delete_save()
+	AnalyticsManager.log_first_event("new_game_started")
 	# Reset resources for fresh start since it's an autoload
 	ResourceManager.current_resources = {
 		"gold": 200, "wood": 50, "iron": 20, "rum": 10
@@ -72,4 +75,16 @@ func _on_credits_pressed() -> void:
 	SceneManager.change_scene_with_fade("res://scenes/ui/CreditsScreen.tscn")
 
 func _on_quit_pressed() -> void:
+	CrashReporter.mark_clean_shutdown()
 	get_tree().quit()
+
+
+func _show_crash_report_notice() -> void:
+	if not CrashReporter.has_pending_report:
+		return
+	var notice := AcceptDialog.new()
+	notice.title = tr("Previous Session Ended Unexpectedly")
+	notice.dialog_text = tr("A local diagnostic report is ready for support. It contains no personal information and will not be sent automatically.")
+	notice.confirmed.connect(CrashReporter.dismiss_pending_report)
+	add_child(notice)
+	notice.popup_centered()

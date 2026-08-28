@@ -11,6 +11,14 @@ class_name TechData
 @export var cost_wood: int = 0
 @export var cost_iron: int = 0
 
+## M11 — gates this tech behind the player's home island reaching this tier,
+## mirroring BuildingData.required_island_tier's exact pattern. 1 = ungated.
+@export var required_island_tier: int = 1
+
+## M11 — this tech's tech_id must already be unlocked (TechManager.is_unlocked())
+## before this one can be researched. Empty string = no prerequisite.
+@export var required_prerequisite_tech_id: String = ""
+
 @export_group("Modifiers")
 @export var health_modifier: float = 1.0
 @export var damage_modifier: float = 1.0

@@ -198,6 +198,15 @@ func _resolve_raid(attacking_faction: Resource, region: RegionData) -> Dictionar
 		"timestamp_unix": int(Time.get_unix_time_from_system())
 	}
 
+## Single source of truth for the raid outcome's one-sentence summary, reused by
+## RaidReportScreen (full report) and LocalNotificationManager (notification body)
+## so the two surfaces can't drift out of sync in wording (M12 Task 11).
+func describe_raid_outcome(report: Dictionary) -> String:
+	var faction_name: String = str(report.get("faction_id", "unknown")).capitalize()
+	if report.get("repelled", true):
+		return tr("Your home island defenses held off an attack from %s.") % faction_name
+	return tr("Your home island was raided by %s.") % faction_name
+
 func get_save_data() -> Dictionary:
 	return {
 		"notoriety": notoriety,

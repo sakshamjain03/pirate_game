@@ -17,6 +17,7 @@ var _root: Node
 var _systems: Node
 var _mgr: EncounterManager
 var _player: Node3D
+var _created_test_scene: Node3D = null
 
 
 func before_each():
@@ -25,6 +26,7 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 
 	_root = Node3D.new()
 	_root.name = "LoopRoot"
@@ -64,6 +66,14 @@ func after_each():
 	# Encounters pause ambient spawning and the upgrade screen pauses the tree;
 	# never leave either latched for the next test script.
 	get_tree().paused = false
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 
 func _pool() -> Array[BattleUpgradeData]:
@@ -152,6 +162,13 @@ func test_the_whole_v1_combat_loop_runs_through_the_real_scenes():
 	assert_eq(mods.get_applied_upgrades().size(), 1, "...and is recorded on the build")
 
 	# --- Win ---
+	# ResourceManager is a real autoload whose gold accumulates across the
+	# whole test run (ambient economy ticks fire whenever current_scene.name
+	# == "World", which this test's own setup satisfies) and caps at 5000 —
+	# pin it to a known-low value first so "gold increased" is a real
+	# assertion regardless of how much wall-clock time and passive production
+	# happened to accumulate earlier in a full-suite run.
+	ResourceManager.current_resources["gold"] = 100
 	var gold_before: int = int(ResourceManager.current_resources.get("gold", 0))
 	for e in _mgr._enemies.duplicate():
 		if is_instance_valid(e):

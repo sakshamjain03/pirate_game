@@ -90,8 +90,7 @@ scripts/
 | 05_CURRENT_SYSTEMS.md | **Ground truth** — what actually runs today, and every known defect |
 | navalCombat.md | Locked design for real-time combat — auto-fire, roles, captain abilities, battle upgrades |
 | 06_NARRATIVE_AND_WORLD.md | Premise, tone, and the five-chapter story spine |
-| 07_AI_AGENT_WORKFLOW.md | Which agent does which work |
-| 08_PROMPT_LIBRARY.md | Task-prompt templates for the implementation agent |
+| 07_AI_AGENT_WORKFLOW.md | How Claude Code plans, implements, and verifies its own work |
 | 09_VISUAL_BUG_TRACKER.md | Screenshot-driven rendering defect ledger |
 | 10_ASSET_REQUESTS.md | Outstanding art and audio needs |
 | 11_WORLD_MAP.md | Geography — where every island is, and why |

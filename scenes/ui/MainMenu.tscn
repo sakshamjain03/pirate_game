@@ -35,15 +35,6 @@ grow_horizontal  = 2
 grow_vertical    = 2
 color            = Color(0.02, 0.04, 0.10, 0.72)
 
-[node name="VignetteOverlay" type="ColorRect" parent="Control"]
-layout_mode      = 1
-anchors_preset   = 15
-anchor_right     = 1.0
-anchor_bottom    = 1.0
-grow_horizontal  = 2
-grow_vertical    = 2
-color            = Color(0.0, 0.0, 0.0, 0.0)
-
 [node name="TitleContainer" type="VBoxContainer" parent="Control"]
 layout_mode      = 1
 anchors_preset   = 5
@@ -58,6 +49,7 @@ alignment        = 1
 
 [node name="TitleLabel" type="Label" parent="Control/TitleContainer"]
 layout_mode      = 2
+theme_override_font_sizes/font_size = 56
 text             = "PIRATE EMPIRE"
 horizontal_alignment = 1
 vertical_alignment   = 1
@@ -65,6 +57,7 @@ label_settings   = null
 
 [node name="SubtitleLabel" type="Label" parent="Control/TitleContainer"]
 layout_mode      = 2
+theme_override_font_sizes/font_size = 20
 text             = "Rule the Seas. Build an Empire."
 horizontal_alignment = 1
 vertical_alignment   = 1
@@ -111,13 +104,15 @@ text = "Settings"
 [node name="CreditsButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
 custom_minimum_size = Vector2(240, 44)
 layout_mode      = 2
-text             = "📜  CREDITS"
+theme_override_font_sizes/font_size = 28
+text             = "Credits"
 size_flags_horizontal = 3
 
 [node name="QuitButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
 custom_minimum_size = Vector2(240, 44)
 layout_mode      = 2
-text             = "✖  QUIT"
+theme_override_font_sizes/font_size = 28
+text             = "Quit"
 size_flags_horizontal = 3
 
 [node name="VersionLabel" type="Label" parent="Control"]

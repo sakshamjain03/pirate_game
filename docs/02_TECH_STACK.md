@@ -89,17 +89,18 @@ FMOD (optional)
 
 ---
 
-# Backend (Future)
+# Backend
 
-Supabase
+Supabase — planned, M15 (`.kiro/specs/milestone-m15-backend-cloud-services/`)
 
-Authentication
+Authentication (email/password + Google Sign-In, optional/opt-in — never required to play)
 
-Cloud Save
+Cloud Save (mirrors the local save format; Row Level Security scoped per-user)
 
-Leaderboards
+Leaderboards — still future, out of scope; would require amending `AGENTS.md`'s no-social-features
+rule, not just adding a backend
 
-Analytics
+Analytics — still M12 (`docs/15_MASTER_PLAN.md`)
 
 ---
 

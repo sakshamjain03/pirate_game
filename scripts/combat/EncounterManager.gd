@@ -270,6 +270,8 @@ func _resolve(outcome: int) -> void:
 	_enemies.clear()
 	_restore_spawning()
 	_ambient_timer = 0.0
+	if AudioManager:
+		AudioManager.play_sound("victory" if outcome == Outcome.VICTORY else "defeat")
 	encounter_ended.emit(outcome == Outcome.VICTORY, rewards)
 
 
@@ -526,6 +528,15 @@ func _describe_rewards(rewards: Dictionary) -> String:
 
 func _start_random_ambient() -> void:
 	if encounter_pool.is_empty():
+		return
+	# M9 Requirement 5 (D69) — an ambient encounter previously fired cannons
+	# with no on-screen acknowledgment while a tutorial/campaign dialogue beat
+	# had focus (reproduced during Chapter 1's opening dialogue). Gate on the
+	# same "is a blocking dialogue open" check WorldHUD uses to dim the combat
+	# HUD, mirroring the existing required_chapter_id gate below rather than
+	# adding a general focus-stack system.
+	var tutorial = get_tree().get_first_node_in_group("tutorial_dialogue")
+	if tutorial and tutorial.is_blocking():
 		return
 	var candidates: Array[EncounterData] = []
 	for e in encounter_pool:

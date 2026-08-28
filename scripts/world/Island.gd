@@ -21,16 +21,30 @@ var _spawned_models: Dictionary = {}
 @onready var dock_area: Area3D = get_node_or_null("DockArea")
 
 func _ready() -> void:
+	var had_authored_data := island_data != null
 	if not island_data:
 		island_data = IslandData.new()
 		island_data.island_name = name
 
 	add_to_group("islands")
 
+	# M10 Requirement 2 — IslandData.world_position is now the single source
+	# of truth for where an authored island sits; World.tscn's own node
+	# transform is kept in sync by hand for editor-preview accuracy, but this
+	# is the actual authority at runtime so the two can never silently drift
+	# apart again (docs/14_SYSTEM_INVENTORY.md's "layout only lives in the
+	# scene file" gap). Skipped for the placeholder IslandData created above
+	# (no @export assigned) — its default (0,0) isn't a real position, just
+	# an empty resource with no scene transform to override. Y (height)
+	# stays whatever the scene authored — world_position is XZ-only.
+	if had_authored_data:
+		global_position.x = island_data.world_position.x
+		global_position.z = island_data.world_position.y
+
 	if dock_area:
 		dock_area.body_entered.connect(_on_dock_area_body_entered)
 		dock_area.body_exited.connect(_on_dock_area_body_exited)
-		
+
 	if ResourceManager.has_signal("global_economy_tick"):
 		ResourceManager.global_economy_tick.connect(_on_economy_tick)
 
@@ -213,8 +227,9 @@ func build_structure(building: BuildingData) -> bool:
 		
 		if ResourceManager.has_method("recalculate_storage_capacity"):
 			ResourceManager.recalculate_storage_capacity()
-			
+
 		_recalculate_tier()
+		if AudioManager: AudioManager.play_sound("building_construct")
 
 		return true
 		
@@ -235,6 +250,7 @@ func upgrade_structure(old_id: String, new_building: BuildingData) -> bool:
 	var cost = new_building.get_cost_dict()
 	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):
 		built_buildings[old_building_idx] = new_building
+		if AudioManager: AudioManager.play_sound("building_upgrade")
 
 		# Update visuals if needed (just scale up for now)
 		if _spawned_models.has(old_id):

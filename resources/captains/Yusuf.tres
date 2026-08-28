@@ -7,6 +7,7 @@
 script = ExtResource("1_cd")
 captain_id = "yusuf"
 captain_name = "\"Windrunner\" Yusuf"
+portrait_path = "res://assets/portraits/Yusuf.svg"
 background = "Trained on the fastest dhows of the southern trade routes."
 hire_cost_gold = 3730
 home_island_id = "cartagena_outpost"

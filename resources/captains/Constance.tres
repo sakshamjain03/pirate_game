@@ -7,6 +7,7 @@
 script = ExtResource("1_cd")
 captain_id = "constance"
 captain_name = "\"Constance\" the Unyielding"
+portrait_path = "res://assets/portraits/Constance.svg"
 background = "Has never once ordered a retreat, and never will."
 hire_cost_gold = 3300
 home_island_id = "frozen_island"

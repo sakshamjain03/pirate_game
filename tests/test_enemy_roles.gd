@@ -10,6 +10,7 @@ extends GutTest
 const ENEMY_SHIP := "res://scenes/world/EnemyShip.tscn"
 
 var _root: Node3D
+var _created_test_scene: Node3D = null
 
 
 func before_each():
@@ -18,9 +19,20 @@ func before_each():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 	_root = Node3D.new()
 	_root.name = "RolesRoot"
 	add_child_autoqfree(_root)
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 
 func _spawn(profile: AIProfileData, pos: Vector3) -> Node3D:

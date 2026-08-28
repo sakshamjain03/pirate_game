@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -8,6 +8,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="5_pause_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/UpgradeChoiceScreen.tscn" id="6_upgrade_choice"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CaptainsLog.tscn" id="7_captains_log"]
+[ext_resource type="PackedScene" path="res://scenes/ui/WorldMapScreen.tscn" id="8_world_map"]
+[ext_resource type="PackedScene" path="res://scenes/ui/CodexScreen.tscn" id="9_codex"]
 
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HealthBg"]
@@ -144,6 +146,7 @@ horizontal_alignment = 2
 vertical_alignment = 1
 
 [node name="CannonsContainer" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
@@ -304,6 +307,28 @@ grow_vertical   = 2
 text = "W"
 horizontal_alignment = 1
 
+[node name="WindArrow" type="Label" parent="CompassPanel/CompassNeedle"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left   = 0.5
+anchor_top    = 0.5
+anchor_right  = 0.5
+anchor_bottom = 0.5
+offset_left   = -8.0
+offset_top    = -22.0
+offset_right  = 8.0
+offset_bottom = -6.0
+pivot_offset  = Vector2(8, 22)
+grow_horizontal = 2
+grow_vertical   = 2
+theme_override_colors/font_color = Color(0.45, 0.75, 1.0, 1)
+theme_override_font_sizes/font_size = 16
+text = "▲"
+horizontal_alignment = 1
+vertical_alignment = 1
+tooltip_text = "Wind direction — points where the wind is blowing toward, relative to your heading"
+
 [node name="DockPrompt" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible        = false
@@ -358,7 +383,8 @@ text           = "⚔️  Press  [F]  to  Board"
 horizontal_alignment = 1
 vertical_alignment   = 1
 
-[node name="ResourceBar" type="PanelContainer" parent="."]
+[node name="TopRightPanel" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -366,33 +392,38 @@ anchor_right = 1.0
 offset_left = -400.0
 offset_top = 12.0
 offset_right = -12.0
-offset_bottom = 52.0
+offset_bottom = 260.0
 grow_horizontal = 0
+theme_override_constants/separation = 8
 
-[node name="HBox" type="HBoxContainer" parent="ResourceBar"]
+[node name="ResourceBar" type="PanelContainer" parent="TopRightPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HBox" type="HBoxContainer" parent="TopRightPanel/ResourceBar"]
 layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="GoldLabel" type="Label" parent="ResourceBar/HBox"]
+[node name="GoldLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0, 1)
 text = "💰 0"
 
-[node name="WoodLabel" type="Label" parent="ResourceBar/HBox"]
+[node name="WoodLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
 text = "🪵 0"
 
-[node name="IronLabel" type="Label" parent="ResourceBar/HBox"]
+[node name="IronLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
 text = "⛏️ 0"
 
-[node name="RumLabel" type="Label" parent="ResourceBar/HBox"]
+[node name="RumLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.4, 0.1, 1)
@@ -422,3 +453,10 @@ visible = false
 unique_name_in_owner = true
 visible = false
 
+[node name="WorldMapScreen" parent="." instance=ExtResource("8_world_map")]
+unique_name_in_owner = true
+visible = false
+
+[node name="CodexScreen" parent="." instance=ExtResource("9_codex")]
+unique_name_in_owner = true
+visible = false

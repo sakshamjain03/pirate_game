@@ -25,11 +25,16 @@ const DRIFT_COMPENSATION_SCALE := 0.25
 
 @export var ship_stats: ShipStats
 var body: RigidBody3D
+# M11 — cached once, not looked up per physics frame; may be null in tests
+# or scenes with no EnvironmentController, in which case wind is simply a
+# no-op (see apply_movement()).
+var _environment_controller: Node = null
 
 func _ready() -> void:
 	body = get_parent() as RigidBody3D
 	if not body:
 		push_error("ShipMovement must be a child of a RigidBody3D")
+	_environment_controller = get_tree().get_first_node_in_group("environment_controller")
 
 func apply_movement(forward_input: float, turn_input: float, delta: float) -> void:
 	if not body or not ship_stats:
@@ -54,6 +59,27 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 	# Forward/Backward movement (Propulsion)
 	var forward_dir = -body.global_transform.basis.z.normalized()
 	var current_speed = body.linear_velocity.dot(forward_dir)
+
+	# M11 Requirement 2 — wind as one more multiplicative term on speed_mod,
+	# same composition pattern as the captain/sail-damage/battle-upgrade terms
+	# above. Applies to every ship (player and AI), never touches
+	# BuoyancySimulator or the yaw servo below (V1/D33/D34: those are
+	# force/torque paths this system deliberately never enters).
+	if is_instance_valid(_environment_controller) and _environment_controller.has_method("get_current_region"):
+		var region: RegionData = _environment_controller.get_current_region()
+		if region and region.wind_strength > 0.0:
+			# wind_direction_degrees is a Y-euler heading in the exact same
+			# convention as global_rotation_degrees.y (see WorldHUD's compass
+			# needle) — a ship whose own yaw equals wind_direction_degrees is
+			# heading dead downwind. Built with the same -sin/-cos mapping
+			# `forward_dir` uses (basis.z's rotation), not an arbitrary one, so
+			# "wind_direction_degrees == ship yaw" reliably means tailwind and
+			# the WorldHUD indicator's relative-bearing math lines up for free.
+			var wind_rad = deg_to_rad(region.wind_direction_degrees)
+			var wind_dir = Vector3(-sin(wind_rad), 0.0, -cos(wind_rad))
+			var wind_dot = clamp(forward_dir.dot(wind_dir), -1.0, 1.0)
+			var wind_term = lerp(0.85, 1.15, (wind_dot + 1.0) * 0.5)
+			speed_mod *= lerp(1.0, wind_term, region.wind_strength)
 
 	if forward_input != 0:
 		var target_speed = ship_stats.max_speed * speed_mod * forward_input

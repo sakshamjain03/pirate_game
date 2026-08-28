@@ -62,6 +62,15 @@ func _on_economy_tick() -> void:
 		elif mission["mission_type"] == "patrol":
 			if FactionManager.has_method("add_reputation"):
 				FactionManager.add_reputation("merchant_guild", 1)
+		elif mission["mission_type"] == "trade_route":
+			# M11 Requirement 6 — same tick mechanism as "trade", scaled by the
+			# route's region_tier so a route into more dangerous waters is
+			# worth more, not just a rename of the flat-rate mission.
+			var tier = int(mission.get("region_tier", 1))
+			var amount = 10 * cap.level * tier
+			ResourceManager.add_resource("gold", amount)
+			if FactionManager.has_method("add_reputation"):
+				FactionManager.add_reputation("merchant_guild", 1)
 
 func assign_mission(ship_index: int, captain_index: int, mission_type: String) -> void:
 	if ship_index == active_ship_index: return # Active ship cannot run background missions
@@ -71,6 +80,30 @@ func assign_mission(ship_index: int, captain_index: int, mission_type: String) -
 		"timer": 0.0
 	}
 	fleet_changed.emit()
+
+## M11 Requirement 6 — a trade route is a named, region-tied variant of the
+## existing "trade" mission (same active_missions dict, same economy-tick
+## mechanism), not a parallel system. route_name/region_tier are exposed so
+## the player can see and reassign the route rather than it being an
+## invisible background timer.
+func assign_trade_route(ship_index: int, captain_index: int, route_name: String, region_tier: int) -> void:
+	if ship_index == active_ship_index: return
+	active_missions[ship_index] = {
+		"captain_index": captain_index,
+		"mission_type": "trade_route",
+		"timer": 0.0,
+		"route_name": route_name,
+		"region_tier": clampi(region_tier, 1, 3),
+	}
+	fleet_changed.emit()
+
+func get_mission_display_text(ship_index: int) -> String:
+	if not active_missions.has(ship_index):
+		return ""
+	var mission = active_missions[ship_index]
+	if mission["mission_type"] == "trade_route" and mission.get("route_name", "") != "":
+		return mission["route_name"]
+	return String(mission["mission_type"]).capitalize()
 
 func set_defend_home(ship_index: int, defend: bool) -> void:
 	if defend:
@@ -148,6 +181,7 @@ func level_up_ship(index: int) -> bool:
 	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
 		return false
 	owned.level += 1
+	if AudioManager: AudioManager.play_sound("level_up")
 	fleet_changed.emit()
 	_refresh_ship_on_deck(index)
 	return true

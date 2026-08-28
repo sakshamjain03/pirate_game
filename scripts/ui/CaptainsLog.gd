@@ -45,9 +45,9 @@ func _refresh() -> void:
 	for child in content.get_children():
 		child.queue_free()
 
-	_add_header("Completed Chapters")
+	_add_header(tr("Completed Chapters"))
 	if CampaignManager.completed_chapter_ids.is_empty():
-		_add_body("None yet.")
+		_add_body(tr("None yet."))
 	else:
 		for chapter in CampaignManager.chapters:
 			if CampaignManager.completed_chapter_ids.has(chapter.chapter_id):
@@ -58,7 +58,7 @@ func _refresh() -> void:
 
 	var current := CampaignManager._current_chapter()
 	if not current:
-		_add_header("No Active Chapter")
+		_add_header(tr("No Active Chapter"))
 		return
 
 	_add_header(current.title)
@@ -75,7 +75,7 @@ func _refresh() -> void:
 
 	if not optional.is_empty():
 		content.add_child(HSeparator.new())
-		_add_header("Optional")
+		_add_header(tr("Optional"))
 		for objective in optional:
 			_add_objective_row(objective)
 

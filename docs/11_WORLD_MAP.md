@@ -81,7 +81,14 @@ Both are fixed in §4. Neither is urgent enough to block M6.
 
 # 4. Target layout
 
-Two options. **Recommendation: adopt Compact now (M7), Expanded when ocean LOD exists.**
+> **M10 update: Expanded (§4b) is now the live layout** — Ocean LOD landed (§7), gating condition
+> met. §3 above still documents the pre-Compact history (the M-1/M-2 defects that motivated this
+> section) and §4a's Compact numbers as the intermediate step that shipped in M7; neither is the
+> current in-game state any more. The six original islands' `world_position` values are §4b's
+> numbers below; three new islands from M10 Requirement 7 are in §6.
+
+Two options, both shipped in sequence rather than picking one. **Compact adopted M7, Expanded
+adopted M10 once ocean LOD existed.**
 
 ## 4a. Compact (recommended for the next milestone)
 
@@ -105,11 +112,11 @@ Deepest one-way voyage ≈ 21 s. Region-to-region crossing ≈ 8–10 s.
 All Compact coordinates × **2.5**. Ring bands become **150–275 / 350–450 / 550–675 u**;
 deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually want.
 
-> **Blocker, and it is a real one:** `test_property_21_lod_distance_transitions` is the
-> project's single known failing test precisely because `OceanController` has **no LOD
-> system**. A 1350 u ocean span with a uniform wave mesh is a mobile framerate problem. The
-> long-standing "accepted failure" is therefore not cosmetic — it is the gate on the world
-> being the size the design wants. See `docs/15_MASTER_PLAN.md`, M8.
+> **Former blocker, resolved M10:** `test_property_21_lod_distance_transitions` was the project's
+> single known failing test precisely because `OceanController` had **no LOD system** — a 1350 u
+> ocean span with a uniform wave mesh is a mobile framerate problem. M10 closed it with a two-ring
+> `PlaneMesh` LOD (`OceanController.get_lod_level()`); see `docs/05_CURRENT_SYSTEMS.md`'s M10
+> section for the implementation.
 
 ## Sail-time budget (design target, ≈ 12 u/s cruise)
 
@@ -129,7 +136,8 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 - **Dominant faction:** Pirate Clans. **Bearing:** the centre; home.
 - **Weather:** calm, clear, low waves. No storms.
 - **Enemies:** Sloops and Dinghies only, `HarassingSloop` AI profile, spawn multiplier 1.0.
-- **Islands:** Port Royal (home, buildable), Tortuga (friendly, Guild trade + Tavern).
+- **Islands:** Port Royal (home, buildable), Tortuga (friendly, Guild trade + Tavern), Pelican
+  Cay (neutral, resource island — M10).
 - **Purpose:** teach the loop. Never punish.
 
 ## Region 2 — Contested Waters (tier 2, threshold 60)
@@ -139,7 +147,7 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 - **Enemies:** Schooners, Brigantines, Corvettes. `StandardEnemy` profile. Navy patrols travel
   in pairs. Spawn multiplier 1.3+ for `is_empire` factions.
 - **Islands:** Skull Cove (enemy, Pirate Clan seat — Chapter 2 target), Frostbite Reef (enemy,
-  Navy anchorage — Chapter 4 boss arena).
+  Navy anchorage — Chapter 4 boss arena), Blackwater Shoal (enemy, Navy waystation — M10).
 - **Purpose:** the first real fights and the first raids on home.
 
 ## Region 3 — Imperial Waters (tier 3, threshold 150)
@@ -148,7 +156,7 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 - **Weather:** heavy seas; Mount Brimstone carries ash haze, Cartagena is fog-prone.
 - **Enemies:** Frigates and Galleons, `AggressiveGalleon` profile. Spawn multiplier 1.6+.
 - **Islands:** Mount Brimstone (enemy, volcanic — iron/sulphur), Cartagena Outpost (capital,
-  the Chapter 5 prize).
+  the Chapter 5 prize), Isla del Rey (enemy, Spanish garrison — M10).
 - **Purpose:** the mid-game plateau. Level-5 buildings and the largest hulls live here.
 
 ## Reserved regions (do not build; keep the ids free)
@@ -178,6 +186,13 @@ The pirate port that *didn't* sink, and is quietly smug about it.
 - **Costs:** robbing Guild convoys tanks reputation here and shuts the tap off.
 - **Story:** Higgins' contacts; Factor Hale's office; where the player hears about Morrow.
 
+### Pelican Cay — `pelican_cay` · Beginner · Neutral
+A low sandbar thick with pelican rookeries; fishermen from Tortuga work it.
+- **Gives:** a second Beginner-ring resource stop, keeping Region 1 worth exploring beyond
+  the two original islands rather than a two-stop errand.
+- **Costs:** nothing — neutral, no faction claims it.
+- **Story:** no chapter hook yet; a quiet island for the early game's economy variety.
+
 ### Skull Cove — `skull_cove` · Contested · Enemy
 A drowned volcanic caldera with one entrance. Morrow's seat.
 - **Gives:** on capture — the best *rum* production in the game, and the Pirate Clans stop
@@ -191,11 +206,26 @@ Not truly frozen — a cold-current reef with wrecks locked in rime. Navy deep a
 - **Costs:** the hardest fight before Imperial Waters; the boss arena.
 - **Story:** Chapter 4. HMS *Intransigent* is berthed here.
 
+### Blackwater Shoal — `blackwater_shoal` · Contested · Enemy
+A Navy resupply waystation on a reef too shallow for their larger hulls.
+- **Gives:** on capture — thins the Navy's Contested-ring presence, a third target alongside
+  Skull Cove and Frostbite Reef.
+- **Costs:** a Royal Navy hold; capture affects Navy reputation like the region's other targets.
+- **Story:** no chapter hook yet — a region-filling target, not a story beat.
+
 ### Mount Brimstone — `volcano_island` · Imperial · Enemy
 Active volcano; Spain mines sulphur and iron with convict labour.
 - **Gives:** the game's only high-tier iron; unlocks the best cannon tech line.
 - **Costs:** Spanish Empire reputation floor; ash haze reduces visibility in combat.
 - **Story:** Chapter 5's first objective — cut the fleet's supply before you rob it.
+
+### Isla del Rey — `isla_del_rey` · Imperial · Enemy
+A walled Spanish garrison island guarding the approach to Cartagena.
+- **Gives:** on capture — a third Imperial-ring target alongside Mount Brimstone and
+  Cartagena Outpost, giving the region's deepest ring more to explore before the finale.
+- **Costs:** a Spanish Empire hold; capture affects Spanish reputation like the region's
+  other targets.
+- **Story:** no chapter hook yet — a region-filling target, not a story beat.
 
 ### Cartagena Outpost — `cartagena_outpost` · Imperial · **Capital**
 The fortified staging port for the treasure fleet crossing.
@@ -210,14 +240,14 @@ The fortified staging port for the treasure fleet crossing.
 
 | Need | Why | Status |
 |---|---|---|
-| `IslandData` carries no coordinates | Layout lives only in `World.tscn`; nothing can reason about distance | ❌ add `world_position: Vector2` |
-| `IslandData` carries no region id | Region membership is only in `RegionData.island_ids` (one-way) | ❌ add `region_id: String` |
-| No discovery/fog system | `IslandData.discovered` exists and is **unused** | ❌ M8 |
-| No world map / navigation UI | Player cannot see the map or set a heading | ❌ M8 |
-| No per-region weather or enemy *types* | Only stat multipliers differ; documented gap in §5 of CURRENT_SYSTEMS | ❌ M7 |
-| Ocean LOD | Gates the Expanded layout | ❌ M8 (known failing test) |
+| `IslandData` carries no coordinates | Layout lives only in `World.tscn`; nothing can reason about distance | ✅ M10 — `world_position: Vector2`, and `Island.gd::_ready()` now writes the node's `global_position` from it, making the data authoritative rather than agreeing with `World.tscn` only by convention |
+| `IslandData` carries no region id | Region membership is only in `RegionData.island_ids` (one-way) | ✅ M10 — `region_id: String` |
+| No discovery/fog system | `IslandData.discovered` exists and is **unused** | ✅ M10 — reveal-on-approach via `WorldManager._check_island_discovery()`, plus `discovered` is now actually persisted (it wasn't before — a real bug found and fixed during M10) |
+| No world map / navigation UI | Player cannot see the map or set a heading | ✅ M10 — `WorldMapScreen.tscn` |
+| No per-region weather or enemy *types* | Only stat multipliers differ; documented gap in §5 of CURRENT_SYSTEMS | ✅ M10 — `RegionData.wave_intensity_multiplier` + `enemy_ship_pool` |
+| Ocean LOD | Gates the Expanded layout | ✅ M10 — two-ring `PlaneMesh` LOD, closes the project's one previously-standing failing test |
 | Second buildable island | Cartagena is designed as one; `Island.gd` supports it, no UI flow proves it | 🟡 verify in M7 |
-| Deep-water / open-ocean spawn zones | Enemies spawn relative to player, not to region | 🟡 `EnemySpawner` |
+| Deep-water / open-ocean spawn zones | Enemies spawn relative to player, not to region | ✅ resolved differently than proposed — `EnemySpawner`'s player-relative spawn box turned out to already scale correctly with map size on its own (confirmed during M10's re-verification pass); no region-tied spawn zones were needed |
 
 ---
 

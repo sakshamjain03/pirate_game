@@ -20,6 +20,10 @@ const ISLAND_PATHS := {
 	"frozen_island": "res://resources/world/FrozenIsland.tres",
 	"volcano_island": "res://resources/world/VolcanoIsland.tres",
 	"cartagena_outpost": "res://resources/world/CartagenaOutpost.tres",
+	# M10 Requirement 7 — three new islands, one per existing region.
+	"pelican_cay": "res://resources/world/PelicanCay.tres",
+	"blackwater_shoal": "res://resources/world/BlackwaterShoal.tres",
+	"isla_del_rey": "res://resources/world/IslaDelRey.tres",
 }
 
 const REGION_PATHS := [
@@ -28,11 +32,13 @@ const REGION_PATHS := [
 	"res://resources/world/regions/ImperialWaters.tres",
 ]
 
-## Ring bands per region tier, in world units from the home island — docs/11_WORLD_MAP.md §4a.
+## Ring bands per region tier, in world units from the home island — docs/11_WORLD_MAP.md §4b
+## (M10 — the Expanded layout, adopted once Ocean LOD closed the gate on it; Compact's 60-110/
+## 140-180/220-270 bands are pre-M10 history now).
 const TIER_BANDS := {
-	1: Vector2(60.0, 110.0),
-	2: Vector2(140.0, 180.0),
-	3: Vector2(220.0, 270.0),
+	1: Vector2(150.0, 275.0),
+	2: Vector2(350.0, 450.0),
+	3: Vector2(550.0, 675.0),
 }
 
 const HOME_ISLAND_ID := "port_royal"

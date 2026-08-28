@@ -7,6 +7,7 @@
 script = ExtResource("1_cd")
 captain_id = "selene"
 captain_name = "\"Moonlit\" Selene"
+portrait_path = "res://assets/portraits/Selene.svg"
 background = "Only ever raids under a new moon, and never gets caught."
 hire_cost_gold = 2580
 home_island_id = "volcano_island"

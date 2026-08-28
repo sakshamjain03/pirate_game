@@ -32,35 +32,33 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.5)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="Panel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(480, 320)
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_left = 0.1
+anchor_top = 0.1
+anchor_right = 0.9
+anchor_bottom = 0.9
 grow_horizontal = 2
 grow_vertical = 2
-
-[node name="Panel" type="PanelContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(600, 400)
-layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_MenuBg")
 
-[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+[node name="Margin" type="MarginContainer" parent="Panel"]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="Header" type="HBoxContainer" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="Header" type="HBoxContainer" parent="Panel/Margin/VBox"]
 layout_mode = 2
 alignment = 1
 
-[node name="IslandNameLabel" type="Label" parent="CenterContainer/Panel/Margin/VBox/Header"]
+[node name="IslandNameLabel" type="Label" parent="Panel/Margin/VBox/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -70,90 +68,90 @@ theme_override_font_sizes/font_size = 32
 text = "Island Name"
 horizontal_alignment = 1
 
-[node name="TabContainer" type="TabContainer" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="TabContainer" type="TabContainer" parent="Panel/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 current_tab = 0
 
-[node name="Construction" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer"]
+[node name="Construction" type="ScrollContainer" parent="Panel/Margin/VBox/TabContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 metadata/_tab_index = 0
 
-[node name="BuildingsContainer" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer/Construction"]
+[node name="BuildingsContainer" type="VBoxContainer" parent="Panel/Margin/VBox/TabContainer/Construction"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Shipyard" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer"]
+[node name="Shipyard" type="ScrollContainer" parent="Panel/Margin/VBox/TabContainer"]
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 metadata/_tab_index = 1
 
-[node name="ShipsContainer" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer/Shipyard"]
+[node name="ShipsContainer" type="VBoxContainer" parent="Panel/Margin/VBox/TabContainer/Shipyard"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Tavern" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer"]
+[node name="Tavern" type="ScrollContainer" parent="Panel/Margin/VBox/TabContainer"]
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 metadata/_tab_index = 2
 
-[node name="CaptainsContainer" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer/Tavern"]
+[node name="CaptainsContainer" type="VBoxContainer" parent="Panel/Margin/VBox/TabContainer/Tavern"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Fleet" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer"]
+[node name="Fleet" type="ScrollContainer" parent="Panel/Margin/VBox/TabContainer"]
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 metadata/_tab_index = 3
 
-[node name="FleetContainer" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer/Fleet"]
+[node name="FleetContainer" type="VBoxContainer" parent="Panel/Margin/VBox/TabContainer/Fleet"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Research" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer"]
+[node name="Research" type="ScrollContainer" parent="Panel/Margin/VBox/TabContainer"]
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 metadata/_tab_index = 4
 
-[node name="ResearchContainer" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer/Research"]
+[node name="ResearchContainer" type="VBoxContainer" parent="Panel/Margin/VBox/TabContainer/Research"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Trade" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer"]
+[node name="Trade" type="ScrollContainer" parent="Panel/Margin/VBox/TabContainer"]
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 metadata/_tab_index = 5
 
-[node name="TradeContainer" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/TabContainer/Trade"]
+[node name="TradeContainer" type="VBoxContainer" parent="Panel/Margin/VBox/TabContainer/Trade"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="CloseButton" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="CloseButton" type="Button" parent="Panel/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 50)
 layout_mode = 2

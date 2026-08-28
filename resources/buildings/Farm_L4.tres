@@ -16,3 +16,4 @@ cost_iron = 40
 produces_resource = "rum"
 production_amount = 16
 production_interval = 12.0
+model_path = "res://assets/models/crate-bottles.glb"

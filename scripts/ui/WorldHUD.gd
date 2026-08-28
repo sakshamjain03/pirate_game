@@ -21,6 +21,7 @@ signal _dummy  # ensures signals section exists
 @onready var dock_prompt     : PanelContainer = %DockPrompt
 @onready var board_prompt    : PanelContainer = %BoardPrompt
 @onready var compass_needle  : Control      = %CompassNeedle
+@onready var wind_arrow      : Control      = %WindArrow
 
 @onready var gold_label      : Label        = %GoldLabel
 @onready var wood_label      : Label        = %WoodLabel
@@ -30,8 +31,17 @@ signal _dummy  # ensures signals section exists
 @onready var death_screen    : DeathScreen  = %DeathScreen
 @onready var upgrade_choice_screen: UpgradeChoiceScreen = %UpgradeChoiceScreen
 @onready var captains_log: CaptainsLog = %CaptainsLog
+@onready var world_map_screen: WorldMapScreen = %WorldMapScreen
+@onready var codex_screen: CanvasLayer = %CodexScreen
+@onready var top_right_panel : VBoxContainer = %TopRightPanel
+@onready var resource_bar    : PanelContainer = %ResourceBar
+@onready var cannons_container: HBoxContainer = %CannonsContainer
+@onready var tutorial_dialogue: TutorialDialogue = %TutorialDialogue
 
 var _ship_controller: ShipController
+# M11 — lazily cached; looked up once found since EnvironmentController is a
+# scene node that may not exist yet the first few frames HUD is active.
+var _environment_controller: Node = null
 
 # Cannon cooldown display state — ShipCombat's own cooldown timers don't
 # report progress, only a final "ready again" flip, so this tracks each
@@ -66,18 +76,28 @@ func _ready() -> void:
 	if SaveManager.has_signal("load_failed") and not SaveManager.load_failed.is_connected(_on_save_load_failed):
 		SaveManager.load_failed.connect(_on_save_load_failed)
 	_create_fps_label()
+	if tutorial_dialogue and not tutorial_dialogue.visibility_changed.is_connected(_on_tutorial_dialogue_visibility_changed):
+		tutorial_dialogue.visibility_changed.connect(_on_tutorial_dialogue_visibility_changed)
 
 func _on_save_load_failed(reason: String) -> void:
 	## M2 Task 12.3 — graceful degradation: a corrupt/unreadable save must not
 	## silently drop the player into a fresh game with no explanation.
-	announce_event("Save data could not be loaded (%s) — starting fresh." % reason)
+	announce_event(tr("Save data could not be loaded (%s) — starting fresh.") % reason, true)
+
+func _on_tutorial_dialogue_visibility_changed() -> void:
+	## M9 Requirement 5 — a tutorial beat and the combat HUD previously
+	## rendered stacked with no arbitration (D69). Dimming rather than hiding
+	## keeps the cannon panel legible as context without it visually
+	## competing with the dialogue that has focus.
+	if cannons_container:
+		cannons_container.modulate.a = 0.35 if tutorial_dialogue.visible else 1.0
 
 func _check_offline_return() -> void:
 	## Show a one-time "while you were away" notice if SaveManager just replayed offline ticks
 	if SaveManager._pending_offline_ticks > 0:
 		var ticks = SaveManager._pending_offline_ticks
 		SaveManager._pending_offline_ticks = 0
-		announce_event("While you were away: your empire kept running (%d ticks)" % ticks)
+		announce_event(tr("While you were away: your empire kept running (%d ticks)") % ticks)
 
 func _apply_theme() -> void:
 	## Inject the runtime pirate theme into this HUD
@@ -146,6 +166,8 @@ func _find_ship() -> void:
 
 	# Captain's Log (M7 §9.1) + campaign objective feedback (§9.2/9.4)
 	_create_captains_log_button()
+	_create_world_map_button()
+	_create_codex_button()
 	CampaignManager.objective_completed.connect(_on_campaign_objective_completed)
 	CampaignManager.chapter_completed.connect(_on_campaign_chapter_completed)
 	CampaignManager.chapter_started.connect(_on_campaign_chapter_started)
@@ -172,26 +194,22 @@ func _create_fps_label() -> void:
 	_fps_label.position = Vector2(8, -20)
 	add_child(_fps_label)
 
-var _notoriety_label: Label
+var notoriety_label: Label
+var captains_log_button: Button
 func _create_notoriety_label() -> void:
-	_notoriety_label = Label.new()
-	_notoriety_label.add_theme_font_size_override("font_size", 14)
-	_notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
-	# Anchor to the top-right corner and grow leftwards/downwards. The previous
-	# PRESET_TOP_RIGHT + `position.x -= 300` nudge anchored only the label's
-	# left edge to the screen edge, so the text both ran off the right of the
-	# screen and landed on top of the resource bar. Right-aligning inside an
-	# explicitly-offset rect keeps it clear of the bar at any resolution.
-	_notoriety_label.set_anchors_preset(Control.PRESET_TOP_RIGHT, true)
-	_notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_notoriety_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_notoriety_label.offset_left = -320.0
-	_notoriety_label.offset_right = -16.0
-	# Below the resource bar rather than across it.
-	_notoriety_label.offset_top = 52.0
-	_notoriety_label.offset_bottom = 96.0
-	add_child(_notoriety_label)
-	
+	notoriety_label = Label.new()
+	notoriety_label.add_theme_font_size_override("font_size", 14)
+	notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
+	notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# Added as a sibling of ResourceBar inside TopRightPanel (a VBoxContainer)
+	# rather than given its own independently-anchored rect — the previous
+	# approach hardcoded offset_top to match ResourceBar's own offset_bottom,
+	# two constants kept in sync only by convention, which silently drifted
+	# apart once real multi-digit resource values grew ResourceBar taller than
+	# its authored rect (D36). A container lays out its children by their
+	# actual measured size, so this pair structurally cannot overlap.
+	top_right_panel.add_child(notoriety_label)
+
 	var emp = get_tree().root.get_node_or_null("EmpireManager")
 	if emp:
 		emp.notoriety_changed.connect(_on_notoriety_changed)
@@ -199,22 +217,49 @@ func _create_notoriety_label() -> void:
 		_on_notoriety_changed(emp.notoriety)
 
 func _create_captains_log_button() -> void:
-	## M7 §9.1 — same dynamic-positioning pattern as the notoriety label just
-	## above: anchored to a corner and grown inward, rather than hand-placed
-	## inside TopBar's already tightly-sized fixed box.
-	var btn := Button.new()
-	btn.text = "Log"
-	btn.custom_minimum_size = Vector2(70, 32)
-	btn.set_anchors_preset(Control.PRESET_TOP_RIGHT, true)
-	btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	btn.offset_left = -90.0
-	btn.offset_right = -16.0
-	btn.offset_top = 100.0
-	btn.offset_bottom = 132.0
-	btn.pressed.connect(func():
+	## M7 §9.1 — added as a third child of top_right_panel (below the
+	## notoriety label) rather than a fourth independently-hardcoded offset:
+	## a hardcoded `offset_top = 100.0` here was calibrated against the old
+	## notoriety label's fixed end position and silently started overlapping
+	## it once that label became container-positioned (and thus taller) —
+	## the exact "two independently-hardcoded numbers drift apart" failure
+	## mode D36 already burned this HUD on once.
+	captains_log_button = Button.new()
+	captains_log_button.text = tr("Log")
+	captains_log_button.custom_minimum_size = Vector2(70, 32)
+	captains_log_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	captains_log_button.pressed.connect(func():
 		if captains_log:
 			captains_log.toggle())
-	add_child(btn)
+	top_right_panel.add_child(captains_log_button)
+
+var world_map_button: Button
+func _create_world_map_button() -> void:
+	## M10 Requirement 3 — same dynamic-positioning pattern as
+	## _create_captains_log_button() just above: a fourth child of
+	## top_right_panel, container-positioned rather than a fifth
+	## independently-hardcoded offset.
+	world_map_button = Button.new()
+	world_map_button.text = tr("Map")
+	world_map_button.custom_minimum_size = Vector2(70, 32)
+	world_map_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	world_map_button.pressed.connect(func():
+		if world_map_screen:
+			world_map_screen.toggle())
+	top_right_panel.add_child(world_map_button)
+
+
+func _create_codex_button() -> void:
+	## Uses the same container-owned placement as Log/Map, avoiding a second
+	## hard-coded HUD offset and its known overlap regression (D36).
+	var codex_button := Button.new()
+	codex_button.text = tr("Codex")
+	codex_button.custom_minimum_size = Vector2(70, 32)
+	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	codex_button.pressed.connect(func():
+		if codex_screen and codex_screen.has_method("toggle"):
+			codex_screen.toggle())
+	top_right_panel.add_child(codex_button)
 
 
 # --- Campaign feedback (M7 §9.2/§9.4) ---
@@ -229,16 +274,16 @@ func _on_campaign_objective_completed(objective_id: String) -> void:
 		return
 	for objective in chapter.objectives:
 		if objective.objective_id == objective_id:
-			announce_event("Objective complete: %s" % objective.description)
+			announce_event(tr("Objective complete: %s") % objective.description)
 			return
 
 func _on_campaign_chapter_started(chapter: ChapterData) -> void:
-	announce_event("Chapter %d: %s" % [chapter.chapter_number, chapter.title])
+	announce_event(tr("Chapter %d: %s") % [chapter.chapter_number, chapter.title])
 	_objective_stall_timer = 0.0
 	_hinted_objective_ids.clear()
 
 func _on_campaign_chapter_completed(chapter: ChapterData) -> void:
-	announce_event("Chapter Complete: %s" % chapter.title)
+	announce_event(tr("Chapter Complete: %s") % chapter.title)
 
 func _on_campaign_objective_progressed(objective_id: String, _current: int, _target: int) -> void:
 	# Real progress resets the stall clock and lets that objective's hint
@@ -267,10 +312,10 @@ func _check_objective_stall(delta: float) -> void:
 
 
 func _on_notoriety_changed(new_val: float) -> void:
-	if not _notoriety_label:
+	if not notoriety_label:
 		return
 		
-	var text = "Notoriety: %.1f" % new_val
+	var text = tr("Notoriety: %.1f") % new_val
 	var next_threshold = -1.0
 	
 	var emp = get_tree().root.get_node_or_null("EmpireManager")
@@ -282,13 +327,13 @@ func _on_notoriety_changed(new_val: float) -> void:
 					
 	if next_threshold >= 0:
 		var remaining = max(0.0, next_threshold - new_val)
-		text += "\nNext escalation in: %.1f" % remaining
+		text += "\n" + (tr("Next escalation in: %.1f") % remaining)
 		
-	_notoriety_label.text = text
+	notoriety_label.text = text
 
 func _on_region_activated(region_id: String) -> void:
 	var region_name = region_id
-	var faction_name = "an Empire"
+	var faction_name = tr("an Empire")
 	var emp = get_tree().root.get_node_or_null("EmpireManager")
 	if emp:
 		for r in emp._regions:
@@ -300,7 +345,7 @@ func _on_region_activated(region_id: String) -> void:
 						faction_name = f.get("faction_name")
 				break
 				
-	announce_event(region_name + " is now active!\n" + faction_name + " is hunting you!")
+	announce_event((tr("%s is now active!") % region_name) + "\n" + (tr("%s is hunting you!") % faction_name))
 
 func _on_dock_area_entered(_island_id: String) -> void:
 	show_dock_prompt(true)
@@ -309,7 +354,7 @@ func _on_dock_area_exited(_island_id: String) -> void:
 	show_dock_prompt(false)
 
 func _on_dock_speed_exceeded() -> void:
-	announce_event("Too fast to dock — slow down!")
+	announce_event(tr("Too fast to dock — slow down!"), true)
 
 func _on_boarding_prompt_available(_enemy_ship: Node) -> void:
 	if board_prompt:
@@ -321,12 +366,12 @@ func _on_boarding_prompt_unavailable() -> void:
 
 func _on_boarding_resolved(success: bool, loot: Dictionary, _target_faction_id: String = "", _target_ship_id: String = "") -> void:
 	if success:
-		var text = "Boarding Successful!\n"
+		var text = tr("Boarding Successful!") + "\n"
 		for k in loot.keys():
-			text += "+%d %s " % [loot[k], k.capitalize()]
+			text += tr("+%d %s ") % [loot[k], tr(k.capitalize())]
 		announce_event(text)
 	else:
-		announce_event("Boarding Failed! Crew lost.")
+		announce_event(tr("Boarding Failed! Crew lost."))
 
 func _tint_label(lbl: Label, current: int, maximum: int) -> void:
 	if not lbl: return
@@ -338,16 +383,16 @@ func _tint_label(lbl: Label, current: int, maximum: int) -> void:
 func _on_resources_changed(res: Dictionary) -> void:
 	var max_res = ResourceManager.max_storage
 	if gold_label: 
-		gold_label.text = "💰 %s / %s" % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
+		gold_label.text = tr("💰 %s / %s") % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
 		_tint_label(gold_label, res.get("gold", 0), max_res.get("gold", 9999))
 	if wood_label: 
-		wood_label.text = "🪵 %s / %s" % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
+		wood_label.text = tr("🪵 %s / %s") % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
 		_tint_label(wood_label, res.get("wood", 0), max_res.get("wood", 9999))
 	if iron_label: 
-		iron_label.text = "⛏️ %s / %s" % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
+		iron_label.text = tr("⛏️ %s / %s") % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
 		_tint_label(iron_label, res.get("iron", 0), max_res.get("iron", 9999))
 	if rum_label:  
-		rum_label.text  = "🍷 %s / %s" % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
+		rum_label.text  = tr("🍷 %s / %s") % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
 		_tint_label(rum_label, res.get("rum", 0), max_res.get("rum", 9999))
 	if _economy_label:
 		# Just append it to the economy label for now to avoid creating a new UI element
@@ -404,16 +449,35 @@ func _process(_delta: float) -> void:
 	if _fps_label:
 		var fps := Engine.get_frames_per_second()
 		var frame_ms := (1000.0 / fps) if fps > 0 else 0.0
-		_fps_label.text = "%d FPS (%.1f ms)" % [fps, frame_ms]
+		_fps_label.text = tr("%d FPS (%.1f ms)") % [fps, frame_ms]
 
 	## Update compass needle to match ship yaw
 	if _ship_controller and compass_needle:
 		var yaw = fmod(_ship_controller.global_rotation_degrees.y, 360.0)
 		compass_needle.rotation_degrees = yaw
-		
+
+	## M11 Requirement 2.3 — wind indicator. WindArrow is nested inside
+	## CompassNeedle so it inherits the same +yaw rotation the N/S/E/W labels
+	## get "for free"; its own local rotation_degrees only needs to add the
+	## region's wind bearing on top of that; combined they land at the same
+	## screen-relative-bearing convention the compass already establishes.
+	if wind_arrow:
+		if not is_instance_valid(_environment_controller):
+			_environment_controller = get_tree().get_first_node_in_group("environment_controller")
+		var region: RegionData = null
+		if is_instance_valid(_environment_controller) and _environment_controller.has_method("get_current_region"):
+			region = _environment_controller.get_current_region()
+		if region and region.wind_strength > 0.0:
+			wind_arrow.visible = true
+			wind_arrow.rotation_degrees = region.wind_direction_degrees
+			wind_arrow.modulate.a = lerp(0.35, 1.0, region.wind_strength)
+		else:
+			wind_arrow.visible = false
+
+
 	if _economy_label and ResourceManager:
 		var time_left = ResourceManager.ECONOMY_TICK_INTERVAL - ResourceManager._economy_timer
-		var base_text = "Next Production: %.1fs" % max(0.0, time_left)
+		var base_text = tr("Next Production: %.1fs") % max(0.0, time_left)
 		if _economy_label.has_meta("res_str"):
 			_economy_label.text = base_text + _economy_label.get_meta("res_str")
 		else:
@@ -421,14 +485,14 @@ func _process(_delta: float) -> void:
 
 func _on_speed_changed(speed: float) -> void:
 	if speed_label:
-		speed_label.text = "⚓ %.1f kn" % speed
+		speed_label.text = tr("⚓ %.1f kn") % speed
 
 func set_health(current: float, maximum: float) -> void:
 	if health_bar:
 		health_bar.max_value = maximum
 		health_bar.value     = current
 	if health_left:
-		health_left.text = "🤍 %d / %d HP" % [int(current), int(maximum)]
+		health_left.text = tr("🤍 %d / %d HP") % [int(current), int(maximum)]
 	if health_right:
 		health_right.text = "%d / %d" % [int(current), int(maximum)]
 
@@ -457,7 +521,7 @@ func _on_encounter_started(data) -> void:
 	if not _objective_label:
 		return
 	_objective_label.visible = true
-	_objective_label.text = "%s — %s" % [data.get_kind_name(), data.display_name]
+	_objective_label.text = tr("%s — %s") % [data.get_kind_name(), data.display_name]
 
 func _on_objective_progress(current: int, total: int) -> void:
 	if not _objective_label or not _objective_label.visible:
@@ -478,16 +542,16 @@ func set_cannon_cooldown(side: String, ready: bool, pct: float = 1.0) -> void:
 	if locked and ready:
 		# The moment that matters: a hostile is in the arc and the guns are
 		# loaded, so this side is about to fire on its own.
-		label.text = "ON TARGET ✹"
+		label.text = tr("ON TARGET ✹")
 		label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.25))
 	elif locked:
-		label.text = "TARGET · RELOADING %d%%" % int(pct * 100.0)
+		label.text = tr("TARGET · RELOADING %d%%") % int(pct * 100.0)
 		label.add_theme_color_override("font_color", Color(0.95, 0.75, 0.25))
 	elif ready:
-		label.text = "READY ⚓"
+		label.text = tr("READY ⚓")
 		label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.3))
 	else:
-		label.text = "RELOADING %d%% ⌛" % int(pct * 100.0)
+		label.text = tr("RELOADING %d%% ⌛") % int(pct * 100.0)
 		label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
 
 func _update_special_broadside_display() -> void:
@@ -498,11 +562,11 @@ func _update_special_broadside_display() -> void:
 		_special_label.visible = false
 		return
 	if combat.is_special_broadside_ready():
-		_special_label.text = "[SPACE] FULL BROADSIDE"
+		_special_label.text = tr("[SPACE] FULL BROADSIDE")
 		_special_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
 	else:
 		var pct: float = combat.get_special_cooldown_fraction()
-		_special_label.text = "FULL BROADSIDE %d%%" % int(pct * 100.0)
+		_special_label.text = tr("FULL BROADSIDE %d%%") % int(pct * 100.0)
 		_special_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.6))
 
 func _update_captain_ability_display() -> void:
@@ -515,7 +579,7 @@ func _update_captain_ability_display() -> void:
 	_ability_label.visible = true
 	var ability = node.get_ability()
 	if node.is_ready():
-		_ability_label.text = "[R] %s %s" % [ability.icon, ability.display_name]
+		_ability_label.text = tr("[R] %s %s") % [ability.icon, ability.display_name]
 		_ability_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
 	else:
 		_ability_label.text = "%s %s %d%%" % [
@@ -547,36 +611,61 @@ func show_dock_prompt(show: bool) -> void:
 	if dock_prompt:
 		dock_prompt.visible = show
 
-func announce_event(text_content: String) -> void:
+func announce_event(text_content: String, is_warning: bool = false) -> void:
+	## M9 Requirement 6 (D68) — previously bare, unframed red Label text
+	## directly over the 3D world, reading as a debug print for every message
+	## regardless of tone. Framed like the rest of the HUD's panels; color
+	## reads informational (gold) by default, alarm-red only for genuine
+	## warnings (e.g. docking too fast, a corrupted save).
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.07, 0.12, 0.95)
+	style.border_width_left = 4
+	style.border_width_top = 4
+	style.border_width_right = 4
+	style.border_width_bottom = 4
+	style.border_color = PirateThemeBuilder.COLOR_GOLD
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_right = 8
+	style.corner_radius_bottom_left = 8
+	style.content_margin_left = 24.0
+	style.content_margin_right = 24.0
+	style.content_margin_top = 12.0
+	style.content_margin_bottom = 12.0
+	panel.add_theme_stylebox_override("panel", style)
+
 	var label = Label.new()
 	label.text = text_content
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 42)
-	label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+	label.add_theme_font_size_override("font_size", 32)
+	label.add_theme_color_override("font_color",
+		PirateThemeBuilder.COLOR_RED_HEALTH if is_warning else PirateThemeBuilder.COLOR_GOLD_BRIGHT)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 8)
-	
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(label)
+
 	# Span the full width and wrap, rather than PRESET_CENTER. That preset
 	# anchors a zero-width rect at the centre, so a long announcement grew
 	# rightwards off the edge of the screen instead of centring within it —
 	# "While you were away: your empire kept running (N ticks)" ran clean off
 	# the frame. A full-width rect with wrapping centres properly at any length.
-	label.set_anchors_preset(Control.PRESET_HCENTER_WIDE, true)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.offset_left = 40.0
-	label.offset_right = -40.0
-	label.offset_top = -140.0
-	label.offset_bottom = -40.0
+	panel.set_anchors_preset(Control.PRESET_HCENTER_WIDE, true)
+	panel.offset_left = 40.0
+	panel.offset_right = -40.0
+	panel.offset_top = -140.0
+	panel.offset_bottom = -40.0
 
-	add_child(label)
+	add_child(panel)
 
 	# Start transparent, otherwise the first tween fades from 1.0 to 1.0 and the
 	# announcement simply pops in.
-	label.modulate.a = 0.0
+	panel.modulate.a = 0.0
 
 	var tween = create_tween()
-	tween.tween_property(label, "modulate:a", 1.0, 0.4)
+	tween.tween_property(panel, "modulate:a", 1.0, 0.4)
 	tween.tween_interval(2.0)
-	tween.tween_property(label, "modulate:a", 0.0, 1.0)
-	tween.tween_callback(label.queue_free)
+	tween.tween_property(panel, "modulate:a", 0.0, 1.0)
+	tween.tween_callback(panel.queue_free)

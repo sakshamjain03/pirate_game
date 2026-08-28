@@ -9,12 +9,25 @@ class MockShipParent extends RigidBody3D:
 	# exercise the real code path. Null by default, which every consumer guards.
 	var active_captain: CaptainData = null
 
+var _created_test_scene: Node3D = null
+
 func before_each():
 	if not get_tree().current_scene:
 		var scene = Node3D.new()
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
+
+func after_each():
+	# This file's own current_scene, if it created one, must not outlive it —
+	# a leaked one previously corrupted test_navigation_integration.gd's real
+	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func _make_ship(stats: ShipStats) -> Dictionary:
 	var parent = MockShipParent.new()
@@ -104,19 +117,19 @@ func test_stern_arc_crits_apply_only_inside_the_arc():
 	var dmg = built["damage"]
 	var parent = built["parent"]
 	await wait_process_frames(1)
-	
+
 	# Ship looks towards -Z by default, meaning aft is +Z
 	# A hit exactly from behind (+Z direction) should crit
 	var round_shot = preload("res://resources/combat/ammo/RoundShot.tres")
-	
+
 	dmg.hull = 100.0
 	dmg.apply_hit(10.0, round_shot, Vector3.FORWARD) # Vector3(0, 0, -1) which is hitting from front
 	assert_eq(dmg.hull, 90.0, "Frontal hit should not crit (10 damage)")
-	
+
 	dmg.hull = 100.0
 	dmg.apply_hit(10.0, round_shot, Vector3.BACK) # Vector3(0, 0, 1) which is hitting from aft
 	assert_eq(dmg.hull, 80.0, "Aft hit exactly on axis should crit (20 damage)")
-	
+
 	dmg.hull = 100.0
 	# Outside the 60 degree arc (>30 deg from aft)
 	# Vector3(1, 0, 0) is 90 degrees from aft

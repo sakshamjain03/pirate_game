@@ -93,11 +93,15 @@ silently reimplemented. When you change a documented system, update its entry in
 
 ### AI agent workflow (this repo specifically)
 
-This project is developed by two AI agents with different jobs, per `docs/07_AI_AGENT_WORKFLOW.md`:
-Antigravity/Gemini writes small, precisely-scoped implementation tasks one at a time; Claude Code
-plans, writes/maintains `.kiro/specs/<milestone>/{requirements,design,tasks}.md`, and reviews every
-checkpoint before the next task wave starts. Never let a milestone's next task wave start before
-its prior checkpoint has been verified (not just self-reported) — use the `checkpoint-reviewer`
-agent and the `godot-verify` skill for this. Gemini-facing prompts are built with the
-`gemini-prompt` skill and follow `docs/08_PROMPT_LIBRARY.md`'s template (always point Gemini at
-`AGENTS.md` → `docs/05_CURRENT_SYSTEMS.md` → the milestone's own spec docs, in that order).
+**As of 2026-08-26, this project is built entirely by Claude Code** — planning, implementation, and
+verification all happen here; there is no second implementing agent. (Earlier docs/history
+reference an Antigravity/Gemini implementation handoff — that workflow is retired; see
+`docs/07_AI_AGENT_WORKFLOW.md`'s "What this replaced" section if you find a stale reference to it
+elsewhere.) Plan and maintain `.kiro/specs/<milestone>/{requirements,design,tasks}.md` (scaffold new
+ones with the `spec-new` skill), then implement directly against them, one task at a time, per
+`docs/07_AI_AGENT_WORKFLOW.md`'s rules. Never let a milestone's next task wave start before its
+prior checkpoint has been independently re-verified (not just remembered from the implementing
+pass) — use the `checkpoint-reviewer` agent and the `godot-verify` skill for this; that discipline
+matters just as much solo as it ever did with two agents, per the self-report failures
+`docs/07_AI_AGENT_WORKFLOW.md` documents (several of which happened with no handoff involved at
+all).

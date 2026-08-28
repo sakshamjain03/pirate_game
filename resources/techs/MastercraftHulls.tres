@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TechData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/TechData.gd" id="1_td"]
+
+[resource]
+script = ExtResource("1_td")
+tech_id = "mastercraft_hulls"
+tech_name = "Mastercraft Hulls"
+description = "Shipwright-guild construction increases ship max health by a further 25%."
+cost_gold = 5500
+cost_wood = 3000
+cost_iron = 1200
+required_island_tier = 5
+required_prerequisite_tech_id = "heavy_plating"
+health_modifier = 1.25
+damage_modifier = 1.0
+speed_modifier = 1.0
+storage_modifier = 1.0

@@ -20,6 +20,15 @@ const DEFAULT_MODEL_PATH := "res://assets/models/ship-pirate-small.glb"
 @export_range(0.0, 1.0) var hull_damaged_threshold: float = 0.5
 ## Below this, the hull itself darkens — planking scorched, not just smoking.
 @export_range(0.0, 1.0) var hull_critical_threshold: float = 0.25
+## M10 Requirement 6 — the one remaining open item from `docs/navalCombat.md`
+## §7: a distinct near-destruction state below critical, so a badly-damaged
+## hull visibly looks like it's about to sink rather than just staying at
+## the same critical look all the way to 0. Visual only — a rotation offset
+## on the hull model, never the parent ShipController's own transform, so
+## BuoyancySimulator's float physics and FiringSolver's arc geometry (both of
+## which read the ship's real transform) are unaffected.
+@export_range(0.0, 1.0) var hull_sinking_threshold: float = 0.10
+@export var sinking_list_degrees: float = 9.0
 @export var scorch_tint_color: Color = Color(0.12, 0.10, 0.09)
 @export_range(0.0, 1.0) var scorch_tint_strength: float = 0.55
 
@@ -131,8 +140,10 @@ func _on_damage_pool_changed(pool: String, current: float, maximum: float) -> vo
 	if pool != "hull":
 		return
 	var pct: float = current / max(maximum, 1.0)
-	_update_smoke(pct < hull_damaged_threshold and pct > 0.0)
+	var is_sinking := pct < hull_sinking_threshold and pct > 0.0
+	_update_smoke(pct < hull_damaged_threshold and pct > 0.0, is_sinking)
 	_apply_damage_tint(scorch_tint_strength if pct < hull_critical_threshold else 0.0)
+	_apply_list(sinking_list_degrees if is_sinking else 0.0)
 
 
 func _cache_clean_albedo() -> void:
@@ -210,8 +221,30 @@ func _ensure_smoke() -> GPUParticles3D:
 	return _smoke
 
 
-func _update_smoke(should_emit: bool) -> void:
-	_ensure_smoke().emitting = should_emit
+func _update_smoke(should_emit: bool, heavy: bool = false) -> void:
+	var smoke := _ensure_smoke()
+	smoke.emitting = should_emit
+	# Heavier smoke for the sinking band: bigger, faster-moving puffs on the
+	# same particle system rather than a second one — resizing `amount`
+	# requires recreating the particle buffer, so intensity is conveyed
+	# through velocity/scale instead.
+	var proc := smoke.process_material as ParticleProcessMaterial
+	if proc:
+		if heavy:
+			proc.initial_velocity_min = 0.9
+			proc.initial_velocity_max = 1.8
+			proc.scale_min = 0.9
+			proc.scale_max = 1.6
+		else:
+			proc.initial_velocity_min = 0.5
+			proc.initial_velocity_max = 1.1
+			proc.scale_min = 0.5
+			proc.scale_max = 1.1
+
+
+func _apply_list(degrees: float) -> void:
+	if _model_instance:
+		_model_instance.rotation.z = deg_to_rad(degrees)
 
 
 func _find_wake_particles() -> GPUParticles3D:

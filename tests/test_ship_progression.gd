@@ -14,6 +14,7 @@ class MockPlayer extends Node3D:
 var _saved_ships: Array
 var _saved_active_index: int
 var _saved_resources: Dictionary
+var _created_test_scene: Node3D = null
 
 func before_each():
 	_saved_ships = FleetManager.owned_ships.duplicate()
@@ -27,6 +28,15 @@ func after_each():
 	FleetManager.owned_ships = _saved_ships.duplicate()
 	FleetManager.active_ship_index = _saved_active_index
 	ResourceManager.current_resources = _saved_resources.duplicate()
+	# This file's own current_scene, if it created one (see
+	# test_equip_module_updates_the_active_ships_live_stats), must not outlive
+	# it — a leaked one previously corrupted test_navigation_integration.gd's
+	# real get_tree().change_scene_to_file() call (freed-lambda-capture crash).
+	if is_instance_valid(_created_test_scene):
+		if get_tree().current_scene == _created_test_scene:
+			get_tree().current_scene = null
+		_created_test_scene.queue_free()
+	_created_test_scene = null
 
 func _fresh_owned(ship_path: String = "res://resources/ships/Sloop.tres") -> OwnedShipData:
 	var o := OwnedShipData.new()
@@ -127,6 +137,7 @@ func test_equip_module_updates_the_active_ships_live_stats():
 		scene.name = "TestScene"
 		get_tree().root.add_child(scene)
 		get_tree().current_scene = scene
+		_created_test_scene = scene
 
 	var player = MockPlayer.new()
 	player.add_to_group("player_ship")

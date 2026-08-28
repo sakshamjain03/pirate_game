@@ -13,6 +13,15 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="ColorRect" type="ColorRect" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7)
+
 [node name="TitleLabel" type="Label" parent="Control"]
 layout_mode = 1
 anchors_preset = 5
@@ -57,6 +66,11 @@ GUT (Godot Unit Tests - MIT License)
 [i]Programming & AI Engineering[/i]
 Antigravity
 Saksham Jain
+
+[i]Audio[/i]
+Kenney (kenney.nl) — CC0, SFX and music jingles
+\"Drunken Sailor\" (OPL2 rendering) — CC0, opengameart.org
+\"Pirates!\" by Eric Matyas, Soundimage.org — CC-BY 4.0
 [/center]"
 fit_content = true
 scroll_active = false

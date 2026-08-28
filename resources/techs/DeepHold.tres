@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TechData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/TechData.gd" id="1_td"]
+
+[resource]
+script = ExtResource("1_td")
+tech_id = "deep_hold"
+tech_name = "Deep Hold"
+description = "Expanded below-deck holds increase cargo storage capacity by a further 20%."
+cost_gold = 2000
+cost_wood = 1100
+cost_iron = 450
+required_island_tier = 4
+required_prerequisite_tech_id = "larger_storage"
+health_modifier = 1.0
+damage_modifier = 1.0
+speed_modifier = 1.0
+storage_modifier = 1.20

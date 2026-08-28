@@ -9,5 +9,5 @@ island_id = "cartagena_outpost"
 island_name = "Cartagena Outpost"
 island_type = 2
 owner_faction = ExtResource("1_fac")
-world_position = Vector2(-200, 160)
+world_position = Vector2(-500, 400)
 region_id = "imperial_waters"

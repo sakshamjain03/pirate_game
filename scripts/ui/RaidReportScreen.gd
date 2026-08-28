@@ -17,24 +17,28 @@ func _ready() -> void:
 	theme = PirateThemeBuilder.build()
 
 func open(report: Dictionary) -> void:
-	var faction_id = report.get("faction_id", "Unknown Faction")
 	var repelled = report.get("repelled", true)
 	var stolen = report.get("stolen", {})
-	
+
+	## M12 Task 11 — the outcome sentence itself comes from EmpireManager's shared
+	## composer, reused by LocalNotificationManager's notification body, so the two
+	## surfaces can't independently drift in wording.
+	var outcome_sentence = EmpireManager.describe_raid_outcome(report)
+
 	if repelled:
-		outcome_label.text = "Raid Repelled!"
+		outcome_label.text = tr("Raid Repelled!")
 		outcome_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
-		details_label.text = "Your home island defenses held off an attack from " + faction_id.capitalize() + "."
+		details_label.text = outcome_sentence
 	else:
-		outcome_label.text = "Raid Successful!"
+		outcome_label.text = tr("Raid Successful!")
 		outcome_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
-		
-		var stolen_text = "Your home island was raided by " + faction_id.capitalize() + ".\n\nStolen Resources:\n"
+
+		var stolen_text = outcome_sentence + "\n\n" + tr("Stolen Resources:") + "\n"
 		if stolen.is_empty():
-			stolen_text += "Nothing was stolen."
+			stolen_text += tr("Nothing was stolen.")
 		else:
 			for res in stolen:
-				stolen_text += "- " + str(stolen[res]) + " " + res.capitalize() + "\n"
+				stolen_text += "- " + str(stolen[res]) + " " + tr(res.capitalize()) + "\n"
 		details_label.text = stolen_text
 		
 	show()

@@ -91,11 +91,24 @@ FMOD (optional)
 
 # Backend
 
-Supabase — planned, M15 (`.kiro/specs/milestone-m15-backend-cloud-services/`)
+Supabase — integrated M15 (`.kiro/specs/milestone-m15-backend-cloud-services/`), the project's
+first outbound network dependency. Direct REST calls via Godot's `HTTPRequest` (no third-party
+SDK), against a real project (`docs/SUPABASE_SETUP.md` documents the actual configuration).
 
-Authentication (email/password + Google Sign-In, optional/opt-in — never required to play)
+Authentication — email/password shipped (`AuthManager` autoload). Google Sign-In deferred: Godot
+4.3 has no native Android deep-link API, and M13 hasn't produced a working Android export yet
+either; both optional/opt-in, never required to play.
 
-Cloud Save (mirrors the local save format; Row Level Security scoped per-user)
+Cloud Save — mirrors the local save format exactly; Row Level Security scoped per-user
+(`player_saves` table, verified with two real signed-in test accounts that neither could read nor
+overwrite the other's row).
+
+Remote config — a flat public key/value table (`remote_config`), fetched once per session with a
+safe local default on any failure; consumed by M14's seasonal-event scheduling and content
+kill-switch once that milestone defines real keys.
+
+Account deletion — a Supabase Edge Function (`delete-account`) holds the only `service_role` key
+usage in this project, entirely server-side.
 
 Leaderboards — still future, out of scope; would require amending `AGENTS.md`'s no-social-features
 rule, not just adding a backend

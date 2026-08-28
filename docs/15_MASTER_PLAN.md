@@ -416,6 +416,20 @@ who never signs in notices nothing different, a player can permanently delete th
 data both in-app and without the app installed, and no secret key capable of bypassing another
 player's data — or the `service_role` key itself — ever ships in the client.
 
+**Exit criteria results (2026-08-29):** email/password + cloud sync + account deletion + remote
+config all implemented and verified against a real Supabase project, including two real signed-in
+test accounts proving RLS cross-account isolation and a real end-to-end account-deletion test
+(row deletion confirmed via direct SQL, not just a 200 response) — see
+`docs/05_CURRENT_SYSTEMS.md`'s "M15 — Backend & Cloud Services" section for the full
+per-requirement breakdown. GUT suite **417/417 passing, 0 failures**, up from M13's 411/411
+baseline (this milestone's own test growth). **Google Sign-In is explicitly deferred, not
+shipped** — Godot 4.3 has no native Android deep-link API and M13 hasn't produced a working export
+to build a plugin against yet either; logged as a documented follow-up per Requirement 2.4, not
+silently dropped. Every other exit-criteria bullet holds: a signed-out player notices nothing
+different (verified by test), account deletion works both in-app and is confirmed gone
+server-side, and the `service_role` key appears nowhere except Supabase's own Edge Function
+secrets store — never in this repo, this client, or any commit.
+
 Full spec: `.kiro/specs/milestone-m15-backend-cloud-services/`.
 
 ---

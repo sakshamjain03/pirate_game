@@ -179,15 +179,18 @@
 
 ## Wave 7 — Documentation and final checkpoint
 
-- [ ] 30. Update `docs/05_CURRENT_SYSTEMS.md` (new "M15 — Backend & Cloud Services" section),
+- [x] 30. Update `docs/05_CURRENT_SYSTEMS.md` (new "M15 — Backend & Cloud Services" section),
         `docs/14_SYSTEM_INVENTORY.md` (Cloud saves, password reset, account deletion, remote
         config rows), `docs/02_TECH_STACK.md` (Supabase entry), `docs/15_MASTER_PLAN.md` (M15
         exit criteria) — report Google Sign-In's actual status (shipped or deferred) honestly.
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
-- [ ] 31. Write `docs/SUPABASE_SETUP.md` documenting the real project configuration (tables, RLS
+  - **Done 2026-08-29** — all four docs updated; Google Sign-In reported as deferred (not
+    shipped) consistently across all of them.
+- [x] 31. Write `docs/SUPABASE_SETUP.md` documenting the real project configuration (tables, RLS
         policies, auth provider settings, the leaked-password toggle, the deployed Edge Function)
         so it isn't dependent on undocumented dashboard clicks.
   - _Requirements: 6.5, 10.2_
+  - **Done 2026-08-29** — `docs/SUPABASE_SETUP.md` (new).
 - [ ] 32. **Checkpoint — M15 complete**
   - GUT suite passes with no regressions.
   - Confirm no `service_role` key or other secret appears anywhere in the exported build,

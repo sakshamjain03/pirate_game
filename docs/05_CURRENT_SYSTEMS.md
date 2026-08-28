@@ -1612,3 +1612,176 @@ outcome; 'we assumed it would be fine' is not."):
 This milestone is **not** being marked complete — it's a real, substantial partial delivery with an
 honestly-scoped remainder, per `docs/07_AI_AGENT_WORKFLOW.md` Rule 4's discipline against
 self-reporting a checkpoint that hasn't actually passed.
+
+## M15 — Backend & Cloud Services (2026-08-29)
+
+The game's first outbound network dependency and first server-authoritative data store: optional,
+opt-in Supabase-backed cloud save and email/password account sign-in. A player who never opens
+Settings → Account experiences zero behavior or network change — no calls, no prompts, verified by
+test (`test_no_session_file_means_load_session_makes_no_network_call`). Built against a real
+Supabase project (`tuhkhsqcnnszjnczkuzq`), not just against a local HTTP fake.
+
+### Requirement 1/5 — `AuthManager` and session handling
+
+New `AuthManager` autoload (`scripts/managers/AuthManager.gd`), registered right after
+`SaveManager`. `sign_up()`/`sign_in()`/`sign_out()`/`request_password_reset()`/`delete_account()`
+call Supabase's GoTrue REST endpoints directly via a per-call `HTTPRequest` child node (this
+project's first-ever network code — no third-party Godot SDK, per `AGENTS.md`'s "no unnecessary
+dependencies"; the anon key and project URL are plain committed consts, safe to embed since Row
+Level Security is the actual security boundary, not key secrecy). Session persistence is its own
+file (`user://auth_session.json`, refresh token only — the short-lived access token is re-derived
+via `refresh_session()` on launch), independent of `SaveManager`'s save file, matching
+`SettingsManager`'s/`TutorialManager`'s existing precedent for a manager owning its own persistence
+outside the main save.
+
+A second signal, `fresh_sign_in`, exists alongside `signed_in` — `signed_in` fires on *any*
+successful session establishment including a background token refresh (for UI reactivity);
+`fresh_sign_in` fires only for an explicit `sign_up()`/`sign_in()` call. `SaveManager`'s
+cloud-conflict check listens to `fresh_sign_in` specifically — without this split, a routine
+401-triggered refresh mid-session would silently re-emit `signed_in` and pop the keep-local/
+keep-cloud prompt during ordinary gameplay, which is a real bug this project caught in testing, not
+a hypothetical.
+
+`SettingsMenu` gained an "Account" tab (`scenes/ui/SettingsMenu.tscn`'s `TabContainer`, built
+dynamically in `scripts/ui/SettingsMenu.gd` the same way the existing "Controls" tab already is):
+email/password fields, a Terms-of-Service/Privacy-Policy checkbox gating Sign Up, Sign In, Sign
+Out, "Forgot password?", and "Delete my account." Errors/status surface via a self-contained themed
+toast (`SettingsMenu._show_message()`) matching M9's `WorldHUD.announce_event()` visual recipe —
+not a direct call to `WorldHUD`, since `SettingsMenu` is also reachable from `MainMenu` where no
+`WorldHUD` instance exists. New reusable `scripts/ui/ChoiceDialog.gd` (built entirely in code, same
+`PirateThemeBuilder`/`StyleBoxFlat` convention) provides the themed N-button modal this project had
+no prior confirm/cancel dialog for — used by account deletion's confirmation and by the cloud-save
+conflict prompt. Focused test: `test_auth_manager.gd` (11/11) — the project's first HTTP-mocking
+pattern, a `_request_override: Callable` test seam on the manager itself.
+
+**GDScript gotcha hit and documented:** lambdas capture local variables by value, not by reference
+— a plain `var call_count := 0` mutated inside an HTTP-fake `Callable` never reflects back to the
+asserting test. Fixed by wrapping such counters in a single-element `Array` (a reference type)
+everywhere this pattern is used across M15's tests.
+
+### Requirement 2 — Google Sign-In (deferred, not shipped)
+
+Investigated before writing any OAuth code, per the milestone's own explicit instruction: Godot
+4.3's Android export exposes no native GDScript API for receiving a deep-link intent. Every real
+option (`godot-sdk-integrations/godot-deeplink`, `cengiz-pz/godot-android-deeplink-plugin`,
+`godot-sdk-integrations/godot-oauth2`) is a third-party or hand-written Android plugin (`.aar`)
+requiring a real Android export pipeline to build and test against — which doesn't exist yet (M13
+hasn't produced a working `.apk`/`.aab` export as of this writing, see the M13 section above).
+Deferred as a documented follow-up per Requirement 2.4's explicit permission, rather than shipping
+a "Sign in with Google" button with no way back into the app. Full writeup:
+`.kiro/specs/milestone-m15-backend-cloud-services/design.md`, Requirement 2 section.
+
+### Requirement 3 — Cloud save schema and Row Level Security
+
+`supabase/schema.sql` (checked in): `player_saves` (one row per account, `user_id unique`, RLS:
+select/insert/update scoped to `auth.uid() = user_id`, no delete policy at all — delete is denied
+by default) and `remote_config` (public select). Applied to the real project via the Supabase MCP
+server's `apply_migration`, not the dashboard SQL editor the milestone's own tasks.md originally
+assumed — functionally equivalent, same real schema, same real verification.
+
+RLS verified twice, at increasing rigor: first with the anon key alone (no session) — `player_saves`
+SELECT returns `[]`, INSERT returns `42501`; then with **two real, independently signed-in test
+accounts** — each could read/write only its own row, a direct attempt by one account to overwrite
+the other's row (explicitly specifying the victim's `user_id` in an upsert) was rejected with the
+same `42501`, and both were cleaned up afterward.
+
+### Requirement 4 — Sync behavior
+
+`SaveManager.save_game()` (extended, not duplicated) pushes to `player_saves` as a
+`Prefer: resolution=merge-duplicates` upsert whenever `AuthManager.is_signed_in()` — fire-and-forget
+(never awaited by `save_game()`), so a slow or failed network call can never delay or block the
+auto-save timer or dock completion. A failed push sets `_cloud_sync_pending` (observable/testable,
+not a queue) and simply retries with whatever the local state is on the *next* `save_game()` call —
+Requirement 4.4's "only the latest state needs to eventually reach the cloud" is satisfied by this
+being how saves already work, not by new queuing machinery. A `401` triggers exactly one
+`AuthManager.refresh_session()` attempt and one retry before giving up for that cycle.
+
+Conflict resolution (`SaveManager._resolve_cloud_conflict()`) is one code path shared by both
+trigger points — first sign-in on a device with existing local data (`_on_signed_in`, listening to
+`fresh_sign_in`) and a launch-time newer-cloud-save check (`check_cloud_save_on_launch()`, wired
+into `World.gd` alongside the existing `load_game()` call, internally guarded to run once per app
+session) — comparing `client_updated_at` (client-set, not Postgres's own `updated_at`) against the
+local save's `last_saved_unix` down to the second; identical saves skip the prompt, anything else
+shows `ChoiceDialog` ("Keep This Device" / "Keep Cloud"), never silently picking a side. Applying
+"Keep Cloud" overwrites the local save file; it does not hot-reload a live in-session `World` —
+out of scope for this milestone, picked up on the next scene load like any other save-file change.
+Focused test: `test_save_manager_sync.gd` (6/6).
+
+### Requirement 6 — Documentation
+
+This section, plus `docs/14_SYSTEM_INVENTORY.md`, `docs/02_TECH_STACK.md`, `docs/15_MASTER_PLAN.md`,
+and `docs/SUPABASE_SETUP.md` (new) were all updated in the same change per the milestone's own
+Requirement 6.
+
+### Requirement 7 — Password reset
+
+`AuthManager.request_password_reset(email)` — a plain HTTP trigger (`POST /auth/v1/recover`), no
+deep-link dependency, built in the same pass as the rest of `AuthManager` (not gated on Requirement
+2's investigation). With no custom URI scheme registered (Requirement 2 deferred), the reset link's
+return path is simply Supabase's own hosted confirmation page followed by a normal sign-in — the
+documented fallback working by default, not through separate code.
+
+### Requirement 8 — Account deletion
+
+`AuthManager.delete_account()` posts to the `delete-account` Edge Function
+(`supabase/functions/delete-account/index.ts`, the only place this milestone's `service_role` key
+is used — held only in Supabase's own Edge Function secrets store, auto-injected into the deployed
+function's environment, never typed into a file or chat by either the implementing session or the
+user). The function verifies the caller's JWT server-side (never trusts a client-supplied user id),
+then deletes the caller's `player_saves` row and `auth.users` row.
+
+Verified for real, twice (two disposable test accounts, both fully cleaned up afterward): a
+successful call returns `{"success": true}`, and — confirmed via direct SQL against the live
+project, not just trusting the response — both rows are actually gone afterward. A second call with
+the same now-stale access token is rejected (`401`, "Invalid or expired session"), confirming the
+function re-verifies on every call rather than caching a decision. `SettingsMenu`'s "Delete my
+account" sits behind a `ChoiceDialog` confirmation. Local save is untouched by deletion, both by
+construction (the Edge Function only ever touches Supabase-side rows, `SaveManager` has no
+involvement in this call) and by explicit regression test
+(`test_delete_account_does_not_touch_local_save`).
+
+### Requirement 9 — Terms acceptance and disclosure
+
+Sign-up gates on a checkbox linking to Terms/Privacy pages. Since `.kiro/specs/milestone-m13-ship-it/`
+hasn't reached its hosted-pages work yet, the links point at this repo's likely eventual GitHub
+Pages URL (`https://sakshamjain03.github.io/pirate_game/{terms,privacy}.html`) as an explicit,
+documented placeholder — not a silently broken link — to be confirmed once M13 publishes those
+pages. **What M15 actually collects, for M13's privacy-policy content to quote directly:** email
+address (auth) and gameplay save data (`player_saves.save_data`, the same JSON already stored
+locally). Nothing else — M12's analytics stays anonymous/device-scoped, deliberately not
+cross-referenced with account identity.
+
+### Requirement 10 — Auth hardening
+
+Leaked-password protection (Supabase Auth → Password → "Check against HaveIBeenPwned") is a
+dashboard-only toggle — **not yet enabled as of this writing**, logged honestly rather than assumed;
+see `docs/SUPABASE_SETUP.md` for the exact location and status.
+
+### Requirement 11 — Remote config
+
+New `RemoteConfigManager` autoload (`scripts/managers/RemoteConfigManager.gd`), deliberately
+separate from `AuthManager` — this data needs no session. `get_value(key, default)` always returns
+something usable: unfetched, present, absent, or failed all resolve to the caller's own default,
+never an error and never a block. A failed *refresh* leaves a previously-successful cache intact
+rather than clearing it — the failure path most likely to only get tested by accident otherwise, and
+explicitly covered by `test_remote_config_manager.gd` (5/5). Verified against the real project: one
+throwaway key inserted, fetched with just the anon key, then removed — `remote_config` is empty in
+the real project as of this checkpoint, ready for M14's actual keys.
+
+### What's not done — logged as blocking constraints, not silently skipped
+
+- **Requirement 2 (Google Sign-In)** — deferred per Requirement 2.4, see above. No fallback exists
+  for this specific sign-in method; email/password remains the only path.
+- **Requirement 10** (leaked-password protection) — the dashboard toggle itself has not been
+  flipped; this environment has no way to click a Supabase dashboard button.
+- **Real device/headful UI verification** — this environment has no display. The actual
+  `SettingsMenu` Account-tab flow (button presses, `ChoiceDialog` rendering) was exercised only by
+  GUT's headless harness plus direct real-HTTP verification against the live Supabase project (which
+  did happen for real — see Requirements 3/8 above), not by a running Godot instance with a screen.
+  Flagged per this project's established policy rather than assumed to work because the code "looks
+  right."
+
+**411/417 → 417/417** — this milestone's own test growth (`test_auth_manager.gd`,
+`test_save_manager_sync.gd`, `test_remote_config_manager.gd`) on top of the 396/396 clean-`main`
+baseline M13's entry above cites, confirmed by a real Godot 4.3 GUT run against the working tree
+with all of M15's Wave 1-6 changes applied.

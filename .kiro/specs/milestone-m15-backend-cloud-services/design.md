@@ -107,6 +107,40 @@ Android-platform uncertainty block cloud save for players willing to use email/p
 
 ---
 
+**Investigation findings (2026-08-29, Wave 4 Task 18) — the fallback above is what this milestone
+ships.** Researched Godot 4.3's actual Android export capabilities before writing any OAuth code,
+per this section's own instruction:
+
+- Godot 4.3's Android export template exposes **no native GDScript API** for receiving a deep-link
+  intent (custom URI scheme or App Link). This isn't a version-specific gap that later 4.x releases
+  closed either — every community solution found (`godot-sdk-integrations/godot-deeplink`,
+  `cengiz-pz/godot-android-deeplink-plugin`, `timoschwarzer/godot-applinks`,
+  `godot-sdk-integrations/godot-oauth2`, which itself depends on the deeplink plugin) is a
+  third-party or hand-written Android plugin (`.aar`) catching `onNewIntent()` natively and
+  forwarding the URI to GDScript via a signal — confirming step 5's "otherwise" branch, not the
+  "if natively exposed" branch, is the only real option.
+- Building or vendoring that plugin requires a real Android export pipeline (export templates,
+  Gradle/Android SDK build tooling, a signing setup) to compile and test against — none of which
+  exists in this project yet. `.kiro/specs/milestone-m13-ship-it/` (Wave 1: engine version, export
+  templates, signing keystore, first successful `.apk`/`.aab` export) owns standing that up, and
+  as of this investigation M13 has not started (every task in its `tasks.md` is still unchecked) —
+  there is no real Android package id or signing fingerprint to configure a plugin or an OAuth
+  client against yet regardless of the plugin question.
+- Verdict: this crosses Requirement 2.4's "disproportionately complex" threshold for this
+  milestone's scope, on both axes (no native path exists, *and* the prerequisite Android pipeline
+  it would need doesn't exist yet either). Google Sign-In (Wave 4 tasks 19-21) is deferred as a
+  follow-up, to be scoped deliberately once M13 lands a real Android export pipeline and package
+  id/signing fingerprint — at that point, evaluate the community deeplink plugins above against
+  writing a minimal custom one before defaulting to either.
+- Password reset is **not** affected — Wave 2 already shipped `AuthManager.request_password_reset()`
+  as a plain HTTP trigger (no deep-link dependency), and with no custom URI scheme registered at
+  all, the reset link naturally falls through to Supabase's own hosted confirmation page in the
+  browser, then the player returns to the app and signs in normally — exactly the fully-functional
+  fallback this section's Requirement 7 note already anticipated, working automatically rather than
+  needing separate code.
+
+---
+
 ## Requirement 3 — Schema and RLS
 
 ```sql

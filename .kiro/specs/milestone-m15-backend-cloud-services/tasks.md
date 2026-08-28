@@ -88,47 +88,70 @@
 
 ## Wave 4 — Deep-link infrastructure: Google Sign-In + seamless password-reset return
 
-- [ ] 18. Investigate the actual Android deep-link mechanism available in this project's Godot/
+- [x] 18. Investigate the actual Android deep-link mechanism available in this project's Godot/
         export-template version (per `design.md`'s Requirement 2 section) **before** writing any
         OAuth code. Report findings; confirm or revise the design before proceeding. This single
         investigation covers both Google Sign-In and password-reset's seamless-return path — do
         it once, not twice.
   - _Requirements: 2.4_
+  - **Done 2026-08-29.** Godot 4.3's Android export exposes no native GDScript deep-link API;
+    every real option is a third-party or custom `.aar` plugin, and M13 (which owns the Android
+    export pipeline) hasn't started. See `design.md`'s Requirement 2 section, "Investigation
+    findings" subsection, for the full writeup. Crosses the disproportionate-complexity threshold
+    — proceeding to Task 22's deferred branch.
 - [ ] 19. Custom URI scheme registration in the Android export manifest.
   - _Requirements: 2.2_
+  - **Deferred** — no Android export pipeline or package id exists yet (M13 not started). Revisit
+    once M13 lands.
 - [ ] 20. `OS.shell_open()` launch of Supabase's Google OAuth authorize URL; "Sign in with Google"
         button in Wave 2's Account section.
   - _Requirements: 2.1_
+  - **Deferred** — a button that opens the browser with no way back into the app (Task 21 depends
+    on Task 19) would be a worse UX than no button; not added.
 - [ ] 21. Deep-link receipt and payload parsing (branching on OAuth-token-pair vs. recovery-session
         shape), feeding into `AuthManager`'s existing session-establishment path from Wave 2 — one
         receipt handler, two payload shapes, not two handlers.
   - _Requirements: 2.3, 7.2, 7.3_
-- [ ] 22. **Checkpoint — deep-link features complete and device-verified, OR explicitly deferred**
-  - If Task 18 found the Android plumbing disproportionately complex for this milestone: stop
-    here, document the finding. Google Sign-In has no fallback and is logged as a deferred
-    follow-up (Requirement 2.4). Password reset is **not** blocked either way — Task 8's trigger
-    already works standalone, and its browser-completes/app-signs-in-normally fallback
-    (`design.md`) is confirmed working even without this wave's deep-link plumbing.
-  - If completed: real end-to-end device test for both — Google Sign-In lands back in the app
-    signed in with no manual URL pasting; a password-reset email's link also returns to the app
-    and completes the flow without the browser-only fallback being needed.
+  - **Deferred** — depends on Task 19's Android manifest work.
+- [x] 22. **Checkpoint — deep-link features complete and device-verified, OR explicitly deferred**
+  - **Explicitly deferred**, per Task 18's finding. Google Sign-In has no fallback and is logged
+    as a deferred follow-up (Requirement 2.4) — see `design.md`. Password reset is **not**
+    blocked: Task 8's trigger (built in Wave 2) already works standalone via a plain HTTP call to
+    `/auth/v1/recover`, and with no custom URI scheme registered at all, its browser-completes/
+    app-signs-in-normally fallback is simply what happens by default — no code needed to make
+    that path work, and no device test possible in this environment to "confirm" it further
+    beyond the trigger call itself, which Wave 2's GUT/real-Supabase testing already covered.
 
 ## Wave 5 — Account deletion
 
-- [ ] 23. `AuthManager.delete_account()` calling the Wave 1 Edge Function with the current session
+- [x] 23. `AuthManager.delete_account()` calling the Wave 1 Edge Function with the current session
         token; on success, clear the local session the same way sign-out does.
   - _Requirements: 8.3, 5.1_
-- [ ] 24. "Delete my account" in the Account section, behind a themed confirmation dialog
+  - **Done in Wave 2** — `AuthManager.delete_account()` (scripts/managers/AuthManager.gd) posts
+    to the Edge Function and calls `_clear_session()` + `signed_out.emit()` on success only; a
+    failed deletion leaves the session intact (`auth_error` instead) — see
+    `test_delete_account_success_clears_session`/`test_delete_account_failure_keeps_session_and_emits_error`
+    in tests/test_auth_manager.gd.
+- [x] 24. "Delete my account" in the Account section, behind a themed confirmation dialog
         (reusing Wave 3's conflict-prompt panel pattern).
   - _Requirements: 8.1, 8.2_
-- [ ] 25. Confirm local save is completely untouched by account deletion — explicit regression
+  - **Done in Wave 2** — `SettingsMenu._on_delete_account_pressed()` (scripts/ui/SettingsMenu.gd)
+    opens a `ChoiceDialog` (Cancel / Delete Account) before calling `delete_account()`.
+- [x] 25. Confirm local save is completely untouched by account deletion — explicit regression
         check.
   - _Requirements: 8.4_
-- [ ] 26. Real end-to-end test: delete a disposable test account, confirm via the Supabase
+  - **Done 2026-08-29** — `test_delete_account_does_not_touch_local_save`
+    (tests/test_save_manager_sync.gd).
+- [x] 26. Real end-to-end test: delete a disposable test account, confirm via the Supabase
         dashboard directly (not just a 200 response) that both `player_saves` and `auth.users`
         rows are actually gone, and that a second call with the same now-invalid token is
         rejected.
   - _Requirements: 8.3_
+  - **Done 2026-08-29**, as part of Wave 3's checkpoint verification (two disposable accounts,
+    `saksham.jain+m15checkpointa`/`b@dataeconomy.ai`) — deletion confirmed via direct SQL against
+    `auth.users`/`public.player_saves` (0 rows remaining for both), and a second `delete-account`
+    call with the same now-stale token returned 401 "Invalid or expired session." Both test
+    accounts fully cleaned up afterward.
 
 ## Wave 6 — Remote config
 

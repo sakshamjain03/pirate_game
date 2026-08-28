@@ -134,6 +134,29 @@ func test_sign_out_does_not_touch_local_save():
 		before_result["data"].get("last_saved_unix", -2),
 		"the local save's content must be untouched by sign-out")
 
+func test_delete_account_does_not_touch_local_save():
+	# M15 Requirement 8.4 — deleting the cloud account must never touch local progress; the
+	# player keeps playing locally exactly as if they had signed out (Requirement 4.5).
+	_sign_in_fake()
+	SaveManager._request_override = func(_m, _e, _h, _b):
+		return {"code": 201, "body": {}}
+
+	SaveManager.save_game()
+	await wait_process_frames(2)
+	assert_true(SaveManager.has_save_data())
+	var before_result = SaveManager._read_save_file(SaveManager.SAVE_PATH)
+
+	AuthManager._request_override = func(_m, _u, _h, _b):
+		return {"code": 200, "body": {"success": true}}
+	await AuthManager.delete_account()
+
+	assert_true(SaveManager.has_save_data(), "deleting the account must never delete the local save")
+	var after_result = SaveManager._read_save_file(SaveManager.SAVE_PATH)
+	assert_eq(
+		after_result["data"].get("last_saved_unix", -1),
+		before_result["data"].get("last_saved_unix", -2),
+		"the local save's content must be untouched by account deletion")
+
 func test_401_triggers_one_refresh_and_retry():
 	_sign_in_fake()
 	var sync_calls := [0]

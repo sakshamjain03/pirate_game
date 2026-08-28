@@ -12,10 +12,21 @@ extends Node
 ## save, per Requirement 5.1.
 
 signal signed_in(user_id: String)
+## A strict subset of signed_in: only fires for an explicit sign_up()/sign_in() call, never for
+## a background token refresh (which also re-derives a session and re-emits signed_in, purely
+## for UI reactivity). Requirement 4.1's cloud-save conflict check listens to this one — SaveManager
+## re-checking for conflicts every time a routine 401-retry refresh happens mid-session would pop
+## the keep-local/keep-cloud prompt during ordinary gameplay, which is exactly what "never silently
+## pick one, but also never surprise the player" does not mean.
+signal fresh_sign_in(user_id: String)
 signal signed_out()
 signal auth_error(message: String)
 ## Sign-up succeeded but Supabase requires email confirmation before a session exists yet.
 signal sign_up_pending_confirmation()
+## Emitted once _ready()'s initial session-restore attempt finishes (success or failure).
+## SaveManager's launch-time cloud-save check awaits this so is_signed_in() is accurate
+## before it decides whether to look for a newer cloud save (Requirement 4.3).
+signal session_check_complete()
 
 const SUPABASE_URL := "https://tuhkhsqcnnszjnczkuzq.supabase.co"
 const SUPABASE_ANON_KEY := "sb_publishable_T9lA__O7ElXo0fr-SVguQw_7DjWk-oO"
@@ -24,6 +35,7 @@ const SESSION_PATH := "user://auth_session.json"
 var _access_token: String = ""
 var _refresh_token: String = ""
 var _user_id: String = ""
+var _initial_check_done: bool = false
 
 ## Test seam: when set, _send_request() calls this instead of a real HTTPRequest.
 ## Callable(method: HTTPClient.Method, url: String, headers: PackedStringArray, body: String)
@@ -31,7 +43,15 @@ var _user_id: String = ""
 var _request_override: Callable = Callable()
 
 func _ready() -> void:
-	_load_session()
+	await _load_session()
+	_initial_check_done = true
+	session_check_complete.emit()
+
+## Callers that need is_signed_in() to be accurate right after boot (e.g. SaveManager's
+## launch-time cloud-save check) should await this first.
+func await_initial_check() -> void:
+	if not _initial_check_done:
+		await session_check_complete
 
 func is_signed_in() -> bool:
 	return not _access_token.is_empty()
@@ -49,6 +69,7 @@ func sign_up(email: String, password: String) -> void:
 	if code >= 200 and code < 300:
 		if body is Dictionary and body.has("access_token"):
 			_apply_session(body)
+			fresh_sign_in.emit(_user_id)
 		else:
 			# Email confirmation required — no session yet, not an error.
 			sign_up_pending_confirmation.emit()
@@ -61,6 +82,7 @@ func sign_in(email: String, password: String) -> void:
 	var body = result.get("body", {})
 	if code >= 200 and code < 300 and body is Dictionary and body.has("access_token"):
 		_apply_session(body)
+		fresh_sign_in.emit(_user_id)
 	else:
 		auth_error.emit(_extract_error_message(result))
 

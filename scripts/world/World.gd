@@ -33,6 +33,11 @@ func _ready() -> void:
 		# Use call_deferred to ensure physics and all nodes are fully ready
 		SaveManager.call_deferred("load_game")
 
+	# M15 Requirement 4.3 — once per app session (internally guarded); a no-op for a
+	# signed-out player. Does not block or delay anything above.
+	if SaveManager.has_method("check_cloud_save_on_launch"):
+		SaveManager.call_deferred("check_cloud_save_on_launch")
+
 	# Deferred (and queued after load_game above) so resumed campaign progress
 	# from a loaded save is already in place before signals start firing.
 	if world_manager and CampaignManager.has_method("on_world_ready"):

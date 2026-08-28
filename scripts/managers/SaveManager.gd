@@ -31,9 +31,30 @@ const MAX_OFFLINE_SECONDS := 4 * 60 * 60
 ## logic yet, just recording what schema version wrote a given save.
 const SAVE_SCHEMA_VERSION := 1
 
+## preload rather than the bare global class name — see the matching note in SettingsMenu.gd;
+## headless GUT runs don't always have a freshly rebuilt global-script-class cache.
+const ChoiceDialogScript := preload("res://scripts/ui/ChoiceDialog.gd")
+
 var _save_timer: float = 0.0
 var _auto_save_interval: float = 60.0
 var _pending_offline_ticks: int = 0
+
+## M15 Wave 3 — cloud sync. True while the most recent cloud push failed; the *next* successful
+## save_game() call (whenever that happens to be — auto-save, dock, etc.) simply tries again with
+## whatever the local state is by then, which already satisfies Requirement 4.4's "only the latest
+## state needs to eventually reach the cloud, not every intermediate one" — this flag exists only
+## so the retry behavior is observable/testable, not because a queue is needed.
+var _cloud_sync_pending: bool = false
+var _did_launch_cloud_check: bool = false
+
+## Test seam, mirrors AuthManager's: when set, _send_cloud_request() calls this instead of a
+## real HTTPRequest.
+var _request_override: Callable = Callable()
+
+func _ready() -> void:
+	# fresh_sign_in, not signed_in — a background token refresh also emits signed_in (for UI
+	# reactivity) and must NOT re-trigger a cloud-conflict check mid-session. See AuthManager.gd.
+	AuthManager.fresh_sign_in.connect(_on_signed_in)
 
 func _process(delta: float) -> void:
 	if not get_tree().current_scene or get_tree().current_scene.name != "World":
@@ -146,6 +167,13 @@ func save_game() -> void:
 		file.close()
 	else:
 		push_error("SaveManager: Failed to open save file for writing.")
+		return
+
+	# M15 Requirement 3.4/4.2 — mirrors the existing local format exactly, no second schema.
+	# Fire-and-forget: never awaited here, so a slow/failed network call can't delay or block
+	# the caller (auto-save timer, dock completion, etc.) — Requirement 4.2.
+	if AuthManager.is_signed_in():
+		_sync_to_cloud(save_dict)
 
 func load_game() -> void:
 	if not has_recoverable_save_data():
@@ -376,3 +404,177 @@ func delete_save() -> void:
 		dir.remove(SAVE_PATH.get_file())
 	if FileAccess.file_exists(BACKUP_PATH):
 		dir.remove(BACKUP_PATH.get_file())
+
+
+## M15 Requirement 4.2 — pushes the given save dict to Supabase as an upsert (one row per
+## account, enforced by the unique constraint on player_saves.user_id — see supabase/schema.sql).
+## Never awaited by save_game(); this coroutine runs on its own.
+func _sync_to_cloud(data: Dictionary) -> void:
+	var client_updated_at := Time.get_datetime_string_from_unix_time(int(data.get("last_saved_unix", Time.get_unix_time_from_system())), true) + "Z"
+	var payload := {
+		"user_id": AuthManager.get_user_id(),
+		"save_data": data,
+		"save_schema_version": SAVE_SCHEMA_VERSION,
+		"client_updated_at": client_updated_at,
+	}
+	var result := await _send_cloud_request(
+		HTTPClient.METHOD_POST,
+		"/rest/v1/player_saves?on_conflict=user_id",
+		["Prefer: resolution=merge-duplicates,return=minimal"],
+		JSON.stringify(payload))
+
+	var code: int = result.get("code", 0)
+	if code == 401:
+		# Token refresh (Requirement 1's "on any 401 from a database call, attempt a refresh
+		# once before surfacing an error"), then retry exactly once.
+		if await AuthManager.refresh_session():
+			result = await _send_cloud_request(
+				HTTPClient.METHOD_POST,
+				"/rest/v1/player_saves?on_conflict=user_id",
+				["Prefer: resolution=merge-duplicates,return=minimal"],
+				JSON.stringify(payload))
+			code = result.get("code", 0)
+
+	_cloud_sync_pending = not (code >= 200 and code < 300)
+
+## Returns the signed-in player's cloud save row, or {} if none exists / the request failed.
+## RLS already scopes this to the caller's own row (see supabase/schema.sql) — no user_id filter
+## needed client-side.
+func _fetch_cloud_save() -> Dictionary:
+	var result := await _send_cloud_request(
+		HTTPClient.METHOD_GET,
+		"/rest/v1/player_saves?select=save_data,save_schema_version,client_updated_at",
+		[], "")
+	var code: int = result.get("code", 0)
+	if code == 401:
+		if await AuthManager.refresh_session():
+			result = await _send_cloud_request(
+				HTTPClient.METHOD_GET,
+				"/rest/v1/player_saves?select=save_data,save_schema_version,client_updated_at",
+				[], "")
+			code = result.get("code", 0)
+	if code < 200 or code >= 300:
+		return {}
+	var body = result.get("body", [])
+	if body is Array and body.size() > 0 and body[0] is Dictionary:
+		return body[0]
+	return {}
+
+func _send_cloud_request(method: HTTPClient.Method, endpoint: String, extra_headers: Array, body: String) -> Dictionary:
+	if _request_override.is_valid():
+		return await _request_override.call(method, endpoint, extra_headers, body)
+
+	var headers := PackedStringArray([
+		"apikey: %s" % AuthManager.SUPABASE_ANON_KEY,
+		"Authorization: Bearer %s" % AuthManager.get_access_token(),
+		"Content-Type: application/json",
+	])
+	for h in extra_headers:
+		headers.append(h)
+
+	var http := HTTPRequest.new()
+	add_child(http)
+	var err := http.request(AuthManager.SUPABASE_URL + endpoint, headers, method, body)
+	if err != OK:
+		http.queue_free()
+		return {"code": 0, "body": {}}
+
+	var result: Array = await http.request_completed
+	http.queue_free()
+
+	var response_code: int = result[1]
+	var response_body: PackedByteArray = result[3]
+	var parsed = {}
+	var text := response_body.get_string_from_utf8()
+	if not text.is_empty():
+		var json := JSON.new()
+		if json.parse(text) == OK:
+			parsed = json.data
+	return {"code": response_code, "body": parsed}
+
+## Requirement 4.1 — first sign-in on a device with existing local data.
+func _on_signed_in(_user_id: String) -> void:
+	if not has_save_data():
+		# Nothing local to conflict with — just adopt whatever's in the cloud, if anything.
+		var cloud_row := await _fetch_cloud_save()
+		if not cloud_row.is_empty():
+			_apply_cloud_save(cloud_row)
+		return
+
+	var cloud_row := await _fetch_cloud_save()
+	await _resolve_cloud_conflict(cloud_row)
+
+## Requirement 4.3 — called once per app session (World.gd, alongside the existing load_game()
+## call) after AuthManager's own initial session-restore attempt completes, so is_signed_in() is
+## accurate. A no-op for a signed-out player or a player with no cloud save.
+func check_cloud_save_on_launch() -> void:
+	if _did_launch_cloud_check:
+		return
+	_did_launch_cloud_check = true
+
+	await AuthManager.await_initial_check()
+	if not AuthManager.is_signed_in():
+		return
+
+	var cloud_row := await _fetch_cloud_save()
+	if cloud_row.is_empty():
+		return
+
+	var local_unix := 0
+	if has_save_data():
+		var local_result := _read_save_file(SAVE_PATH)
+		local_unix = int(local_result["data"].get("last_saved_unix", 0))
+	var cloud_unix := int(Time.get_unix_time_from_datetime_string(String(cloud_row.get("client_updated_at", "")).trim_suffix("Z")))
+
+	if cloud_unix > local_unix:
+		await _resolve_cloud_conflict(cloud_row)
+
+## Shared by both conflict-trigger points (Requirements 4.1 and 4.3). Never silently picks a
+## side — always either skips (identical saves) or asks (design.md's Requirement 4 section).
+func _resolve_cloud_conflict(cloud_row: Dictionary) -> void:
+	if cloud_row.is_empty():
+		return
+
+	var local_unix := 0
+	if has_save_data():
+		var local_result := _read_save_file(SAVE_PATH)
+		local_unix = int(local_result["data"].get("last_saved_unix", 0))
+	var cloud_unix := int(Time.get_unix_time_from_datetime_string(String(cloud_row.get("client_updated_at", "")).trim_suffix("Z")))
+
+	if local_unix == cloud_unix:
+		# Trivially identical (design.md: "same client_updated_at down to the second") — it's
+		# the same save, nothing to ask.
+		return
+
+	var choice: int = await ChoiceDialogScript.new(
+		tr("Cloud Save Found"),
+		tr("This device's empire and your cloud save differ. Which one do you want to keep?"),
+		PackedStringArray([tr("Keep This Device"), tr("Keep Cloud")])
+	).ask(_get_dialog_parent())
+
+	if choice == 0:
+		var local_result := _read_save_file(SAVE_PATH)
+		if not local_result["data"].is_empty():
+			_sync_to_cloud(local_result["data"])
+	else:
+		_apply_cloud_save(cloud_row)
+
+## Writes a cloud save row's save_data as the new local save. Applying it to a live in-session
+## World is out of scope for this milestone — the normal load_game() path on the next scene
+## entry (or app restart) picks it up, same as any other save-file change.
+func _apply_cloud_save(cloud_row: Dictionary) -> void:
+	var save_data = cloud_row.get("save_data", {})
+	if typeof(save_data) != TYPE_DICTIONARY or save_data.is_empty():
+		return
+	if not _backup_existing_save():
+		return
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(save_data, "\t"))
+		file.close()
+
+func _get_dialog_parent() -> Node:
+	var tree := Engine.get_main_loop()
+	if tree is SceneTree and tree.current_scene:
+		return tree.current_scene
+	return self

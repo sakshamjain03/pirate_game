@@ -142,9 +142,11 @@ func test_refresh_session_clears_session_on_dead_refresh_token():
 	assert_false(AuthManager.is_signed_in(), "a dead refresh token should leave the player signed out, not crash or hang")
 
 func test_no_session_file_means_load_session_makes_no_network_call():
-	var call_count := 0
+	# Array-wrapped: GDScript lambdas capture locals by value, not by reference, so a plain
+	# `var call_count := 0` mutated inside the lambda wouldn't reflect back here.
+	var calls := [0]
 	AuthManager._request_override = func(_method, _url, _headers, _body):
-		call_count += 1
+		calls[0] += 1
 		return {"code": 200, "body": {}}
 
 	if FileAccess.file_exists(AuthManager.SESSION_PATH):
@@ -153,7 +155,7 @@ func test_no_session_file_means_load_session_makes_no_network_call():
 
 	await AuthManager._load_session()
 
-	assert_eq(call_count, 0, "a player who never signed in should trigger zero network calls on load")
+	assert_eq(calls[0], 0, "a player who never signed in should trigger zero network calls on load")
 	assert_false(AuthManager.is_signed_in())
 
 func test_delete_account_success_clears_session():

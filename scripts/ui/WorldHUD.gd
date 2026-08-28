@@ -66,6 +66,7 @@ func _ready() -> void:
 	# World.tscn — a name-based lookup for "WorldHUD" always missed.
 	add_to_group("hud")
 	_apply_theme()
+	_style_resource_chips()
 	_find_ship()
 	# SaveManager.load_game() runs deferred and finishes after this _ready(), so
 	# _pending_offline_ticks isn't populated yet on a real Continue-from-save load.
@@ -105,6 +106,22 @@ func _apply_theme() -> void:
 	for child in get_children():
 		if child is Control:
 			child.theme = theme
+
+func _style_resource_chips() -> void:
+	## M15.5 Requirement 3.1 — each resource chip's background is tinted to
+	## match that resource's existing color identity (same colors
+	## _on_resources_changed()/_tint_label() already use), rather than one
+	## flat generic panel for all four.
+	var chip_tints := {
+		"GoldChip": Color(1, 0.84, 0, 1),
+		"WoodChip": Color(0.6, 0.4, 0.2, 1),
+		"IronChip": Color(0.7, 0.7, 0.75, 1),
+		"RumChip":  Color(0.8, 0.4, 0.1, 1),
+	}
+	for chip_name in chip_tints:
+		var chip: PanelContainer = get_node_or_null("%" + chip_name)
+		if chip:
+			chip.add_theme_stylebox_override("panel", PirateThemeBuilder.make_chip_stylebox(chip_tints[chip_name]))
 
 func _find_ship() -> void:
 	## Try to locate the PlayerShip in the scene tree
@@ -201,6 +218,13 @@ func _create_notoriety_label() -> void:
 	notoriety_label.add_theme_font_size_override("font_size", 14)
 	notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 	notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+	# M15.5 Requirement 3.4 — same rounded chip treatment as the resource
+	# counters, instead of bare floating text.
+	var chip := PanelContainer.new()
+	chip.add_theme_stylebox_override("panel", PirateThemeBuilder.make_chip_stylebox(Color(1.0, 0.5, 0.2, 1)))
+	chip.add_child(notoriety_label)
+
 	# Added as a sibling of ResourceBar inside TopRightPanel (a VBoxContainer)
 	# rather than given its own independently-anchored rect — the previous
 	# approach hardcoded offset_top to match ResourceBar's own offset_bottom,
@@ -208,7 +232,7 @@ func _create_notoriety_label() -> void:
 	# apart once real multi-digit resource values grew ResourceBar taller than
 	# its authored rect (D36). A container lays out its children by their
 	# actual measured size, so this pair structurally cannot overlap.
-	top_right_panel.add_child(notoriety_label)
+	top_right_panel.add_child(chip)
 
 	var emp = get_tree().root.get_node_or_null("EmpireManager")
 	if emp:
@@ -232,6 +256,7 @@ func _create_captains_log_button() -> void:
 		if captains_log:
 			captains_log.toggle())
 	top_right_panel.add_child(captains_log_button)
+	captains_log_button.add_child(ButtonJuice.new())
 
 var world_map_button: Button
 func _create_world_map_button() -> void:
@@ -247,6 +272,7 @@ func _create_world_map_button() -> void:
 		if world_map_screen:
 			world_map_screen.toggle())
 	top_right_panel.add_child(world_map_button)
+	world_map_button.add_child(ButtonJuice.new())
 
 
 func _create_codex_button() -> void:
@@ -260,6 +286,7 @@ func _create_codex_button() -> void:
 		if codex_screen and codex_screen.has_method("toggle"):
 			codex_screen.toggle())
 	top_right_panel.add_child(codex_button)
+	codex_button.add_child(ButtonJuice.new())
 
 
 # --- Campaign feedback (M7 §9.2/§9.4) ---
@@ -381,18 +408,20 @@ func _tint_label(lbl: Label, current: int, maximum: int) -> void:
 		lbl.remove_theme_color_override("font_color")
 
 func _on_resources_changed(res: Dictionary) -> void:
+	## M15.5 — the icon now carries what an emoji prefix used to (each resource
+	## chip's Icon TextureRect, tinted to match this same label's font color).
 	var max_res = ResourceManager.max_storage
-	if gold_label: 
-		gold_label.text = tr("💰 %s / %s") % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
+	if gold_label:
+		gold_label.text = tr("%s / %s") % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
 		_tint_label(gold_label, res.get("gold", 0), max_res.get("gold", 9999))
-	if wood_label: 
-		wood_label.text = tr("🪵 %s / %s") % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
+	if wood_label:
+		wood_label.text = tr("%s / %s") % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
 		_tint_label(wood_label, res.get("wood", 0), max_res.get("wood", 9999))
-	if iron_label: 
-		iron_label.text = tr("⛏️ %s / %s") % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
+	if iron_label:
+		iron_label.text = tr("%s / %s") % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
 		_tint_label(iron_label, res.get("iron", 0), max_res.get("iron", 9999))
-	if rum_label:  
-		rum_label.text  = tr("🍷 %s / %s") % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
+	if rum_label:
+		rum_label.text  = tr("%s / %s") % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
 		_tint_label(rum_label, res.get("rum", 0), max_res.get("rum", 9999))
 	if _economy_label:
 		# Just append it to the economy label for now to avoid creating a new UI element
@@ -487,14 +516,33 @@ func _on_speed_changed(speed: float) -> void:
 	if speed_label:
 		speed_label.text = tr("⚓ %.1f kn") % speed
 
+var _health_pulse_active := false
+var _health_pulse_tween: Tween
+
 func set_health(current: float, maximum: float) -> void:
 	if health_bar:
 		health_bar.max_value = maximum
-		health_bar.value     = current
+		var tween := create_tween()
+		tween.tween_property(health_bar, "value", current, 0.25)
+		_set_health_pulse(maximum > 0.0 and current / maximum < 0.25)
 	if health_left:
-		health_left.text = tr("🤍 %d / %d HP") % [int(current), int(maximum)]
+		health_left.text = tr("%d / %d HP") % [int(current), int(maximum)]
 	if health_right:
 		health_right.text = "%d / %d" % [int(current), int(maximum)]
+
+func _set_health_pulse(active: bool) -> void:
+	## M15.5 Requirement 3.3 — a looping modulate pulse below 25% health,
+	## stopped (and modulate restored) once health rises back above it.
+	if active == _health_pulse_active:
+		return
+	_health_pulse_active = active
+	if active:
+		_health_pulse_tween = create_tween().set_loops()
+		_health_pulse_tween.tween_property(health_bar, "modulate", Color(1.3, 0.5, 0.5), 0.4)
+		_health_pulse_tween.tween_property(health_bar, "modulate", Color(1, 1, 1), 0.4)
+	elif _health_pulse_tween:
+		_health_pulse_tween.kill()
+		health_bar.modulate = Color(1, 1, 1)
 
 func _on_arc_lock_changed(side: String, locked: bool) -> void:
 	_arc_locked[side] = locked

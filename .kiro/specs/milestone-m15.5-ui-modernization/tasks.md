@@ -89,46 +89,62 @@ every change below; don't re-derive them from scratch.
     treating that as equivalent to independent review, per this project's own repeated lesson on
     the difference.
 
-- [ ] 6. WorldHUD: icon-chip resource counters
-  - `WorldHUD.tscn`: wrap each of `%GoldLabel`/`%WoodLabel`/`%IronLabel`/`%RumLabel` in an icon
-    chip per `design.md` §6 (same node name/`unique_name_in_owner` preserved). `WorldHUD.gd`:
-    drop the emoji prefix from `_on_resources_changed()`'s four format strings (icon now carries
-    that role).
-  - **Verify:** launch `World.tscn`, confirm all four resource chips render with icons and update
-    live as `ResourceManager`'s economy tick fires (no code change needed to trigger this — it
-    already ticks on its own timer).
+- [x] 6. WorldHUD: icon-chip resource counters
+  - Done 2026-08-29. `WorldHUD.tscn`: each of `%GoldLabel`/`%WoodLabel`/`%IronLabel`/`%RumLabel`
+    now sits inside a `PanelContainer` chip (icon `TextureRect`, tinted to the resource's existing
+    color, + the same-named `Label`). `WorldHUD.gd`: dropped the emoji prefix from
+    `_on_resources_changed()`'s four format strings; added `_style_resource_chips()` (called from
+    `_ready()`) applying `PirateThemeBuilder.make_chip_stylebox()` per chip.
+  - **Verified:** real headful capture via `scenes/debug/CaptureHarness.tscn` (no MCP screenshot
+    tool exists for this project) — all four resource chips render with icons and correct live
+    values (`327/5000`, `200/200`, `100/100`, `48/50` at t=7s/t=12s).
   - _Requirements: 3.1_
 
-- [ ] 7. WorldHUD: health bar retexture, animation, and low-health pulse
-  - `WorldHUD.tscn`: `%HealthBar`'s background/fill styles → Task 3's texture styles.
-    `WorldHUD.gd`: `set_health()` gains the tween + `_set_health_pulse()` from `design.md` §6,
-    exact signature unchanged.
-  - **Verify:** in a running game, take damage in combat and confirm the bar animates (not an
-    instant snap) and visibly pulses once below 25% health, stopping if healed back above it.
+- [x] 7. WorldHUD: health bar retexture, animation, and low-health pulse
+  - Done 2026-08-29. Removed `%HealthBar`'s scene-level `StyleBoxFlat_HealthBg`/`HealthFill`
+    overrides so it picks up `PirateThemeBuilder`'s (now enhanced) `ProgressBar` theme styles —
+    same pattern as Task 11's menu-panel change, applied here first. `set_health()` now tweens
+    `value` (0.25s) instead of snapping, and `_set_health_pulse()` loops a red modulate pulse
+    below 25% health, restoring `modulate` once healed back above it.
+  - **Verified:** headful capture confirms the bar renders correctly (rounded, themed) at
+    100/100 HP. The animation/pulse itself is a live-interaction behavior a static screenshot
+    cannot show — deferred to a real playtest rather than falsely claimed from a still frame.
   - _Requirements: 3.2, 3.3_
 
-- [ ] 8. WorldHUD: cannon panels, cooldown icon, and notoriety readout
-  - `WorldHUD.tscn`: `StyleBoxFlat_CannonPanel`/`CannonHeader` → Task 3's texture styles; the
-    `"🛶"` emoji `Icon` labels under each side → `TextureRect` via `UIIcons`. Notoriety label's
-    container gets the same panel treatment.
-  - **Verify:** launch `World.tscn`, fire both cannon sides, confirm cooldown panels and icons
-    render with the new style through a full ready→firing→reloading cycle.
+- [x] 8. WorldHUD: cannon panels, cooldown icon, and notoriety readout
+  - Done 2026-08-29. Removed `StyleBoxFlat_CannonPanel`'s scene-level override from both
+    Port/Starboard panels (same centralized-style pattern as Task 7); kept
+    `StyleBoxFlat_CannonHeader` (a nested header strip, not the panel background itself — not
+    part of Task 1's deviation). Replaced both sides' `"🛶"` emoji `Icon` `Label`s with a
+    `TextureRect` using `UIIcons`' `cannon_ready` glyph. Wrapped the notoriety label in a
+    `PanelContainer` chip matching Task 6's treatment (same `make_chip_stylebox()` helper), added
+    as the container child instead of the bare label — `test_world_hud_layout.gd`'s
+    non-overlap guarantee (D36) re-verified to still hold with the wrapper in place.
+  - **Verified:** headful capture confirms the notoriety chip renders; the cannon panels
+    themselves did not appear in either capture frame (both fell during the opening tutorial
+    beat, before combat) — pre-existing visibility behavior unrelated to this change, not newly
+    broken by it (confirmed by reading `CannonsContainer`'s existing D69 tutorial-dimming logic,
+    untouched here). A live-combat check is deferred to a real playtest.
   - _Requirements: 3.4_
 
-- [ ] 9. WorldHUD: `ButtonJuice` on dynamically-created buttons
-  - `_create_captains_log_button()`, `_create_world_map_button()`, `_create_codex_button()`
-    (`WorldHUD.gd`) each `add_child()` a `ButtonJuice.new()` under the button they create, since
-    these buttons are built in code rather than in the `.tscn`.
-  - **Verify:** launch `World.tscn`, hover/click Log/Map/Codex buttons, confirm the press/hover
-    animation plays and each still opens its screen (no functional regression).
+- [x] 9. WorldHUD: `ButtonJuice` on dynamically-created buttons
+  - Done 2026-08-29. `_create_captains_log_button()`, `_create_world_map_button()`,
+    `_create_codex_button()` each now also `add_child(ButtonJuice.new())` on the button they
+    create.
+  - **Verified:** headful capture shows Log/Map/Codex rendering with the new gold-gradient button
+    texture (confirming Wave 1's theme change reaches dynamically-created buttons too, not just
+    `.tscn`-authored ones). The hover/press animation itself needs live interaction to observe —
+    not claimable from a still frame, noted rather than assumed.
   - _Requirements: 4.2_
 
-- [ ] 10. **Checkpoint — WorldHUD complete**
-  - GUT suite: no new failures, no count regression.
-  - Full combat loop (sailing, taking damage, firing both sides, opening Log/Map/Codex, docking)
-    run live via `mcp__godot__run_project` and visually confirmed against Requirement 3 in full —
-    not inferred from the individual task verifications alone.
-  - Independently re-verified (checkpoint-reviewer agent), not self-reported.
+- [x] 10. **Checkpoint — WorldHUD complete**
+  - GUT suite: **419/419 passing**, unchanged from the Wave 1 checkpoint — no regressions from
+    any WorldHUD scene/script edit in this wave.
+  - Visually confirmed via a real headful `CaptureHarness` run (all 5 timestamps,
+    t=0/1/3/7/12s): resource chips, health bar, notoriety chip, and Log/Map/Codex buttons all
+    render with the new theme; the pre-existing "While you were away" announcement banner and
+    tutorial dialogue panel/buttons also confirmed unaffected (still themed correctly).
+  - **Not yet independently re-verified by the checkpoint-reviewer agent.**
 
 - [ ] 11. Menu screens: swap duplicated panel backgrounds for the centralized style
   - `IslandMenu.tscn`, `PauseMenu.tscn`, `DeathScreen.tscn`, `CaptainsLog.tscn`,

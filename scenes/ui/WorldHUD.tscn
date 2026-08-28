@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -10,38 +10,12 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/CaptainsLog.tscn" id="7_captains_log"]
 [ext_resource type="PackedScene" path="res://scenes/ui/WorldMapScreen.tscn" id="8_world_map"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CodexScreen.tscn" id="9_codex"]
+[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/gold.png" id="10_gold_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/wood.png" id="11_wood_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/iron.png" id="12_iron_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/rum.png" id="13_rum_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/cannon_ready.png" id="14_cannon_icon"]
 
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HealthBg"]
-bg_color = Color(0.078, 0.137, 0.196, 0.9)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.83, 0.69, 0.22, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HealthFill"]
-bg_color = Color(0.15, 0.75, 0.35, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_CannonPanel"]
-bg_color = Color(0.078, 0.137, 0.196, 0.9)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.83, 0.69, 0.22, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_CannonHeader"]
 bg_color = Color(0.05, 0.09, 0.14, 1)
@@ -102,8 +76,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/background = SubResource("StyleBoxFlat_HealthBg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_HealthFill")
 value = 100.0
 show_percentage = false
 
@@ -164,7 +136,6 @@ alignment = 1
 [node name="PortPanel" type="PanelContainer" parent="CannonsContainer"]
 custom_minimum_size = Vector2(150, 100)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_CannonPanel")
 
 [node name="VBox" type="VBoxContainer" parent="CannonsContainer/PortPanel"]
 layout_mode = 2
@@ -186,16 +157,18 @@ theme_override_font_sizes/font_size = 20
 text = "READY ⚓"
 horizontal_alignment = 1
 
-[node name="Icon" type="Label" parent="CannonsContainer/PortPanel/VBox"]
+[node name="Icon" type="TextureRect" parent="CannonsContainer/PortPanel/VBox"]
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "🛶"
-horizontal_alignment = 1
+size_flags_horizontal = 4
+modulate = Color(0.83, 0.69, 0.22, 1)
+texture = ExtResource("14_cannon_icon")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="StbdPanel" type="PanelContainer" parent="CannonsContainer"]
 custom_minimum_size = Vector2(150, 100)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_CannonPanel")
 
 [node name="VBox" type="VBoxContainer" parent="CannonsContainer/StbdPanel"]
 layout_mode = 2
@@ -402,32 +375,96 @@ layout_mode = 2
 
 [node name="HBox" type="HBoxContainer" parent="TopRightPanel/ResourceBar"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 10
 alignment = 1
 
-[node name="GoldLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
+[node name="GoldChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/GoldChip"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+modulate = Color(1, 0.84, 0, 1)
+texture = ExtResource("10_gold_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GoldLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0, 1)
-text = "💰 0"
+text = "0"
 
-[node name="WoodLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
+[node name="WoodChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/WoodChip"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+modulate = Color(0.6, 0.4, 0.2, 1)
+texture = ExtResource("11_wood_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="WoodLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
-text = "🪵 0"
+text = "0"
 
-[node name="IronLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
+[node name="IronChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/IronChip"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+modulate = Color(0.7, 0.7, 0.75, 1)
+texture = ExtResource("12_iron_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IronLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
-text = "⛏️ 0"
+text = "0"
 
-[node name="RumLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox"]
+[node name="RumChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/RumChip"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+modulate = Color(0.8, 0.4, 0.1, 1)
+texture = ExtResource("13_rum_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RumLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.4, 0.1, 1)
-text = "🍷 0"
+text = "0"
 
 [node name="IslandMenu" parent="." instance=ExtResource("2_island_menu")]
 unique_name_in_owner = true

@@ -282,8 +282,16 @@ message.
   - Independently re-verified against actual code changes and real GUT runs at every wave boundary
     (Wave 1: `a8932c20cd88168a2`; Wave 2: `a0d4367de9eae2a7e`, which caught the Starboard-icon
     miss; Wave 3: `afd91c6e8ff8de329`) per `docs/07_AI_AGENT_WORKFLOW.md` Rules 4/7/8 — not
-    self-reported at any wave boundary. This final Task 15 entry itself is pending one more such
-    review before the milestone is considered closed.
+    self-reported at any wave boundary.
+
+## Final milestone checkpoint (2026-08-29)
+
+Independently re-verified end-to-end (all 6 requirements, both docs entries, no out-of-scope file
+ever committed by any of this milestone's 7 commits, GUT green) by a fourth, separate checkpoint
+review covering the whole milestone rather than one wave. **Passed — 0 defects found.** GUT suite
+at review time: 443/443 passing (440/440 confirmed for this milestone's own work, +3 from a
+concurrent session's own unrelated commits landing in the same shared working tree in the
+interim — confirmed not to touch any file this milestone owns). **M15.5 is complete.**
 
 ## Notes
 

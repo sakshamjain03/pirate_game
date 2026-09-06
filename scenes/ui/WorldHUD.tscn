@@ -190,11 +190,14 @@ theme_override_font_sizes/font_size = 20
 text = "READY ⚓"
 horizontal_alignment = 1
 
-[node name="Icon" type="Label" parent="CannonsContainer/StbdPanel/VBox"]
+[node name="Icon" type="TextureRect" parent="CannonsContainer/StbdPanel/VBox"]
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "🛶"
-horizontal_alignment = 1
+size_flags_horizontal = 4
+modulate = Color(0.83, 0.69, 0.22, 1)
+texture = ExtResource("14_cannon_icon")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="CompassPanel" type="PanelContainer" parent="."]
 layout_mode    = 1

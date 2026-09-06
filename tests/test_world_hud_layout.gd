@@ -35,10 +35,10 @@ func _populate_multi_digit_resources() -> void:
 	# D36 specifically only reproduced once real (multi-digit) resource
 	# values grew ResourceBar taller than its authored rect — a fresh "0"
 	# state never overlapped.
-	_hud.gold_label.text = "💰 123456 / 999999"
-	_hud.wood_label.text = "🪵 54321 / 99999"
-	_hud.iron_label.text = "⛏️ 8888 / 9999"
-	_hud.rum_label.text = "🍷 7777 / 9999"
+	_hud.gold_label.text = "123456 / 999999"
+	_hud.wood_label.text = "54321 / 99999"
+	_hud.iron_label.text = "8888 / 9999"
+	_hud.rum_label.text = "7777 / 9999"
 
 # Property 1: the notoriety/escalation label never overlaps the resource bar,
 # at at least two different viewport sizes/aspect ratios (Requirement 1 AC3).

@@ -101,6 +101,7 @@ func _ready() -> void:
 	master_slider.grab_focus()
 	_populate_controls()
 	_populate_account_tab()
+	PirateThemeBuilder.apply_button_juice(root_control)
 
 func _populate_controls() -> void:
 	for child in controls_vbox.get_children():
@@ -280,6 +281,7 @@ func _populate_account_tab() -> void:
 		_build_signed_in_account_ui()
 	else:
 		_build_signed_out_account_ui()
+	PirateThemeBuilder.apply_button_juice(account_vbox)
 
 func _build_signed_out_account_ui() -> void:
 	var email_label := Label.new()

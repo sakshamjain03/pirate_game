@@ -14,6 +14,7 @@ func _ready() -> void:
 	# M9 Requirement 3 (D70) — the only other screen in scenes/ui/ that never
 	# applied the theme, rendering as raw default Godot UI.
 	root_control.theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.apply_button_juice(root_control)
 	back_button.grab_focus()
 	back_button.pressed.connect(_on_back_button_pressed)
 

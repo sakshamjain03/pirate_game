@@ -57,6 +57,7 @@ func _build_ui() -> void:
 	close_button.text = tr("Close")
 	close_button.pressed.connect(close)
 	header.add_child(close_button)
+	PirateThemeBuilder.apply_button_juice(_panel)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(scroll)

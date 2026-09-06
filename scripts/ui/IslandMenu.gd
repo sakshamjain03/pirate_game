@@ -171,6 +171,7 @@ func open(island: Node3D) -> void:
 	_refresh_fleet()
 	_refresh_research()
 	if can_build: _refresh_trade()
+	PirateThemeBuilder.apply_button_juice(self)
 
 	show()
 	get_tree().paused = true
@@ -194,6 +195,7 @@ func _on_resources_changed(_res: Dictionary) -> void:
 			_refresh_captains()
 	_refresh_research()
 	_refresh_trade()
+	PirateThemeBuilder.apply_button_juice(self)
 
 func _on_close_pressed() -> void:
 	if AudioManager: AudioManager.play_sound("ui_click")

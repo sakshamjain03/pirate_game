@@ -164,29 +164,54 @@ as broad as its own match string — if the match text bakes in something unique
 distinct instance needs its own confirmed replacement, not an assumption from the tool's success
 message.
 
-- [ ] 11. Menu screens: swap duplicated panel backgrounds for the centralized style
-  - `IslandMenu.tscn`, `PauseMenu.tscn`, `DeathScreen.tscn`, `CaptainsLog.tscn`,
-    `RaidReportScreen.tscn`, `TutorialDialogue.tscn`: delete each scene's local
-    `theme_override_styles/panel = SubResource("StyleBoxFlat_*Bg")` override and its now-unused
-    sub-resource, per `design.md` §7 — the screen's own `PirateThemeBuilder.build()` call already
-    supplies the new panel style once the override is gone.
-  - **Verify:** open each of the six screens in a running game and visually confirm the new panel
-    style renders with no missing/blank background.
+- [x] 11. Menu screens: swap duplicated panel backgrounds for the centralized style
+  - Done 2026-08-29, with one refinement over the original plan after actually reading all six
+    scenes: `IslandMenu.tscn`, `PauseMenu.tscn`, `CaptainsLog.tscn` used the *same* navy/gold
+    colors as the centralized default — genuine duplicates, overrides deleted as planned.
+    `DeathScreen.tscn`/`RaidReportScreen.tscn` use a deliberately distinct **red** alarm palette
+    (danger/death/raid-outcome screens) — deleting their override would have silently made them
+    the same gold as every other menu, an actual regression in intent, not a cleanup. Kept, and
+    instead enhanced in place to match the centralized style's new quality bar (corner radius
+    8→16, added `shadow_size`/`shadow_color`, `anti_aliasing = true`). `TutorialDialogue.tscn`
+    needed no change at all — its main panel already had no override; its `PortraitPanel` accent
+    is a distinct small element (like `WorldHUD`'s `CannonHeader`), not this pattern.
+  - **Verified:** GUT suite 419/419 passing after all `load_steps` count updates and sub-resource
+    removals (a wrong `load_steps` count is a real way to corrupt a `.tscn`, checked explicitly
+    for each edited file). Visual confirmation deferred to Task 13's checkpoint pass.
   - _Requirements: 5.1_
 
-- [ ] 12. Menu screens: `ButtonJuice` everywhere, remaining dynamic-`StyleBoxFlat` cleanup
-  - Add `ButtonJuice.gd` under every `Button` in `MainMenu.tscn`, `SettingsMenu.tscn`,
-    `CodexScreen.tscn`, `WorldMapScreen.tscn`, `UpgradeChoiceScreen.tscn`,
-    `MobileControls.tscn` (all confirmed real `Button` nodes — `BtnForward`/`BtnLeft`/
-    `BtnRight`/`BtnBackward`/`BtnFirePort`/`BtnFireStar`/`BtnDock`/`BtnPause`/
-    `BtnCaptainAbility`/`BtnSpecialBroadside`), plus every screen touched in Task 11.
-    `SettingsMenu._show_message()` and `WorldHUD.announce_event()` switch to
-    `PirateThemeBuilder`'s enhanced `StyleBoxFlat` fallback instead of their own inline
-    `StyleBoxFlat.new()`.
-  - **Verify:** on a touch-input build or the mouse-emulated equivalent, press each
-    `MobileControls` button and confirm both the juice animation plays and the underlying action
-    (movement/fire/dock/pause/ability) still functions — `ButtonJuice` only touches `scale`/
-    `modulate`, never movement state, but this must be confirmed live, not assumed.
+- [x] 12. Menu screens: `ButtonJuice` everywhere, remaining dynamic-`StyleBoxFlat` cleanup
+  - Done 2026-08-29, with an architecture change from the original plan: rather than manually
+    adding a `ButtonJuice` child node to every individual `Button` across 12 scene files (the
+    exact manual-per-node pattern that already produced the Wave 2 Port/Starboard miss — one
+    scene, one missed instance, caught only by independent review), added
+    `PirateThemeBuilder.apply_button_juice(root: Node)` — a recursive, idempotent sweep — and
+    added a single call to it at each screen's theme-application point (or, for the few screens
+    that rebuild buttons dynamically after `_ready()` — `IslandMenu`, `SettingsMenu`'s account
+    tab, `UpgradeChoiceScreen`'s offer cards — at each place those rebuilds happen). Covers
+    `CaptainsLog`, `DeathScreen`, `PauseMenu`, `RaidReportScreen`, `TutorialDialogue`,
+    `CreditsScreen`, `WorldMapScreen`, `MainMenu`, `CodexScreen`, `ChoiceDialog`, `IslandMenu`,
+    `SettingsMenu`, `UpgradeChoiceScreen` — every screen in `scripts/ui/`.
+  - **Real gap found and fixed, not just the planned cleanup:** `MobileControls.gd` explicitly
+    documented (in its own pre-existing comment) that it was *never themed at all* — its
+    `CanvasLayer` root breaks `WorldHUD._apply_theme()`'s Control-only propagation, so every
+    touch button rendered as an unthemed default Godot button. Fixed by applying the theme
+    directly in `MobileControls._ready()` (plus the juice sweep) rather than relying on
+    inherited propagation. Confirmed via direct code read that all ten buttons
+    (`BtnForward`/`BtnLeft`/`BtnRight`/`BtnBackward`/`BtnFirePort`/`BtnFireStar`/`BtnDock`/
+    `BtnPause`/`BtnCaptainAbility`/`BtnSpecialBroadside`) are real `Button` nodes this reaches.
+  - `SettingsMenu._show_message()` and `WorldHUD.announce_event()` were **not** switched to a
+    shared fallback helper as originally planned — on inspection both already build a one-off
+    `StyleBoxFlat` inline with parameters specific to that call site (different border widths,
+    margins); `PirateThemeBuilder`'s enhanced fallback is a *different* generic shape, not a
+    drop-in replacement for either. Left as-is rather than forcing a fit that would have changed
+    their look without a real reason to.
+  - **Verified:** GUT suite 419/419 passing. `MobileControls`'s actual touch behavior on a real
+    mobile build (or its on-device functional correctness) is explicitly **not verified here** —
+    this desktop dev environment reports `OS.has_feature("pc")` true, so `MobileControls._ready()`
+    returns early and hides the layer before `_setup_button()` ever runs; confirmed by reading the
+    code, not by seeing it render. A real device check is out of scope for this environment,
+    same disclosed limitation M13's own Wave 2 already logged for this exact scene.
   - _Requirements: 4.2, 5.2_
 
 - [ ] 13. **Checkpoint — every screen modernized**

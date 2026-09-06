@@ -24,6 +24,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.apply_button_juice(self)
 	# M9 Requirement 5 — lets EncounterManager gate ambient encounters while
 	# this dialogue has focus without a direct node reference, mirroring the
 	# "hud" group WorldHUD already registers itself under for the same reason.

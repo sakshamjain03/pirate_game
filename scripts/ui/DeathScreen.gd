@@ -18,6 +18,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.apply_button_juice(self)
 
 func open(ship: ShipController) -> void:
 	player_ship = ship

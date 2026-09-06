@@ -28,6 +28,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
 	view_log_button.pressed.connect(_on_view_log_pressed)
 	map_display.draw.connect(_on_map_display_draw)

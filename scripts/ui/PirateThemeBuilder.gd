@@ -153,6 +153,28 @@ static func _make_panel_stylebox(bg: Color, border: Color, border_w: float, radi
 	return s
 
 
+## Recursively attaches ButtonJuice to every Button under root that doesn't
+## already have one — M15.5 Requirement 4.2. A recursive sweep called once
+## per screen (after that screen's buttons all exist) rather than a manual
+## child node added to every individual Button in every .tscn: the same
+## manual-per-node approach already produced one real miss in this milestone
+## (a Starboard/Port pair where only one side was actually edited — see this
+## spec's tasks.md "Checkpoint correction" entry), and a scene with N buttons
+## is N chances to repeat it. Idempotent, so it's safe to call on a
+## partially-juiced tree.
+static func apply_button_juice(root: Node) -> void:
+	if root is Button:
+		var already_juiced := false
+		for child in root.get_children():
+			if child is ButtonJuice:
+				already_juiced = true
+				break
+		if not already_juiced:
+			root.add_child(ButtonJuice.new())
+	for child in root.get_children():
+		apply_button_juice(child)
+
+
 ## Small rounded "chip" background for a resource/stat readout (icon + count),
 ## tinted per-resource — used by WorldHUD's resource chips (M15.5 Requirement 3.1).
 static func make_chip_stylebox(tint: Color) -> StyleBoxFlat:

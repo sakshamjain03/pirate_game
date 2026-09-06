@@ -15,10 +15,19 @@ extends CanvasLayer
 @onready var btn_special_broadside = %BtnSpecialBroadside
 
 func _ready() -> void:
+	# M15.5 — this CanvasLayer's own children never picked up
+	# WorldHUD._apply_theme()'s theme (that loop only themes Control
+	# children, and a CanvasLayer isn't one), so every button here rendered
+	# as an unthemed default Godot button. Applied directly since a
+	# CanvasLayer can't hold/propagate a Theme itself the way a Control does.
+	var theme := PirateThemeBuilder.build()
+	for child in get_children():
+		if child is Control:
+			child.theme = theme
+	PirateThemeBuilder.apply_button_juice(self)
+
 	# These are on-screen touch buttons — on desktop they just sit on top of
-	# the HUD (overlapping HealthBarContainer) and are unthemed, since this
-	# is a CanvasLayer and WorldHUD._apply_theme() only themes Control
-	# children.
+	# the HUD (overlapping HealthBarContainer).
 	if OS.has_feature("pc"):
 		visible = false
 		return

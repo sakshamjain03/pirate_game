@@ -15,6 +15,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
 
 	CampaignManager.objective_progressed.connect(func(_a, _b, _c): _refresh())

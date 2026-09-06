@@ -102,6 +102,7 @@ func _on_offer(choices: Array, offer_index: int, total_offers: int) -> void:
 		if first == null:
 			first = card
 
+	PirateThemeBuilder.apply_button_juice(_cards_row)
 	show()
 	get_tree().paused = true
 	if first:

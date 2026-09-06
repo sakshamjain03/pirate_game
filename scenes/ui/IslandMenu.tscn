@@ -1,18 +1,6 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/IslandMenu.gd" id="1_menu"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_MenuBg"]
-bg_color = Color(0.078, 0.137, 0.196, 0.95)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.83, 0.69, 0.22, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
 
 [node name="IslandMenu" type="Control"]
 layout_mode = 3
@@ -41,7 +29,6 @@ anchor_right = 0.9
 anchor_bottom = 0.9
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_MenuBg")
 
 [node name="Margin" type="MarginContainer" parent="Panel"]
 layout_mode = 2

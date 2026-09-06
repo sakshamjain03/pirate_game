@@ -74,6 +74,7 @@ func _init(title_text: String, body_text: String, button_labels: PackedStringArr
 		btn.pressed.connect(func(): _on_choice(idx))
 		button_row.add_child(btn)
 
+	PirateThemeBuilder.apply_button_juice(panel)
 	add_child(panel)
 
 ## Adds this dialog under `parent` and returns the chosen index once a button is pressed.

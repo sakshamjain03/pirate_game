@@ -28,6 +28,7 @@ func _ready() -> void:
 func _apply_theme() -> void:
 	var theme := PirateThemeBuilder.build()
 	root_control.theme = theme
+	PirateThemeBuilder.apply_button_juice(root_control)
 
 func _connect_buttons() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)

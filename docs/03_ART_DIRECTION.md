@@ -120,6 +120,10 @@ High contrast.
 
 One primary action per screen.
 
+Sleek and current, not skeuomorphic or heavy-bevel (M15.5).
+
+Gradient-textured buttons, soft-shadowed rounded panels, icon-led readouts.
+
 ---
 
 # Animation

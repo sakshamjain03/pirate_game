@@ -239,25 +239,51 @@ message.
     "only styling changed" — the Wave 2 Port/Starboard miss is the standing reason not to trust
     that assumption alone.
 
-- [ ] 14. Documentation
-  - `docs/05_CURRENT_SYSTEMS.md`: new Presentation-section entry (texture-based theme, icon-chip
-    pattern, `ButtonJuice.gd`, updated GUT baseline). `docs/03_ART_DIRECTION.md`: Requirement 2.4.
-    `docs/15_MASTER_PLAN.md`: new "M15.5" entry between M15 and M16, framed as an unplanned
-    insertion (matching M7.5's framing) — M16-M21's existing numbering is not touched.
-  - **Verify:** grep `docs/15_MASTER_PLAN.md` for both "M15" and "M16" section headers and confirm
-    the new entry sits between them without altering either.
+- [x] 14. Documentation
+  - Done 2026-08-29. `docs/05_CURRENT_SYSTEMS.md`: new "M15.5 — UI Visual Modernization" section
+    (Requirements 1-5 breakdown, sourced-asset rationale, the StyleBoxFlat-gradient/rounding
+    technical constraint, both real defects the independent reviews caught, updated GUT baseline
+    including the concurrent-session contamination pattern observed and confirmed unrelated).
+    `docs/03_ART_DIRECTION.md`: two new lines in the existing terse one-thought-per-line style
+    (kept, not replaced, per Requirement 2.4). `docs/15_MASTER_PLAN.md`: new "M15.5" entry inserted
+    between the M15 and "Post-v1 — M16 through M21" sections, framed as an unplanned insertion
+    matching M7.5's own precedent — M16-M21's headers and content untouched.
+  - **Verified:** grepped `docs/15_MASTER_PLAN.md` for "M15", "M15.5", and "M16" section headers —
+    confirmed the new entry sits between the first and third with neither altered.
   - _Requirements: 6.1, 6.2, 6.3_
 
-- [ ] 15. **Checkpoint — M15.5 complete**
-  - GUT suite passes with no regressions from the Task 1 baseline (log the exact before/after
-    counts).
-  - All three doc files updated and cross-checked against the actual code changes, not copied from
-    this spec's intent.
-  - A full visual pass across every touched screen logged as genuinely verified live, not assumed
-    — explicitly note that subjective "does this look modern/current" judgment is a human call,
-    per this project's own stated limitation on verifying aesthetics headlessly.
-  - Independently re-verified against actual code changes and a real GUT run before marking done,
-    per `docs/07_AI_AGENT_WORKFLOW.md` Rules 4/7/8.
+- [x] 15. **Checkpoint — M15.5 complete**
+  - GUT suite: **440/440 passing, 0 failures.** This milestone's own last independently-confirmed
+    clean number was 434/434 (Wave 3's checkpoint). Two further runs during Task 14 showed
+    transient failures in files this milestone never touches — first the same
+    `ObjectiveDispatch`/`CampaignManager`/`SeasonalEventManager` compilation contamination from
+    Wave 3, then a content-validation failure (`ch6_the_wandering_widow` / `widows_reach` not
+    resolving as a real island) — both confirmed via `git status` to belong to a concurrent
+    session's own in-progress M14 content expansion (new chapters, seasonal events, a new region,
+    new enemy types), not this milestone's files, and both resolved on their own once that
+    session's save completed. 440/440 is the number after that work stabilized, run one final
+    time with no other change in between.
+  - All three doc files updated and cross-checked against the actual code changes (StyleBoxTexture
+    margins, the specific enhanced-fallback values, the actual sourced pack names) rather than
+    copied from this spec's original intent — several details changed from the initial plan during
+    implementation (no panel/bar texture existed; two icons are substitutes; `ButtonJuice` is swept
+    recursively, not hand-placed) and the docs reflect what actually shipped.
+  - **Visual verification is partial, disclosed as such rather than assumed:** `MainMenu` and
+    `PauseMenu` were confirmed live via real headful screenshots (force-focused window + GDI
+    capture — no MCP screenshot tool exists for this project) showing gold-gradient buttons,
+    correct rounding, readable text, and the `disabled`-state fix. `WorldHUD` was confirmed live via
+    the project's own `CaptureHarness` debug scene across all 5 capture timestamps (resource chips,
+    health bar, notoriety chip, themed buttons). The remaining 9 screens were **not** individually
+    screenshotted live in this pass — simulated keyboard navigation proved unreliable in this
+    multi-window desktop (focus repeatedly stole to other open windows). Their correctness rests on
+    code-level verification (three independent checkpoint reviews, each reading the actual diffs
+    and re-running GUT rather than trusting self-report) — a genuinely different, weaker form of
+    evidence than a screenshot, and reported as such rather than blurred together.
+  - Independently re-verified against actual code changes and real GUT runs at every wave boundary
+    (Wave 1: `a8932c20cd88168a2`; Wave 2: `a0d4367de9eae2a7e`, which caught the Starboard-icon
+    miss; Wave 3: `afd91c6e8ff8de329`) per `docs/07_AI_AGENT_WORKFLOW.md` Rules 4/7/8 — not
+    self-reported at any wave boundary. This final Task 15 entry itself is pending one more such
+    review before the milestone is considered closed.
 
 ## Notes
 

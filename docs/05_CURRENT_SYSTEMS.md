@@ -1798,3 +1798,108 @@ the real project as of this checkpoint, ready for M14's actual keys.
 `test_save_manager_sync.gd`, `test_remote_config_manager.gd`) on top of the 396/396 clean-`main`
 baseline M13's entry above cites, confirmed by a real Godot 4.3 GUT run against the working tree
 with all of M15's Wave 1-6 changes applied.
+
+## M15.5 — UI Visual Modernization (2026-08-29)
+
+An unplanned, out-of-sequence milestone (same role `M7.5` played between M7/M8) inserted between
+the now-complete M15 and the already-scaffolded M16 (Cosmetics & Entitlements) — see
+`docs/15_MASTER_PLAN.md`'s M15.5 entry. Player-facing framing: every screen still rendered as flat,
+2010-era `StyleBoxFlat` boxes and emoji-prefixed `Label` text — no icon art, no gradients, no press
+feedback — despite the game being otherwise far along. This pass changes *how* the existing theme
+renders, not *what* it shows; `docs/03_ART_DIRECTION.md`'s "Minimal, Large buttons, Readable fonts,
+High contrast" standard is unchanged.
+
+### Requirement 1 — Sourced UI texture/icon assets
+
+Two Kenney (kenney.nl) CC0 packs sourced into `assets/ui_icons/` (deliberately not
+`assets/icons/` — already used by M13's Android app-icon files): **UI Pack** (9-slice
+button textures) and **Board Game Icons** (resource/stat glyphs, white/monochrome — tinted
+per-resource in code rather than requiring separate colored art). Both packs' own license files
+confirm CC0 (public domain, no attribution required, shipped-commercial-game use explicit).
+`scripts/ui/UIIcons.gd` is the single lookup point, mirroring `PirateThemeBuilder`'s existing
+role — no scene/script hardcodes an `assets/ui_icons/` path directly. Two of the seven icons are
+documented thematic substitutes rather than literal matches (no pack had a coin/doubloon or a rum
+bottle specifically): gold uses a generic token/chip glyph, rum uses a potion-flask glyph.
+
+### Requirement 2 — Modernized central theme
+
+**Key technical constraint:** Godot 4.3's `StyleBoxFlat.bg_color` has no gradient-fill property,
+and `GradientTexture2D` can't produce rounded, anti-aliased alpha corners without a custom shader.
+Getting both "rounded" and "gradient" without introducing new shader-maintenance surface means
+sourcing pre-rendered 9-slice texture art instead — `PirateThemeBuilder._make_texture_button_stylebox()`
+wraps the sourced button PNGs (192×64, 18px texture margin) as `StyleBoxTexture`, wired into the
+same `Button` `normal`/`hover`/`pressed`/`focus` (plus a new `disabled` — see below) property names
+`build()` already set, so every screen calling `PirateThemeBuilder.build()` picked up the new look
+with zero per-screen code change. Panels, the `ProgressBar` background/fill, and any one-off
+dynamically-built element (no matching texture asset existed for these) instead use an *enhanced*
+`_make_panel_stylebox()` — corner radius 8px→16px (4px→12px for bars), a real soft
+`shadow_size`/`shadow_color`, `anti_aliasing = true` — replacing the old small-radius/hard-shadow
+look everywhere it still applies. **Real defect caught by its own live-screenshot check, not
+assumed away:** a headful capture of `PauseMenu` showed its "Resume" button as a plain grey box —
+`build()` had never set a `disabled` Button style, so Godot fell back to its own stock default.
+Fixed with a fifth sourced texture (Grey-family, matching the pack's own disabled-state
+convention) plus `font_disabled_color`.
+
+### Requirement 3 — WorldHUD icon chips, animated health bar
+
+`WorldHUD.tscn`'s four resource counters (`%GoldLabel`/`%WoodLabel`/`%IronLabel`/`%RumLabel`,
+previously plain emoji-prefixed `Label`s) are now each wrapped in a small rounded "chip"
+(`PanelContainer` + icon `TextureRect`, tinted to the resource's existing color, + the same-named
+`Label` — `unique_name_in_owner` preserved, so `WorldHUD.gd`'s `@onready` references and
+`_on_resources_changed()` needed no signal-wiring change, only the text format dropping its emoji
+prefix). `%HealthBar` dropped its scene-level style override to pick up the centralized
+(enhanced) `ProgressBar` look; `set_health()` now tweens `value` (0.25s) instead of snapping, and
+loops a red `modulate` pulse below 25% health. Cannon panels dropped their own override the same
+way; the port/starboard "🛶" emoji `Icon` (an odd placeholder even before this pass) became a
+`TextureRect`; the notoriety readout got the same chip treatment as the resource counters.
+
+### Requirement 4 — Button/bar "juice"
+
+New `scripts/ui/ButtonJuice.gd` — a small `Node` (composition, not a `Button` subclass, matching
+`ChoiceDialog.gd`'s existing reusable-component precedent) providing a 0.12s press/hover scale
+tween. Rather than manually adding a `ButtonJuice` child to every individual `Button` across
+every scene — which already produced one real miss mid-milestone (Wave 2 converted the Port
+cannon-ready icon but not Starboard, because the editing `Edit` call's own match text happened to
+bake in `PortPanel`'s path, so it had nothing else in the file left to match despite reporting
+success; caught by independent checkpoint review, not by testing) — `PirateThemeBuilder.apply_button_juice(root)`
+recursively and idempotently sweeps a subtree, called once per screen at its theme-application
+point (or, for the few screens that rebuild buttons dynamically after `_ready()` —
+`IslandMenu` across its six `_refresh_*()` functions, `SettingsMenu`'s account tab on sign-in/out,
+`UpgradeChoiceScreen`'s per-offer cards — at each place that rebuild actually happens).
+
+### Requirement 5 — Every remaining screen
+
+Every screen under `scripts/ui/` now calls `apply_button_juice()`. Panel-background duplication
+removed where it was a genuine duplicate of the (now enhanced) centralized style — `IslandMenu`,
+`PauseMenu`, `CaptainsLog` — but **kept and enhanced in place** (not deleted) for `DeathScreen`/
+`RaidReportScreen`, whose red alarm palette is intentional, not accidental duplication; deleting
+it would have silently made death/raid screens the same gold as every other menu.
+`TutorialDialogue`'s main panel already had no override (only its portrait-frame accent style
+does — a distinct small element, like `WorldHUD`'s `CannonHeader`, not this pattern). Real,
+previously-undocumented-as-fixed gap found and closed: `MobileControls.gd` explicitly commented
+that it was never themed at all (a `CanvasLayer` breaks `WorldHUD._apply_theme()`'s
+Control-only propagation) — every touch button rendered as an unthemed default Godot button until
+this pass applied the theme directly in its own `_ready()`.
+
+### What's not done — logged as blocking constraints, not silently skipped
+
+- **Full live visual sweep of all 12 screens** — only `MainMenu` and `PauseMenu` were actually
+  seen live (headful screenshot, force-focused window). Simulated keyboard navigation
+  (`SendKeys`) to reach further screens proved unreliable in this multi-window desktop (focus
+  repeatedly stole to other open windows rather than the game) — flagged rather than pushed
+  through for an unreliable result. The remaining screens' correctness rests on code-level
+  verification (GUT, direct diff reading against each screen's actual button/signal logic), not
+  an exhaustive visual pass.
+- **`MobileControls` on-device behavior** — this desktop environment reports `OS.has_feature("pc")`
+  true, so `MobileControls._ready()` hides the layer before touch setup ever runs; the theming fix
+  is verified by reading the code, not by seeing it render on a touch device. Same disclosed
+  limitation M13's own device-verification wave already logged for this exact scene.
+- **Real captain portrait art, colorblind-safe palettes** — explicitly out of scope (tracked
+  separately / M19's scope respectively), not attempted here.
+
+**417 → 433** (mid-milestone, twice, a concurrent session's own unrelated M14 seasonal-events
+development transiently broke and then re-passed the full suite in this shared working tree —
+confirmed via `git status`/timestamps neither the breakage nor the fix touched any file this
+milestone owns) **→ 434/434** at this milestone's own final checkpoint, confirmed by a real Godot
+4.3 GUT run against the working tree with all of M15.5's changes applied, no regressions
+attributable to this milestone's own files.

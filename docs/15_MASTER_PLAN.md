@@ -434,6 +434,57 @@ Full spec: `.kiro/specs/milestone-m15-backend-cloud-services/`.
 
 ---
 
+## M15.5 — UI Visual Modernization
+
+**An unplanned insertion, not a renumbering.** Same role the M7.5 stabilization pass played
+between M7 and M8: work that surfaced after M15 closed and needed doing before the next planned
+milestone, given its own slot rather than disturbing the already-scaffolded M16–M21 queue below.
+Player-facing prompt: every screen still rendered as flat 2010-era `StyleBoxFlat` boxes and
+emoji-prefixed text — no icon art, no gradients, no press feedback — despite the game otherwise
+being far along, and this is the screen surface seen in effectively 100% of play sessions.
+
+**Goal:** the existing theme renders with contemporary mobile-game production values — gradient
+buttons, soft-shadowed rounded panels, icon-led readouts — without touching what any screen
+actually shows or how it behaves.
+
+**Why here, and why no dependency on M16–M21:** purely a rendering-technique change to
+`PirateThemeBuilder.gd` (the single theme every screen already applies) plus the scenes/scripts
+that consume it. No gameplay value, economy number, signal wiring, or save data changes, so it has
+no dependency on M16's cosmetic system or anything after it, and nothing after it depends on this
+landing first either — inserted purely because "the UI still looks dated" was worth fixing now
+rather than after five more milestones.
+
+**Scope:** two sourced CC0 asset packs (Kenney UI Pack + Board Game Icons) into
+`assets/ui_icons/` · `PirateThemeBuilder`'s `Button` styles rebuilt as `StyleBoxTexture` (real
+gradient/gloss art) since Godot 4.3's `StyleBoxFlat` has no gradient fill and `GradientTexture2D`
+can't round its own corners without a shader · panels/bars kept an enhanced `StyleBoxFlat`
+fallback (bigger radius, real shadow, anti-aliasing) since no matching background/bar texture
+existed in the sourced packs · `WorldHUD`'s resource counters became icon chips, its health bar
+gained a fill animation and a low-health pulse · a reusable `ButtonJuice.gd` press/hover animation,
+swept onto every screen's buttons via a single recursive `PirateThemeBuilder.apply_button_juice()`
+call per screen rather than by hand per button (a manual per-node attempt mid-milestone already
+missed one of a pair — caught by checkpoint review, not testing) · every remaining menu screen's
+duplicated panel-background style centralized, except where a screen's distinct color (death/raid
+alarm red) was intentional, which was enhanced in place instead of deleted.
+
+**Exit criteria:** every screen in `scenes/ui/` visibly reflects the new rendering technique, no
+screen's actual displayed data or functional behavior changes, and the GUT suite shows zero
+regressions attributable to this milestone's own files.
+
+**Exit criteria results (2026-08-29):** all of the above shipped and independently
+checkpoint-reviewed wave-by-wave (three waves: theme system + assets, `WorldHUD`, every remaining
+screen) — see `docs/05_CURRENT_SYSTEMS.md`'s "M15.5" section for the full per-requirement
+breakdown, including two real defects the independent review caught mid-milestone (a missed
+Starboard-side icon conversion; a missing `disabled`-state Button style) that self-report alone
+had not. GUT suite **434/434 passing, 0 failures**. One disclosed gap: only `MainMenu` and
+`PauseMenu` were actually confirmed via a live headful screenshot — further screens' correctness
+rests on code-level verification, not an exhaustive visual sweep, after simulated keyboard
+navigation proved unreliable in a multi-window desktop environment.
+
+Full spec: `.kiro/specs/milestone-m15.5-ui-modernization/`.
+
+---
+
 ## Post-v1 — M16 through M21 (added 2026-08-27)
 
 > **These six were scaffolded as a forward-planning pass, not as a queue jump.** M9 has open

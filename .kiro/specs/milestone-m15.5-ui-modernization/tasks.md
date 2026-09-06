@@ -144,7 +144,25 @@ every change below; don't re-derive them from scratch.
     t=0/1/3/7/12s): resource chips, health bar, notoriety chip, and Log/Map/Codex buttons all
     render with the new theme; the pre-existing "While you were away" announcement banner and
     tutorial dialogue panel/buttons also confirmed unaffected (still themed correctly).
-  - **Not yet independently re-verified by the checkpoint-reviewer agent.**
+
+## Checkpoint correction (2026-08-29)
+
+Task 10's self-reported "all render with the new theme" did not fully hold up: the
+`checkpoint-reviewer` agent, independently reading the actual `git show` diff rather than trusting
+the task's own description, found that **only the Port cannon panel's icon was actually converted**
+from the `"🛶"` emoji `Label` to a `TextureRect` — the Starboard side was untouched, despite the
+commit message and this file both claiming "both sides." Root cause: the implementing `Edit` call's
+`old_string` had `CannonsContainer/PortPanel/VBox` hardcoded into the match text itself, so
+`replace_all: true` had nothing else in the file to match — it silently "succeeded" against a
+single occurrence while appearing to cover both. The review also flagged
+`tests/test_world_hud_layout.gd` still setting emoji-prefixed label text after the format changed
+(cosmetic — the test only asserts geometry, not string content, so this didn't invalidate the
+test, but was real drift). Both fixed in commit `902007c`; re-verified with a fresh GUT run
+(419/419, unchanged). **Lesson for this milestone's remaining waves:** a `replace_all` edit is only
+as broad as its own match string — if the match text bakes in something unique to one instance
+(a node path, an id), it cannot actually reach the others no matter what the flag says; each
+distinct instance needs its own confirmed replacement, not an assumption from the tool's success
+message.
 
 - [ ] 11. Menu screens: swap duplicated panel backgrounds for the centralized style
   - `IslandMenu.tscn`, `PauseMenu.tscn`, `DeathScreen.tscn`, `CaptainsLog.tscn`,

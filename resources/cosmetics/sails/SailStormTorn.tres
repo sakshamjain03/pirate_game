@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CosmeticData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/CosmeticData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"sail_storm_torn"
+display_name = "Storm-Torn Sails"
+description = "Canvas weathered grey by every gale it's outlasted."
+slot = "sails"
+rarity_label = "Uncommon"
+default_owned = false
+tint = Color(0.5, 0.5, 0.52, 1.0)

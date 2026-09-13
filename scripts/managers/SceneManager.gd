@@ -88,13 +88,20 @@ func change_scene_with_fade(path: String, duration: float = 0.4, push_to_history
 	
 	await tween.finished
 	_execute_scene_swap(path, push_to_history)
+	# The scene has already swapped and the new scene is fully interactive
+	# from here on — only the cosmetic fade-in overlay remains playing.
+	# Clearing the guard now (rather than after the fade-in tween below)
+	# fixes a real bug: a button in the new scene calling
+	# change_scene_with_fade() again during this purely visual tail (e.g. a
+	# click landing the instant the new menu appears) was being silently
+	# ignored by the guard above, with no player-facing feedback.
+	_is_transitioning = false
 	
 	var tween_in := create_tween().set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
 	tween_in.tween_property(_fade_overlay, "modulate:a", 0.0, fade_in_duration)
 	
 	await tween_in.finished
 	_fade_overlay.visible = false
-	_is_transitioning = false
 	
 	emit_signal("scene_changed", path)
 

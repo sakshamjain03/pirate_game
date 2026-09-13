@@ -28,6 +28,7 @@ buses/default_bus_layout="res://default_bus_layout.tres"
 [autoload]
 
 SaveManager="*res://scripts/managers/SaveManager.gd"
+EntitlementManager="*res://scripts/managers/EntitlementManager.gd"
 AuthManager="*res://scripts/managers/AuthManager.gd"
 RemoteConfigManager="*res://scripts/managers/RemoteConfigManager.gd"
 SceneManager="*res://scripts/managers/SceneManager.gd"

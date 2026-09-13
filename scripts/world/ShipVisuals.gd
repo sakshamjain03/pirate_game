@@ -47,6 +47,18 @@ var _clean_albedo: Dictionary = {}
 var _damage: Node = null
 var _smoke: GPUParticles3D = null
 
+# M16 — cosmetics currently equipped, keyed by slot name. Re-applied at the
+# end of _rebuild_model() (a rebuild discards _model_instance and everything
+# painted onto it) and read by get_save_data() for the equipped *selection*
+# (ownership itself is account-scoped, via EntitlementManager, not saved here).
+var _equipped_cosmetics: Dictionary = {}
+var _figurehead_instance: Node3D = null
+
+## Promoted from a local in _on_damage_pool_changed (M16 Task 11) so
+## apply_cosmetic() can re-assert the current damage tint after a cosmetic
+## changes the base albedo — see design.md §4.
+var _current_damage_severity: float = 0.0
+
 func _ready() -> void:
 	if not controller:
 		controller = get_parent() as ShipController
@@ -72,6 +84,10 @@ func _rebuild_model() -> void:
 	if _model_instance:
 		_model_instance.queue_free()
 		_model_instance = null
+	# The old figurehead instance was a child of the just-freed model, so it
+	# is going away too — drop the reference now rather than leaving it
+	# pointing at a queue_free()-pending node until the next _apply_figurehead().
+	_figurehead_instance = null
 
 	var model_path := DEFAULT_MODEL_PATH
 	var material_path := ""
@@ -107,12 +123,31 @@ func _rebuild_model() -> void:
 		if flag:
 			_apply_color_to_meshes(flag, faction.sail_color)
 
+	# M16 Task 13 — a rebuild discards _model_instance and everything painted
+	# onto it, so every equipped cosmetic must be re-applied here, inline
+	# (never call_deferred — see the D45 defer-chain failure mode), before the
+	# cache/re-tint below runs once for the whole freshly rebuilt model.
+	for slot in _equipped_cosmetics:
+		_apply_cosmetic_visual(slot, _equipped_cosmetics[slot])
+
 	# A rebuild (ship purchase/switch) always yields a fresh hull, but re-derive
 	# the tint from whatever ShipDamage currently reports rather than assuming
 	# "clean" — the two must never independently disagree about hull state.
 	_cache_clean_albedo()
 	if _damage and _damage.ship_stats:
-		_on_damage_pool_changed("hull", _damage.hull, _damage.get_pool_maximum("hull"))
+		# Pre-existing latent race, found via M16's own new cosmetic-damage
+		# test: ShipModel is declared before ShipDamage in the ship scenes,
+		# so on the very first _rebuild_model() call (from _ready()),
+		# ShipDamage._ready() hasn't run yet and `hull` is still its
+		# uninitialized 0.0 default. Reading that directly would wrongly
+		# compute "critical damage" (and skip _update_smoke/_apply_list's own
+		# lazy setup) on a ship that hasn't taken any hit yet. ShipDamage's
+		# own _ready() only ever moves hull from 0.0 up to a real value, so
+		# assuming full health for this one boot-time read whenever hull
+		# still reads exactly 0.0 is a safe stand-in — genuine damage always
+		# arrives afterward through the real pool_changed signal.
+		var boot_safe_hull: float = _damage.hull if _damage.hull > 0.0 else _damage.get_pool_maximum("hull")
+		_on_damage_pool_changed("hull", boot_safe_hull, _damage.get_pool_maximum("hull"))
 
 func _apply_color_to_meshes(node: Node, color: Color) -> void:
 	if node is MeshInstance3D:
@@ -142,7 +177,8 @@ func _on_damage_pool_changed(pool: String, current: float, maximum: float) -> vo
 	var pct: float = current / max(maximum, 1.0)
 	var is_sinking := pct < hull_sinking_threshold and pct > 0.0
 	_update_smoke(pct < hull_damaged_threshold and pct > 0.0, is_sinking)
-	_apply_damage_tint(scorch_tint_strength if pct < hull_critical_threshold else 0.0)
+	_current_damage_severity = scorch_tint_strength if pct < hull_critical_threshold else 0.0
+	_apply_damage_tint(_current_damage_severity)
 	_apply_list(sinking_list_degrees if is_sinking else 0.0)
 
 
@@ -186,6 +222,127 @@ func _apply_damage_tint_to(node: Node, severity: float) -> void:
 					mat.set_shader_parameter("albedo", clean.lerp(scorch_tint_color, severity))
 	for child in node.get_children():
 		_apply_damage_tint_to(child, severity)
+
+
+## M16 §4 — the highest-risk integration point in the milestone. Equipping a
+## hull skin changes the base albedo; if _clean_albedo isn't re-populated
+## immediately, the next time damage clears, _apply_damage_tint(0.0) would
+## restore the *pre-skin* albedo and silently revert the cosmetic. ORDER IS
+## LOAD-BEARING: apply the visual change, THEN re-cache clean albedo, THEN
+## re-assert the current damage tint on top of the new clean state.
+func apply_cosmetic(slot: String, cosmetic: CosmeticData) -> void:
+	_equipped_cosmetics[slot] = cosmetic
+	_apply_cosmetic_visual(slot, cosmetic)
+	_cache_clean_albedo()
+	_apply_damage_tint(_current_damage_severity)
+
+
+## M16 Task 17 — visual-only application for the wardrobe's live preview:
+## does NOT touch _equipped_cosmetics, so backing out without confirming can
+## cleanly revert via cancel_preview() rather than having already committed
+## the change.
+func preview_cosmetic(slot: String, cosmetic: CosmeticData) -> void:
+	_apply_cosmetic_visual(slot, cosmetic)
+	_cache_clean_albedo()
+	_apply_damage_tint(_current_damage_severity)
+
+
+## Reverts a slot back to whatever is actually equipped (or the natural
+## default, via a full rebuild, if nothing is equipped there) — the
+## counterpart to preview_cosmetic() when the player backs out without
+## confirming.
+func cancel_preview(slot: String) -> void:
+	if _equipped_cosmetics.has(slot):
+		_apply_cosmetic_visual(slot, _equipped_cosmetics[slot])
+		_cache_clean_albedo()
+		_apply_damage_tint(_current_damage_severity)
+	else:
+		_rebuild_model()
+
+
+func _apply_cosmetic_visual(slot: String, cosmetic: CosmeticData) -> void:
+	match slot:
+		"hull":       _apply_hull_skin(cosmetic)
+		"sails":      _apply_sail_pattern(cosmetic)
+		"flag":       _apply_flag(cosmetic)
+		"figurehead": _apply_figurehead(cosmetic)
+		_:            push_warning("ShipVisuals: unknown cosmetic slot '%s'" % slot)
+
+
+func _apply_hull_skin(cosmetic: CosmeticData) -> void:
+	if _model_instance:
+		_apply_cosmetic_to_meshes(_model_instance, cosmetic, true)
+
+
+func _apply_sail_pattern(cosmetic: CosmeticData) -> void:
+	for sail in sails:
+		if sail:
+			_apply_cosmetic_to_meshes(sail, cosmetic, false)
+
+
+func _apply_flag(cosmetic: CosmeticData) -> void:
+	var flag := find_child("*Flag*", true, false)
+	if flag:
+		_apply_cosmetic_to_meshes(flag, cosmetic, false)
+
+
+func _apply_figurehead(cosmetic: CosmeticData) -> void:
+	if _figurehead_instance and is_instance_valid(_figurehead_instance):
+		_figurehead_instance.queue_free()
+	_figurehead_instance = null
+	if cosmetic.mesh_override and _model_instance:
+		_figurehead_instance = cosmetic.mesh_override.instantiate()
+		_model_instance.add_child(_figurehead_instance)
+
+
+## Applies a cosmetic's tint (and texture, if authored) to every mesh surface
+## under `node`. `skip_other_slots` excludes sail/flag-named sub-parts so a
+## hull skin doesn't bleed onto slots that have their own separate cosmetic —
+## used for the hull only, since `sails`/flag are applied to their own
+## already-isolated nodes directly.
+func _apply_cosmetic_to_meshes(node: Node, cosmetic: CosmeticData, skip_other_slots: bool) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		for i in range(mi.get_surface_override_material_count()):
+			var mat := mi.get_surface_override_material(i)
+			if mat is ShaderMaterial:
+				if cosmetic.albedo_texture:
+					mat.set_shader_parameter("texture_albedo", cosmetic.albedo_texture)
+				mat.set_shader_parameter("albedo", cosmetic.tint)
+	for child in node.get_children():
+		if skip_other_slots:
+			var name_lower: String = child.name.to_lower()
+			if "sail" in name_lower or "flag" in name_lower:
+				continue
+		_apply_cosmetic_to_meshes(child, cosmetic, skip_other_slots)
+
+
+## M16 Task 14 — round-trips the equipped *selection* only; ownership lives in
+## EntitlementManager's account-scoped store, never here.
+func get_save_data() -> Dictionary:
+	var data := {}
+	for slot in _equipped_cosmetics:
+		var cosmetic: CosmeticData = _equipped_cosmetics[slot]
+		data[slot] = String(cosmetic.id)
+	return data
+
+
+func load_save_data(data: Dictionary) -> void:
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	for slot in data:
+		var id = data[slot]
+		if typeof(id) != TYPE_STRING:
+			continue
+		var cosmetic := CosmeticCatalogue.get_cosmetic(StringName(id))
+		# Req 3.5/3.6 — an id the account doesn't own, or that no longer
+		# resolves to a real resource at all, falls back to the default
+		# appearance silently: never a crash, never a null-material error.
+		if cosmetic == null:
+			continue
+		if not EntitlementManager.has_entitlement(cosmetic.id):
+			continue
+		apply_cosmetic(slot, cosmetic)
 
 
 func _ensure_smoke() -> GPUParticles3D:

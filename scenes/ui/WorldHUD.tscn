@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/CaptainsLog.tscn" id="7_captains_log"]
 [ext_resource type="PackedScene" path="res://scenes/ui/WorldMapScreen.tscn" id="8_world_map"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CodexScreen.tscn" id="9_codex"]
+[ext_resource type="PackedScene" path="res://scenes/ui/WardrobeScreen.tscn" id="16_wardrobe"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/gold.png" id="10_gold_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/wood.png" id="11_wood_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/iron.png" id="12_iron_icon"]
@@ -498,5 +499,10 @@ unique_name_in_owner = true
 visible = false
 
 [node name="CodexScreen" parent="." instance=ExtResource("9_codex")]
+unique_name_in_owner = true
+visible = false
+
+
+[node name="WardrobeScreen" parent="." instance=ExtResource("16_wardrobe")]
 unique_name_in_owner = true
 visible = false

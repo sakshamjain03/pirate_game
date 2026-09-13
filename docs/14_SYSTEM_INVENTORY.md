@@ -370,12 +370,12 @@ listed here, because listing them would have described a constitutional violatio
 
 | System | Status | Owner |
 |---|---|---|
-| Cosmetic items (hull skins, sails, flags, figureheads, decorations) | ❌ | M16 |
-| `CosmeticData` resource schema and catalogue | ❌ | M16 |
-| Entitlement model — account-scoped, one-time, non-consumable ownership | ❌ | M16 |
-| `EntitlementManager` autoload | ❌ | M16 |
-| Wardrobe / equip / preview surface | ❌ | M16 |
-| Cosmetic art pipeline (`docs/10_ASSET_REQUESTS.md` had no cosmetic category) | ❌ | M16 |
+| Cosmetic items (hull skins, sails, flags, figureheads, decorations) | ✅ | M16 (10 authored, ≥4 slots) |
+| `CosmeticData` resource schema and catalogue | ✅ | M16 |
+| Entitlement model — account-scoped, one-time, non-consumable ownership | ✅ | M16 |
+| `EntitlementManager` autoload | ✅ | M16 |
+| Wardrobe / equip / preview surface | ✅ | M16 |
+| Cosmetic art pipeline (`docs/10_ASSET_REQUESTS.md` had no cosmetic category) | ✅ | M16 (Kenney-derived, see doc 10) |
 | Platform-agnostic billing interface (`IStoreBackend`) | ❌ | M17 |
 | Google Play Billing integration | ❌ | M17 |
 | Store surface with real fetched prices | ❌ | M17 |

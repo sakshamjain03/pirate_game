@@ -89,6 +89,33 @@ either group, `portrait_path` + `apply_to_texture_rect()` are both already in pl
 files and, for the named cast, a `TutorialDialogue.tscn` `TextureRect` addition (mirroring
 `IslandMenu.gd`'s Tavern-tab pattern) would be needed.
 
+# M16 update (2026-09-14) — cosmetics authored against the existing Kenney material pipeline
+
+Per this milestone's own explicit scope note ("cosmetic *art quality* is deliberately not gated
+here... blocking this milestone on art would leave the entitlement system unproven going into
+M17"), all 10 authored cosmetics reuse existing project assets rather than requesting new ones —
+mirroring M10/M11's own precedent of surveying what already exists before assuming custom work is
+needed:
+
+- **Hull (3), Sails (3), Flag (2)** — each a `tint: Color` only (`resources/cosmetics/{hull,
+  sails,flag}/*.tres`), applied to the same toon `ShaderMaterial` shader param
+  (`KenneyMaterialApplier`'s own "albedo" param) the game's existing damage-tint and faction-color
+  systems already use. No new texture/material files.
+- **Figurehead (1)** — `figurehead_golden_eagle` uses a new minimal primitive-mesh placeholder
+  (`scenes/cosmetics/FigureheadGoldenEagle.tscn`, a `PrismMesh`) with the existing
+  `resources/materials/brass_shiny.tres` material. No dedicated figurehead-shaped model exists in
+  the vendored Kenney pirate kit (confirmed by listing every `.glb` under `assets/models/`), and
+  this milestone's own scope note explicitly defers bespoke art rather than blocking on it.
+- **Decoration (1)** — `decoration_buried_treasure` reuses the existing `assets/models/chest.glb`
+  prop directly as its `mesh_override`, intended for `Island.gd`'s existing `Marker3D`
+  slot-snapping (the actual equip-to-island wiring is out of this milestone's scope — Wave 3's
+  wardrobe screen only covers ship cosmetics).
+
+**Gap, disclosed rather than assumed away**: whether these tint choices/the figurehead placeholder
+actually look good on a real ship, rendered live, has not been confirmed by a human — the same
+category of gap M11 already logged for its own sourced audio. A real headful pass equipping each
+cosmetic and looking at it is the recommended follow-up, not assumed from these being "just colors."
+
 ---
 
 # Purpose

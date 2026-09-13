@@ -33,6 +33,7 @@ signal _dummy  # ensures signals section exists
 @onready var captains_log: CaptainsLog = %CaptainsLog
 @onready var world_map_screen: WorldMapScreen = %WorldMapScreen
 @onready var codex_screen: CanvasLayer = %CodexScreen
+@onready var wardrobe_screen: WardrobeScreen = %WardrobeScreen
 @onready var top_right_panel : VBoxContainer = %TopRightPanel
 @onready var resource_bar    : PanelContainer = %ResourceBar
 @onready var cannons_container: HBoxContainer = %CannonsContainer
@@ -185,6 +186,7 @@ func _find_ship() -> void:
 	_create_captains_log_button()
 	_create_world_map_button()
 	_create_codex_button()
+	_create_wardrobe_button()
 	CampaignManager.objective_completed.connect(_on_campaign_objective_completed)
 	CampaignManager.chapter_completed.connect(_on_campaign_chapter_completed)
 	CampaignManager.chapter_started.connect(_on_campaign_chapter_started)
@@ -252,6 +254,13 @@ func _create_captains_log_button() -> void:
 	captains_log_button.text = tr("Log")
 	captains_log_button.custom_minimum_size = Vector2(70, 32)
 	captains_log_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# WorldHUD itself is not PROCESS_MODE_ALWAYS (its own _process() drives
+	# cannon cooldowns/compass that must stay frozen while paused), so without
+	# this the button stops receiving input the moment ANY pause-on-open
+	# panel (this one included) sets get_tree().paused = true — a toggle
+	# button that can open its panel but never close it back via a second
+	# press, a real "looks stuck" bug found via self-play testing.
+	captains_log_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	captains_log_button.pressed.connect(func():
 		if captains_log:
 			captains_log.toggle())
@@ -268,6 +277,8 @@ func _create_world_map_button() -> void:
 	world_map_button.text = tr("Map")
 	world_map_button.custom_minimum_size = Vector2(70, 32)
 	world_map_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# See _create_captains_log_button()'s comment — same pause-gate fix.
+	world_map_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	world_map_button.pressed.connect(func():
 		if world_map_screen:
 			world_map_screen.toggle())
@@ -282,11 +293,33 @@ func _create_codex_button() -> void:
 	codex_button.text = tr("Codex")
 	codex_button.custom_minimum_size = Vector2(70, 32)
 	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# See _create_captains_log_button()'s comment — same pause-gate fix.
+	codex_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	codex_button.pressed.connect(func():
 		if codex_screen and codex_screen.has_method("toggle"):
 			codex_screen.toggle())
 	top_right_panel.add_child(codex_button)
 	codex_button.add_child(ButtonJuice.new())
+
+
+
+func _create_wardrobe_button() -> void:
+	## M16 Task 18 — same container-owned placement as Log/Map/Codex/New.
+	var wardrobe_button := Button.new()
+	wardrobe_button.text = tr("Wardrobe")
+	wardrobe_button.custom_minimum_size = Vector2(70, 32)
+	wardrobe_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# See _create_captains_log_button()'s comment — same pause-gate fix.
+	wardrobe_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	wardrobe_button.pressed.connect(func():
+		# Participate in M9's panel arbitration rather than stacking on top
+		# (the V14 defect class) — a tutorial beat keeps focus if active.
+		if tutorial_dialogue and tutorial_dialogue.visible:
+			return
+		if wardrobe_screen:
+			wardrobe_screen.toggle())
+	top_right_panel.add_child(wardrobe_button)
+	wardrobe_button.add_child(ButtonJuice.new())
 
 
 # --- Campaign feedback (M7 §9.2/§9.4) ---

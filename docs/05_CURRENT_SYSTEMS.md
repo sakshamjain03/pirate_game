@@ -1903,3 +1903,95 @@ confirmed via `git status`/timestamps neither the breakage nor the fix touched a
 milestone owns) **→ 434/434** at this milestone's own final checkpoint, confirmed by a real Godot
 4.3 GUT run against the working tree with all of M15.5's changes applied, no regressions
 attributable to this milestone's own files.
+
+## M16 — Cosmetics & Entitlements (2026-09-14)
+
+Ships the cosmetic/entitlement system in full, with **no paid feature** — every cosmetic is free
+in this milestone (`AGENTS.md`'s amended no-paid-feature-before-M13-launch rule). M17 attaches
+billing to what's built here.
+
+**Account-scoped persistence (Requirement 1).** `scripts/managers/EntitlementManager.gd` (new
+autoload, registered right after `SaveManager`) owns a set of entitlements — id, grant source,
+grant timestamp, **deliberately no quantity/count/balance field anywhere** (grepped and confirmed
+at every checkpoint) — written eagerly to its own `user://account_data.json`, never to
+`user://save_data.json`. A missing/empty/malformed account file is treated as a first run (seeds
+every `default_owned` cosmetic, logs once, never blocks startup or `SaveManager.load_game()`), not
+an error. `grant(id, source)` is the single write path into the entitlement set — idempotent,
+rejects unknown catalogue ids — and M17's purchase flow must add a fourth `source` value there
+rather than a second write path into `_entitlements`.
+
+**Cosmetic data (Requirement 2).** `scripts/core/CosmeticData.gd` (a `Resource`, `@tool`-annotated
+for inspector preview) is the schema; `scripts/core/CosmeticCatalogue.gd` is a plain static
+utility (no autoload — nothing per-frame, nothing to signal) that lazily scans
+`resources/cosmetics/**` recursively, indexes by id and by slot, and `push_error`s naming both
+paths on a duplicate id rather than silently preferring one. 10 cosmetics authored across 5 slots
+(hull ×3, sails ×3, flag ×2, figurehead ×1, decoration ×1) — see `docs/10_ASSET_REQUESTS.md`'s M16
+update for exactly what each one reuses from the existing Kenney material pipeline, and why no
+bespoke figurehead/decoration art was needed to ship this milestone.
+
+**Appearance — the `ShipVisuals` integration (Requirement 3, design.md §4).** This was flagged in
+the spec as the single riskiest part of the milestone: equipping a hull skin changes the base
+albedo, and if the damage-tint system's own clean-albedo cache isn't re-populated at that exact
+moment, the next damage-then-repair cycle silently reverts the cosmetic back to its pre-skin
+color. `ShipVisuals.apply_cosmetic(slot, cosmetic)` follows the exact load-bearing order design.md
+specifies (apply → re-cache clean albedo → re-assert the current damage tint), and
+`tests/test_ship_damage_visuals.gd` gained a real regression test
+(`test_an_equipped_hull_cosmetic_survives_a_damage_and_repair_cycle`) that equips a cosmetic,
+damages the ship, repairs it, and asserts the surface color is the cosmetic's tint — not the
+original — after repair. **Writing that test surfaced a real, pre-existing latent bug**, unrelated
+to cosmetics: `ShipModel` (the `ShipVisuals` node) is declared before `ShipDamage` in every ship
+scene, so on the very first model build (from `_ready()`), `ShipDamage._ready()` hasn't run yet and
+`hull` still reads its uninitialized `0.0` default — `ShipVisuals` was reading that and computing a
+false "critical damage" tint on ships that had never been hit. Fixed by treating an exactly-`0.0`
+hull read at that one boot-time call as "not yet initialized" rather than "destroyed," substituting
+an assumed-full-health value instead (real damage always arrives afterward through the real
+`pool_changed` signal, unaffected by this). `ShipVisuals.preview_cosmetic()`/`cancel_preview()`
+give the wardrobe screen a non-committing preview path distinct from `apply_cosmetic()`'s real
+equip, so backing out of a preview reverts cleanly.
+
+**Persistence of selection (Requirement 3.5/3.6).** `SaveManager` round-trips the equipped
+*selection* only (`ShipVisuals.get_save_data()`/`load_save_data()`, nested under the existing
+`"player"` section next to `"damage"`), while ownership stays entirely in `EntitlementManager`'s
+account-scoped store. A save referencing a cosmetic id the account doesn't own, or one that no
+longer resolves at all, falls back to the default appearance silently — never a crash, never a
+null-material error.
+
+**Wardrobe screen (Requirement 4).** `scenes/ui/WardrobeScreen.tscn` +
+`scripts/ui/WardrobeScreen.gd` — the same pause-and-show modal pattern as `CaptainsLog`/
+`WorldMapScreen`/`CodexScreen`. Grouped by slot, shows owned/locked state per cosmetic, previews
+against the existing live player ship rather than a second ship instance, and only commits via an
+explicit Equip button — switching slots or closing without confirming reverts the preview. Sized
+entirely from anchors/containers (no fixed-pixel panel, unlike the older `WorldMapScreen`/
+`CaptainsLog` screens' own `custom_minimum_size` panels) — `tests/test_wardrobe_layout.gd` proves
+the panel actually resizes across two very different viewport sizes rather than asserting it by
+inspection, plus confirms no overlap and a 48×48 minimum touch target on every slot tab and
+cosmetic entry. Reached via a 5th toggle button on `WorldHUD`'s existing Log/Map/Codex/New row,
+participating in the same panel-arbitration convention (declines to open while the tutorial
+dialogue is active, and — like the other four buttons — is explicitly `PROCESS_MODE_ALWAYS` so it
+keeps responding to a second press once its own panel has paused the tree; this exact class of bug
+was already found and fixed on the *other* four buttons during this same session's earlier
+self-play testing pass, before M16 began). Requirement 4.5 confirmed by grep: no purchase
+affordance, price, currency, or store reference anywhere in the scene or script.
+
+**Free grant paths (Requirement 5).** All `default_owned` cosmetics grant on first run. 3
+play-earned grants wired to existing signals — never to `SaveManager.game_loaded`, whose
+fire-on-every-load semantics would re-emit `entitlement_granted` on every launch of a completed
+save (D15) — recorded in full, with their exact trigger conditions, in
+`docs/17_MONETIZATION.md`'s M16 reconciliation note so M17 cannot sell any of the three without
+preserving its earnable path.
+
+**Verification.** Full GUT suite green throughout every wave (464→479→483 passing, 0 regressions
+at each step; Wave 0/1 checkpoint and the final milestone checkpoint both independently reviewed
+by the `checkpoint-reviewer` agent). **Confirmed headful, not just asserted**: a real screenshot
+pass (force-launched headful, a temporary debug autoload, deleted once done) equipped
+`hull_deep_ocean_blue` on the live player ship and captured four frames — default hull, cosmetic
+equipped (the hull visibly turns deep blue), damaged at 80% (visibly darkens/smokes over the same
+blue, confirming the damage overlay still reads on top of a cosmetic per Requirement 3.4), and
+fully repaired (the hull is *still* deep blue, not reverted to the original wood color — the exact
+§4 hazard, visually confirmed fixed, not just passing a unit test). The new Wardrobe button was
+also visually confirmed present and correctly styled in `WorldHUD`'s existing Log/Map/Codex/New
+row. **Still not verifiable headlessly and disclosed rather than assumed**: whether the wardrobe
+screen's own preview UI (as opposed to the ship's appearance itself, which was checked) reads
+correctly on a real screen, and whether every one of the other 9 cosmetics (only
+`hull_deep_ocean_blue` was actually screenshotted) looks as intended — that would need a much
+longer manual pass than this checkpoint's time budget allowed.

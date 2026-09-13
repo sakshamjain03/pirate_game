@@ -54,6 +54,37 @@ like* and nothing else.
 - Every cosmetic is defined as a `CosmeticData` `.tres` resource. No cosmetic is ever hardcoded
   in a script (`AGENTS.md`: no hardcoded gameplay values, data-driven balance).
 
+**Reconciled against M16 (2026-09-14):** the system this table describes now actually exists —
+`CosmeticData`/`CosmeticCatalogue`/`EntitlementManager`, 10 cosmetics authored across 5 slots
+(hull, sails, flag, figurehead, decoration), a wardrobe screen to browse/preview/equip them. M16
+ships every one of them **free** — the prices above remain illustrative for M17, which is the
+first milestone allowed to attach billing to this system. Two names in the table above are no
+longer just illustrative — they are real, already-shipped ids:
+
+- **Blackened Oak** → `hull_blackened_oak`, `default_owned = true` (every player has it from
+  first run — a starter cosmetic, not a paid one).
+- **Storm-Torn** → `sail_storm_torn`, a **play-earned** grant (see the table below). Per this
+  section's own "a cosmetic sold for money may never replace a cosmetic that was previously
+  earnable" rule, `sail_storm_torn` specifically must never be sold in M17 — its earnable path
+  must stay intact regardless of what pricing M17 attaches to the rest of this category.
+
+The remaining table entries (Bone Hull, Royal Lacquer, Crimson Cross, Gold Leaf, the figurehead/
+decoration examples, themed bundles) are still purely illustrative — not yet authored — and
+remain open for M17 to source or commission.
+
+**M16's 3 required play-earned grants** (Requirement 5.2/5.4 — recorded here so M17 cannot sell
+any of these without preserving the earnable path, per that requirement's own explicit purpose):
+
+| Cosmetic id | Slot | Earned by |
+|---|---|---|
+| `sail_storm_torn` | sails | Completing Chapter 3 (`CampaignManager.chapter_completed`, `chapter.chapter_number == 3`) |
+| `figurehead_golden_eagle` | figurehead | Defeating any boss ship (`ShipCombat.died`, filtered to the `boss_ship` group) |
+| `flag_golden_standard` | flag | Capturing an island (`EmpireManager.island_captured`) |
+
+All three route through `EntitlementManager.grant(id, source)` — the single write path into the
+entitlement set (see that file's own header comment) — so M17's purchase flow adds a fourth
+`source` value there rather than a second write path.
+
 ## 2.2 The Pirate King Supporter Pack — one-time, the anchor purchase
 
 A **single, non-consumable, one-time** purchase. Indicative price **₹499 / $5.99**.

@@ -116,6 +116,41 @@ func test_sinking_damage_lists_the_hull_and_heals_upright():
 		"Repairing back above the sinking threshold must return the hull upright")
 
 
+func test_an_equipped_hull_cosmetic_survives_a_damage_and_repair_cycle():
+	# M16 design.md §4 — the highest-risk integration point in that milestone:
+	# equipping a hull skin changes the base albedo, and if _clean_albedo isn't
+	# re-cached at that moment, the next repair would restore the *pre-skin*
+	# color and silently revert the cosmetic. This is the one thing that only
+	# shows up after a full damage-then-repair cycle, which no other test here
+	# performs.
+	var ship = _spawn()
+	var visuals = ship.get_node("ShipModel")
+	var dmg = ship.get_node("ShipDamage")
+	var round_shot = preload("res://resources/combat/ammo/RoundShot.tres")
+
+	# Force a known-clean starting state before equipping — don't assume a
+	# freshly spawned enemy ship is at full hull.
+	dmg.repair("hull", dmg.get_pool_maximum("hull"))
+
+	var cosmetic := CosmeticCatalogue.get_cosmetic(&"hull_blackened_oak")
+	assert_not_null(cosmetic, "Precondition: the authored default hull cosmetic must resolve")
+	visuals.apply_cosmetic("hull", cosmetic)
+
+	var mesh: MeshInstance3D = _find_mesh(visuals._model_instance)
+	assert_not_null(mesh, "Precondition: the hull must have at least one mesh surface")
+	var skinned: Color = mesh.get_surface_override_material(0).get_shader_parameter("albedo")
+	assert_eq(skinned, cosmetic.tint, "Equipping the cosmetic must apply its tint immediately")
+
+	dmg.apply_hit(dmg.get_pool_maximum("hull") * 0.8, round_shot, Vector3.RIGHT)
+	var damaged: Color = mesh.get_surface_override_material(0).get_shader_parameter("albedo")
+	assert_ne(damaged, skinned, "Critical damage must still darken the surface over the cosmetic")
+
+	dmg.repair("hull", dmg.get_pool_maximum("hull"))
+	var repaired: Color = mesh.get_surface_override_material(0).get_shader_parameter("albedo")
+	assert_eq(repaired, cosmetic.tint,
+		"Repairing must restore the COSMETIC's tint, not the pre-cosmetic clean color — reverting here is exactly the §4 hazard")
+
+
 func _find_mesh(node: Node) -> MeshInstance3D:
 	if node is MeshInstance3D and node.get_surface_override_material_count() > 0:
 		return node

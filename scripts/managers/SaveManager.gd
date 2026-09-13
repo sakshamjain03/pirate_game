@@ -106,6 +106,12 @@ func save_game() -> void:
 		if dmg and dmg.has_method("get_save_data"):
 			save_dict["player"]["damage"] = dmg.get_save_data()
 
+		# M16 Task 14 — equipped cosmetic *selection* only; ownership is
+		# account-scoped (EntitlementManager), never round-tripped here.
+		var visuals = player.get_node_or_null("ShipVisuals")
+		if visuals and visuals.has_method("get_save_data"):
+			save_dict["player"]["cosmetics"] = visuals.get_save_data()
+
 		var combat = player.get_node_or_null("ShipCombat")
 		if combat:
 			# Kept for backward compatibility with saves written before the
@@ -272,6 +278,14 @@ func load_game() -> void:
 			if cap: max_hp *= cap.health_modifier
 			if combat.has_signal("health_changed"):
 				combat.health_changed.emit(combat.current_health, max_hp)
+
+		# M16 Task 14 — restores equipped cosmetic selection. ShipVisuals'
+		# own load_save_data() already falls back to default appearance
+		# silently for any id the account doesn't own or that no longer
+		# resolves (Req 3.5/3.6).
+		var visuals = player.get_node_or_null("ShipVisuals")
+		if visuals and visuals.has_method("load_save_data") and player_data.has("cosmetics"):
+			visuals.load_save_data(player_data["cosmetics"])
 
 	# 5. Islands State
 	if data.has("islands"):

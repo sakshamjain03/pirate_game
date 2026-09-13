@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://cosmetic_figurehead_golden_eagle"]
+
+[ext_resource type="Material" path="res://resources/materials/brass_shiny.tres" id="1_material"]
+
+[sub_resource type="PrismMesh" id="PrismMesh_1"]
+size = Vector3(0.3, 0.4, 0.3)
+
+[node name="FigureheadGoldenEagle" type="MeshInstance3D"]
+mesh = SubResource("PrismMesh_1")
+surface_material_override/0 = ExtResource("1_material")

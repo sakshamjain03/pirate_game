@@ -1539,6 +1539,30 @@ internal manifest-patching/asset-wiring/architecture-`.so`-placement logic has n
 equivalent, and reverse-engineering it by hand is a larger undertaking than this milestone's
 remaining scope justifies. Full technical trace in `docs/RELEASE_CHECKLIST.md` step 4.
 
+**Resolved 2026-09-15, during M17 gate-check work.** Root cause found via web research matching
+this project's exact blank-message symptom against a public Godot 4.2.2 project's own diagnosis
+(`ryanpf/CampRoguelite#2`): `EditorExportPlatformAndroid::has_valid_project_configuration()` marks
+the export invalid with **no error string appended** when
+`ResourceImporterTextureSettings::should_import_etc2_astc()` returns `false` — true whenever
+`rendering/textures/vram_compression/import_etc2_astc` is unset in `project.godot`. This project's
+`[rendering]` section never set that key. Added
+`textures/vram_compression/import_etc2_astc=true` (`project.godot`) — confirmed on this project's
+actual 4.3.stable build, not just assumed from the 4.2.2 report. The blank error is gone;
+`--export-debug "Android" builds/pirate_empire_debug.apk` now produces a real, valid signed APK
+(86.8MB, verified via `file`/`unzip -l`: `classes.dex`, `lib/arm64-v8a/libgodot_android.so`,
+exported game resources, manifest, 1551 real entries). `--export-release "Android"
+builds/pirate_empire.aab` then hit one further, genuinely informative error (`export_presets.cfg`'s
+`gradle_build/export_format` was `0`/APK, not `1`/AAB) — fixed, after which the release export
+succeeded cleanly (exit 0) and produced a real signed 34.8MB `.aab` (verified bundle structure).
+Both files are gitignored build output, not committed. Full detail in `docs/RELEASE_CHECKLIST.md`
+step 4 and `.kiro/specs/milestone-m13-ship-it/tasks.md` Task 5.
+
+**This resolves M13 Requirement 2.4 only.** Requirements 3 (device frame-rate profiling), 4
+(on-device touch verification), 5 (real store screenshots/app icon), and 7.4/7.5 (Play Console Data
+Safety questionnaire) remain genuinely open — none of the new export capability substitutes for
+actually running the build on a physical device or having Play Console account access, neither of
+which this environment has. M13's checkpoint (task 16) is still explicitly **not** marked passed.
+
 ### Requirement 3 / 4 — Device profiling and touch-control verification
 
 **Not done — blocked by Requirement 2.** Both require a real installable build, which does not yet
@@ -1613,7 +1637,8 @@ than re-deriving its own baseline from scratch.
 Per this milestone's own design.md ("'We could not verify this' is an acceptable, honest checkpoint
 outcome; 'we assumed it would be fine' is not."):
 
-- **Requirement 2.4** — a successful `.apk`/`.aab` export. Blocked on the engine-side issue above.
+- ~~**Requirement 2.4** — a successful `.apk`/`.aab` export.~~ **Resolved 2026-09-15** — see the
+  export-blocker note above. A real signed APK and AAB both build cleanly now.
 - **Requirement 3** (device performance profiling) and **Requirement 4.1–4.3** (on-device touch
   verification) — blocked on Requirement 2.4; no installable build exists yet.
 - **Requirement 5** — screenshots and a real app icon, deprioritized behind the export blocker.

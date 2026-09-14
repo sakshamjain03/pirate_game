@@ -92,6 +92,31 @@ actual editor GUI where the dialog may render text the CLI path is dropping, or 
 Godot engine issue for this exact blank-message symptom with the source trace above as a starting
 point.
 
+**Resolved 2026-09-15.** Web research turned up the exact symptom (a *blank* "due to configuration
+errors:" message on Android export) already diagnosed in a public Godot 4.2.2 project
+([ryanpf/CampRoguelite#2](https://github.com/ryanpf/CampRoguelite/pull/2)):
+`EditorExportPlatformAndroid::has_valid_project_configuration()` sets the export invalid with no
+error string appended when `ResourceImporterTextureSettings::should_import_etc2_astc()` returns
+`false`, which happens whenever `rendering/textures/vram_compression/import_etc2_astc` is unset.
+This project's `project.godot` had a `[rendering]` section but never set that key — matching the
+bug precondition exactly, on a different Godot version than the original report (4.3.stable vs.
+4.2.2), so this was tested as a lead, not assumed. Adding
+`textures/vram_compression/import_etc2_astc=true` made the blank message disappear entirely.
+
+`--export-debug "Android" builds/pirate_empire_debug.apk` then produced a real, valid signed APK
+(86.8MB, 1551 files, confirmed via `file`/`unzip -l` — `classes.dex`,
+`lib/arm64-v8a/libgodot_android.so`, exported game resources, manifest all present).
+`--export-release "Android" builds/pirate_empire.aab` surfaced one further, genuinely informative
+error (`export_presets.cfg`'s `gradle_build/export_format` was `0`/APK while the target filename
+was `.aab`) — fixed by setting `export_format=1`, after which the release export succeeded cleanly
+and produced a real signed 34.8MB `.aab` (verified bundle structure: `BundleConfig.pb`,
+`base/dex/classes.dex`, `base/lib/arm64-v8a/libgodot_android.so`, a `META-INF/PIRATE_E.{SF,RSA}`
+signature matching the `pirate_empire_release` keystore alias).
+
+**Still not verified — this fix only produces the artifact, it does not install or run it:** the
+APK/AAB have not been installed on a real device. Steps 6 (device smoke test) and everything in
+M13 Wave 2 (frame rate, touch controls) remain genuinely open and need physical hardware.
+
 ## 5. Signing
 
 Release builds sign with the keystore at

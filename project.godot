@@ -175,3 +175,13 @@ textures/canvas_textures/default_texture_filter=0
 ; clock after an hour of play, since only one of the two wraps. Raised well
 ; past any realistic play session.
 limits/time/time_rollover_secs=86400
+; M13 Android export was failing with a blank "due to configuration errors:"
+; message (no detail after the colon). Godot's Android export validation
+; (EditorExportPlatformAndroid::has_valid_project_configuration) marks the
+; export invalid with no error string appended when
+; ResourceImporterTextureSettings::should_import_etc2_astc() returns false,
+; which happens whenever this key is unset. Explicitly enabling it is the
+; documented fix for the same blank-message symptom in a public Godot 4.2.2
+; project (godotengine/godot community precedent) - testing whether it also
+; resolves it on this project's 4.3-stable build.
+textures/vram_compression/import_etc2_astc=true

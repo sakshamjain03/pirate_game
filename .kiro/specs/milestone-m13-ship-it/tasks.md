@@ -33,11 +33,31 @@
   - _Requirements: 2.3_
   - **2026-08-29:** Debug + release keystores generated via `keytool`, stored outside the repo;
     `.gitignore` extended with `*.jks`/`*.keystore`.
-- [ ] 5. Produce a successful `.apk`/`.aab` export from current project state.
+- [x] 5. Produce a successful `.apk`/`.aab` export from current project state.
   - _Requirements: 2.4_
   - **2026-08-29: blocked.** Consistent blank `"due to configuration errors:"` failure from the
     engine itself, extensively bisected — see `docs/RELEASE_CHECKLIST.md` step 4 for the full
     reproduction record. Not resolved this pass.
+  - **2026-09-15: resolved.** Root cause found via web research into the exact blank-message
+    symptom: Godot's Android export validation
+    (`EditorExportPlatformAndroid::has_valid_project_configuration`) marks the export invalid with
+    no error string appended when `ResourceImporterTextureSettings::should_import_etc2_astc()`
+    returns `false` — which happens whenever
+    `rendering/textures/vram_compression/import_etc2_astc` is unset in `project.godot`. This
+    project's `[rendering]` section never set that key. Added
+    `textures/vram_compression/import_etc2_astc=true` (`project.godot`) — the blank error is gone.
+    `--export-debug "Android" builds/pirate_empire_debug.apk` now produces a real, valid 86.8MB
+    signed APK (verified: `file` identifies it as a genuine Android package, `unzip -l` lists 1551
+    real entries — `classes.dex`, `lib/arm64-v8a/libgodot_android.so`, exported game resources,
+    manifest). `--export-release "Android" builds/pirate_empire.aab` then hit a second, unrelated,
+    and this time genuinely informative error (`"Invalid filename! Android APK requires the *.apk
+    extension"`) — `export_presets.cfg`'s `gradle_build/export_format` was `0` (APK), not `1`
+    (AAB), while the release checklist asks for a `.aab`. Fixed (`export_format=1`); the release
+    export then succeeded cleanly (exit 0), producing a real signed 34.8MB
+    `builds/pirate_empire.aab` (verified: valid bundle structure — `BundleConfig.pb`,
+    `base/dex/classes.dex`, `base/lib/arm64-v8a/libgodot_android.so`,
+    `META-INF/PIRATE_E.{SF,RSA}` matching the `pirate_empire_release` signing alias). Neither
+    export was run against a real device — that's Wave 2, still blocked below.
 
 ## Wave 2 — Device verification (requires real hardware)
 
@@ -103,6 +123,16 @@
     documentation is current, but Requirements 2.4, 3, 4 (device-verified), and 7.4/7.5 remain
     genuinely open per the notes above. Re-run via `checkpoint-reviewer` once the export blocker is
     resolved and device access is used.
+  - **2026-09-15: still NOT PASSED, but Requirement 2.4 is now resolved** — Task 5 above. GUT
+    re-confirmed green (483/483, current baseline; up from 411 via M14/M15.5/M16 having landed
+    since). A real signed `.apk` and `.aab` now export cleanly. **Genuinely still open, and none
+    of these are things this environment can complete on its own:** Requirement 3 (device frame-
+    rate profiling), Requirement 4 (on-device touch verification — the code fix from Task 8 has
+    never actually run on a screen), Requirement 5 (real store screenshots/app icon — still a flat
+    placeholder), Requirement 7.4/7.5 (Play Console Data Safety questionnaire — needs a Play
+    Console account). All four need a physical Android device and/or Play Console access handed to
+    a session, not solved by more code. Do not re-run `checkpoint-reviewer` to claim this checkpoint
+    passed until at least Wave 2's device work has actually happened.
   - GUT suite passes with no regressions.
   - A signed build has run on a real device with acceptable frame rate and fully functional touch
     controls — logged as genuinely verified, not assumed. If no device was available, this is

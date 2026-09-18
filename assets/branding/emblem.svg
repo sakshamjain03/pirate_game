@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Ship's wheel emblem">
+<title>Ship's wheel emblem</title>
+<circle cx="128" cy="134" r="114" fill="none" stroke="#000000" stroke-opacity="0.2" stroke-width="10"/>
+<circle cx="128" cy="128" r="114" fill="none" stroke="#D4AF37" stroke-width="10"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(0 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(45 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(90 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(135 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(180 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(225 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(270 128 128)"/>
+<rect x="121.5" y="32" width="13" height="24" rx="6.5" fill="#D4AF37" transform="rotate(315 128 128)"/>
+<circle cx="128" cy="128" r="62" fill="none" stroke="#D4AF37" stroke-width="15"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(0 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(45 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(90 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(135 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(180 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(225 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(270 128 128)"/>
+<rect x="122" y="60" width="12" height="56" fill="#FFD759" transform="rotate(315 128 128)"/>
+<circle cx="128" cy="128" r="20" fill="#FFD759"/>
+<circle cx="128" cy="128" r="9" fill="#F5E6B8"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Sail">
+  <title>Sail</title>
+  <rect x="2.5" y="2.5" width="251" height="251" rx="34" fill="#121A2E" fill-opacity="0.92" stroke="#D4AF37" stroke-width="5"/>
+  <g transform="translate(65 45)">
+<rect x="6" y="0" width="8" height="166" rx="4" fill="#EBE6D9"/>
+<path d="M16 8C92 44 124 100 120 146C80 152 44 150 16 146Z" fill="#EBE6D9"/>
+<path d="M16 8C56 56 74 106 76 146L62 146C58 104 42 54 16 8Z" fill="#D9D2C0"/>
+</g>
+</svg>

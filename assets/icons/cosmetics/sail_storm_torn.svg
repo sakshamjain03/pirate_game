@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Torn sail">
+  <title>Torn sail</title>
+  <rect x="2.5" y="2.5" width="251" height="251" rx="34" fill="#121A2E" fill-opacity="0.92" stroke="#D4AF37" stroke-width="5"/>
+  <g transform="translate(65 45)">
+    <rect x="6" y="0" width="8" height="166" rx="4" fill="#808085"/>
+    <path d="M16 8L58 34L50 46L78 56L104 84L80 90L114 108L118 124L94 126L120 146C80 152 44 150 16 146Z" fill="#808085"/>
+    <path d="M18 14C48 54 60 96 62 138L50 138C48 100 38 56 18 14Z" fill="#6E6E74"/>
+  </g>
+</svg>

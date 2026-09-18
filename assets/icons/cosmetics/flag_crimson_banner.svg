@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Pennant flag">
+  <title>Pennant flag</title>
+  <rect x="2.5" y="2.5" width="251" height="251" rx="34" fill="#121A2E" fill-opacity="0.92" stroke="#D4AF37" stroke-width="5"/>
+  <g transform="translate(52 63)">
+<rect x="4" y="0" width="8" height="130" rx="4" fill="#2E2E36"/>
+<path d="M10 4L152 4L122 42L152 80L10 80Z" fill="#991A1A"/>
+</g>
+</svg>

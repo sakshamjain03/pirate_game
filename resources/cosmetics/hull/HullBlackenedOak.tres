@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CosmeticData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CosmeticData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/CosmeticData.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/icons/cosmetics/hull_blackened_oak.svg" id="2_icon"]
 
 [resource]
 script = ExtResource("1_script")
@@ -10,4 +11,5 @@ description = "A hull darkened by pitch and pine tar, favored by captains who pr
 slot = "hull"
 rarity_label = "Common"
 default_owned = true
+icon = ExtResource("2_icon")
 tint = Color(0.15, 0.1, 0.08, 1.0)

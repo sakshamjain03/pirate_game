@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Eagle figurehead">
+  <title>Eagle figurehead</title>
+  <rect x="2.5" y="2.5" width="251" height="251" rx="34" fill="#121A2E" fill-opacity="0.92" stroke="#D4AF37" stroke-width="5"/>
+  <g transform="translate(39.4 38.1) scale(1.15)">
+<path d="M14 44L52 30C60 14 84 6 100 18C116 30 120 48 114 66C132 82 140 112 138 150L58 150C52 122 44 100 36 84C30 74 26 66 30 60L52 58C44 52 30 48 14 44Z" fill="#C9A227"/>
+<path d="M114 70C134 86 142 116 140 150L96 150C100 116 104 90 114 70Z" fill="#8B6914"/>
+<circle cx="78" cy="40" r="6" fill="#8B6914"/>
+</g>
+</svg>

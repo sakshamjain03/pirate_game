@@ -20,7 +20,7 @@
 |---|---|---|---|
 | **Android (phone)** | 🎯 Primary launch target | M13 | The design target. Mobile-first means this. |
 | **Android (tablet)** | 🎯 Supported at launch | M13 | Same build; needs the M19 responsive/text-scale work to look right. |
-| **Windows (desktop)** | 🛠 Development only | — | How the project is built and tested. Not a shipping target, not store-listed. |
+| **Windows (desktop)** | ✅ Supported (secondary) | M13 | **Changed 2026-09-19** — was "Development only." Now actively maintained and tested as a real second platform, not just the dev/build environment: see `.kiro/specs/milestone-m13-ship-it/tasks.md` Task 16.5 for the audit that prompted this and the first PC-only findings it caught. Not yet store-listed anywhere (itch.io/Steam/direct-download undecided) — that's a distribution decision, separate from "is it supported," and still needs an explicit call before M13 closes out. Until decided, treat it as a direct-build distribution (e.g. a downloadable zip), not absent. |
 | **iOS (iPhone)** | 📋 Planned | M20 | Second platform. Roughly doubles addressable revenue. |
 | **iPadOS** | 📋 Planned | M20 | Same build as iPhone. |
 | **Steam / desktop store** | 🚫 Out of scope | — | Different genre expectations, different control scheme, different monetization. Not a v1 or v2 target. |

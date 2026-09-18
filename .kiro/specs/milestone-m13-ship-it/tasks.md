@@ -144,6 +144,137 @@
     themselves (95×60/119×60px buttons) were not separately flagged as too small at this device's
     density (450dpi) — the overlap was the real defect, not sizing.
 
+### Wave 2.5 — Mobile UX overhaul (2026-09-19, PROPOSED — not started, pending your review)
+
+**Why this exists.** Task 9 already committed to "resize anything found too small, fix within
+this milestone." Once the Task 9 overlap bug was fixed, a full pass across every real screen on
+the Galaxy A35 (main menu, settings, both settings tabs, the pause menu, map, captain's log,
+wardrobe, in-world HUD) showed the touch-target problem is much broader than one overlap — this
+game currently reads as a PC build with mobile controls bolted on, not a mobile-first UI. Numbered
+`9a`-`9g` rather than folded into existing tasks so nothing here silently expands Task 9's own
+already-closed scope. **Nothing below has been implemented yet.**
+
+- [ ] 9a. **Fix screen scaling — the game does not fill the screen, and won't fit every phone.**
+  - **Root cause found:** `project.godot`'s `[display]` section sets
+    `window/stretch/aspect="keep"` against a `1920x1080` (16:9) design canvas. On the Galaxy A35's
+    actual landscape resolution (`2340x1080`, ≈19.5:9), "keep" preserves the 16:9 ratio and
+    pillarboxes the extra width — confirmed visually: solid black bars on both sides in every
+    screenshot from this pass. Modern phones range roughly 18:9 to 20:9 (and tablets differ again),
+    so this isn't specific to one device.
+  - **Task:** change to a stretch/aspect strategy that fills real device screens without
+    distortion or wasted bars — most likely `window/stretch/aspect="expand"` (shows more world at
+    wider ratios, common for this genre) — and re-verify every anchor-based panel still lays out
+    correctly once the visible canvas is no longer a fixed 16:9.
+  - **Verify:** GUT's existing multi-viewport-size layout tests (`test_world_hud_layout.gd`,
+    `test_wardrobe_layout.gd`, `test_mobile_controls_layout.gd`) still pass; a real-device
+    screenshot shows no black bars; add at least one more tested viewport size representing a
+    narrower phone (e.g. `1600x720`, ≈18:9) so both ends of the real range are covered, not just
+    the A35's own ratio.
+
+- [ ] 9b. **Every mobile touch target is below Android's own 48dp minimum — resize project-wide.**
+  - **Measured this pass** (button size in `project.godot`'s design pixels; this device's density
+    is 450dpi, so 48dp ≈ 135 design px at this device's effective ~1:1 canvas-to-physical mapping —
+    note the mapping ratio itself changes once 9a changes the stretch mode, so re-measure after):
+
+    | Element | File | Current size | ≈dp (this device) | 48dp target |
+    |---|---|---|---|---|
+    | `BtnDock`/`BtnPause`/`BtnCaptainAbility`/`BtnSpecialBroadside` | `MobileControls.tscn` | 95×60 / 119×60 | **21dp tall** | ~135×135 |
+    | `BtnForward`/`BtnBackward`/`BtnFirePort`/`BtnFireStar` | `MobileControls.tscn` | 100×80 | 28dp tall | ~135×135 |
+    | `BtnLeft`/`BtnRight` | `MobileControls.tscn` | 80×80 | 28dp | ~135×135 |
+    | `LOG`/`MAP`/`CODEX`/`NEW`/`WARDROBE` | `WorldHUD.gd` (built in code) | 70×32 | **11dp tall — the worst offender in the game** | ~135×135 (or wider, shorter label buttons ≥48dp tall) |
+    | Main menu buttons | `MainMenu.tscn` | 240×44 | 16dp tall | keep width, ≥135 tall |
+    | Settings tab buttons (General/Controls/Account) | `SettingsMenu.gd` | not yet measured — visually tiny relative to the screen | — | measure and fix alongside 9c |
+
+    A flat "50-70% bigger" (your ask) gets the current worst offenders (60px/70×32px) to roughly
+    100-119px — still short of the real 48dp/~135px line. Recommend targeting the actual 48dp
+    guideline directly rather than an arbitrary percentage, since that's the number the rest of
+    this project's own tests already enforce elsewhere (`test_wardrobe_layout.gd`'s 48×48dp
+    minimum-touch-target assertions) — MobileControls and the WorldHUD button row were apparently
+    never held to that same bar.
+  - **Verify:** extend `tests/test_mobile_controls_layout.gd` (and a new
+    `tests/test_world_hud_button_sizes.gd` if one doesn't already cover this) with the same
+    48×48dp-equivalent minimum-size property test `test_wardrobe_layout.gd` already uses, applied
+    to every button named above — so this can't silently regress again.
+
+- [ ] 9c. **Settings menu exposes PC-only controls that are meaningless — or actively confusing —
+       on a phone.**
+  - **Found this pass, General tab:** a `Fullscreen` toggle and a `Resolution: 1920x1080` dropdown
+    (an Android app has no window to resize) and a `VSync` toggle.
+  - **Found this pass, Controls tab:** this is a full desktop keybinding remapper — `Sensitivity`/
+    `Dead Zone` sliders (gamepad-specific), empty rebind boxes for every ship/camera action meant
+    to capture a *keyboard key press*, `Camera Zoom In`/`Camera Zoom Out` showing `UNBOUND` (a
+    mouse-wheel binding), and `Pause: ESCAPE`. None of this can be interacted with meaningfully via
+    touch, and none of it reflects anything the player can actually do on a phone.
+  - **Task:** hide or replace the PC-specific settings (Fullscreen/Resolution/VSync, the entire
+    keybind remapper, mouse-wheel zoom bindings) behind an `OS.has_feature("pc")` check — matching
+    the same convention `MobileControls.gd` already uses for the reverse case — and design what
+    actually belongs on mobile instead (e.g. haptics toggle, touch control opacity/layout, graphics
+    quality — `Graphics Quality: Medium` already exists and is reasonable to keep).
+  - **Verify:** on-device, confirm no PC-only control is reachable; a new GUT test asserts the
+    settings tree contains no `Fullscreen`/`Resolution`/keybind-capture nodes when
+    `OS.has_feature("pc")` is false (mirroring how `MobileControls.gd`'s own mobile-only branch
+    could be tested, if it isn't already).
+
+- [ ] 9d. **Navigation/action buttons have no icon art — plain text on a generic button.**
+  - **Confirmed this pass:** `assets/ui_icons/` has resource icons (gold/wood/iron/rum/health/
+    notoriety/cannon) and generic 9-slice button backgrounds, but genuinely no arrow, anchor,
+    pause, dock, or ability icon exists anywhere in the repo. `MobileControls.tscn`'s buttons are
+    plain `text = "^"` / `"<"` / `">"` / `"DOCK"` etc. on the same background every other button
+    uses — this is very likely what read as "old" navigation art, since there's no art there at
+    all, just text.
+  - **Task:** source real icons (follow M15.5's own precedent — "sourced CC0 UI assets" — for a
+    consistent license-clean pipeline) for: forward/back/turn-left/turn-right, dock, pause,
+    captain ability, special broadside, fire-port/fire-starboard. Apply them as `TextureRect`/icon
+    children the same way `CannonsContainer`'s existing cannon-ready icon already does, not as a
+    from-scratch button system.
+  - **Verify:** real-device screenshot comparison, before/after; confirm no licensing file is
+    missing (this repo already carries `LICENSE_ui-pack.txt`/`LICENSE_board-game-icons.txt` for
+    its existing CC0 icons — any new pack needs the same).
+
+- [ ] 9e. **"How do I move forward" is genuinely unclear — not a functional bug, a clarity one.**
+  - **Checked this pass:** there is no separate "raise sail" mechanic in `ShipMovement.gd` —
+    `ship_forward` directly drives the ship, and it *does* work (confirmed via
+    `adb shell input swipe` press-and-hold in Task 6/8's device pass, ship speed/position visibly
+    changed). The actual gap is that `BtnForward` is a bare `"^"` caret with no ship/sail iconography
+    or first-run hint, so a new player has no reason to associate it with sailing.
+  - **Task:** once 9d sources real icon art, make the forward control unambiguous (a sail/forward
+    icon, not a generic chevron) and consider whether `TutorialManager`'s existing tutorial flow
+    already covers movement on mobile — if not, that's the actual fix, not new mechanics.
+  - **Verify:** confirm via `TutorialManager`'s content whether a first-session mobile-movement
+    hint already exists; if not, add one and confirm it doesn't fire on desktop (per M17's own
+    established "never show mobile-only prompts on the wrong platform" convention).
+
+- [ ] 9f. **Map and Captain's Log are small fixed popups that waste most of the screen —
+       inconsistent with Wardrobe's own better pattern.**
+  - **Confirmed this pass:** both `WorldMapScreen` and `CaptainsLog` render as a small, centered,
+    fixed-size box (roughly a quarter of the screen) with mostly-empty content around it — this is
+    exactly the D17 fixed-pixel-panel anti-pattern `docs/05_CURRENT_SYSTEMS.md`'s M16 section
+    already names, and that M16 deliberately built `WardrobeScreen` *against* (anchored 5%-95% of
+    the viewport, confirmed by direct screenshot comparison this pass — Wardrobe genuinely does
+    fill the screen; Map/Log don't).
+  - **Task:** rebuild `WorldMapScreen`/`CaptainsLog` panel sizing on the same anchor-based
+    convention `WardrobeScreen` already proves out, rather than inventing a new approach.
+  - **Verify:** the same anchor-based-sizing property test `test_wardrobe_layout.gd` already uses
+    (render at two very different viewport sizes, confirm the panel's actual rendered size differs)
+    applied to both screens.
+
+- [ ] 9g. **Verify the above across a real support matrix, not just the one device on hand.**
+  - This environment only has one physical device (Galaxy A35, 2340×1080, 450dpi). Real phones
+    span roughly 18:9 to 20:9 and a wide density range; tablets differ again.
+  - **Task:** at minimum, extend every layout GUT test above to assert at 3-4 simulated
+    viewport/aspect combinations spanning that real range (not just 1920×1080 and one phone ratio,
+    which is what `test_world_hud_layout.gd`/`test_wardrobe_layout.gd` currently do) — GUT can't
+    substitute for a second real device, but it can stop a fix that only happens to work on the
+    one device this pass had access to.
+  - **Verify:** explicitly list, per `CLAUDE.md`'s standing rule, which sizes were headless-tested
+    versus real-device-tested — do not imply multi-device coverage from a single real device.
+
+**Aside, found but out of this list's scope — a real functional bug, not a UX one:** the Wardrobe
+screen's Hull tab rendered a completely empty item grid on-device during this pass, despite
+`docs/05_CURRENT_SYSTEMS.md`'s M16 section recording 10 cosmetics across 5 slots (3 hull). Worth
+its own investigation — not folded in here since it's a data/loading defect, not a sizing/scaling
+one.
+
 ## Wave 3 — Store readiness
 
 - [x] 10. Prepare store listing copy (title, short/long description) drawing from
@@ -231,6 +362,120 @@
     re-confirm this specifically if M15 landed partway through this milestone's own work.
   - Independently re-verify against actual code changes and a real GUT run before marking done,
     per `docs/07_AI_AGENT_WORKFLOW.md` Rules 4/7/8.
+
+- [x] 16.5. **Platform split — catalogue every Android-only and PC-only bug/fix/enhancement, and
+       start maintaining both as real, clearly-supported platforms.** Catalogue (A, B) written
+       2026-09-19; policy question resolved and section C's concrete actions done 2026-09-19 (see
+       note at the end of section C). The 9a-9h Android-only items this task catalogues are still
+       open — tracked under Wave 2.5 (Tasks 9a-9g) and 9h, not re-tracked here.
+  - **Why this task exists, and a real policy conflict it surfaces.**
+    `docs/20_PLATFORM_MATRIX.md` §1 currently states: *"Windows (desktop): 🛠 Development only —
+    How the project is built and tested. Not a shipping target, not store-listed."* You've now
+    asked to maintain PC as a real, clearly-supported second platform rather than a dev-only
+    environment. **This is a deliberate change from that documented decision, not a silent
+    override** — recorded here per this project's own repeated rule that a scope/sequencing
+    decision like this belongs to you, not to an implementing session's own judgment. If this is
+    confirmed, `docs/20_PLATFORM_MATRIX.md` §1 needs its own update alongside the work below (flip
+    Windows from 🛠 to a real support tier, decide whether it's store-listed anywhere — e.g.
+    itch.io/Steam — or just a direct-download build).
+
+  - ### A. Android-only — bugs, fixes, enhancements
+
+    Everything in **Wave 2.5 above (Tasks 9a-9g)** is Android-only scope and belongs in this list —
+    not repeated here in full, cross-referenced instead:
+    - 9a. Screen doesn't fill the phone (`window/stretch/aspect="keep"` pillarboxing) — needs
+      multi-aspect-ratio support, not just a fix for one device.
+    - 9b. Every mobile touch target measured below Android's 48dp minimum (concrete sizes/targets
+      already tabulated in 9b).
+    - 9c. Settings menu exposes PC-only controls (Fullscreen/Resolution/VSync, full keybind
+      remapper) that are meaningless on touch.
+    - 9d. No icon art for navigation/action buttons — plain text on a generic button background.
+    - 9e. Forward/movement control ("sail") gives no visual hint it means "move forward."
+    - 9f. Map/Captain's Log are small fixed popups wasting most of the screen, inconsistent with
+      Wardrobe's own better anchor-based pattern.
+    - 9g. Verify across a real support matrix (multiple aspect ratios/densities), not just the one
+      device on hand.
+
+    **New this pass, found on a fresh on-device run (not in Wave 2.5 above):**
+    - **9h. `libgodot_android.so` is not 16KB memory-page-size compatible.** A real Android OS-level
+      dialog ("Android app compatibility") reported: *"This app isn't 16 KB-compatible. APK and ELF
+      alignment checks failed"* against `lib/arm64-v8a/libgodot_android.so`. The dialog itself only
+      shows for a debuggable/testing build — a signed release build won't show it to players — but
+      the underlying ELF alignment characteristic is real and unrelated to debug-vs-release. Google
+      Play has been rolling out 16KB-page-size compliance requirements for native libraries on
+      newer Android devices/API levels; this is worth confirming against Play Console's own current
+      submission requirements before M13 actually ships, not assumed harmless. **This is not fixable
+      in game code** — it's a characteristic of the Godot 4.3 engine's own precompiled Android
+      native libraries. Ties directly into `docs/20_PLATFORM_MATRIX.md` §2's engine-version
+      decision (currently "stay on 4.3 through M13 launch, revisit after M13 ships, before M20") —
+      a newer Godot 4.x may already ship 16KB-aligned binaries, which would make this one of the
+      concrete reasons *for* that eventual upgrade, not just iOS. **Verify:** check current Play
+      Console pre-launch report / submission requirements for this exact warning; confirm whether
+      it's a hard submission blocker or an advisory at this project's actual target API level.
+
+  - ### B. PC-only — bugs, fixes, enhancements
+
+    Researched this pass by actually running the game windowed on this dev machine (not assumed) —
+    PC is in noticeably better shape than Android, since it's this project's native development
+    target, but real gaps found:
+    - **16.5-B1. The desktop window has the exact same `window/stretch/aspect="keep"` pillarboxing
+      problem as Android, just less visually obvious on a near-16:9 monitor.** On this dev
+      machine's own window, a thin black bar was visible even at the tested window size — on an
+      ultrawide monitor or a non-16:9 window, this would pillarbox exactly like Android does.
+      Whatever stretch/aspect fix 9a picks for Android should be verified on PC too, at multiple
+      window/monitor aspect ratios, not treated as an Android-only fix.
+    - **16.5-B2. The debug FPS counter is visible in-game on PC too** (same overlay noted on
+      Android in Task 11's notes) — confirm whether this is meant to be a permanent debug-only
+      overlay gated on `OS.is_debug_build()`/a settings toggle, since it currently just always
+      renders.
+    - **16.5-B3. Settings' PC-relevant controls (Fullscreen/Resolution/VSync, the full keybinding
+      remapper) work correctly and are appropriately shown here** — explicitly confirmed via a real
+      windowed run, not assumed. These are the ones 9c needs to *hide on Android* — they should
+      stay exactly as they are on PC.
+    - **16.5-B4. Pause (`Esc`) → Resume/Settings/Quit to Menu works correctly and is
+      well-proportioned on PC** — same menu Android's Task 16.5-A audit found via the (now-fixed)
+      mobile Pause button; on PC it was never broken, confirmed via a real keypress.
+    - **16.5-B5. Mobile touch controls correctly stay hidden on PC** — `MobileControls.gd`'s
+      existing `OS.has_feature("pc")` check confirmed working as intended in a live windowed run;
+      called out explicitly so 9a-9g's Android changes don't accidentally regress this.
+    - **Not yet checked, flagged as open rather than assumed fine:** multi-monitor/high-DPI display
+      behavior, ultrawide aspect ratios beyond what this pass's single monitor could test, and
+      gamepad support on PC (the Controls tab's `Sensitivity`/`Dead Zone` sliders imply gamepad
+      support exists, but this pass only tested keyboard/mouse).
+
+  - ### C. Maintaining both platforms going forward
+
+    - **Reuse the one pattern already in the codebase**, don't invent a second one:
+      `MobileControls.gd:31` already gates its entire behavior on `OS.has_feature("pc")`. Every
+      platform-conditional fix above (9c hiding PC-only settings on Android, this list's PC section
+      confirming what should stay PC-only) should use that exact same feature-check convention —
+      per `AGENTS.md`'s "never duplicate systems," one shared codebase with platform branches, not
+      a fork.
+    - **Test both, not just Android.** This pass's PC findings only exist because the game was
+      actually run windowed on this dev machine — add that as a standing step (not just an
+      Android-device step) to `docs/RELEASE_CHECKLIST.md`'s device-smoke-test section, so a future
+      release checks both platforms, not just whichever one happens to have a checklist step
+      already.
+    - **Extend the GUT layout tests platform-blind where possible.** `test_mobile_controls_layout.gd`
+      and friends already instantiate scenes at multiple viewport sizes headlessly — that pattern
+      doesn't require real hardware and should be the first line of defense for both platforms, with
+      real-device/real-PC passes reserved for what genuinely can't be checked headlessly (per
+      `CLAUDE.md`'s standing verifiability rule).
+    - **Update `docs/20_PLATFORM_MATRIX.md` §1** once this task's scope is agreed, so the matrix
+      reflects the real decision rather than the pre-existing "dev only" stance this task
+      deliberately revisits.
+
+    **Done, 2026-09-19.** You confirmed the policy change ("let's start maintaining 2 versions ...
+    clear support for both"). `docs/20_PLATFORM_MATRIX.md` §1's Windows row now reads "✅ Supported
+    (secondary)" instead of "🛠 Development only," with a note that it's actively maintained/tested
+    but **not yet store-listed anywhere** — itch.io/Steam/direct-download is a distribution
+    decision I did not make for you, flagged as still open in that same row.
+    `docs/RELEASE_CHECKLIST.md` step 6 got a new "6b. PC smoke test" sibling to the existing Android
+    device-smoke-test step, pre-filled with this pass's own PC findings (16.5-B1 through B5) as its
+    first real run. The other two items in this list — reusing `OS.has_feature("pc")` instead of a
+    second system, and extending GUT layout tests platform-blind — aren't one-time artifacts; they're
+    standing practice that Wave 2.5's actual implementation work (9a-9g) needs to follow, not
+    something to check off here in isolation.
 
 ## Notes
 

@@ -145,6 +145,26 @@ section and `.kiro/specs/milestone-m13-ship-it/tasks.md` Task 9). **Frame rate d
 step as passed on a future release until that's been profiled and addressed or explicitly
 risk-accepted in writing.
 
+### 6b. PC smoke test (added 2026-09-19 — `docs/20_PLATFORM_MATRIX.md` §1 now lists Windows as a
+real supported platform, not just the dev/build environment)
+
+Launch the game windowed on a real desktop (not just assumed fine because it's also where the game
+is developed) and confirm: main menu, Settings (both General and Controls tabs), Pause
+(`Esc` → Resume/Settings/Quit to Menu), and that `MobileControls` correctly stays hidden
+(`OS.has_feature("pc")`, `MobileControls.gd:31`). This is a cheap step — no export/install/keystore
+involved, just running the built project or a packaged executable directly — so there's no excuse
+to skip it the way hardware access can excuse skipping step 6's Android pass.
+
+**First real PC-specific pass, 2026-09-19** (see `.kiro/specs/milestone-m13-ship-it/tasks.md` Task
+16.5-B1 through B5 for the full findings): main menu, Settings' PC-relevant controls
+(Fullscreen/Resolution/VSync, full keybind remapper), Pause menu, and mobile-controls-hidden all
+confirmed working correctly. Two gaps shared with Android, not PC-only: the same
+`window/stretch/aspect="keep"` pillarboxing (barely visible on a near-16:9 monitor, would be worse
+on ultrawide) and the debug FPS counter rendering in-game. **Not yet checked, flagged open rather
+than assumed fine:** multi-monitor/high-DPI behavior, ultrawide aspect ratios, and gamepad support
+(the Controls tab's Sensitivity/Dead Zone sliders imply it exists, but only keyboard/mouse was
+exercised this pass).
+
 ## 7. Store listing update (if changed)
 
 If gameplay, UI, or the icon changed since the last release, refresh `docs/STORE_LISTING.md`'s

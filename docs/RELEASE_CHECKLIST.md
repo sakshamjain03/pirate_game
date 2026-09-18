@@ -136,6 +136,15 @@ requires physical hardware — see `.kiro/specs/milestone-m13-ship-it/` Requirem
 verification bar. **Never skip this and mark a release done anyway** — "we could not verify this"
 is an honest, acceptable outcome; "we assumed it would be fine" is not.
 
+**First real run, 2026-09-19 (Samsung Galaxy A35 5G, Android 16).** App launch and every
+`MobileControls` action now confirmed working — but only after fixing a real defect this step
+exists to catch: `BtnDock`/`BtnPause`/`BtnCaptainAbility`/`BtnSpecialBroadside` were completely
+hidden under `WorldHUD`'s cannon-status panels (see `docs/05_CURRENT_SYSTEMS.md`'s M13 device
+section and `.kiro/specs/milestone-m13-ship-it/tasks.md` Task 9). **Frame rate did not hold up** —
+18-27fps measured across all three required scenarios, against the 60fps target. Do not treat this
+step as passed on a future release until that's been profiled and addressed or explicitly
+risk-accepted in writing.
+
 ## 7. Store listing update (if changed)
 
 If gameplay, UI, or the icon changed since the last release, refresh `docs/STORE_LISTING.md`'s

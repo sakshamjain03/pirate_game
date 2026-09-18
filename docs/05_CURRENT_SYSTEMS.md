@@ -1568,6 +1568,45 @@ which this environment has. M13's checkpoint (task 16) is still explicitly **not
 **Not done — blocked by Requirement 2.** Both require a real installable build, which does not yet
 exist. The user has a device available and intends to connect it once export is unblocked.
 
+**Unblocked and done, 2026-09-19, same session as the export fix above.** User connected a real
+Samsung Galaxy A35 5G (`SM-A356E`, Android 16, 1080×2340, mid-range Exynos/Mali hardware) over USB.
+Installed and launched both the debug and (after fixing `export_presets.cfg`'s
+`gradle_build/export_format`, see above) release builds via `adb`; confirmed via `adb shell pidof`
+and `logcat` that the app runs without crashing, and via `adb shell screencap` that it renders real
+gameplay correctly.
+
+**Requirement 3 (frame rate) — measured, and the result is a genuine open problem, not a pass.**
+Godot's own debug FPS counter, read directly off device screenshots across repeated samples in all
+three required scenarios (open ocean, near a populated island, mid-combat with a locked target),
+came back **18-27 FPS** — well under the 60fps target — on both debug and release builds. This is
+now flagged as the most important open item for M13 device-readiness. `dumpsys gfxinfo` could not
+help diagnose it (Godot's Vulkan rendering doesn't go through the Android View pipeline that tool
+instruments — it reported 0 frames rendered while the game visibly ran). Two concrete, unconfirmed
+leads for whoever profiles this next, found during this pass rather than guessed: (1)
+`project.godot` has no explicit `rendering/renderer/rendering_method.mobile` override at all, worth
+confirming in-editor that Android is actually getting the Mobile renderer and not silently
+inheriting Forward+; (2) `OceanController` has no LOD system (the project's one long-accepted GUT
+gap), and a large fully-detailed ocean surface was in frame for every sample. Full data in
+`.kiro/specs/milestone-m13-ship-it/tasks.md` Task 7.
+
+**Requirement 4 (touch controls) — verified, and a real defect was found and fixed.** Movement and
+firing worked correctly on first try. But `BtnDock`/`BtnPause`/`BtnCaptainAbility`/
+`BtnSpecialBroadside` were completely invisible on the real screen — a cropped, enlarged screenshot
+showed their text bleeding through *underneath* `WorldHUD`'s `CannonsContainer` (Port/Starboard
+Cannons panel), which is declared later in `WorldHUD.tscn`'s child order and so draws on top,
+exactly overlapping `MobileControls`' `Actions` button cluster (both anchored to the same
+bottom-center point). No existing GUT test ever checked `MobileControls` against `WorldHUD`'s own
+content — `test_world_hud_layout.gd` only ever checked `WorldHUD`'s panels against each other.
+**Fixed** by repositioning `Actions` into the horizontal gap beside the movement d-pad instead of
+stacking it vertically against a panel whose real rendered height (184px, driven by its own label
+content) turned out to exceed its authored 100px minimum — making the original vertical-clearance
+approach fragile. A second, smaller overlap the first fix introduced (`HealthBarContainer`'s right
+edge clipping the "A" off `ABILITY`) was caught by the same real-device screenshot process, not
+assumed away, and fixed by widening the gap further. New `tests/test_mobile_controls_layout.gd`
+(property-based, two viewport sizes, 16 assertions) locks both constraints in; GUT re-confirmed at
+484/484. Re-exported, reinstalled, and re-screenshotted on the same physical device to confirm the
+fix visually, not just headlessly.
+
 **`MobileControls.tscn`/`.gd` fixed anyway, ahead of device access, since it needed code changes
 independent of hardware:** the scene previously wired only 5 of the ~8 actions this requirement's
 own acceptance criteria expect (`ship_forward`/`ship_left`/`ship_right`/`fire_port`/

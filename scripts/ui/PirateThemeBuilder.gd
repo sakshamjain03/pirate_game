@@ -32,9 +32,23 @@ const COLOR_TEXT_LIGHT   := Color(0.95,  0.92,  0.82,  1.0)   # warm cream
 const COLOR_RED_HEALTH   := Color(0.78,  0.16,  0.16,  1.0)
 const COLOR_GREEN_HEALTH := Color(0.22,  0.7,   0.27,  1.0)
 
+## M13 Task 16.5 follow-up (2026-09-19) — real-device text was reported "even
+## smaller" than the already-undersized touch targets. Every screen in the
+## game already routes through this one build() call (see grep across
+## scripts/ui/*.gd), so a mobile-only font-size multiplier here fixes text
+## legibility project-wide in one place instead of touching N screens
+## individually. PC keeps the original sizes — desktop viewing distance and
+## mouse precision don't need this, and the user asked for platform-
+## appropriate sizing, not one shared size.
+const MOBILE_FONT_SCALE := 1.45
+
+static func _font_scale() -> float:
+	return 1.0 if OS.has_feature("pc") else MOBILE_FONT_SCALE
+
 
 static func build() -> Theme:
 	var theme := Theme.new()
+	var scale := _font_scale()
 
 	var pirata_font  = _load_font(FONT_PIRATA,   14)
 	var cinzel_font  = _load_font(FONT_CINZEL,    14)
@@ -42,11 +56,11 @@ static func build() -> Theme:
 
 	# --- Default font ---
 	theme.default_font      = pirata_font
-	theme.default_font_size = 15
+	theme.default_font_size = roundi(15 * scale)
 
 	# --- Labels ---
 	theme.set_font("font",      "Label", pirata_font)
-	theme.set_font_size("font_size", "Label", 15)
+	theme.set_font_size("font_size", "Label", roundi(15 * scale))
 	theme.set_color("font_color", "Label", COLOR_TEXT_LIGHT)
 	theme.set_color("font_shadow_color", "Label", COLOR_SHADOW_DARK)
 	theme.set_constant("shadow_offset_x", "Label", 1)
@@ -65,7 +79,7 @@ static func build() -> Theme:
 	theme.set_stylebox("focus",    "Button", btn_focus)
 	theme.set_stylebox("disabled", "Button", btn_disabled)
 	theme.set_font("font",      "Button", cinzel_font)
-	theme.set_font_size("font_size", "Button", 15)
+	theme.set_font_size("font_size", "Button", roundi(15 * scale))
 	theme.set_color("font_color",          "Button", COLOR_SHADOW_DARK)
 	theme.set_color("font_hover_color",    "Button", COLOR_SHADOW_DARK)
 	theme.set_color("font_pressed_color",  "Button", COLOR_SHADOW_DARK)
@@ -92,7 +106,7 @@ static func build() -> Theme:
 	theme.set_stylebox("background", "ProgressBar", pb_bg)
 	theme.set_stylebox("fill",       "ProgressBar", pb_fill)
 	theme.set_font("font",      "ProgressBar", pirata_font)
-	theme.set_font_size("font_size", "ProgressBar", 12)
+	theme.set_font_size("font_size", "ProgressBar", roundi(12 * scale))
 	theme.set_color("font_color", "ProgressBar", COLOR_TEXT_LIGHT)
 
 	return theme

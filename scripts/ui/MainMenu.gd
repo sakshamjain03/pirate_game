@@ -7,6 +7,7 @@ class_name MainMenu extends CanvasLayer
 ## TODOs: Add confirmation dialog before New Game overwrites an existing save.
 
 @onready var root_control    : Control = $Control
+@onready var button_panel    : PanelContainer = $Control/ButtonPanel
 @onready var continue_button : Button = $Control/ButtonPanel/VBoxContainer/ContinueButton
 @onready var new_game_button : Button = $Control/ButtonPanel/VBoxContainer/NewGameButton
 @onready var settings_button : Button = $Control/ButtonPanel/VBoxContainer/SettingsButton
@@ -15,6 +16,13 @@ class_name MainMenu extends CanvasLayer
 @onready var title_label     : Label  = $Control/TitleContainer/TitleLabel
 @onready var subtitle_label  : Label  = $Control/TitleContainer/SubtitleLabel
 @onready var version_label   : Label  = $Control/VersionLabel
+
+## M13 Task 16.5 follow-up (2026-09-19) — main menu buttons measured 240x44
+## (≈16dp tall), one of the specifically flagged "game menu buttons too
+## small" complaints. PC keeps the original size (already comfortable for a
+## mouse); mobile gets real touch-sized buttons plus a wider/taller
+## ButtonPanel so they fit without clipping.
+const MOBILE_BUTTON_MIN_SIZE := Vector2(320, 64)
 
 var _tween: Tween
 
@@ -29,6 +37,16 @@ func _apply_theme() -> void:
 	var theme := PirateThemeBuilder.build()
 	root_control.theme = theme
 	PirateThemeBuilder.apply_button_juice(root_control)
+	if not OS.has_feature("pc"):
+		_apply_mobile_button_sizing()
+
+func _apply_mobile_button_sizing() -> void:
+	for btn in [continue_button, new_game_button, settings_button, credits_button, quit_button]:
+		btn.custom_minimum_size = MOBILE_BUTTON_MIN_SIZE
+	button_panel.offset_left   = -170.0
+	button_panel.offset_right  = 170.0
+	button_panel.offset_top    = -220.0
+	button_panel.offset_bottom = 220.0
 
 func _connect_buttons() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)

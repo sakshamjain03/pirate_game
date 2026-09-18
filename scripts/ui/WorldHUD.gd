@@ -33,11 +33,23 @@ signal _dummy  # ensures signals section exists
 @onready var captains_log: CaptainsLog = %CaptainsLog
 @onready var world_map_screen: WorldMapScreen = %WorldMapScreen
 @onready var codex_screen: CanvasLayer = %CodexScreen
+@onready var whats_new_screen: WhatsNewScreen = %WhatsNewScreen
 @onready var wardrobe_screen: WardrobeScreen = %WardrobeScreen
 @onready var top_right_panel : VBoxContainer = %TopRightPanel
 @onready var resource_bar    : PanelContainer = %ResourceBar
 @onready var cannons_container: HBoxContainer = %CannonsContainer
 @onready var tutorial_dialogue: TutorialDialogue = %TutorialDialogue
+
+## M13 Task 16.5 follow-up (2026-09-19) — the Log/Map/Codex/New/Wardrobe row
+## measured at 70x32 (≈11dp tall), the single worst touch-target offender
+## found in the mobile UX audit. PC keeps this size (mouse-precise, and this
+## corner already reads fine at the existing size on a desktop monitor);
+## mobile gets a real touch-sized button instead of the same box shared
+## across both input methods.
+const HUD_BUTTON_SIZE_PC     := Vector2(70, 32)
+const HUD_BUTTON_SIZE_MOBILE := Vector2(120, 52)
+static func _hud_button_min_size() -> Vector2:
+	return HUD_BUTTON_SIZE_PC if OS.has_feature("pc") else HUD_BUTTON_SIZE_MOBILE
 
 var _ship_controller: ShipController
 # M11 — lazily cached; looked up once found since EnvironmentController is a
@@ -77,6 +89,14 @@ func _ready() -> void:
 		SaveManager.game_loaded.connect(_check_offline_return)
 	if SaveManager.has_signal("load_failed") and not SaveManager.load_failed.is_connected(_on_save_load_failed):
 		SaveManager.load_failed.connect(_on_save_load_failed)
+	# M14 Requirement 5.2 — deliberately no immediate call here (unlike
+	# _check_offline_return() above): a version-string comparison has no safe
+	# default before World._seed_whats_new_version()/SaveManager.load_game()
+	# have actually run, whereas _pending_offline_ticks defaults safely to 0.
+	# game_loaded fires exactly once per boot regardless of new-game/continue/
+	# failed-load (D15), so connecting to it alone is both correct and enough.
+	if SaveManager.has_signal("game_loaded") and not SaveManager.game_loaded.is_connected(_check_whats_new):
+		SaveManager.game_loaded.connect(_check_whats_new)
 	_create_fps_label()
 	if tutorial_dialogue and not tutorial_dialogue.visibility_changed.is_connected(_on_tutorial_dialogue_visibility_changed):
 		tutorial_dialogue.visibility_changed.connect(_on_tutorial_dialogue_visibility_changed)
@@ -93,6 +113,19 @@ func _on_tutorial_dialogue_visibility_changed() -> void:
 	## competing with the dialogue that has focus.
 	if cannons_container:
 		cannons_container.modulate.a = 0.35 if tutorial_dialogue.visible else 1.0
+
+func _check_whats_new() -> void:
+	## M14 Requirement 5.2 — one-time auto-show, same shape as
+	## _check_offline_return() below but keyed off content version rather
+	## than an ephemeral tick counter.
+	if not whats_new_screen or not whats_new_screen.patch_notes:
+		return
+	var latest: String = whats_new_screen.patch_notes.latest_version()
+	if latest.is_empty() or latest == SaveManager.last_seen_whats_new_version:
+		return
+	SaveManager.last_seen_whats_new_version = latest
+	whats_new_screen.open()
+
 
 func _check_offline_return() -> void:
 	## Show a one-time "while you were away" notice if SaveManager just replayed offline ticks
@@ -186,7 +219,14 @@ func _find_ship() -> void:
 	_create_captains_log_button()
 	_create_world_map_button()
 	_create_codex_button()
+	_create_whats_new_button()
 	_create_wardrobe_button()
+	if not OS.has_feature("pc"):
+		# TopRightPanel (WorldHUD.tscn) is anchored with an explicit
+		# offset_bottom sized to fit the old 70x32 buttons — grown here rather
+		# than in the scene file since only mobile needs the extra room;
+		# PC's smaller buttons still fit the original budget untouched.
+		top_right_panel.offset_bottom = 350.0
 	CampaignManager.objective_completed.connect(_on_campaign_objective_completed)
 	CampaignManager.chapter_completed.connect(_on_campaign_chapter_completed)
 	CampaignManager.chapter_started.connect(_on_campaign_chapter_started)
@@ -252,7 +292,7 @@ func _create_captains_log_button() -> void:
 	## mode D36 already burned this HUD on once.
 	captains_log_button = Button.new()
 	captains_log_button.text = tr("Log")
-	captains_log_button.custom_minimum_size = Vector2(70, 32)
+	captains_log_button.custom_minimum_size = _hud_button_min_size()
 	captains_log_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	# WorldHUD itself is not PROCESS_MODE_ALWAYS (its own _process() drives
 	# cannon cooldowns/compass that must stay frozen while paused), so without
@@ -275,7 +315,7 @@ func _create_world_map_button() -> void:
 	## independently-hardcoded offset.
 	world_map_button = Button.new()
 	world_map_button.text = tr("Map")
-	world_map_button.custom_minimum_size = Vector2(70, 32)
+	world_map_button.custom_minimum_size = _hud_button_min_size()
 	world_map_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	# See _create_captains_log_button()'s comment — same pause-gate fix.
 	world_map_button.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -291,7 +331,7 @@ func _create_codex_button() -> void:
 	## hard-coded HUD offset and its known overlap regression (D36).
 	var codex_button := Button.new()
 	codex_button.text = tr("Codex")
-	codex_button.custom_minimum_size = Vector2(70, 32)
+	codex_button.custom_minimum_size = _hud_button_min_size()
 	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	# See _create_captains_log_button()'s comment — same pause-gate fix.
 	codex_button.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -302,12 +342,26 @@ func _create_codex_button() -> void:
 	codex_button.add_child(ButtonJuice.new())
 
 
+func _create_whats_new_button() -> void:
+	## M14 Requirement 5.1 — same container-owned placement as Log/Map/Codex.
+	var whats_new_button := Button.new()
+	whats_new_button.text = tr("New")
+	whats_new_button.custom_minimum_size = _hud_button_min_size()
+	whats_new_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# See _create_captains_log_button()'s comment — same pause-gate fix.
+	whats_new_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	whats_new_button.pressed.connect(func():
+		if whats_new_screen:
+			whats_new_screen.toggle())
+	top_right_panel.add_child(whats_new_button)
+	whats_new_button.add_child(ButtonJuice.new())
+
 
 func _create_wardrobe_button() -> void:
 	## M16 Task 18 — same container-owned placement as Log/Map/Codex/New.
 	var wardrobe_button := Button.new()
 	wardrobe_button.text = tr("Wardrobe")
-	wardrobe_button.custom_minimum_size = Vector2(70, 32)
+	wardrobe_button.custom_minimum_size = _hud_button_min_size()
 	wardrobe_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	# See _create_captains_log_button()'s comment — same pause-gate fix.
 	wardrobe_button.process_mode = Node.PROCESS_MODE_ALWAYS

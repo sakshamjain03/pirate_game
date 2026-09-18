@@ -35,9 +35,14 @@ func _instantiate_hud_at_size(size: Vector2i):
 	_hud = WorldHUDScene.instantiate()
 	_viewport.add_child(_hud)
 
-# Property: the mobile Actions buttons never overlap the cannon status
-# panels, at the real device's own resolution plus one other aspect ratio.
-func test_property_actions_buttons_never_overlap_cannons_container():
+# Property: no MobileControls button (Movement d-pad, Combat, Actions) ever
+# overlaps the cannon status panels or the health bar, at the real device's
+# own resolution plus one other aspect ratio. Extended 2026-09-19 (M13 Task
+# 16.5 follow-up) to cover Movement/Combat too, not just Actions — all three
+# clusters were enlarged for real touch-target sizing in that pass, and a
+# bigger d-pad reaching further toward HealthBarContainer's bottom-left
+# corner is exactly the kind of regression this property exists to catch.
+func test_property_mobile_buttons_never_overlap_hud_panels():
 	var sizes: Array[Vector2i] = [Vector2i(2340, 1080), Vector2i(1920, 1080)]
 	for size in sizes:
 		_instantiate_hud_at_size(size)
@@ -48,7 +53,13 @@ func test_property_actions_buttons_never_overlap_cannons_container():
 			"CannonsContainer": _hud.get_node("CannonsContainer").get_global_rect(),
 			"HealthBarContainer": _hud.get_node("HealthBarContainer").get_global_rect(),
 		}
-		var actions_buttons := {
+		var mobile_buttons := {
+			"BtnForward": mobile_controls.get_node("Movement/BtnForward"),
+			"BtnLeft": mobile_controls.get_node("Movement/BtnLeft"),
+			"BtnRight": mobile_controls.get_node("Movement/BtnRight"),
+			"BtnBackward": mobile_controls.get_node("Movement/BtnBackward"),
+			"BtnFirePort": mobile_controls.get_node("Combat/BtnFirePort"),
+			"BtnFireStar": mobile_controls.get_node("Combat/BtnFireStar"),
 			"BtnDock": mobile_controls.get_node("Actions/BtnDock"),
 			"BtnPause": mobile_controls.get_node("Actions/BtnPause"),
 			"BtnCaptainAbility": mobile_controls.get_node("Actions/BtnCaptainAbility"),
@@ -57,8 +68,8 @@ func test_property_actions_buttons_never_overlap_cannons_container():
 
 		for blocker_name in blockers:
 			var blocker_rect: Rect2 = blockers[blocker_name]
-			for btn_name in actions_buttons:
-				var btn_rect: Rect2 = actions_buttons[btn_name].get_global_rect()
+			for btn_name in mobile_buttons:
+				var btn_rect: Rect2 = mobile_buttons[btn_name].get_global_rect()
 				assert_false(blocker_rect.intersects(btn_rect),
 					"%s (%s) must not overlap %s (%s) at viewport size %s" %
 						[blocker_name, blocker_rect, btn_name, btn_rect, size])
@@ -66,3 +77,25 @@ func test_property_actions_buttons_never_overlap_cannons_container():
 		_viewport.queue_free()
 		_viewport = null
 		_hud = null
+
+# Property: every MobileControls button meets the same 48x48 minimum touch
+# target docs/18_ACCESSIBILITY.md §6 and test_wardrobe_layout.gd already
+# enforce elsewhere — added 2026-09-19 (M13 Task 16.5 follow-up) alongside
+# the resize that fixed BtnDock/BtnPause/BtnCaptainAbility/BtnSpecialBroadside
+# (95x60, 21dp) and the d-pad/fire buttons (80x80-100x80, 21-28dp) all
+# measuring below this bar on the real device that prompted the audit.
+func test_property_every_mobile_control_button_meets_the_minimum_touch_target():
+	_instantiate_hud_at_size(Vector2i(2340, 1080))
+	await wait_seconds(0.1)
+
+	var mobile_controls = _hud.get_node("MobileControls")
+	var button_paths := [
+		"Movement/BtnForward", "Movement/BtnLeft", "Movement/BtnRight", "Movement/BtnBackward",
+		"Combat/BtnFirePort", "Combat/BtnFireStar",
+		"Actions/BtnDock", "Actions/BtnPause", "Actions/BtnCaptainAbility", "Actions/BtnSpecialBroadside",
+	]
+	for path in button_paths:
+		var btn: Button = mobile_controls.get_node(path)
+		var rect := btn.get_global_rect()
+		assert_true(rect.size.x >= 48.0 and rect.size.y >= 48.0,
+			"MobileControls/%s (%s) must meet the 48x48 minimum touch target" % [path, rect.size])

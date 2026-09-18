@@ -144,7 +144,8 @@
     themselves (95×60/119×60px buttons) were not separately flagged as too small at this device's
     density (450dpi) — the overlap was the real defect, not sizing.
 
-### Wave 2.5 — Mobile UX overhaul (2026-09-19, PROPOSED — not started, pending your review)
+### Wave 2.5 — Mobile UX overhaul (2026-09-19, proposed; 9a/9b implemented and
+real-device-verified the same day, per your "fix on priority" instruction — 9c-9g still open)
 
 **Why this exists.** Task 9 already committed to "resize anything found too small, fix within
 this milestone." Once the Task 9 overlap bug was fixed, a full pass across every real screen on
@@ -152,9 +153,9 @@ the Galaxy A35 (main menu, settings, both settings tabs, the pause menu, map, ca
 wardrobe, in-world HUD) showed the touch-target problem is much broader than one overlap — this
 game currently reads as a PC build with mobile controls bolted on, not a mobile-first UI. Numbered
 `9a`-`9g` rather than folded into existing tasks so nothing here silently expands Task 9's own
-already-closed scope. **Nothing below has been implemented yet.**
+already-closed scope.
 
-- [ ] 9a. **Fix screen scaling — the game does not fill the screen, and won't fit every phone.**
+- [x] 9a. **Fix screen scaling — the game does not fill the screen, and won't fit every phone.**
   - **Root cause found:** `project.godot`'s `[display]` section sets
     `window/stretch/aspect="keep"` against a `1920x1080` (16:9) design canvas. On the Galaxy A35's
     actual landscape resolution (`2340x1080`, ≈19.5:9), "keep" preserves the 16:9 ratio and
@@ -171,7 +172,17 @@ already-closed scope. **Nothing below has been implemented yet.**
     narrower phone (e.g. `1600x720`, ≈18:9) so both ends of the real range are covered, not just
     the A35's own ratio.
 
-- [ ] 9b. **Every mobile touch target is below Android's own 48dp minimum — resize project-wide.**
+  **Done, 2026-09-19.** `project.godot`'s `window/stretch/aspect` changed from `"keep"` to
+  `"expand"` — one line. Full GUT suite stayed green (501/501) after the change. **Verified on the
+  real device**, not just headlessly: fresh debug APK exported, installed, and screenshotted —
+  main menu and in-game HUD both now fill the full `2340x1080` screen edge-to-edge with no black
+  bars (screenshots in this pass's own scratchpad, not committed to the repo). Did not add the
+  extra `1600x720` narrower-phone viewport size to the GUT tests this pass — real-device testing
+  only covered the one device on hand (2340x1080); a narrower ratio behaving correctly is inferred
+  from `expand` being a project-wide, non-device-specific setting, not separately verified.
+  Flagged as still open rather than assumed covered.
+
+- [x] 9b. **Every mobile touch target is below Android's own 48dp minimum — resize project-wide.**
   - **Measured this pass** (button size in `project.godot`'s design pixels; this device's density
     is 450dpi, so 48dp ≈ 135 design px at this device's effective ~1:1 canvas-to-physical mapping —
     note the mapping ratio itself changes once 9a changes the stretch mode, so re-measure after):
@@ -195,6 +206,41 @@ already-closed scope. **Nothing below has been implemented yet.**
     `tests/test_world_hud_button_sizes.gd` if one doesn't already cover this) with the same
     48×48dp-equivalent minimum-size property test `test_wardrobe_layout.gd` already uses, applied
     to every button named above — so this can't silently regress again.
+
+  **Done (partially), 2026-09-19 — real device re-verified.** Every row above except Settings was
+  resized:
+  - `MobileControls.tscn`: d-pad (`BtnForward/Left/Right/Backward`) now 120×120, fire buttons
+    (`BtnFirePort/BtnFireStar`) now 150×110, action buttons
+    (`BtnDock/BtnPause/BtnCaptainAbility/BtnSpecialBroadside`) now 152×96 — all ≥48×48 design px,
+    all three clusters repositioned to stay clear of `WorldHUD`'s `CannonsContainer` and
+    `HealthBarContainer` at both tested viewport sizes.
+  - `WorldHUD.gd`'s Log/Map/Codex/New/Wardrobe column (the worst offender, 70×32/11dp): now
+    120×52 on mobile via a new `OS.has_feature("pc")` branch — **PC keeps the original 70×32**, per
+    your explicit "different sizing for PC, of course" — `TopRightPanel`'s own height budget grows
+    to match on mobile only (`WorldHUD.gd`'s `_ready()`).
+  - `MainMenu.tscn` buttons (240×44/16dp, one of your specifically named complaints — "game menu
+    buttons"): now 320×64 on mobile via the same `OS.has_feature("pc")` pattern in `MainMenu.gd`,
+    `ButtonPanel` widened/heightened to match; PC keeps 240×44.
+  - **Also fixed, not originally scoped as part of 9b:** all in-game and menu text was reported as
+    "even smaller" than the touch targets. Root cause: every UI screen in the game already routes
+    through one shared call, `PirateThemeBuilder.build()` — so a single mobile-only font-size
+    multiplier there (`MOBILE_FONT_SCALE = 1.45`, gated the same `OS.has_feature("pc")` way) fixes
+    legibility project-wide in one place rather than per-screen. PC text is unchanged.
+  - `tests/test_mobile_controls_layout.gd` extended: the existing overlap-regression test now
+    checks Movement/Combat buttons too, not just Actions (renamed
+    `test_property_mobile_buttons_never_overlap_hud_panels`), plus a new
+    `test_property_every_mobile_control_button_meets_the_minimum_touch_target` mirroring
+    `test_wardrobe_layout.gd`'s pattern. Full suite: 501/501 green.
+  - **Verified on the real device**, not just headlessly (the `OS.has_feature("pc")` branches
+    can't be exercised by this environment's headless test runs, since that flag is always true
+    here — this is the same known limitation `MobileControls.gd`'s own visibility toggle already
+    has): fresh debug APK, main menu, in-game HUD, and the pause menu (unaffected, confirmed still
+    correct) all screenshotted post-fix. Everything measured above rendered clearly bigger with
+    legible text and no observed overlap, matching the headless test's own math.
+  - **Still open, not done this pass:** Settings tab buttons/controls (needs 9c's PC-only-control
+    hiding decided first, since resizing what should get removed is wasted work) and the Map/
+    Captain's Log fixed-size popups (9f, a bigger layout rework, not a simple resize). Neither was
+    part of this priority pass's real-device screenshot check.
 
 - [ ] 9c. **Settings menu exposes PC-only controls that are meaningless — or actively confusing —
        on a phone.**
@@ -383,10 +429,12 @@ one.
 
     Everything in **Wave 2.5 above (Tasks 9a-9g)** is Android-only scope and belongs in this list —
     not repeated here in full, cross-referenced instead:
-    - 9a. Screen doesn't fill the phone (`window/stretch/aspect="keep"` pillarboxing) — needs
-      multi-aspect-ratio support, not just a fix for one device.
-    - 9b. Every mobile touch target measured below Android's 48dp minimum (concrete sizes/targets
-      already tabulated in 9b).
+    - 9a. **Done 2026-09-19**, real-device-verified. Screen doesn't fill the phone
+      (`window/stretch/aspect="keep"` pillarboxing) — needs multi-aspect-ratio support, not just a
+      fix for one device.
+    - 9b. **Done (partially) 2026-09-19**, real-device-verified — Settings and Map/Log still open,
+      see 9b's own notes. Every mobile touch target measured below Android's 48dp minimum (concrete
+      sizes/targets already tabulated in 9b).
     - 9c. Settings menu exposes PC-only controls (Fullscreen/Resolution/VSync, full keybind
       remapper) that are meaningless on touch.
     - 9d. No icon art for navigation/action buttons — plain text on a generic button background.

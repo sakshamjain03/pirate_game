@@ -13,6 +13,7 @@ class_name WorldHUD extends CanvasLayer
 signal _dummy  # ensures signals section exists
 
 @onready var speed_label     : Label        = %SpeedLabel
+@onready var sail_label      : Label        = %SailLabel
 @onready var health_bar      : ProgressBar  = %HealthBar
 @onready var health_left     : Label        = %HealthLeftLabel
 @onready var health_right    : Label        = %HealthRightLabel
@@ -166,6 +167,10 @@ func _find_ship() -> void:
 		ship.ship_speed_changed.connect(_on_speed_changed)
 		ship.ship_health_changed.connect(_on_health_changed)
 		ship.ship_destroyed.connect(_on_ship_destroyed)
+		ship.sail_level_changed.connect(_on_sail_level_changed)
+		ship.anchor_dropped.connect(_on_anchor_dropped)
+		ship.anchor_raised.connect(_on_anchor_raised)
+		_on_sail_level_changed(ship.sail_level, ship.ship_stats.sail_levels if ship.ship_stats else 3)
 		if ship.combat and ship.combat.has_signal("fired"):
 			ship.combat.fired.connect(_on_cannon_fired)
 		if ship.combat and ship.combat.has_signal("arc_lock_changed"):
@@ -601,7 +606,27 @@ func _process(_delta: float) -> void:
 
 func _on_speed_changed(speed: float) -> void:
 	if speed_label:
-		speed_label.text = tr("⚓ %.1f kn") % speed
+		speed_label.text = tr("%.1f kn") % speed
+
+var _is_anchored := false
+
+func _on_sail_level_changed(level: int, max_level: int) -> void:
+	if not sail_label or _is_anchored:
+		return
+	if level <= 0:
+		sail_label.text = tr("⛵ Furled")
+	else:
+		sail_label.text = tr("⛵ %d/%d") % [level, max_level]
+
+func _on_anchor_dropped() -> void:
+	_is_anchored = true
+	if sail_label:
+		sail_label.text = tr("⚓ Anchored")
+
+func _on_anchor_raised() -> void:
+	_is_anchored = false
+	if _ship_controller and _ship_controller.ship_stats:
+		_on_sail_level_changed(_ship_controller.sail_level, _ship_controller.ship_stats.sail_levels)
 
 var _health_pulse_active := false
 var _health_pulse_tween: Tween

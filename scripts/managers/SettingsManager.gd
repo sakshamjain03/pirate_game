@@ -45,7 +45,8 @@ const DEFAULT_GRAPHICS_QUALITY: int = 1
 ## list was previously duplicated verbatim in both save_settings() and
 ## load_settings(), so the two could drift out of sync silently.
 const REBINDABLE_ACTIONS: Array[String] = [
-	"ship_forward", "ship_backward", "ship_left", "ship_right",
+	"sail_level_up", "sail_level_down", "ship_left", "ship_right",
+	"set_sail", "anchor",
 	"camera_zoom_in", "camera_zoom_out", "camera_rotate_left", "camera_rotate_right",
 	"dock", "interact", "pause",
 	"special_broadside", "captain_ability",

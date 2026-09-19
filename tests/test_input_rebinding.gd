@@ -15,17 +15,17 @@ var _original_events: Array
 
 
 func before_each():
-	_original_events = InputMap.action_get_events("ship_forward")
+	_original_events = InputMap.action_get_events("sail_level_up")
 	menu = SettingsMenuScene.instantiate()
 	add_child_autoqfree(menu)
 
 
 func after_each():
 	# Restore whatever the action carried before this test rebound it.
-	for e in InputMap.action_get_events("ship_forward"):
-		InputMap.action_erase_event("ship_forward", e)
+	for e in InputMap.action_get_events("sail_level_up"):
+		InputMap.action_erase_event("sail_level_up", e)
 	for e in _original_events:
-		InputMap.action_add_event("ship_forward", e)
+		InputMap.action_add_event("sail_level_up", e)
 
 
 func test_input_manager_is_reachable_without_a_world_scene():
@@ -44,10 +44,10 @@ func test_rebinding_a_key_actually_changes_the_input_map():
 	new_event.keycode = KEY_J
 	new_event.pressed = true
 
-	menu._on_rebind_pressed("ship_forward", Button.new())
+	menu._on_rebind_pressed("sail_level_up", Button.new())
 	menu._input(new_event)
 
-	var events := InputMap.action_get_events("ship_forward")
+	var events := InputMap.action_get_events("sail_level_up")
 	var found := false
 	for e in events:
 		if e is InputEventKey and e.keycode == KEY_J:
@@ -56,11 +56,11 @@ func test_rebinding_a_key_actually_changes_the_input_map():
 
 
 func test_reset_to_defaults_reaches_the_input_map():
-	for e in InputMap.action_get_events("ship_forward"):
-		InputMap.action_erase_event("ship_forward", e)
-	assert_eq(InputMap.action_get_events("ship_forward").size(), 0, "Precondition: unbound")
+	for e in InputMap.action_get_events("sail_level_up"):
+		InputMap.action_erase_event("sail_level_up", e)
+	assert_eq(InputMap.action_get_events("sail_level_up").size(), 0, "Precondition: unbound")
 
 	InputManager.reset_to_defaults()
 
-	assert_gt(InputMap.action_get_events("ship_forward").size(), 0,
+	assert_gt(InputMap.action_get_events("sail_level_up").size(), 0,
 		"Reset to defaults must reload real bindings from project settings, not leave the action unbound")

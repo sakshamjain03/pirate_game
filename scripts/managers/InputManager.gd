@@ -4,8 +4,10 @@ signal input_action_triggered(action: String, strength: float)
 signal touch_gesture_detected(gesture: String, data: Dictionary)
 
 # Movement
-const ACTION_SHIP_FORWARD = "ship_forward"
-const ACTION_SHIP_BACKWARD = "ship_backward"
+const ACTION_SAIL_LEVEL_UP = "sail_level_up"
+const ACTION_SAIL_LEVEL_DOWN = "sail_level_down"
+const ACTION_SET_SAIL = "set_sail"
+const ACTION_ANCHOR = "anchor"
 const ACTION_SHIP_LEFT = "ship_left"
 const ACTION_SHIP_RIGHT = "ship_right"
 
@@ -77,8 +79,11 @@ func _detect_input_method(event: InputEvent) -> void:
 		active_input_method = "touch"
 
 func get_movement_vector() -> Vector2:
+	## .y is sail_level_up/down action strength, kept for input-precision
+	## tests — actual propulsion no longer reads it (ShipController.sail_level
+	## drives forward thrust instead; see WorldManager._process()).
 	var v = Vector2.ZERO
-	v.y = Input.get_action_strength(ACTION_SHIP_FORWARD) - Input.get_action_strength(ACTION_SHIP_BACKWARD)
+	v.y = Input.get_action_strength(ACTION_SAIL_LEVEL_UP) - Input.get_action_strength(ACTION_SAIL_LEVEL_DOWN)
 	v.x = Input.get_action_strength(ACTION_SHIP_RIGHT) - Input.get_action_strength(ACTION_SHIP_LEFT)
 	return v
 
@@ -91,7 +96,7 @@ func set_dead_zone(val: float) -> void:
 	## exact key-press-to-strength mapping `test_input_properties.gd`'s
 	## `Input.action_press(action, strength)` calls pin down as precise.
 	dead_zone = clampf(val, 0.0, 0.9)
-	for action in [ACTION_SHIP_FORWARD, ACTION_SHIP_BACKWARD, ACTION_SHIP_LEFT, ACTION_SHIP_RIGHT]:
+	for action in [ACTION_SAIL_LEVEL_UP, ACTION_SAIL_LEVEL_DOWN, ACTION_SHIP_LEFT, ACTION_SHIP_RIGHT]:
 		if InputMap.has_action(action):
 			InputMap.action_set_deadzone(action, dead_zone)
 
@@ -102,7 +107,7 @@ func rebind_action(action: String, event: InputEvent) -> bool:
 		return false
 		
 	if event == null:
-		var essential = ["ship_forward", "ship_backward", "ship_left", "ship_right"]
+		var essential = ["sail_level_up", "sail_level_down", "ship_left", "ship_right"]
 		if action in essential:
 			return false
 			

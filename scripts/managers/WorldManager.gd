@@ -52,11 +52,25 @@ func _process(delta: float) -> void:
 	if is_world_loaded:
 		_check_island_discovery()
 
-		# Process ship input
+		# Process ship input. Forward thrust comes from the ship's own sail
+		# state (see sail input block below), not a held key — only turn
+		# (rudder) is still read continuously here.
 		if player_ship and player_ship.has_method("set_input"):
 			if _input_manager:
 				var move_input = _input_manager.get_movement_vector()
-				player_ship.set_input(move_input.y, move_input.x)
+				player_ship.set_input(player_ship.get_sail_forward_input(), move_input.x)
+
+		# Process sail/anchor input (Property: Sail Level/Set Sail/Anchor
+		# are one-notch-per-press actions, not held throttle).
+		if player_ship:
+			if Input.is_action_just_pressed("sail_level_up") and player_ship.has_method("adjust_sail_level"):
+				player_ship.adjust_sail_level(1)
+			if Input.is_action_just_pressed("sail_level_down") and player_ship.has_method("adjust_sail_level"):
+				player_ship.adjust_sail_level(-1)
+			if Input.is_action_just_pressed("set_sail") and player_ship.has_method("toggle_sail"):
+				player_ship.toggle_sail()
+			if Input.is_action_just_pressed("anchor") and player_ship.has_method("toggle_anchor"):
+				player_ship.toggle_anchor()
 
 		# Process dock/undock input
 		if Input.is_action_just_pressed("dock"):

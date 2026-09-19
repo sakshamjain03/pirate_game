@@ -30,6 +30,14 @@ class_name ShipStats extends Resource
 @export_range(0.0, 10.0) var deceleration: float = 1.5
 @export_range(0.0, 10.0) var turn_rate: float = 1.5
 @export_range(0.0, 1.0) var drift_factor: float = 0.3
+## Number of discrete sail steps above furled (0) — e.g. 3 -> Furled/Low/Half/Full.
+## Forward thrust is sail_level / sail_levels, fed into the same target_speed
+## calculation the old throttle used (ShipMovement.apply_movement()); there is
+## no negative value, so the ship cannot reverse.
+@export_range(1, 10) var sail_levels: int = 3
+## Deceleration applied to linear/yaw velocity while anchored
+## (ShipMovement.apply_anchor_drag()) — higher holds position faster.
+@export_range(0.0, 30.0) var anchor_hold_strength: float = 8.0
 
 @export_group("Physics")
 @export_range(0.0, 10000.0) var mass: float = 5000.0

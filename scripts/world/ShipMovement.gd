@@ -141,3 +141,20 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 	var drift_velocity = body.linear_velocity.dot(right_dir)
 	var anti_drift_force = -right_dir * (drift_velocity * (1.0 - ship_stats.drift_factor) * body.mass * ship_stats.drift_compensation_multiplier * DRIFT_COMPENSATION_SCALE)
 	body.apply_central_force(anti_drift_force)
+
+## Anchor mechanic — damps linear velocity and yaw toward zero so the ship
+## holds position, without a hard freeze (unlike dock()): BuoyancySimulator's
+## bob/roll and self-righting torque keep running normally, since only the
+## yaw component of angular_velocity is touched here, the same split the
+## turn servo above uses.
+func apply_anchor_drag(delta: float) -> void:
+	if not body or not ship_stats:
+		return
+
+	body.linear_velocity = body.linear_velocity.move_toward(Vector3.ZERO, ship_stats.anchor_hold_strength * delta)
+
+	var ang_vel := body.angular_velocity
+	var yaw_now := ang_vel.dot(Vector3.UP)
+	var roll_pitch := ang_vel - Vector3.UP * yaw_now
+	var yaw_next := move_toward(yaw_now, 0.0, ship_stats.anchor_hold_strength * delta)
+	body.angular_velocity = roll_pitch + Vector3.UP * yaw_next

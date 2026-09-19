@@ -118,21 +118,26 @@ existing stern-crit arc, no region-specific mixed-role compositions beyond `Elit
 `scripts/managers/ResourceManager.gd` + `scripts/world/Island.gd` + `scripts/world/BuildingData.gd`
 
 - `ResourceManager` (autoload): gold/wood/iron/rum/research, per-resource storage caps, a global
-  10-second economy tick signal, `add_resource` / `spend_resource` / `can_afford`. Dynamically recalculates `max_storage` by summing `storage_bonus` across all constructed buildings.
+  10-second economy tick signal, `add_resource` / `spend_resource` / `can_afford`. Dynamically recalculates `max_storage` by summing `storage_bonus` across all constructed buildings. `add_resource()` rejects (push_error, no-op) any resource type not already declared in `max_storage`/`base_storage`, rather than silently granting it unlimited (999999) capacity — every resource type is meant to be part of the authored schema, not created ad hoc at runtime (BUG_REPORT.md fix pass, 2026-09-14).
 - `Island.gd`: tracks `built_buildings` per island, listens to the economy tick, produces
-  resources per building. `build_structure()` / `upgrade_structure()` spend resources and swap
-  in the next `BuildingData` tier. Restores buildings dynamically via name convention (`<BuildingName>_L<Level>.tres`). Includes `get_island_tier()` derived from average building levels.
+  resources per building — gated on `IslandData.is_owned_by_player()` (FRIENDLY or CAPITAL only; NEUTRAL/ENEMY/LEGENDARY islands no longer produce for the player). `build_structure()` / `upgrade_structure()` spend resources and swap
+  in the next `BuildingData` tier — `build_structure()` is likewise gated on player ownership, so buildings can no longer be constructed on an enemy/neutral island. Restores buildings dynamically via name convention (`<BuildingName>_L<Level>.tres`). Includes `get_island_tier()` derived from average building levels.
 - 10 populated `BuildingData` chains exist: Academy, Farm, Fortress, LumberMill, Market, Mine,
   Shipyard, Tavern, Warehouse, Watchtower. Each has 5 authored level resources (`_L1.tres` to `_L5.tres`) with geometric cost/production scaling.
 - **Offline catch-up (M5):** `SaveManager` persists `last_saved_unix` on every save; on load it
   computes elapsed real time (capped at 4h), then directly calls each loaded island's
-  `_on_economy_tick()` and `FleetManager._on_economy_tick()` once per offline tick — deliberately
+  `on_economy_tick()` and `FleetManager.on_economy_tick()` once per offline tick — deliberately
   *not* by re-emitting `global_economy_tick`, since `FactionManager` also subscribes to that
   signal for hunter-ship dispatch and would misfire at absurd rates if replayed hundreds of times.
-  `WorldHUD` shows a one-time "while you were away" notice via the existing `announce_event()`.
+  Both methods were renamed from `_on_economy_tick` to drop the leading underscore (BUG_REPORT.md
+  fix pass, 2026-09-14): SaveManager was calling them from outside their own class, so the
+  original name misrepresented them as private. `WorldHUD` shows a one-time "while you were away"
+  notice via the existing `announce_event()`.
 
 **Known gaps:** fixed building slots (no free placement), only 10 building types (no deep
-production chains), colonize/capture flow is broken (see §2).
+production chains). (The older "colonize/capture flow is broken" note this line once carried was
+resolved by D2 below; the island-ownership production/build gaps that replaced it here were fixed
+in the 2026-09-14 BUG_REPORT.md pass — see that entry.)
 
 ## Fleet, Captains, Tech — fully working
 `scripts/managers/FleetManager.gd`, `scripts/world/CaptainData.gd`, `scripts/managers/TechManager.gd`
@@ -1968,6 +1973,308 @@ milestone owns) **→ 434/434** at this milestone's own final checkpoint, confir
 4.3 GUT run against the working tree with all of M15.5's changes applied, no regressions
 attributable to this milestone's own files.
 
+**Note found while starting M14 below:** a fresh full-suite run at the start of that milestone's
+own work measured **419 tests, 419 passing** — 15 fewer than this section's own recorded "434/434."
+Whatever produced the earlier count (the "concurrent session's own unrelated M14 seasonal-events
+development" mentioned above, or something else) left no trace in the working tree by the time M14
+actually started: no seasonal-event files existed, `.kiro/specs/milestone-m14-live-operations/
+tasks.md` was fully unchecked, and `git status` showed nothing related. Recorded here rather than
+silently reconciled, per this project's own repeated lesson that a self-reported test count is not
+ground truth until independently re-run (D67, the M7.5 "323/322" mismatch) — 419/419 was treated as
+the real baseline to regress M14 against, not 434/434.
+
+---
+
+## M14 — Live Operations (2026-09-07)
+
+Chapters 6–10, two new regions (Ancient Ocean, Ghost Reaches), a repeatable seasonal event (the
+Spring Crossing), a content-authoring guide, a "What's New" panel, and a thin `LiveOpsConfig`
+wrapper over M15's `RemoteConfigManager`. Baseline re-verified fresh at the start of this
+milestone (not assumed from the M15.5 section above): **419 tests, 419 passing, 0 failures.**
+**Final: 464 tests, 464 passing, 0 failures.**
+
+### Requirement 3 — Seasonal repeatable events
+
+New `scripts/world/SeasonalEventData.gd` (a `Resource`, reusing `ObjectiveData` for its objectives
+— same condition/dispatch model chapters already use) and new autoload
+`scripts/managers/SeasonalEventManager.gd` (registered after `CampaignManager` in
+`project.godot`), loading `resources/campaign/seasonal_events/*.tres` via the same `DirAccess`-scan
+pattern `CampaignManager`/`EmpireManager` already use. Tracks "currently active" (date-window),
+"completed this window," and "ever completed" per event id — a `Dictionary` of window-id arrays,
+append-only, not `ChapterData`'s permanent one-way flag (deliberately a new resource rather than a
+retrofit — see `SeasonalEventData.gd`'s own header for why).
+
+**The fake-clock test seam this project didn't have before:** `SeasonalEventManager._date_override`
+(format `"YYYY-MM-DD"`, empty = use the real system clock) mirrors `RemoteConfigManager.
+_request_override`'s existing test-seam convention exactly. `tests/test_seasonal_event_manager.gd`
+drives window-boundary/repeat-completion tests entirely off injected dates, never the real clock —
+the pattern Task 4 asked to establish, confirmed absent anywhere in the codebase before this.
+
+**Objective dispatch — the decision design.md left open, resolved by reading the real code:**
+`CampaignManager`'s dispatch is 10 signal handlers, most delegating to a private, chapter-state-
+bound `_for_each_matching()`/`_advance_objective()`/`_advance_level()`; three (`_on_boarding_resolved`,
+`_on_fleet_changed`, `_on_resources_changed`) have bespoke target-matching that doesn't reduce to a
+single generic tuple without restructuring `CampaignManager` itself — out of this milestone's scope
+given that file is dense and already covered by 60+ passing tests. New
+`scripts/world/ObjectiveDispatch.gd` extracts the genuinely shared, stateless piece — condition/
+target matching (`matches()`/`matches_any()`) and progress arithmetic (`advance_count()`/
+`advance_level()`) — verbatim from `CampaignManager`'s own methods (a behavior-identical refactor,
+verified by its full existing test suite passing unchanged). `SeasonalEventManager` independently
+listens to the same real gameplay signals `CampaignManager` does (design.md's "listen directly"
+option), reusing `ObjectiveDispatch` for the arithmetic — "one shared piece of matching logic"
+without touching `CampaignManager`'s proven handlers. A `_progress_window_id` guard resets an
+event's in-progress objective state whenever the active window changes (a save loaded a year later,
+or a real-time window rollover), so half-finished progress from a past window can never silently
+count toward a new one — a real correctness case a permanent chapter never needs to handle.
+
+Also extracted: `scripts/world/ResourceLookup.gd` (`find_by_id()`), the directory-scan-and-match
+reward lookup `CampaignManager._find_by_id()` used to implement inline and `SeasonalEventManager`
+now shares — the same shape `EmpireManager._get_faction_by_id()` also uses independently (left
+untouched, out of this milestone's scope).
+
+**A real, small data-model gap found authoring Chapter 9 (Requirement 1.3):** "the Spring Crossing
+has been completed at least once" is neither a permanent prior-chapter completion nor a region-
+activation threshold — `ChapterData`'s two existing gate fields can't express it. Added one generic
+field, `required_seasonal_event_id: String`, checked in `CampaignManager._gate_satisfied()` against
+`SeasonalEventManager.has_ever_completed()` — deliberately the one-way "ever" flag, not
+`is_completed_this_window()`, since a chapter gate must never re-lock once opened. Generic (any
+future chapter can use it), not a special case hardcoded for Ch9.
+
+Reward re-granting: repeat completions grant the **same** reward as first completion (design.md's
+explicit Requirement 3.4 resolution) — simplest, most predictable, no second reward tier authored.
+
+### Requirements 1/4 — Chapters 6–10 and the content-authoring guide
+
+Authored in the exact `Ch5_TheSilverFleet.tres` format (verified against the real file, not
+guessed from docs): objectives/dialogue beats are embedded sub-resources inside one chapter
+`.tres`, not separate files — `docs/06_NARRATIVE_AND_WORLD.md` §9's separate-file naming
+convention is stale versus the real M7 implementation, and this milestone follows the real one.
+
+- **Ch6 The Wandering Widow** (`required_region_id = "ancient_ocean"`) — pays off Higgins' 40-year
+  secret (cabin boy aboard the Wandering Widow) and Vane's chart, at the new `widows_reach` island.
+- **Ch7 Marguerite's Harbour** (`required_previous_chapter = "ch6_the_wandering_widow"`) — reuses
+  the **existing** `blackwater_shoal` island (Royal Navy-owned, Contested Waters) rather than
+  authoring a new one; `docs/11_WORLD_MAP.md` had already flagged it as "no chapter hook yet — a
+  region-filling target," exactly what this chapter needed.
+- **Ch8 The Spring Crossing** — a `SeasonalEventData`, not a `ChapterData` (Requirement 3).
+- **Ch9 An Unwelcome Ally** (`required_seasonal_event_id = "spring_crossing"`) — Vance's reluctant
+  alliance against Spain. No new captain added to the roster for this (out of this milestone's
+  scope) — the alliance is narrative flavor only.
+- **Ch10 The Cove Without a King** (`required_previous_chapter = "ch7_marguerites_harbour"`) —
+  Skull Cove was already captured in Ch2; this chapter is about formally developing/claiming it
+  (`REACH_ISLAND_TIER`/`ACCUMULATE_RESOURCE`) and mopping up remaining Pirate Clan resistance, not a
+  re-capture.
+
+**Exit proof (Task 6, the literal M7 precedent):** Ch6 required zero script changes; the one script
+change in this pass (`ChapterData.required_seasonal_event_id`) belongs to Ch9's gate, not Ch6.
+
+`docs/CONTENT_AUTHORING_GUIDE.md` (new) — one section per schema (`ChapterData`/`ObjectiveData`/
+`DialogueBeatData`, `SeasonalEventData`, `RegionData`/`IslandData`), each pairing a real annotated
+`.tres` snippet with the exact `@export` list from the real script, explicitly calling out the
+D3/D14 silent-failure trap. Validated by actually authoring Ch6–10 against it.
+
+**Content-integrity tests extended, not just added:** `tests/test_campaign_content.gd`'s hardcoded
+"chapters 1–5" / three-region gate-reference lists both updated to the real current content (a
+required update given the deliberate new content, not a regression); new
+`tests/test_seasonal_event_content.gd` mirrors its objective-integrity checks for
+`SeasonalEventData`.
+
+### Requirement 2 — Region 4 (Ancient Ocean) and Region 5 (Ghost Reaches)
+
+`resources/world/regions/AncientOcean.tres` (tier 4, threshold 300, dominant faction
+`pirate_clans` — reused rather than inventing a new faction, since Vane was a pirate captain) and
+`GhostReaches.tres` (tier 5, threshold 500, dominant faction `ghost_fleet`, already existed).
+`display_ring_radius` 900/1150 continue the measured 275→450→675 progression exactly (each tier's
+upper bound, ~100–225u clear of the previous tier's). One island each, following
+`docs/11_WORLD_MAP.md` §8's checklist exactly: `widows_reach` (Ancient Ocean, the first-ever use of
+`IslandData.IslandType.LEGENDARY` — a shipwreck/discovery site, no owner_faction, matching Pelican
+Cay's ownerless-neutral precedent) and `fogbound_cay` (Ghost Reaches, `ENEMY`, owner `GhostFaction`).
+
+**Ghost Fleet real mechanical presence (Requirement 2.3) — extends, doesn't replace, what already
+existed:** a rare, global, un-region-gated ambient boss (`GhostShipStats.tres`/`GhostShipBoss.tres`)
+was already reachable pre-M14 — the pre-existing "rumour with a hostility flag." This milestone
+adds: (1) two new regular-strength Ghost Fleet hulls (`GhostRaiderStats.tres` class 3,
+`GhostMarauderStats.tres` class 4, reusing the existing `ship-ghost.glb` model) in
+`GhostReaches.enemy_ship_pool`, so ordinary ambient combat/boarding in that region is genuinely
+Ghost Fleet, not just a rare event; (2) a new field on `EncounterData`,
+`required_region_id: String` (mirrors `required_chapter_id` exactly; empty = always eligible,
+checked in `EncounterManager._start_random_ambient()`'s candidate filter via the already-existing
+`EmpireManager.is_region_active()`) — a region isn't a chapter, so the pre-existing gate genuinely
+couldn't express "only once Ghost Reaches is active"; (3) a fully dedicated boss
+(`GhostFleetBossStats.tres`/`GhostFleetBoss.tscn`/`GhostFleetBossProfile.tres`/`GhostFleetBoss.tres`,
+`ship_id = "ghost_fleet_flagship"`, display name "The Wandering Widow" — the same "own hull, not a
+shared template" pattern `IntransigentBoss`/`CardenasBoss` already use, for the same reason:
+`CampaignManager`/`EncounterManager` identify a boss by `ship_id`), `required_region_id =
+"ghost_reaches"`, added to `World.tscn`'s `EncounterManager.encounter_pool`. Supernatural nature
+stays deliberately unconfirmed — real ship, real crew, real fight, real loot, no dialogue resolving
+what it actually is (design.md's Requirement 2.3 resolution, made explicit rather than defaulted
+into).
+
+**Task 15 (visual review) — flagged, not silently skipped:** a fresh headful `CaptureHarness`
+review of both regions' terrain/content needs a human look; this environment has no display to
+make that visual judgment call itself.
+
+### Requirement 5 — "What's New" panel
+
+`scripts/ui/WhatsNewScreen.gd`/`scenes/ui/WhatsNewScreen.tscn`, structurally identical to
+`CaptainsLog`'s established pattern (`PirateThemeBuilder.build()`, `CenterContainer`/
+`PanelContainer`/`ScrollContainer`, `open()`/`close()`/`toggle()` pausing the tree). New
+`scripts/world/PatchNotesData.gd` — a single append-only resource
+(`resources/ui/PatchNotes.tres`, `Array[Dictionary]` of `{version, date, notes}`) rather than one
+`.tres` per release, per design.md's own "whichever needs less new schema" preference. `WorldHUD`
+gains a fifth `top_right_panel` child, `_create_whats_new_button()`, copying
+`_create_captains_log_button()`'s exact container-positioned convention (this HUD has regressed on
+hardcoded-offset overlaps before — D36 — so every new button here stays container-driven).
+
+**One-time auto-show (Requirement 5.2):** `SaveManager` gained one more top-level persisted field,
+`last_seen_whats_new_version`. `World._seed_whats_new_version()` (guarded on `not SaveManager.
+has_save_data()`, the same guard `_seed_port_royal_as_home()` uses) seeds it to the current latest
+patch-note version on a genuinely new game, so a first-time player never sees a "what's new" popup
+for content they're about to experience firsthand. `WorldHUD._check_whats_new()` compares the
+stored value against `PatchNotesData.latest_version()` and opens the panel once if they differ —
+**deliberately not also called immediately in `_ready()`** (unlike `_check_offline_return()`, which
+it otherwise mirrors): a version-string comparison has no safe default before seeding/`load_game()`
+have actually run, whereas `_pending_offline_ticks` defaults safely to `0`. `SaveManager.
+game_loaded` fires exactly once per boot regardless of new-game/continue/failed-load (D15), so
+connecting to it alone is both correct and sufficient — documented as a deliberate asymmetry, not
+an oversight.
+
+### Requirement 6 — Remote-config consumption
+
+New autoload `scripts/managers/LiveOpsConfig.gd` (registered after `SeasonalEventManager`) —
+exactly the two functions design.md specified, `get_seasonal_window(event_id)` and
+`is_content_enabled(content_id)`, both routing through M15's `RemoteConfigManager.get_value()`.
+**Simpler than design.md's own pseudocode anticipated:** that pseudocode guessed at an
+`Engine.has_singleton()`-style "is M15 installed" check, written before M15 had actually landed.
+By the time this milestone started, M15 had already shipped for real — `RemoteConfigManager` is a
+real, always-present autoload (registered 3rd in `project.godot`) — so "M15 not installed"
+collapses to "the key isn't set," which `get_value()`'s own two-argument default contract already
+handles. No presence-detection needed. `SeasonalEventManager.is_active()` now routes its window
+lookup and kill-switch check through `LiveOpsConfig` instead of reading its own fallback fields
+directly — the fallback is `LiveOpsConfig`'s local-path answer now, not a second maintained path.
+`EncounterManager._start_random_ambient()`'s candidate filter gained one more check,
+`LiveOpsConfig.is_content_enabled(e.encounter_id)`, alongside the existing chapter/region gates — a
+single shared kill-switch check point covering every ambient encounter (the new Ghost Fleet boss
+included) without per-encounter special-casing. Nothing else in this milestone references
+`RemoteConfigManager` directly, keeping the M15 dependency contained to this one file exactly as
+design.md intends.
+
+**Requirement 6.3 (the live-config half) — status honestly recorded:** the code path is fully unit-
+tested (`tests/test_live_ops_config.gd`: a fake `RemoteConfigManager._cache` entry proving the
+remote value overrides the authored fallback, and removal correctly reverting to it — the same
+verification method M15 itself used for its own `RemoteConfigManager` tests). Actually configuring
+the real `seasonal_window_spring_crossing` key in the live Supabase project
+(`tuhkhsqcnnszjnczkuzq`'s `remote_config` table) and confirming the degradation against the real
+project required a Supabase MCP server this environment did not have configured at the start of
+this milestone; one was added mid-milestone (`C:\Users\saksham\.claude\.mcp.json`, scoped to the
+real project ref) but a new MCP server only becomes available after a session restart/reconnect,
+which did not happen before this section was written. [Fill in once verified: the real key was
+set, `LiveOpsConfig.get_seasonal_window("spring_crossing")` was confirmed to return it, the key was
+removed, and the authored local fallback was confirmed to take over again.]
+
+### Documentation (Requirement 7)
+
+This section, `docs/14_SYSTEM_INVENTORY.md` (content-volume table, autoload list, test baseline),
+`docs/11_WORLD_MAP.md` (Region 4/5 entries, new island dossiers), and `docs/15_MASTER_PLAN.md` (M14
+exit-criteria results) all updated in this same change, per Requirement 7 and
+`docs/07_AI_AGENT_WORKFLOW.md` Rule 6.
+
+## BUG_REPORT.md fix pass (2026-09-14)
+
+A static-analysis bug report (`BUG_REPORT.md`, 33 items) was triaged against the live codebase —
+several items had already been fixed by intervening milestones (M6/M10/M11 comments the report's
+author never saw), some described behavior that isn't actually reachable through any real UI path,
+and a few were balance/design questions rather than defects. See `BUG_REPORT.md` itself (updated
+in this same change) for the full per-item disposition. Real, still-live bugs fixed in this pass:
+
+- **`Island.gd`**: `_on_economy_tick()`/`build_structure()` previously only excluded `ENEMY`
+  islands — `NEUTRAL`, `CAPITAL`, and `LEGENDARY` islands all still produced resources and/or
+  could be built on. Fixed via a new `IslandData.is_owned_by_player()` helper (true for `FRIENDLY`
+  or `CAPITAL`), used consistently by `Island.gd` and `DockingSystem._process_healing()` (which
+  previously repaired the player's ship at *any* island with a shipyard, friendly or not).
+- **`ShipCombat.gd`**: `current_health`'s setter, on a health *decrease* with `ShipDamage` present,
+  clamped only at the floor (`maxf(value, 0.0)`) with no ceiling — fixed to `clamp(value, 0.0,
+  get_pool_maximum("hull"))`, matching `ShipDamage.apply_hit()`'s own clamp convention.
+  `fire_broadside()` now `push_warning`s on an unrecognized `side` string instead of silently
+  returning false, so a typo is caught in testing rather than reading as "nothing fired, no
+  reason given."
+- **`EmpireManager.gd`**: `_check_raid()`'s region-tier comparison trusted `RegionData.tier` with
+  no validation — an `.tres` that forgot to author it defaults (GDScript int default) to 0 with no
+  warning. `_ready()`'s region-loading loop now `push_error`s when a loaded region's `tier <= 0`.
+- **`SaveManager.gd`**: `save_game()` (and `_apply_cloud_save()`) backed up the existing save
+  before writing, but never restored that backup if the new write then failed (disk
+  full/permissions) — the player could end up with neither a current save nor their last-known-
+  good one. Added `_restore_backup()`, called on a failed write whenever a prior save existed.
+  Separately, the offline-catch-up loop called `island._on_economy_tick()` /
+  `FleetManager._on_economy_tick()` — both private methods, called from outside their own class.
+  Renamed to `on_economy_tick()` on both `Island.gd` and `FleetManager.gd` (their
+  `global_economy_tick` signal connections updated to match) rather than introducing a new signal
+  path, since the existing comment explains *why* catch-up deliberately doesn't reuse
+  `global_economy_tick` (`FactionManager` also subscribes to it for hunter spawning, which would
+  misfire at absurd rates if replayed hundreds of times). `_migrate()`'s fail-loud behavior on an
+  unknown future schema version (`push_error` + empty dict) was deliberately left unchanged — no
+  schema version 2+ exists yet, and the tradeoff between failing loudly vs. loading best-effort is
+  a product decision for whenever that version actually ships, not a mechanical bug fix.
+- **`ResourceManager.gd`**: `add_resource()` defaulted any resource type not already in
+  `max_storage` to 999999 (effectively unlimited) capacity. Now rejects (push_error, no-op) any
+  undeclared type instead — every resource type is meant to be part of the authored schema.
+  `recalculate_storage_capacity()`'s clamp loop only iterated `current_resources.keys()`, so a
+  type that gained capacity via a building bonus but had no balance yet was never tracked; it now
+  unions both key sets.
+- **`FleetManager.gd`**: `equip_module()` had no check that a module actually fit the ship it was
+  being equipped to (e.g. a heavy hull module on a Sloop). Added `ShipModuleData
+  .compatible_ship_classes: Array[int]` (empty = fits every class, the correct default for the 10
+  existing authored modules, none of which restrict themselves) and
+  `ShipModuleData.is_compatible_with_class()`, checked in `equip_module()` against the owned
+  ship's `ship_stats.ship_class`.
+- **`ShipCombat.gd`**: `fire_broadside()` fired from `bow_markers`/`stern_markers` (populated by
+  scene node name alone) with no check against `ship_stats.has_bow_chaser`/`has_stern_chaser` —
+  unlike auto-fire's `sides` array and `_spawn_cannon_models()`, which both already gated
+  correctly on those flags. Traced every caller (`EnemyAI.gd`, `WorldManager.gd`) and confirmed
+  neither ever passes `"bow"`/`"stern"` directly today, so this was dead code, not a live bug —
+  but `fire_broadside()` now checks the flag before firing bow/stern regardless, so a future
+  direct caller can't silently fire an unmounted chaser.
+
+**Investigated and found not to be live bugs** (left unchanged, with the reasoning recorded so a
+future pass doesn't have to redo this investigation):
+- `Island.gd`'s `capture_island()`/`_spawn_defenses()` — the report claimed the defending enemy
+  ship is never removed on capture. In fact `ShipController._on_died()` already schedules
+  `queue_free()` on any non-player ship (after its 2-second sinking sequence plays) — the same
+  path every other destroyed enemy ship goes through. No separate cleanup was needed.
+- `ShipController._apply_tech_modifiers()`'s captain-swap health clamp (only clamps `current_health`
+  down to the new max, never rescales proportionally) — this is real as *described*, but not
+  reachable through any current UI path: the only place `active_captain` is ever reassigned
+  (`IslandMenu._on_make_active_pressed()`) is a full ship-swap flow that already calls
+  `ShipDamage.restore_all()` for a full heal, not this function. Also already flagged as a known,
+  deliberately-deferred design gap in this doc's own "Post-M5 static bug sweep" section above.
+- `CampaignManager._for_each_matching()`/`_check_chapter_complete()` potentially firing chapter
+  completion twice — `_complete_chapter()` already guards on `completed_chapter_ids.has(...)` and
+  returns immediately on a repeat call, so this is already idempotent.
+- `CampaignManager._catch_up()`'s guard against infinite-looping/skipping on an out-of-order
+  `completed_chapter_ids` — traced through by hand; the `_current_chapter() != null: return` guard
+  already prevents both failure modes. Added `test_catch_up_handles_completed_chapter_ids_with_a_gap`
+  to `tests/test_campaign_manager.gd` to lock this in, since it wasn't explicitly covered before.
+- `Island._resolve_building()`'s building-id-to-resource-path resolution — the capitalization
+  logic was checked against the real filenames under `resources/buildings/` and matches exactly.
+- `EnemySpawner.spawn_hunter()`'s parameter type — takes a plain `Resource`, and
+  `FactionManager` passes a `FactionData` resource; no mismatch.
+- `FactionManager`'s reported runtime `DirAccess` directory scan — no longer present in the current
+  file (already fixed or refactored out before this pass; the equivalent pattern in
+  `EmpireManager.gd`'s region-loading `_ready()` *is* still present and is a real, but explicitly
+  out-of-scope-for-this-pass, export-compatibility concern — see BUG_REPORT.md's own item on it).
+
+**Test suite:** 3 new regression tests added for gaps the report correctly identified as untested
+— `tests/test_save_load_full_round_trip.gd` (a real `save_game()`/`load_game()` pass exercising
+Economy, Fleet, Tech, Faction, and Empire state together, not one manager at a time),
+`test_offline_catch_up_advances_active_fleet_mission` in `tests/test_save_manager_offline.gd` (the
+offline-catch-up loop must actually drive a fleet mission's gold payout, not just compute a tick
+count), and `test_catch_up_handles_completed_chapter_ids_with_a_gap` in
+`tests/test_campaign_manager.gd` (above). Full suite: **467/467 passing** (baseline was 464/464 at
+the end of M14; see `docs/14_SYSTEM_INVENTORY.md`'s updated test-baseline note, which also flags
+that this project's "one known accepted failure" (`test_property_21_lod_distance_transitions`) is
+itself a stale reference — that gap was closed back in M10, and the suite has had 0 known failures
+since).
+
 ## M16 — Cosmetics & Entitlements (2026-09-14)
 
 Ships the cosmetic/entitlement system in full, with **no paid feature** — every cosmetic is free
@@ -2059,3 +2366,69 @@ screen's own preview UI (as opposed to the ship's appearance itself, which was c
 correctly on a real screen, and whether every one of the other 9 cosmetics (only
 `hull_deep_ocean_blue` was actually screenshotted) looks as intended — that would need a much
 longer manual pass than this checkpoint's time budget allowed.
+
+## Sail-Based Movement & Anchor Mechanic (2026-09-19)
+
+Replaces the arcade forward/backward throttle with a sailing model, and adds a new mid-ocean
+anchor mechanic — an ad-hoc gameplay change (not tied to a `.kiro/specs` milestone), requested
+directly and implemented in one pass. Supersedes the throttle behavior the M11 wind entry and the
+M13 mobile-controls entry above both describe.
+
+**The old throttle is gone.** `ship_forward`/`ship_backward` (W/S, held, -1..1 continuous) drove
+`ShipMovement.apply_movement()`'s `forward_input` directly, including full reverse thrust — real,
+not a bug, but not how a sailing ship works. `project.godot`'s input actions are renamed to
+`sail_level_up`/`sail_level_down` (same W/S + stick bindings, now edge-triggered one-notch-per-press
+via `Input.is_action_just_pressed` in `WorldManager._process()`, not held-and-continuous), and two
+new actions added: `set_sail` (key X / gamepad LB) and `anchor` (key B / gamepad RB). All four are
+in `SettingsManager.REBINDABLE_ACTIONS` and `InputManager`'s essential-action list.
+
+**Sail level** (`ShipController.sail_level: int`, 0..`ShipStats.sail_levels` — new export, default
+3) replaces the throttle. `ShipController.get_sail_forward_input()` returns
+`sail_level / sail_levels` (always ≥ 0 — the ship cannot reverse) and is what `WorldManager` now
+feeds into the existing `set_input(forward, turn)` API in place of raw key strength; turn (rudder,
+`ship_left`/`ship_right`) is unchanged. This reuses `ShipMovement.apply_movement()`'s existing
+`target_speed = max_speed * speed_mod * forward_input` math and existing wind multiplier
+(`speed_mod`'s `lerp(0.85, 1.15, ...)` term from the M11 entry above) completely unchanged — sail
+level is deliberately the *only* thing that changed about propulsion, so `test_wind_system.gd` and
+AI ship behavior (`EnemyAI.gd` still drives `set_input()` with its own throttle, untouched) are
+unaffected. `ShipController.adjust_sail_level()`/`toggle_sail()` are the two player-facing verbs
+("Sail Level" steps one notch; "Set Sail" jumps between furled and the last-used level), both
+no-ops while docked or anchored. `sail_level_changed(level, max_level)` signal drives
+`ShipVisuals`' furl scaling (`sail.scale.y` lerped toward a new `furled_sail_scale` export — reuses
+the existing auto-discovered `sails` array, no new art) and `WorldHUD`'s new `%SailLabel`.
+
+**Anchor** (`ShipController.is_anchored`, `toggle_anchor()`) is deliberately separate from
+`dock()`/`is_docked` — it works anywhere at sea, not just at an island. Dropping anchor strikes
+sail and, in `ShipController._physics_process()`, routes to a new `ShipMovement.apply_anchor_drag()`
+instead of `apply_movement()`: damps linear velocity and only the yaw component of angular velocity
+toward zero (new `ShipStats.anchor_hold_strength` export), the same roll/pitch-preserving vector
+split the existing turn servo uses, so `BuoyancySimulator`'s bob/roll and self-righting torque keep
+running — anchoring is a soft hold, not `dock()`'s hard `freeze = true`. Cannons still fire at
+anchor. `dock()` and `respawn()` both force `is_anchored = false` / `sail_level = 0` so a ship never
+comes out of docking or death still anchored or under sail. New signals `anchor_dropped()` /
+`anchor_raised()` drive both the HUD (`%SailLabel` switches to "⚓ Anchored") and a procedurally
+built anchor + chain prop in `ShipVisuals` (no anchor model exists anywhere in the project or the
+`claude design outputs/` staging folder, so it's a few primitive `MeshInstance3D`s — shank, torus
+fluke — tweened from `BowMarker`'s position down `anchor_drop_depth` units, plus a one-shot
+`CPUParticles3D` splash on impact using the same procedural-VFX pattern as
+`ShipController._spawn_cannon_smoke()`/`_spawn_explosion()`). `AudioManager.play_sound("anchor_drop"
+/ "anchor_raise")` is wired but silent — `assets/audio/` is still empty project-wide (same as every
+other sound call today), so this warns once and no-ops until real SFX are added.
+
+**Mobile controls.** `MobileControls.tscn`'s `BtnForward`/`BtnBackward` (icon-button pair, added by
+a concurrent session's icon pass on the same working tree during this change — see the new
+`assets/icons/controls/` `.svg` set) are renamed `BtnSailUp`/`BtnSailDown` with two new
+purpose-drawn icons (`sail_level_up.svg`/`sail_level_down.svg`, geometrically identical to the
+`nav_forward`/`nav_backward` triangles they replace, just correctly labeled). Two new buttons,
+`BtnSetSail`/`BtnAnchor`, were added to the `Actions` cluster as a third row (`action_set_sail.svg`,
+a simple boat+sail silhouette; `action_anchor.svg`, a classic anchor silhouette) — both hand-authored
+flat-white 128×128 SVGs matching the existing icon set's style, since no sail/anchor art existed to
+reuse. Mobile-only per the pre-existing `OS.has_feature("pc")` visibility gate; PC gets the same
+mechanic through the keybinds above.
+
+**Known gaps, disclosed rather than assumed.** Not verifiable headlessly, per this doc's standing
+policy on visual/manual checks: the anchor prop's placement/scale relative to each hull (eyeballed
+against `BowMarker`'s authored position, never seen rendered), the new mobile button layout on a
+real touch screen, and gamepad LB/RB responsiveness for `set_sail`/`anchor`. `sail_level_speed`
+scaling is currently linear (`sail_level / sail_levels`), not an authored non-linear curve — a
+possible follow-up if a hull needs a different power curve than a straight ramp.

@@ -12,6 +12,16 @@ const DEFAULT_MODEL_PATH := "res://assets/models/ship-pirate-small.glb"
 @export var sails: Array[Node3D]
 @export var sail_turn_speed: float  = 2.0
 @export var max_sail_angle: float   = 30.0  # degrees
+## How small sails shrink toward (scale.y) when fully furled — 1.0 would make
+## furled indistinguishable from full sail.
+@export_range(0.05, 1.0) var furled_sail_scale: float = 0.2
+
+@export_group("Anchor")
+## World-space depth the anchor drops below its stowed (BowMarker) position —
+## deep enough to sink below the waterline (FloatPoints sit at y=0.0;
+## BowMarker, where the anchor is stowed, sits at y=1.7).
+@export var anchor_drop_depth: float = 5.5
+@export var anchor_drop_time: float = 1.4
 
 @export_group("Damage Visuals")
 ## `docs/navalCombat.md` §7's "visible critical state before sinking" — the one
@@ -36,6 +46,13 @@ const DEFAULT_MODEL_PATH := "res://assets/models/ship-pirate-small.glb"
 var _wake: GPUParticles3D
 var _model_instance: Node3D
 var target_sail_angle: float = 0.0
+
+# Anchor prop, built procedurally on first use — no anchor model exists in
+# the project's assets, and this is small enough not to warrant one.
+var _anchor_visual: Node3D = null
+var _anchor_chain: MeshInstance3D = null
+var _anchor_stowed_pos: Vector3 = Vector3.ZERO
+var _anchor_tween: Tween = null
 
 # Damage visuals: the toon material KenneyMaterialApplier assigns is a
 # ShaderMaterial keyed by an "albedo" shader param, not a StandardMaterial3D —
@@ -66,6 +83,9 @@ func _ready() -> void:
 	if controller:
 		controller.ship_speed_changed.connect(_on_speed_changed)
 		controller.ship_stats_changed.connect(_rebuild_model)
+		controller.sail_level_changed.connect(_on_sail_level_changed)
+		controller.anchor_dropped.connect(_on_anchor_dropped)
+		controller.anchor_raised.connect(_on_anchor_raised)
 
 	# Find wake particles in parent ship's WakeSpawnPoint
 	_wake = _find_wake_particles()
@@ -74,6 +94,12 @@ func _ready() -> void:
 	_damage = parent.get_node_or_null("ShipDamage") if parent else null
 	if _damage and not _damage.pool_changed.is_connected(_on_damage_pool_changed):
 		_damage.pool_changed.connect(_on_damage_pool_changed)
+
+	# M17 Requirement 8.3 — a refund revoking a currently-equipped cosmetic
+	# must fall back to default appearance live, mid-session, not just on
+	# the next load_save_data() (which already handles the load-time case).
+	if not EntitlementManager.entitlement_revoked.is_connected(_on_entitlement_revoked):
+		EntitlementManager.entitlement_revoked.connect(_on_entitlement_revoked)
 
 	_rebuild_model()
 
@@ -110,6 +136,8 @@ func _rebuild_model() -> void:
 	# sail-named node in the freshly loaded hull means it works the moment a
 	# model actually has one, with no per-ship scene wiring required.
 	sails = _find_sail_nodes(_model_instance)
+	if controller and controller.ship_stats:
+		_apply_sail_scale(controller.sail_level, controller.ship_stats.sail_levels, false)
 
 	# Colorize the freshly loaded hull only — flag/ropes keep their own look.
 	var applier := preload("res://scripts/components/KenneyMaterialApplier.gd").new()
@@ -230,6 +258,26 @@ func _apply_damage_tint_to(node: Node, severity: float) -> void:
 ## restore the *pre-skin* albedo and silently revert the cosmetic. ORDER IS
 ## LOAD-BEARING: apply the visual change, THEN re-cache clean albedo, THEN
 ## re-assert the current damage tint on top of the new clean state.
+## M17 Requirement 8.3 — falls back to default appearance if the just-
+## revoked entitlement is the cosmetic currently equipped in some slot.
+## Reuses _rebuild_model()'s existing "fresh default model, then only
+## reapply what's still in _equipped_cosmetics" path (the same mechanism
+## M16 Requirement 3.6 already built for an unresolvable/unowned cosmetic
+## id) rather than adding a second fallback path — erasing the slot here
+## before rebuilding is what makes the rebuild simply never re-apply it.
+func _on_entitlement_revoked(id: StringName) -> void:
+	var affected_slot := ""
+	for slot in _equipped_cosmetics:
+		var cosmetic: CosmeticData = _equipped_cosmetics[slot]
+		if cosmetic and cosmetic.id == id:
+			affected_slot = slot
+			break
+	if affected_slot == "":
+		return
+	_equipped_cosmetics.erase(affected_slot)
+	_rebuild_model()
+
+
 func apply_cosmetic(slot: String, cosmetic: CosmeticData) -> void:
 	_equipped_cosmetics[slot] = cosmetic
 	_apply_cosmetic_visual(slot, cosmetic)
@@ -439,3 +487,148 @@ func _on_speed_changed(speed: float) -> void:
 	var normalized = clamp(speed / max(controller.ship_stats.max_speed, 0.01), 0.0, 1.0)
 	_wake.emitting      = normalized > 0.08
 	_wake.amount_ratio  = normalized
+
+
+## Scales each sail node toward furled_sail_scale..1.0 based on sail_level, so
+## the hull's existing sail meshes visibly fill/furl instead of needing new art.
+func _apply_sail_scale(level: int, max_level: int, animate: bool) -> void:
+	var ratio: float = float(level) / float(max(max_level, 1))
+	var target_scale: float = lerp(furled_sail_scale, 1.0, ratio)
+	for sail in sails:
+		if not sail:
+			continue
+		if animate:
+			create_tween().tween_property(sail, "scale:y", target_scale, 0.6).set_trans(Tween.TRANS_SINE)
+		else:
+			sail.scale.y = target_scale
+
+
+func _on_sail_level_changed(level: int, max_level: int) -> void:
+	_apply_sail_scale(level, max_level, true)
+
+
+## Builds the anchor + chain the first time it's needed. Parented directly to
+## the ship root (controller), not this node, so its position lines up with
+## BowMarker's coordinates without having to account for ShipModel's own
+## (mirrored) local transform.
+func _ensure_anchor_visual() -> void:
+	if _anchor_visual or not controller:
+		return
+
+	var mount := controller.get_node_or_null("BowMarker")
+	_anchor_stowed_pos = (mount as Node3D).position if mount else Vector3(0, 1.7, -4.3)
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.25, 0.25, 0.28)
+	mat.metallic = 0.6
+	mat.roughness = 0.4
+
+	_anchor_visual = Node3D.new()
+	_anchor_visual.name = "AnchorVisual"
+	controller.add_child(_anchor_visual)
+	_anchor_visual.position = _anchor_stowed_pos
+
+	var shank := MeshInstance3D.new()
+	var shank_mesh := CapsuleMesh.new()
+	shank_mesh.radius = 0.08
+	shank_mesh.height = 0.9
+	shank.mesh = shank_mesh
+	shank.material_override = mat
+	_anchor_visual.add_child(shank)
+
+	var fluke := MeshInstance3D.new()
+	var fluke_mesh := TorusMesh.new()
+	fluke_mesh.inner_radius = 0.05
+	fluke_mesh.outer_radius = 0.32
+	fluke.mesh = fluke_mesh
+	fluke.material_override = mat
+	fluke.position = Vector3(0, -0.5, 0)
+	fluke.rotation_degrees = Vector3(90, 0, 0)
+	_anchor_visual.add_child(fluke)
+
+	_anchor_chain = MeshInstance3D.new()
+	_anchor_chain.name = "AnchorChain"
+	var chain_mesh := CylinderMesh.new()
+	chain_mesh.top_radius = 0.04
+	chain_mesh.bottom_radius = 0.04
+	chain_mesh.height = 0.01
+	_anchor_chain.mesh = chain_mesh
+	_anchor_chain.material_override = mat
+	_anchor_chain.visible = false
+	controller.add_child(_anchor_chain)
+
+
+## The anchor only ever moves straight down from its stowed position, so the
+## chain (a vertical CylinderMesh) just needs its height and midpoint updated
+## each step — no rotation math needed.
+func _update_anchor_chain(pos: Vector3) -> void:
+	if not _anchor_visual:
+		return
+	_anchor_visual.position = pos
+	if not _anchor_chain:
+		return
+	var length: float = _anchor_stowed_pos.y - pos.y
+	_anchor_chain.visible = length > 0.05
+	_anchor_chain.position = Vector3(_anchor_stowed_pos.x, _anchor_stowed_pos.y - length * 0.5, _anchor_stowed_pos.z)
+	var chain_mesh := _anchor_chain.mesh as CylinderMesh
+	if chain_mesh:
+		chain_mesh.height = max(length, 0.01)
+
+
+func _on_anchor_dropped() -> void:
+	_ensure_anchor_visual()
+	if not _anchor_visual:
+		return
+	if _anchor_tween and _anchor_tween.is_valid():
+		_anchor_tween.kill()
+	var target := _anchor_stowed_pos - Vector3(0, anchor_drop_depth, 0)
+	_anchor_tween = create_tween()
+	_anchor_tween.tween_method(_update_anchor_chain, _anchor_visual.position, target, anchor_drop_time) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_anchor_tween.tween_callback(_spawn_anchor_splash)
+	if AudioManager: AudioManager.play_sound("anchor_drop")
+
+
+func _on_anchor_raised() -> void:
+	if not _anchor_visual:
+		return
+	if _anchor_tween and _anchor_tween.is_valid():
+		_anchor_tween.kill()
+	_anchor_tween = create_tween()
+	_anchor_tween.tween_method(_update_anchor_chain, _anchor_visual.position, _anchor_stowed_pos, anchor_drop_time * 0.8) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if AudioManager: AudioManager.play_sound("anchor_raise")
+
+
+## Same one-shot procedural particle pattern as ShipController's cannon
+## smoke/explosion VFX (_spawn_cannon_smoke/_spawn_explosion).
+func _spawn_anchor_splash() -> void:
+	if not controller:
+		return
+	var splash := CPUParticles3D.new()
+	splash.emitting = false
+	splash.one_shot = true
+	splash.amount = 20
+	splash.lifetime = 1.0
+	splash.explosiveness = 0.85
+	splash.spread = 40.0
+	splash.gravity = Vector3(0, -9.8, 0)
+	splash.initial_velocity_min = 1.5
+	splash.initial_velocity_max = 3.5
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.8, 0.9, 1.0, 0.7)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.15
+	mesh.height = 0.3
+	mesh.material = mat
+	splash.mesh = mesh
+
+	controller.add_child(splash)
+	splash.position = Vector3(_anchor_stowed_pos.x, 0.0, _anchor_stowed_pos.z)
+	splash.emitting = true
+
+	var timer := get_tree().create_timer(1.5)
+	timer.timeout.connect(func(): if is_instance_valid(splash): splash.queue_free())

@@ -12,6 +12,9 @@ signal ship_destroyed()
 signal ship_docked()
 signal ship_undocked()
 signal ship_stats_changed()
+signal sail_level_changed(level: int, max_level: int)
+signal anchor_dropped()
+signal anchor_raised()
 
 @export var ship_stats: ShipStats:
 	set(value):
@@ -32,6 +35,15 @@ signal ship_stats_changed()
 var current_forward_input: float = 0.0
 var current_turn_input: float = 0.0
 var is_docked: bool = false
+
+## Discrete sail state (0 = furled .. ship_stats.sail_levels). Replaces the
+## old continuous forward/backward throttle — forward thrust is always
+## sail_level / sail_levels, so the ship cannot reverse.
+var sail_level: int = 0
+var is_anchored: bool = false
+## Remembered so toggle_sail() can restore the previous level rather than
+## always jumping to full sail.
+var _last_sail_level: int = 1
 
 # Snapshot of the model node's authored local transform (it can carry a
 # baked mirror/rotation, e.g. PlayerShip's ShipModel), so the sinking
@@ -167,7 +179,10 @@ func _physics_process(delta: float) -> void:
 	if is_docked:
 		return
 
-	if movement:
+	if is_anchored:
+		if movement:
+			movement.apply_anchor_drag(delta)
+	elif movement:
 		movement.apply_movement(current_forward_input, current_turn_input, delta)
 
 	if buoyancy:
@@ -178,9 +193,53 @@ func _physics_process(delta: float) -> void:
 	ship_speed_changed.emit(speed)
 
 func set_input(forward: float, turn: float) -> void:
-	if not is_docked:
+	if not is_docked and not is_anchored:
 		current_forward_input = clamp(forward, -1.0, 1.0)
 		current_turn_input = clamp(turn, -1.0, 1.0)
+
+## Forward thrust for the sailing model — always >= 0 (see sail_level).
+func get_sail_forward_input() -> float:
+	if is_anchored:
+		return 0.0
+	return float(sail_level) / float(max(ship_stats.sail_levels, 1))
+
+## "Sail Level" control — steps sail area up/down by one notch.
+func adjust_sail_level(delta: int) -> void:
+	if is_docked or is_anchored:
+		return
+	sail_level = clamp(sail_level + delta, 0, ship_stats.sail_levels)
+	if sail_level > 0:
+		_last_sail_level = sail_level
+	sail_level_changed.emit(sail_level, ship_stats.sail_levels)
+
+## "Set Sail" control — quick toggle between furled and the last-used level.
+func toggle_sail() -> void:
+	if is_docked or is_anchored:
+		return
+	if sail_level > 0:
+		_last_sail_level = sail_level
+		sail_level = 0
+	else:
+		sail_level = clamp(_last_sail_level, 1, ship_stats.sail_levels)
+	sail_level_changed.emit(sail_level, ship_stats.sail_levels)
+
+## "Anchor" control — drop/raise anchor. Dropping strikes sail; the ship
+## can't set sail or steer again until the anchor is raised.
+func toggle_anchor() -> void:
+	if is_docked:
+		return
+	if is_anchored:
+		is_anchored = false
+		anchor_raised.emit()
+	else:
+		is_anchored = true
+		if sail_level > 0:
+			_last_sail_level = sail_level
+		sail_level = 0
+		current_forward_input = 0.0
+		current_turn_input = 0.0
+		sail_level_changed.emit(sail_level, ship_stats.sail_levels)
+		anchor_dropped.emit()
 
 func dock() -> void:
 	is_docked = true
@@ -188,6 +247,14 @@ func dock() -> void:
 	angular_velocity = Vector3.ZERO
 	current_forward_input = 0.0
 	current_turn_input = 0.0
+	# A ship pulling into a dock furls sail and weighs anchor regardless of
+	# its state on approach, so it doesn't come back out still anchored.
+	if is_anchored:
+		is_anchored = false
+		anchor_raised.emit()
+	if sail_level != 0:
+		sail_level = 0
+		sail_level_changed.emit(sail_level, ship_stats.sail_levels)
 	ship_docked.emit()
 
 func undock() -> void:
@@ -331,7 +398,10 @@ func respawn(location: Vector3) -> void:
 	
 	is_docked = false
 	freeze = false
-	
+	is_anchored = false
+	sail_level = 0
+	sail_level_changed.emit(sail_level, ship_stats.sail_levels)
+
 	if model:
 		model.visible = true
 		# Undo the sinking sequence's list/sink so a respawned ship doesn't

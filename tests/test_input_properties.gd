@@ -114,8 +114,8 @@ func test_property_23_input_gesture_mapping():
 func test_property_24_gamepad_button_mapping():
 	var passed = true
 	var actions = [
-		"ship_forward", "ship_backward", "ship_left", "ship_right", 
-		"dock", "interact", "pause", "camera_zoom_in", 
+		"sail_level_up", "sail_level_down", "ship_left", "ship_right",
+		"dock", "interact", "pause", "camera_zoom_in",
 		"camera_zoom_out", "camera_rotate_left", "camera_rotate_right"
 	]
 	
@@ -145,8 +145,8 @@ func test_property_25_keyboard_input_precision():
 		var r = randf()
 		
 		# Mock action presses
-		Input.action_press("ship_forward", fw)
-		Input.action_press("ship_backward", bw)
+		Input.action_press("sail_level_up", fw)
+		Input.action_press("sail_level_down", bw)
 		Input.action_press("ship_left", l)
 		Input.action_press("ship_right", r)
 		
@@ -156,8 +156,8 @@ func test_property_25_keyboard_input_precision():
 		if not v.is_equal_approx(expected):
 			passed = false
 			
-		Input.action_release("ship_forward")
-		Input.action_release("ship_backward")
+		Input.action_release("sail_level_up")
+		Input.action_release("sail_level_down")
 		Input.action_release("ship_left")
 		Input.action_release("ship_right")
 		

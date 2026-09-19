@@ -46,7 +46,10 @@ func _run() -> void:
 		print("HARNESS: at_rest pos=%s vel=%s sleeping=%s" % [ship.global_position, ship.linear_velocity, ship.sleeping])
 	await _capture("01_at_rest")
 
-	Input.action_press("ship_forward")
+	# Full sail replaces the old held-throttle simulation — sail level is a
+	# discrete ship state now, not a continuous input.
+	if ship and ship.has_method("adjust_sail_level"):
+		ship.adjust_sail_level(ship.ship_stats.sail_levels)
 	await _settle(4.0)
 	if ship:
 		print("HARNESS: forward pos=%s vel=%s speed=%.2f" % [ship.global_position, ship.linear_velocity, ship.linear_velocity.length()])
@@ -59,7 +62,8 @@ func _run() -> void:
 		print("HARNESS: turning pos=%s rot=%s" % [ship.global_position, ship.global_rotation])
 	await _capture("03_turning")
 
-	Input.action_release("ship_forward")
+	if ship and ship.has_method("adjust_sail_level"):
+		ship.adjust_sail_level(-ship.ship_stats.sail_levels)
 	await _settle(0.5)
 
 	Input.action_press("fire_port")

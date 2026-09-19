@@ -54,16 +54,18 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 			"HealthBarContainer": _hud.get_node("HealthBarContainer").get_global_rect(),
 		}
 		var mobile_buttons := {
-			"BtnForward": mobile_controls.get_node("Movement/BtnForward"),
+			"BtnSailUp": mobile_controls.get_node("Movement/BtnSailUp"),
 			"BtnLeft": mobile_controls.get_node("Movement/BtnLeft"),
 			"BtnRight": mobile_controls.get_node("Movement/BtnRight"),
-			"BtnBackward": mobile_controls.get_node("Movement/BtnBackward"),
+			"BtnSailDown": mobile_controls.get_node("Movement/BtnSailDown"),
 			"BtnFirePort": mobile_controls.get_node("Combat/BtnFirePort"),
 			"BtnFireStar": mobile_controls.get_node("Combat/BtnFireStar"),
 			"BtnDock": mobile_controls.get_node("Actions/BtnDock"),
 			"BtnPause": mobile_controls.get_node("Actions/BtnPause"),
 			"BtnCaptainAbility": mobile_controls.get_node("Actions/BtnCaptainAbility"),
 			"BtnSpecialBroadside": mobile_controls.get_node("Actions/BtnSpecialBroadside"),
+			"BtnSetSail": mobile_controls.get_node("Actions/BtnSetSail"),
+			"BtnAnchor": mobile_controls.get_node("Actions/BtnAnchor"),
 		}
 
 		for blocker_name in blockers:
@@ -90,9 +92,10 @@ func test_property_every_mobile_control_button_meets_the_minimum_touch_target():
 
 	var mobile_controls = _hud.get_node("MobileControls")
 	var button_paths := [
-		"Movement/BtnForward", "Movement/BtnLeft", "Movement/BtnRight", "Movement/BtnBackward",
+		"Movement/BtnSailUp", "Movement/BtnLeft", "Movement/BtnRight", "Movement/BtnSailDown",
 		"Combat/BtnFirePort", "Combat/BtnFireStar",
 		"Actions/BtnDock", "Actions/BtnPause", "Actions/BtnCaptainAbility", "Actions/BtnSpecialBroadside",
+		"Actions/BtnSetSail", "Actions/BtnAnchor",
 	]
 	for path in button_paths:
 		var btn: Button = mobile_controls.get_node(path)

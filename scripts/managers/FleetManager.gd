@@ -42,9 +42,9 @@ func _ready() -> void:
 			owned_captains.append(starter_cap)
 			
 	if ResourceManager.has_signal("global_economy_tick"):
-		ResourceManager.global_economy_tick.connect(_on_economy_tick)
+		ResourceManager.global_economy_tick.connect(on_economy_tick)
 
-func _on_economy_tick() -> void:
+func on_economy_tick() -> void:
 	for ship_idx in active_missions.keys():
 		var mission = active_missions[ship_idx]
 		var cap_idx = mission["captain_index"]
@@ -189,6 +189,9 @@ func level_up_ship(index: int) -> bool:
 
 func equip_module(index: int, module: ShipModuleData) -> bool:
 	if index < 0 or index >= owned_ships.size() or not module:
+		return false
+	var owned := owned_ships[index]
+	if owned.ship_stats and not module.is_compatible_with_class(owned.ship_stats.ship_class):
 		return false
 	var cost := {"gold": module.cost_gold, "wood": module.cost_wood, "iron": module.cost_iron}
 	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):

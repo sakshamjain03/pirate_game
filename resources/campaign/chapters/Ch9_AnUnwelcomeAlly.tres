@@ -1,0 +1,83 @@
+[gd_resource type="Resource" script_class="ChapterData" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
+[ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
+[ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+
+[sub_resource type="Resource" id="Open_1"]
+script = ExtResource("3_beat")
+speaker_id = "vance"
+speaker_name = "Admiral Sir Edmund Vance"
+text = "I did not expect to be writing to you again, still less to be asking for anything. Circumstances have made a fool of my expectations twice this year."
+mood = 0
+
+[sub_resource type="Resource" id="Open_2"]
+script = ExtResource("3_beat")
+speaker_id = "vance"
+speaker_name = "Admiral Sir Edmund Vance"
+text = "Spain has doubled her patrols since Cartagena fell, and doubled patrols mean doubled targets for a man who no longer commands a fleet of his own. I am offering what's left of mine."
+mood = 0
+
+[sub_resource type="Resource" id="Open_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "An admiral, asking us for help. I'd pay good money to have seen his face writing that letter."
+mood = 4
+
+[sub_resource type="Resource" id="Obj_9_1"]
+script = ExtResource("2_objective")
+objective_id = "9.1"
+description = "Fight alongside an uneasy ally"
+condition = 3
+target_id = "spanish_empire"
+target_count = 12
+
+[sub_resource type="Resource" id="Obj_9_2"]
+script = ExtResource("2_objective")
+objective_id = "9.2"
+description = "Keep being noticed"
+condition = 13
+target_value = 450.0
+
+[sub_resource type="Resource" id="Obj_9_3"]
+script = ExtResource("2_objective")
+objective_id = "9.3"
+description = "Take one of the treasure fleet's own alive"
+condition = 4
+target_id = "spanish_empire"
+target_count = 2
+is_optional = true
+
+[sub_resource type="Resource" id="Close_1"]
+script = ExtResource("3_beat")
+speaker_id = "vance"
+speaker_name = "Admiral Sir Edmund Vance"
+text = "I find I do not regret this. That surprises me more than losing to you ever did."
+mood = 0
+
+[sub_resource type="Resource" id="Close_2"]
+script = ExtResource("3_beat")
+speaker_id = "vance"
+speaker_name = "Admiral Sir Edmund Vance"
+text = "We are not friends, Captain. But I no longer think you're the thing I should have been watching for."
+mood = 0
+
+[sub_resource type="Resource" id="Close_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "High praise, from him. Don't let it go to your head — there's still a harbour to run."
+mood = 1
+
+[resource]
+script = ExtResource("1_chapter")
+chapter_id = "ch9_an_unwelcome_ally"
+chapter_number = 9
+title = "An Unwelcome Ally"
+log_summary = "Vance came asking for help against Spain, of all things — and got it. Neither of them expected that."
+required_seasonal_event_id = "spring_crossing"
+opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
+objectives = Array[ObjectiveData]([SubResource("Obj_9_1"), SubResource("Obj_9_2"), SubResource("Obj_9_3")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+reward_gold = 12000

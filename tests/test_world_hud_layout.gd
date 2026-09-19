@@ -69,3 +69,75 @@ func test_property_1_notoriety_label_never_overlaps_resource_bar():
 		_viewport.queue_free()
 		_viewport = null
 		_hud = null
+
+
+# Property 2: on a phone build, the speed/sail TopBar and the hull
+# HealthBarContainer below it must never overlap, at multiple viewport sizes.
+# _apply_mobile_safe_area() previously positioned HealthBarContainer at a
+# hardcoded offset independent of TopBar's own scaled, measured height — the
+# same "two independently hardcoded pixel offsets drift apart" failure mode
+# already fixed once for the notoriety label/resource bar pair above.
+func test_property_2_mobile_topbar_and_health_bar_never_overlap():
+	var sizes: Array[Vector2i] = [Vector2i(750, 1334), Vector2i(1080, 2340)]
+	for size in sizes:
+		_instantiate_hud_at_size(size)
+		await wait_seconds(0.1)
+
+		_hud._apply_mobile_safe_area()
+		await wait_seconds(0.1)
+
+		var top_bar_rect: Rect2 = _hud.get_node("%TopBar").get_global_rect()
+		var health_rect: Rect2 = _hud.health_container.get_global_rect()
+
+		assert_false(top_bar_rect.intersects(health_rect),
+			"TopBar (%s) and HealthBarContainer (%s) must not overlap at viewport size %s" %
+				[top_bar_rect, health_rect, size])
+
+		_viewport.queue_free()
+		_viewport = null
+		_hud = null
+
+
+# The notoriety chip must shrink to fit its own text rather than stretching
+# across the full width of TopRightPanel — a full-width tinted panel behind a
+# short "Notoriety: 0.0" readout rendered as an oversized, mostly-empty bar.
+func test_notoriety_chip_shrinks_to_content_width():
+	_instantiate_hud_at_size(Vector2i(1920, 1080))
+	await wait_seconds(0.1)
+
+	_populate_multi_digit_resources()
+	_hud._on_notoriety_changed(0.0)
+	await wait_seconds(0.1)
+
+	var chip: Control = _hud.notoriety_label.get_parent()
+	assert_true(chip.size.x < _hud.resource_bar.size.x * 0.6,
+		"Notoriety chip (%s wide) should hug its text, not stretch to ResourceBar's width (%s)" %
+			[chip.size.x, _hud.resource_bar.size.x])
+
+
+func test_mobile_utility_controls_are_collapsed_behind_one_menu_button():
+	_instantiate_hud_at_size(Vector2i(750, 1334))
+	await wait_seconds(0.1)
+
+	_hud.force_mobile_utility_menu = true
+	await _hud._rebuild_utility_controls()
+	await wait_seconds(0.1)
+
+	assert_not_null(_hud.mobile_utility_menu_button)
+	assert_eq(_hud.mobile_utility_menu_button.custom_minimum_size, Vector2(180, 78),
+		"The collapsed mobile menu must use the project's touch-friendly mobile scale.")
+	assert_false(_hud.mobile_utility_drawer.visible,
+		"The infrequent utility destinations must not permanently obscure the mobile world view.")
+	assert_null(_hud.captains_log_button)
+	assert_null(_hud.world_map_button)
+	assert_null(_hud.codex_button)
+	assert_null(_hud.whats_new_button)
+	assert_null(_hud.wardrobe_button)
+
+	_hud.mobile_utility_menu_button.emit_signal("pressed")
+	assert_true(_hud.mobile_utility_drawer.visible)
+	assert_eq(_hud.mobile_utility_drawer.get_node("Items").get_child_count(), 5,
+		"The mobile drawer must retain every destination that desktop exposes directly.")
+	for item in _hud.mobile_utility_drawer.get_node("Items").get_children():
+		assert_eq(item.custom_minimum_size, Vector2(180, 78),
+			"Every destination in the mobile menu must remain as touch-friendly as its opener.")

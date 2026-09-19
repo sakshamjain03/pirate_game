@@ -13,6 +13,8 @@ class_name WorldMapScreen extends Control
 @onready var map_display: Control = %MapDisplay
 @onready var close_button: Button = %CloseButton
 @onready var view_log_button: Button = %ViewLogButton
+@onready var panel: PanelContainer = %Panel
+@onready var title_label: Label = %TitleLabel
 
 ## Margin so the outermost ring doesn't touch MapDisplay's edge.
 const _DISPLAY_MARGIN := 16.0
@@ -33,6 +35,16 @@ func _ready() -> void:
 	view_log_button.pressed.connect(_on_view_log_pressed)
 	map_display.draw.connect(_on_map_display_draw)
 	_load_regions()
+	if PirateThemeBuilder.is_mobile():
+		_apply_mobile_sizing()
+
+
+func _apply_mobile_sizing() -> void:
+	panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
+	map_display.custom_minimum_size = PirateThemeBuilder.scaled_size(map_display.custom_minimum_size)
+	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
+	for btn in [view_log_button, close_button]:
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(140, 48))
 
 
 func _load_regions() -> void:

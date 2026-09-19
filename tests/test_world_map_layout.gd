@@ -24,21 +24,30 @@ const ISLAND_PATHS := {
 	"pelican_cay": "res://resources/world/PelicanCay.tres",
 	"blackwater_shoal": "res://resources/world/BlackwaterShoal.tres",
 	"isla_del_rey": "res://resources/world/IslaDelRey.tres",
+	# M14 Requirement 2.2 — one island per new region (Ancient Ocean, Ghost Reaches).
+	"widows_reach": "res://resources/world/WidowsReach.tres",
+	"fogbound_cay": "res://resources/world/FogboundCay.tres",
 }
 
 const REGION_PATHS := [
 	"res://resources/world/regions/BeginnerWaters.tres",
 	"res://resources/world/regions/ContestedWaters.tres",
 	"res://resources/world/regions/ImperialWaters.tres",
+	"res://resources/world/regions/AncientOcean.tres",
+	"res://resources/world/regions/GhostReaches.tres",
 ]
 
 ## Ring bands per region tier, in world units from the home island — docs/11_WORLD_MAP.md §4b
 ## (M10 — the Expanded layout, adopted once Ocean LOD closed the gate on it; Compact's 60-110/
-## 140-180/220-270 bands are pre-M10 history now).
+## 140-180/220-270 bands are pre-M10 history now). Tiers 4/5 (M14) continue the same
+## progression: each band's upper bound matches that region's own display_ring_radius, with a
+## gap of at least 100u from the previous tier's outer edge.
 const TIER_BANDS := {
 	1: Vector2(150.0, 275.0),
 	2: Vector2(350.0, 450.0),
 	3: Vector2(550.0, 675.0),
+	4: Vector2(775.0, 900.0),
+	5: Vector2(1000.0, 1150.0),
 }
 
 const HOME_ISLAND_ID := "port_royal"

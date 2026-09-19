@@ -119,6 +119,9 @@ func _gate_satisfied(chapter: ChapterData) -> bool:
 	if not chapter.required_region_id.is_empty() \
 			and not (EmpireManager and EmpireManager.is_region_active(chapter.required_region_id)):
 		return false
+	if not chapter.required_seasonal_event_id.is_empty() \
+			and not SeasonalEventManager.has_ever_completed(chapter.required_seasonal_event_id):
+		return false
 	return true
 
 
@@ -190,11 +193,9 @@ func _advance_objective(objective: ObjectiveData, amount: int) -> void:
 	var key := objective.objective_id
 	if _completed_objective_ids.has(key):
 		return
-	var current: int = int(_objective_progress.get(key, 0)) + amount
-	_objective_progress[key] = current
+	var current := ObjectiveDispatch.advance_count(_objective_progress, _completed_objective_ids, objective, amount)
 	objective_progressed.emit(key, current, objective.target_count)
-	if current >= objective.target_count:
-		_completed_objective_ids.append(key)
+	if _completed_objective_ids.has(key):
 		objective_completed.emit(key)
 
 
@@ -207,11 +208,9 @@ func _advance_level(objective: ObjectiveData, value: float) -> void:
 	var threshold: float = float(objective.target_count) \
 		if objective.condition == ObjectiveData.Condition.REACH_ISLAND_TIER \
 		else objective.target_value
-	var current: int = int(min(value, threshold))
-	_objective_progress[key] = current
+	var current := ObjectiveDispatch.advance_level(_objective_progress, _completed_objective_ids, objective, value)
 	objective_progressed.emit(key, current, int(threshold))
-	if value >= threshold:
-		_completed_objective_ids.append(key)
+	if _completed_objective_ids.has(key):
 		objective_completed.emit(key)
 
 
@@ -220,9 +219,7 @@ func _for_each_matching(condition: int, target_id: String, body: Callable) -> vo
 	if not chapter:
 		return
 	for objective in chapter.objectives:
-		if objective.condition != condition:
-			continue
-		if not objective.target_id.is_empty() and objective.target_id != target_id:
+		if not ObjectiveDispatch.matches(objective, condition, target_id):
 			continue
 		body.call(objective)
 	_check_chapter_complete(chapter)
@@ -242,6 +239,10 @@ func _complete_chapter(chapter: ChapterData) -> void:
 		return
 	completed_chapter_ids.append(chapter.chapter_id)
 	_grant_rewards(chapter)
+	# Fire once, after rewards are granted — the positive confirmation the
+	# player's progress actually paid off. Never fires per-objective; only
+	# per completed chapter. Gateway is a no-op on PC / when toggle is off.
+	HapticFeedbackManager.reward()
 	chapter_completed.emit(chapter)
 	_advance_to_next_chapter()
 
@@ -327,10 +328,8 @@ func _on_boarding_resolved(success: bool, _loot: Dictionary, target_faction_id: 
 	if not chapter:
 		return
 	for objective in chapter.objectives:
-		if objective.condition != ObjectiveData.Condition.BOARD_SHIPS:
-			continue
-		if not objective.target_id.is_empty() and objective.target_id != target_faction_id \
-				and objective.target_id != target_ship_id:
+		if not ObjectiveDispatch.matches_any(objective, ObjectiveData.Condition.BOARD_SHIPS,
+				target_faction_id, target_ship_id):
 			continue
 		_advance_objective(objective, 1)
 	_check_chapter_complete(chapter)
@@ -422,21 +421,7 @@ func _grant_rewards(chapter: ChapterData) -> void:
 
 
 func _find_by_id(dir_path: String, id_field: String, id_value: String) -> Resource:
-	## Mirrors EmpireManager._get_faction_by_id()'s directory-scan pattern.
-	var dir := DirAccess.open(dir_path)
-	if not dir:
-		return null
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var res := load(dir_path + file_name)
-			if res and res.get(id_field) == id_value:
-				dir.list_dir_end()
-				return res
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	return null
+	return ResourceLookup.find_by_id(dir_path, id_field, id_value)
 
 
 # === Save/load ===

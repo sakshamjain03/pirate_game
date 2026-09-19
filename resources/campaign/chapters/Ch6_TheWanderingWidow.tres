@@ -1,0 +1,100 @@
+[gd_resource type="Resource" script_class="ChapterData" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
+[ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
+[ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+
+[sub_resource type="Resource" id="Open_1"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "That chart in the strongbox. I know why it's never been on a map — I put it there. Forty years ago I was cabin boy aboard the Wandering Widow, and I've kept that secret since the day she went down."
+mood = 2
+
+[sub_resource type="Resource" id="Open_2"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Solomon Vane found something out past Cartagena that put the fear of God in him, and he never said what. He drew the chart, hid it, and told me to forget the bearing. I never did."
+mood = 2
+
+[sub_resource type="Resource" id="Open_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "I've spent four years watching you rebuild a harbour nobody wanted. I think it's time somebody finally sailed out and looked."
+mood = 1
+
+[sub_resource type="Resource" id="Obj_6_1"]
+script = ExtResource("2_objective")
+objective_id = "6.1"
+description = "Find Widow's Reach"
+condition = 7
+target_id = "widows_reach"
+target_count = 1
+
+[sub_resource type="Resource" id="Obj_6_2"]
+script = ExtResource("2_objective")
+objective_id = "6.2"
+description = "Fight your way through the Ancient Ocean's pirates"
+condition = 3
+target_id = "pirate_clans"
+target_count = 15
+
+[sub_resource type="Resource" id="Obj_6_3"]
+script = ExtResource("2_objective")
+objective_id = "6.3"
+description = "Set foot on Widow's Reach"
+condition = 8
+target_id = "widows_reach"
+target_count = 1
+
+[sub_resource type="Resource" id="Obj_6_4"]
+script = ExtResource("2_objective")
+objective_id = "6.4"
+description = "Keep being noticed"
+condition = 13
+target_value = 350.0
+hint_text = "The world is still watching. Keep fighting, keep expanding — notoriety climbs on its own."
+
+[sub_resource type="Resource" id="Obj_6_5"]
+script = ExtResource("2_objective")
+objective_id = "6.5"
+description = "Take one of Vane's old crew alive"
+condition = 4
+target_id = "pirate_clans"
+target_count = 2
+is_optional = true
+
+[sub_resource type="Resource" id="Close_1"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "So that's Widow's Reach. Forty years of not looking at a bearing, and here it is — smaller than I remembered, and worse."
+mood = 2
+
+[sub_resource type="Resource" id="Close_2"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Whatever put Vane off this island, I didn't find it either. I found an old wreck, an older wind, and not one single answer. Maybe that's the mercy of it."
+mood = 0
+
+[sub_resource type="Resource" id="Close_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Marguerite still asks after her old port every time she's aboard. I think it's past time we did something about that too."
+mood = 1
+
+[resource]
+script = ExtResource("1_chapter")
+chapter_id = "ch6_the_wandering_widow"
+chapter_number = 6
+title = "The Wandering Widow"
+log_summary = "Higgins' forty-year secret and Vane's chart led to Widow's Reach — no answers found there, but a debt finally paid."
+required_region_id = "ancient_ocean"
+opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
+objectives = Array[ObjectiveData]([SubResource("Obj_6_1"), SubResource("Obj_6_2"), SubResource("Obj_6_3"), SubResource("Obj_6_4"), SubResource("Obj_6_5")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+reward_gold = 10000

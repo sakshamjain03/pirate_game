@@ -93,6 +93,10 @@ func _process(delta: float) -> void:
 				_camera_rig.add_zoom(-CAMERA_ZOOM_STEP)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _handle_camera_drag(event):
+		get_viewport().set_input_as_handled()
+		return
+
 	# Firing goes through _unhandled_input rather than the global Input
 	# polling above so a UI element (e.g. an IslandMenu button) can consume
 	# the click first — global Input.is_action_just_pressed() ignored that
@@ -130,6 +134,32 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("fire_starboard"):
 		player_ship.fire_cannons("starboard")
 		get_viewport().set_input_as_handled()
+
+
+func _handle_camera_drag(event: InputEvent) -> bool:
+	## Strategy-style camera control: drag unused world space to orbit the
+	## camera horizontally and tilt it vertically. UI Controls accept their
+	## events before this unhandled path, so steering, sail, ability, and menu
+	## touches cannot move the camera. Desktop uses middle/right drag because
+	## left click remains a combat input.
+	if not _camera_rig:
+		return false
+	var drag_delta := Vector2.ZERO
+	if event is InputEventScreenDrag:
+		drag_delta = event.relative
+	elif event is InputEventMouseMotion:
+		var held_rotation_button: int = event.button_mask & (MOUSE_BUTTON_MASK_MIDDLE | MOUSE_BUTTON_MASK_RIGHT)
+		if held_rotation_button == 0:
+			return false
+		drag_delta = event.relative
+	else:
+		return false
+	var settings: CameraSettings = _camera_rig.settings
+	if not settings:
+		return false
+	_camera_rig.add_yaw(drag_delta.x * settings.drag_yaw_degrees_per_pixel)
+	_camera_rig.add_pitch(drag_delta.y * settings.drag_pitch_degrees_per_pixel)
+	return true
 
 func _toggle_docking() -> void:
 	if not _docking_system:

@@ -540,8 +540,18 @@ func _start_random_ambient() -> void:
 		return
 	var candidates: Array[EncounterData] = []
 	for e in encounter_pool:
-		if e and CampaignManager.is_chapter_current(e.required_chapter_id):
-			candidates.append(e)
+		if not e or not CampaignManager.is_chapter_current(e.required_chapter_id):
+			continue
+		# M14 Requirement 2.3 — same shape as the chapter gate just above.
+		if not e.required_region_id.is_empty() and not EmpireManager.is_region_active(e.required_region_id):
+			continue
+		# M14 Requirement 6.1 — a single shared kill-switch check point that
+		# covers every ambient encounter, present or future, without
+		# per-encounter special-casing. Defaults to enabled (LiveOpsConfig's
+		# own contract) so this is a no-op for every pre-M14 encounter too.
+		if not LiveOpsConfig.is_content_enabled(e.encounter_id):
+			continue
+		candidates.append(e)
 	if candidates.is_empty():
 		return
 	start_encounter(candidates.pick_random())

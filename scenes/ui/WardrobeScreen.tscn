@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WardrobeScreen.gd" id="1_wardrobe"]
+[ext_resource type="PackedScene" path="res://scenes/ui/StoreScreen.tscn" id="2_store"]
 
 [node name="WardrobeScreen" type="Control"]
 layout_mode = 3
@@ -21,6 +22,7 @@ grow_vertical = 2
 color = Color(0, 0, 0, 0.6)
 
 [node name="Panel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchor_left = 0.05
 anchor_top = 0.05
@@ -41,6 +43,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="Panel/Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Wardrobe"
@@ -82,7 +85,16 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Equip"
 
+[node name="StoreButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Store"
+
 [node name="CloseButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Close"
+
+[node name="StoreScreen" parent="." instance=ExtResource("2_store")]
+unique_name_in_owner = true
+layout_mode = 1

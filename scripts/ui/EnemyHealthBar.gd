@@ -1,12 +1,22 @@
 class_name EnemyHealthBar extends Label3D
 
-## Purpose: Displays a floating health bar above enemy ships using text.
+## Purpose: Displays a compact, billboarded combat health readout above enemy ships.
+## Responsibilities: Shows an opponent name, segmented health bar, and remaining
+##                   percentage only after that opponent has taken damage.
+## Dependencies: ShipCombat.health_changed / died signals.
+## Limitations: Uses Label3D so it remains readable without a per-enemy UI viewport.
 
 var combat_node: ShipCombat
+const BAR_SEGMENTS := 12
+const FILLED_SEGMENT := "■"
+const EMPTY_SEGMENT := "□"
 
 func _ready() -> void:
-	# Hide initially until first update
+	# Do not add permanent labels to a peaceful ocean. The bar appears when the
+	# player has actually damaged an opponent and disappears with it.
 	visible = false
+	if PirateThemeBuilder.is_mobile():
+		font_size = PirateThemeBuilder.scaled_font_size(font_size)
 	var parent = get_parent()
 	if parent:
 		var combat = parent.get_node_or_null("ShipCombat")
@@ -31,16 +41,22 @@ func _on_died() -> void:
 	visible = false
 
 func _update_display(current: float, maximum: float) -> void:
-	var pct = clamp(current / maximum, 0.0, 1.0)
-	var total_bars = 10
-	var filled = int(round(pct * total_bars))
-	
-	var bar_str = "["
-	for i in range(total_bars):
-		if i < filled:
-			bar_str += "|"
-		else:
-			bar_str += "."
-	bar_str += "]"
-	
-	text = bar_str
+	var pct := clampf(current / maxf(maximum, 1.0), 0.0, 1.0)
+	var filled := int(round(pct * BAR_SEGMENTS))
+	var bar := ""
+	for segment in range(BAR_SEGMENTS):
+		bar += FILLED_SEGMENT if segment < filled else EMPTY_SEGMENT
+	var ship_name := tr("Enemy")
+	var ship := get_parent()
+	var stats = ship.get("ship_stats") if ship else null
+	if stats and not str(stats.get("display_name")).is_empty():
+		ship_name = str(stats.get("display_name"))
+	text = "%s\n%s  %d%%" % [ship_name, bar, roundi(pct * 100.0)]
+	# The same simple traffic-light palette works at a distance and avoids
+	# colour-only communication because the percentage is always visible.
+	if pct > 0.6:
+		modulate = Color(0.35, 1.0, 0.45, 1.0)
+	elif pct > 0.3:
+		modulate = Color(1.0, 0.78, 0.2, 1.0)
+	else:
+		modulate = Color(1.0, 0.3, 0.25, 1.0)

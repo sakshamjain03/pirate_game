@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PatchNotesData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/PatchNotesData.gd" id="1_notes"]
+
+[resource]
+script = ExtResource("1_notes")
+entries = Array[Dictionary]([{
+"version": "1.14.0",
+"date": "2026-09-07",
+"notes": "Chapters 6-10 continue the campaign past the Silver Fleet — Higgins' forty-year secret, Marguerite's harbour reclaimed, an uneasy alliance with Vance, and Skull Cove formally claimed. Two new regions: the Ancient Ocean and the Ghost Reaches, where the Ghost Fleet is real, dangerous, and finally fightable. The Spring Crossing returns every spring as a repeatable event."
+}])

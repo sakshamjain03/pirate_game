@@ -39,6 +39,22 @@ var _save_timer: float = 0.0
 var _auto_save_interval: float = 60.0
 var _pending_offline_ticks: int = 0
 
+## M17 Requirement 6.1/6.5 — the resource delta actually gained during the
+## catch-up loop below, so the offline-return surface can offer to double
+## the exact amount already granted (never a separately-computed guess).
+## Cleared by whoever reads it (WorldHUD), same one-shot convention as
+## _pending_offline_ticks above.
+var _pending_offline_income: Dictionary = {}
+
+## M14 Requirement 5.2 — compared by WorldHUD._check_whats_new() against
+## PatchNotesData's latest entry to decide whether to auto-show the What's
+## New panel once. Seeded to the current latest version on a genuinely new
+## game (World._seed_whats_new_version()) so a first-time player never sees
+## a "what's new" popup for content they're about to experience firsthand;
+## left at "" for an existing pre-M14 save, which is the correct trigger to
+## show it once.
+var last_seen_whats_new_version: String = ""
+
 ## M15 Wave 3 — cloud sync. True while the most recent cloud push failed; the *next* successful
 ## save_game() call (whenever that happens to be — auto-save, dock, etc.) simply tries again with
 ## whatever the local state is by then, which already satisfies Requirement 4.4's "only the latest
@@ -68,6 +84,7 @@ func _process(delta: float) -> void:
 func save_game() -> void:
 	var save_dict = {
 		"save_schema_version": SAVE_SCHEMA_VERSION,
+		"last_seen_whats_new_version": last_seen_whats_new_version,
 		"economy": {},
 		"islands": {},
 		"fleet": {},
@@ -162,17 +179,28 @@ func save_game() -> void:
 	if CampaignManager.has_method("get_save_data"):
 		save_dict["campaign"] = CampaignManager.get_save_data()
 
+	# 9c. Seasonal Events (M14)
+	if SeasonalEventManager.has_method("get_save_data"):
+		save_dict["seasonal_events"] = SeasonalEventManager.get_save_data()
+
 	# Preserve the last known save before replacing it. A failed backup is safer
 	# than a write that could destroy the player's only recoverable copy.
+	var had_existing_save := FileAccess.file_exists(SAVE_PATH)
 	if not _backup_existing_save():
 		return
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
-		var json_string = JSON.stringify(save_dict, "\t")
+		var json_string = JSON.stringify(save_dict, "	")
 		file.store_string(json_string)
 		file.close()
 	else:
 		push_error("SaveManager: Failed to open save file for writing.")
+		# The backup already moved the prior save out of the way, and the new
+		# write just failed (disk full/permissions) -- without restoring, the
+		# player would be left with neither a current save nor their last-known-
+		# good one.
+		if had_existing_save:
+			_restore_backup()
 		return
 
 	# M15 Requirement 3.4/4.2 — mirrors the existing local format exactly, no second schema.
@@ -210,6 +238,9 @@ func load_game() -> void:
 			load_failed.emit("save migration failed")
 			game_loaded.emit()
 			return
+
+	if data.has("last_seen_whats_new_version"):
+		last_seen_whats_new_version = str(data["last_seen_whats_new_version"])
 
 	# 1. Player State
 	if data.has("player"):
@@ -326,6 +357,10 @@ func load_game() -> void:
 	if data.has("campaign") and CampaignManager.has_method("load_save_data"):
 		CampaignManager.load_save_data(data["campaign"])
 
+	# 9d. Seasonal Events (M14)
+	if data.has("seasonal_events") and SeasonalEventManager.has_method("load_save_data"):
+		SeasonalEventManager.load_save_data(data["seasonal_events"])
+
 	# 10. Offline catch-up (must run after islands and fleet are restored above)
 	if data.has("last_saved_unix"):
 		var elapsed = int(Time.get_unix_time_from_system()) - int(data["last_saved_unix"])
@@ -333,14 +368,34 @@ func load_game() -> void:
 		elapsed = min(elapsed, MAX_OFFLINE_SECONDS)
 		var offline_ticks = int(elapsed / ResourceManager.ECONOMY_TICK_INTERVAL)
 		if offline_ticks > 0:
+			var before_resources: Dictionary = ResourceManager.current_resources.duplicate(true)
 			var islands = get_tree().get_nodes_in_group("islands")
 			for i in range(offline_ticks):
 				for island in islands:
-					island._on_economy_tick()
-				FleetManager._on_economy_tick()
+					island.on_economy_tick()
+				FleetManager.on_economy_tick()
 			_pending_offline_ticks = offline_ticks
+			_pending_offline_income = _compute_resource_delta(before_resources, ResourceManager.current_resources)
 
 	game_loaded.emit()
+
+
+func _compute_resource_delta(before: Dictionary, after: Dictionary) -> Dictionary:
+	var delta: Dictionary = {}
+	for key in after.keys():
+		var gained := float(after[key]) - float(before.get(key, 0))
+		if gained > 0.0:
+			delta[key] = gained
+	return delta
+
+
+## M17 Requirement 6.5 — grants the exact same offline-income delta a second
+## time, as a bonus on top of the (already unconditionally granted) baseline
+## above. Never computes a new/different amount — that would let the bonus
+## drift from what was actually accrued.
+func grant_offline_income_bonus() -> void:
+	for key in _pending_offline_income.keys():
+		ResourceManager.add_resource(key, int(round(_pending_offline_income[key])))
 
 
 func _backup_existing_save() -> bool:
@@ -359,6 +414,24 @@ func _backup_existing_save() -> bool:
 	source.close()
 	backup.close()
 	return true
+
+
+func _restore_backup() -> void:
+	## Copies the just-made backup back over SAVE_PATH. Only called when a
+	## write we just backed up for has failed, so the player isn't left with
+	## neither a current save nor their last-known-good one.
+	var backup := FileAccess.open(BACKUP_PATH, FileAccess.READ)
+	if not backup:
+		push_error("SaveManager: Failed to restore backup after a failed save write.")
+		return
+	var restored := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if not restored:
+		backup.close()
+		push_error("SaveManager: Failed to restore backup after a failed save write.")
+		return
+	restored.store_string(backup.get_as_text())
+	backup.close()
+	restored.close()
 
 
 func _read_save_file(path: String) -> Dictionary:
@@ -580,12 +653,16 @@ func _apply_cloud_save(cloud_row: Dictionary) -> void:
 	var save_data = cloud_row.get("save_data", {})
 	if typeof(save_data) != TYPE_DICTIONARY or save_data.is_empty():
 		return
+	var had_existing_save := FileAccess.file_exists(SAVE_PATH)
 	if not _backup_existing_save():
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(save_data, "\t"))
 		file.close()
+	elif had_existing_save:
+		push_error("SaveManager: Failed to write cloud save to local save file.")
+		_restore_backup()
 
 func _get_dialog_parent() -> Node:
 	var tree := Engine.get_main_loop()

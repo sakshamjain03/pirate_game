@@ -79,6 +79,9 @@ func _collect() -> void:
 	_collected = true
 
 	if AudioManager: AudioManager.play_sound("resource_collect")
+	# Reward pulse — fires at most once per drop (guarded above). The gateway
+	# is a no-op on PC and when the player's haptics toggle is off.
+	HapticFeedbackManager.reward()
 	collected.emit(loot_data)
 
 	# Grant resources via ResourceManager
@@ -86,6 +89,8 @@ func _collect() -> void:
 		var amount = loot_data[res_type]
 		if ResourceManager.has_method("add_resource"):
 			ResourceManager.add_resource(res_type, amount)
+
+	HapticFeedbackManager.reward()
 
 	# Quick scale-down animation then remove
 	var tween = create_tween()

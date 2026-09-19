@@ -116,7 +116,7 @@ func test_trade_route_ticks_gold_scaled_by_region_tier():
 	ResourceManager.spend_resources({"gold": ResourceManager.get_resource("gold") - 100})
 	var gold_before = ResourceManager.get_resource("gold")
 
-	flm._on_economy_tick()
+	flm.on_economy_tick()
 
 	var cap_level = flm.owned_captains[0].level
 	var expected_gain = 10 * cap_level * 3

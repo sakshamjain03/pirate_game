@@ -23,6 +23,7 @@ grow_vertical = 2
 color = Color(0, 0, 0, 0.7)
 
 [node name="TitleLabel" type="Label" parent="Control"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -36,6 +37,7 @@ text = "Credits"
 horizontal_alignment = 1
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Control"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5

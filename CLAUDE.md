@@ -48,19 +48,38 @@ assumed). The suite has exactly one known/accepted pre-existing failure
 regression); any other failure or a drop in total test count is a real regression. Full details
 and the current baseline count are in `docs/05_CURRENT_SYSTEMS.md`.
 
-Manual/visual behavior (camera feel, gamepad input, shader appearance, timed offline-return
-prompts) cannot be verified headlessly in this environment — say so explicitly rather than
-claiming a visual check passed; there's repeated precedent for this in the milestone specs.
+For visual/physics/UI defects — proven repeatedly to be invisible to the GUT suite (rendering
+glitches, HUD overlap, ship capsizing) — run the headful screenshot harness and actually look at
+the output rather than reasoning about the fix from code alone:
+
+```
+<godot-binary> --path <project-root> scenes/debug/CaptureHarness.tscn --capture-dir=<abs path>
+```
+
+Must run headful (no `--headless` — the dummy renderer produces blank images) with zero player
+input; it captures screenshots at t≈0/1/3/7/12s. See `docs/09_VISUAL_BUG_TRACKER.md` for the
+history of what this has caught that code review and GUT both missed.
+
+Some behavior genuinely cannot be verified in this environment at all, headful capture included:
+camera *feel* (as opposed to camera position, which the capture harness shows fine), gamepad input
+feel, on-device frame rate, audio, and anything needing a real Android/iOS device (touch feel,
+notification delivery, billing/ad flows). Say so explicitly rather than claiming a check passed;
+there's repeated precedent for this across the milestone specs.
 
 ## Architecture
 
 **Autoload singletons** (`project.godot` → `[autoload]`) are the system-level managers, loaded
-once globally: `GameManager`, `SaveManager`, `SceneManager`, `SettingsManager`, `AudioManager`,
-`ResourceManager`, `FleetManager`, `TechManager`, `EventManager`, `FactionManager`,
-`EmpireManager`, `TutorialManager`. Each owns one domain (economy ticks, fleet/captain rosters,
-tech modifiers, faction reputation, save/load, etc.) and most expose
+once globally. Core gameplay: `SaveManager`, `SceneManager`, `SettingsManager`, `InputManager`,
+`AudioManager`, `ResourceManager`, `FleetManager`, `TechManager`, `EventManager`,
+`FactionManager`, `EmpireManager`, `CampaignManager`, `TutorialManager`. Backend/monetization
+(M15–M17): `AuthManager`, `EntitlementManager`, `StoreManager`, `AdManager`,
+`RemoteConfigManager`. Live ops/telemetry: `SeasonalEventManager`, `LiveOpsConfig`,
+`AnalyticsManager`, `CrashReporter`, `LocalNotificationManager`. Each owns one domain (economy
+ticks, fleet/captain rosters, tech modifiers, faction reputation, save/load, etc.) and most expose
 `get_save_data()`/`load_save_data()` for `SaveManager` to round-trip — new persistent state should
-follow that same pair-of-methods convention rather than inventing a new persistence path.
+follow that same pair-of-methods convention rather than inventing a new persistence path. This
+list changes every few milestones — `project.godot`'s `[autoload]` block is the actual source of
+truth, not this file or even `docs/05_CURRENT_SYSTEMS.md` §4 (which has gone stale before).
 
 **Data-driven balance**: gameplay values live in `Resource` (`.tres`) files, not in scripts —
 `CaptainData`, `ShipStats`, `BuildingData`, `FactionData`, `TechData`, `LootTableData`,
@@ -90,6 +109,49 @@ file by file, including known defects and gaps — as opposed to every other `do
 describes intent/vision. Read it before touching `scripts/world/`, `scripts/managers/`,
 `scripts/combat/`, or `scripts/ui/IslandMenu.gd`; it exists specifically to stop systems from being
 silently reimplemented. When you change a documented system, update its entry in the same change.
+
+**Platform and backend**: Android (phone + tablet) is the primary launch target (M13); Windows
+desktop is an actively-maintained secondary platform, not just the dev environment; iOS is planned
+for M20 behind the same platform-abstracted billing interface `StoreManager` already establishes —
+see `docs/20_PLATFORM_MATRIX.md`. The Supabase backend (`AuthManager`, cloud save sync, a
+`remote_config` table, a `delete-account` Edge Function) is a real, deployed project, not a stub —
+see `docs/SUPABASE_SETUP.md` for the schema, RLS policies, and what's still unconfigured.
+**Monetization is hard-gated**: no paid feature ships before the M13 launch build, and afterward
+only within `AGENTS.md`'s absolute never-list (no pay-to-win, no hard/premium currency, no energy
+systems, cosmetics only, never gating gameplay-affecting content behind money or ads) — read that
+section before touching `EntitlementManager`, `StoreManager`, or `AdManager`.
+
+### Fragile areas — do not regress
+
+These are past defects, each costly to re-debug, not hypothetical risks — full history in
+`docs/07_AI_AGENT_WORKFLOW.md`:
+
+- **Ship stability** (`BuoyancySimulator.gd`/`ShipMovement.gd`'s buoyancy/stability-torque/yaw-servo
+  code) took four separate root-cause fixes to stabilize; the yaw servo deliberately preserves roll
+  and pitch. Don't touch it without a task explicitly calling for it.
+- **Cannon firing direction** derives forward from the hull basis
+  (`parent.global_transform.basis.x`), never from marker rotation — a bug across all 12 markers on
+  all 3 ship scenes was fixed exactly this way; don't revert it.
+- **Enemy obstacle avoidance** (`_get_avoidance_turn`/`_probe`/`_push_to_open_water` in
+  `EnemyAI.gd`) is what stops enemy ships from beaching on islands — don't bypass it.
+- **`tests/test_ship_combat.gd`** guards the `ShipDamage` migration and must keep passing
+  unmodified; if it fails, the migration is wrong, not the test.
+- **Resource id resolvers must `push_error` on an unresolvable id**, never skip silently — a silent
+  skip on load has previously destroyed player data.
+- **Ship/building/captain costs are authored `cost_*` fields**, never derived from an unrelated
+  stat (deriving cost from hull `mass` once made every ship nearly free).
+- **Narrative/onboarding content lives in `CampaignManager` + `ChapterData`**, not
+  `TutorialManager` (which now only tracks UI-tab-unlock flags) — check `CampaignManager` before
+  adding a second onboarding system.
+- **An optional save section must be omitted entirely when there's nothing to write**, not written
+  as an empty object — `SaveManager` previously couldn't tell "no data" from "empty section" apart
+  and silently reset ship position on load.
+- **New chapter-specific content needs an explicit gate**, e.g.
+  `CampaignManager.is_chapter_current()` — fully authored content with no in-world trigger has
+  shipped uncompletable before.
+- **A UI element's position relative to a sibling belongs in container layout** (e.g. a shared
+  `VBoxContainer`), not two independently hardcoded pixel offsets — those have drifted apart with
+  no code change in between to explain it.
 
 ### Commit and push after each major phase
 

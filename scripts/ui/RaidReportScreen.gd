@@ -9,6 +9,7 @@ class_name RaidReportScreen extends Control
 @onready var dismiss_button: Button = %DismissButton
 @onready var outcome_label: Label = %TitleLabel
 @onready var details_label: Label = %DetailsLabel
+@onready var panel: PanelContainer = %Panel
 
 func _ready() -> void:
 	dismiss_button.pressed.connect(_on_dismiss_pressed)
@@ -16,6 +17,13 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
 	PirateThemeBuilder.apply_button_juice(self)
+
+	if PirateThemeBuilder.is_mobile():
+		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
+		outcome_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(42))
+		details_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
+		dismiss_button.custom_minimum_size = PirateThemeBuilder.scaled_size(dismiss_button.custom_minimum_size)
+		dismiss_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 
 func open(report: Dictionary) -> void:
 	var repelled = report.get("repelled", true)
@@ -43,6 +51,10 @@ func open(report: Dictionary) -> void:
 		details_label.text = stolen_text
 		
 	show()
+	# Reward pulse fires once, when the result is first presented — not per
+	# label refresh. Both repelled and raid-hit outcomes are a meaningful,
+	# player-facing event. Gateway is no-op on PC / when toggle is off.
+	HapticFeedbackManager.reward()
 	get_tree().paused = true
 	dismiss_button.grab_focus()
 

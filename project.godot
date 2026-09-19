@@ -29,6 +29,8 @@ buses/default_bus_layout="res://default_bus_layout.tres"
 
 SaveManager="*res://scripts/managers/SaveManager.gd"
 EntitlementManager="*res://scripts/managers/EntitlementManager.gd"
+StoreManager="*res://scripts/managers/StoreManager.gd"
+AdManager="*res://scripts/managers/AdManager.gd"
 AuthManager="*res://scripts/managers/AuthManager.gd"
 RemoteConfigManager="*res://scripts/managers/RemoteConfigManager.gd"
 SceneManager="*res://scripts/managers/SceneManager.gd"
@@ -42,10 +44,14 @@ EventManager="*res://scripts/managers/EventManager.gd"
 FactionManager="*res://scripts/managers/FactionManager.gd"
 EmpireManager="*res://scripts/managers/EmpireManager.gd"
 CampaignManager="*res://scripts/managers/CampaignManager.gd"
+SeasonalEventManager="*res://scripts/managers/SeasonalEventManager.gd"
+LiveOpsConfig="*res://scripts/managers/LiveOpsConfig.gd"
 TutorialManager="*res://scripts/managers/TutorialManager.gd"
 CrashReporter="*res://scripts/managers/CrashReporter.gd"
 AnalyticsManager="*res://scripts/managers/AnalyticsManager.gd"
 LocalNotificationManager="*res://scripts/managers/LocalNotificationManager.gd"
+MobileLayoutManager="*res://scripts/managers/MobileLayoutManager.gd"
+HapticFeedbackManager="*res://scripts/managers/HapticFeedbackManager.gd"
 
 [display]
 

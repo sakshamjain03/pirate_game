@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://c5b2a1a8c9e7f"]
+[gd_scene load_steps=5 format=3 uid="uid://c5b2a1a8c9e7f"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_4n7a3"]
 [ext_resource type="Texture2D" path="res://assets/art/concept_art/island_level_max_1785440673629.jpg" id="2_bg"]
 [ext_resource type="Texture2D" path="res://assets/branding/emblem.svg" id="3_emblem"]
+[ext_resource type="PackedScene" path="res://scenes/ui/StoreScreen.tscn" id="4_store"]
 
 [node name="MainMenu" type="CanvasLayer"]
 script = ExtResource("1_4n7a3")
@@ -87,7 +88,7 @@ anchor_bottom    = 0.5
 offset_left      = -130.0
 offset_top       = -30.0
 offset_right     = 130.0
-offset_bottom    = 180.0
+offset_bottom    = 240.0
 grow_horizontal  = 2
 grow_vertical    = 2
 
@@ -110,6 +111,13 @@ text = "New Game"
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Settings"
+
+[node name="StoreButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+custom_minimum_size = Vector2(240, 44)
+layout_mode      = 2
+theme_override_font_sizes/font_size = 28
+text             = "Store"
+size_flags_horizontal = 3
 
 [node name="CreditsButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
 custom_minimum_size = Vector2(240, 44)
@@ -140,3 +148,7 @@ grow_horizontal  = 0
 grow_vertical    = 0
 text             = "v0.1.0  Pre-Alpha"
 horizontal_alignment = 2
+
+[node name="StoreScreen" parent="Control" instance=ExtResource("4_store")]
+unique_name_in_owner = true
+layout_mode = 1

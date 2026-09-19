@@ -12,13 +12,10 @@ extends CanvasLayer
 ## Every other MobileControls icon still goes through the normal import path.
 const _CUSTOM_ICON_PATHS := {
 	"sail_up": "res://assets/icons/controls/sail_level_up.svg",
-	"sail_down": "res://assets/icons/controls/sail_level_down.svg",
 	"set_sail": "res://assets/icons/controls/action_set_sail.svg",
 	"anchor": "res://assets/icons/controls/action_anchor.svg",
 }
 
-@onready var btn_sail_up = %BtnSailUp
-@onready var btn_sail_down = %BtnSailDown
 @onready var btn_left = %BtnLeft
 @onready var btn_right = %BtnRight
 @onready var btn_fire_port = %BtnFirePort
@@ -29,6 +26,20 @@ const _CUSTOM_ICON_PATHS := {
 @onready var btn_special_broadside = %BtnSpecialBroadside
 @onready var btn_set_sail = %BtnSetSail
 @onready var btn_anchor = %BtnAnchor
+
+## Desktop test runners cannot advertise a phone OS feature. This keeps the
+## phone composition independently testable without changing a real build.
+@export var force_mobile_layout_for_test: bool = false
+
+var _context_action: Button
+var _dock_available := false
+var _board_available := false
+var _context_action_name := ""
+var _advanced_buttons_wired := false
+var _sail_control: Button
+
+func _uses_mobile_layout() -> bool:
+	return force_mobile_layout_for_test or not OS.has_feature("pc")
 
 func _ready() -> void:
 	# M15.5 — this CanvasLayer's own children never picked up
@@ -44,27 +55,239 @@ func _ready() -> void:
 
 	# These are on-screen touch buttons — on desktop they just sit on top of
 	# the HUD (overlapping HealthBarContainer).
-	if OS.has_feature("pc"):
+	if not _uses_mobile_layout():
 		visible = false
 		return
+	# These clusters used bottom/right anchors in the original PC-sized scene.
+	# A phone layout is calculated from the safe rectangle, so normalise them to
+	# local coordinates before assigning their positions.
+	for cluster: Control in [$Movement, $Combat, $Actions]:
+		cluster.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	MobileLayoutManager.layout_changed.connect(_apply_mobile_layout)
+	get_viewport().size_changed.connect(_apply_mobile_layout)
+	_apply_mobile_layout()
 
-	btn_sail_up.icon = _load_svg_icon(_CUSTOM_ICON_PATHS["sail_up"])
-	btn_sail_down.icon = _load_svg_icon(_CUSTOM_ICON_PATHS["sail_down"])
-	btn_set_sail.icon = _load_svg_icon(_CUSTOM_ICON_PATHS["set_sail"])
-	btn_anchor.icon = _load_svg_icon(_CUSTOM_ICON_PATHS["anchor"])
+	# Sail speed is a state, not two unrelated actions. The old up/down scene
+	# targets have been removed entirely; one large control cycles Furled → full
+	# sail and back without leaving empty touch targets on screen.
+	btn_dock.hide()
+	btn_set_sail.hide()
+	btn_anchor.hide()
+	# Positioning and automatic broadside are the default phone combat model.
+	# Manual side-fire is a deliberate accessibility/preference opt-in.
+	_apply_advanced_combat_controls()
+	# Pause is a global utility, not a combat action. Pull it out of the lower
+	# action cluster so it is compact and consistently reachable at top-right.
+	btn_pause.reparent(self)
+	btn_pause.custom_minimum_size = Vector2(108, 72)
+	btn_pause.expand_icon = false
+	# Same pause-gate fix as WorldHUD's captains_log_button/etc: without this,
+	# the moment PauseMenu.open() sets get_tree().paused = true, this button
+	# (inheriting process mode from the paused tree) stops receiving input —
+	# so a second tap can never close the menu back, only Resume can.
+	btn_pause.process_mode = Node.PROCESS_MODE_ALWAYS
+	_create_sail_control()
+	_create_context_action()
+	_layout_primary_actions()
+	_create_action_captions()
+	_apply_mobile_layout()
 
-	_setup_button(btn_sail_up, "sail_level_up")
-	_setup_button(btn_sail_down, "sail_level_down")
 	_setup_button(btn_left, "ship_left")
 	_setup_button(btn_right, "ship_right")
-	_setup_button(btn_fire_port, "fire_port")
-	_setup_button(btn_fire_star, "fire_starboard")
-	_setup_button(btn_dock, "dock")
 	_setup_button(btn_pause, "pause")
 	_setup_button(btn_captain_ability, "captain_ability")
 	_setup_button(btn_special_broadside, "special_broadside")
-	_setup_button(btn_set_sail, "set_sail")
-	_setup_button(btn_anchor, "anchor")
+	if SettingsManager.has_signal("settings_changed"):
+		SettingsManager.settings_changed.connect(_apply_advanced_combat_controls)
+	_bind_ship_context()
+
+
+func _apply_mobile_layout() -> void:
+	var safe := MobileLayoutManager.safe_area(get_viewport())
+	var scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
+	var movement: Control = $Movement
+	var combat: Control = $Combat
+	var actions: Control = $Actions
+	var action_width := 378.0 * scale
+	var movement_width := 540.0 * scale
+	var left_handed := MobileLayoutManager.is_left_handed()
+	# The action cluster is on the dominant side; steering moves to the other.
+	var action_x := safe.position.x + 16.0 if left_handed else safe.end.x - action_width - 16.0
+	var movement_x := safe.end.x - movement_width - 16.0 if left_handed else safe.position.x + 16.0
+	actions.position = Vector2(action_x, safe.end.y - 420.0 * scale)
+	combat.position = Vector2(action_x, safe.end.y - 580.0 * scale)
+	movement.position = Vector2(movement_x, safe.end.y - 680.0 * scale)
+	# Positioned below the enlarged resource/notoriety strip. This remains a
+	# 48dp-equivalent target without consuming lower-third combat space.
+	btn_pause.position = Vector2(safe.end.x - 108.0 * scale - 16.0, safe.position.y + 150.0 * scale)
+	btn_pause.size = Vector2(108.0 * scale, 72.0 * scale)
+	for cluster in [movement, combat, actions]:
+		cluster.scale = Vector2.ONE * scale
+
+
+func _layout_primary_actions() -> void:
+	## The action cluster intentionally has four targets only: one contextual
+	## world action, ability, broadside, and pause. This prevents six permanent
+	## buttons from competing with moment-to-moment steering.
+	btn_captain_ability.position = Vector2(0, 136)
+	btn_captain_ability.size = Vector2(180, 120)
+	btn_special_broadside.position = Vector2(198, 136)
+	btn_special_broadside.size = Vector2(180, 120)
+	for button in [btn_pause, btn_captain_ability, btn_special_broadside]:
+		_center_button_content(button)
+
+
+func _create_action_captions() -> void:
+	## The ability/broadside icons alone gave no indication of what they do —
+	## a small label under each, matching that button's own width, makes their
+	## purpose legible without changing the icon buttons themselves.
+	_create_caption_label(tr("Ability"), btn_captain_ability.position.x, btn_captain_ability.size.x)
+	_create_caption_label(tr("Broadside"), btn_special_broadside.position.x, btn_special_broadside.size.x)
+
+
+func _create_caption_label(caption: String, x: float, width: float) -> void:
+	var label := Label.new()
+	label.text = caption
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.position = Vector2(x, btn_captain_ability.position.y + btn_captain_ability.size.y + 4.0)
+	label.size = Vector2(width, 28.0)
+	label.add_theme_font_size_override("font_size", 14)
+	$Actions.add_child(label)
+
+
+func _apply_advanced_combat_controls() -> void:
+	var enabled := bool(SettingsManager.mobile_advanced_combat_controls)
+	btn_fire_port.visible = enabled
+	btn_fire_star.visible = enabled
+	if enabled and not _advanced_buttons_wired:
+		_setup_button(btn_fire_port, "fire_port")
+		_setup_button(btn_fire_star, "fire_starboard")
+		_advanced_buttons_wired = true
+
+
+func _create_context_action() -> void:
+	_context_action = Button.new()
+	_context_action.name = "ContextAction"
+	_context_action.custom_minimum_size = Vector2(378, 120)
+	_context_action.size = Vector2(378, 120)
+	_context_action.tooltip_text = tr("Context Action")
+	_center_button_content(_context_action)
+	_context_action.pressed.connect(_on_context_action_pressed)
+	$Actions.add_child(_context_action)
+	_context_action.add_child(ButtonJuice.new())
+	_refresh_context_action()
+
+
+func set_dock_available(available: bool) -> void:
+	_dock_available = available
+	_refresh_context_action()
+
+
+func set_board_available(available: bool) -> void:
+	_board_available = available
+	_refresh_context_action()
+
+
+func _bind_ship_context() -> void:
+	await get_tree().process_frame
+	var ship := get_tree().get_first_node_in_group("player_ship")
+	if ship:
+		for signal_name in ["sail_level_changed", "anchor_dropped", "anchor_raised", "ship_docked", "ship_undocked"]:
+			if ship.has_signal(signal_name):
+				ship.connect(signal_name, _refresh_mobile_controls)
+	_refresh_sail_control()
+	_refresh_context_action()
+
+
+func _refresh_mobile_controls(_unused = null, _unused_b = null) -> void:
+	_refresh_sail_control()
+	_refresh_context_action()
+
+
+func _refresh_context_action(_unused = null, _unused_b = null) -> void:
+	if not _context_action:
+		return
+	var ship := get_tree().get_first_node_in_group("player_ship")
+	_context_action_name = ""
+	if _board_available:
+		_context_action_name = "dock"
+		_context_action.text = tr("Board Enemy")
+	elif _dock_available:
+		_context_action_name = "dock"
+		_context_action.text = tr("Dock")
+	elif ship and not bool(ship.get("is_docked")):
+		if bool(ship.get("is_anchored")):
+			_context_action_name = "anchor"
+			_context_action.text = tr("Raise Anchor")
+		elif int(ship.get("sail_level")) <= 0:
+			_context_action_name = "set_sail"
+			_context_action.text = tr("Set Sail")
+		else:
+			_context_action_name = "anchor"
+			_context_action.text = tr("Drop Anchor")
+	_context_action.visible = not _context_action_name.is_empty()
+
+
+func _on_context_action_pressed() -> void:
+	if _context_action_name.is_empty():
+		return
+	_inject_action(_context_action_name, true)
+	_inject_action(_context_action_name, false)
+	HapticFeedbackManager.tap()
+	call_deferred("_refresh_mobile_controls")
+
+
+func _create_sail_control() -> void:
+	var sail := Button.new()
+	sail.name = "SailControl"
+	sail.custom_minimum_size = Vector2(180, 180)
+	sail.position = Vector2(180, 0)
+	# Text makes the control meaningful even if an SVG import is unavailable on
+	# a device. The old icon-only control rendered as an empty square.
+	sail.add_theme_font_size_override("font_size", 20)
+	_center_button_content(sail)
+	sail.tooltip_text = tr("Sail State")
+	sail.pressed.connect(_cycle_sail_state)
+	$Movement.add_child(sail)
+	_sail_control = sail
+	_refresh_sail_control()
+	sail.add_child(ButtonJuice.new())
+
+
+func _cycle_sail_state() -> void:
+	var ship := get_tree().get_first_node_in_group("player_ship")
+	if not ship or not ("sail_level" in ship) or not ship.ship_stats or not ship.has_method("adjust_sail_level"):
+		return
+	var levels: int = max(1, int(ship.ship_stats.sail_levels))
+	var current: int = int(ship.sail_level)
+	var target := (current + 1) % (levels + 1)
+	# Applied directly rather than via repeated sail_level_up/down action
+	# injection: WorldManager only applies those on Input.is_action_just_pressed,
+	# polled once per _process() frame, so firing multiple press/release pairs
+	# in this single call (no frame yield between them) collapsed to one
+	# effective step. Invisible for a normal +1 step, but the max-level-back-
+	# to-furled wrap needs several steps at once, so it silently only moved
+	# one notch — the sail got stuck oscillating between the top two levels
+	# and never made it back down to furled.
+	ship.adjust_sail_level(target - current)
+	HapticFeedbackManager.tap()
+	call_deferred("_refresh_sail_control")
+
+
+func _refresh_sail_control() -> void:
+	if not _sail_control:
+		return
+	var ship := get_tree().get_first_node_in_group("player_ship")
+	if not ship or not ship.ship_stats:
+		_sail_control.text = tr("Sail")
+		return
+	_sail_control.text = "%s\n%d / %d" % [tr("Sail"), int(ship.sail_level), int(ship.ship_stats.sail_levels)]
+
+
+func _center_button_content(button: Button) -> void:
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 
 func _load_svg_icon(path: String) -> Texture2D:
 	var svg_text := FileAccess.get_file_as_string(path)
@@ -78,7 +301,10 @@ func _load_svg_icon(path: String) -> Texture2D:
 	return ImageTexture.create_from_image(img)
 
 func _setup_button(btn: Button, action_name: String) -> void:
-	btn.button_down.connect(func(): _inject_action(action_name, true))
+	_center_button_content(btn)
+	btn.button_down.connect(func():
+		_inject_action(action_name, true)
+		HapticFeedbackManager.tap())
 	btn.button_up.connect(func(): _inject_action(action_name, false))
 
 func _inject_action(action_name: String, pressed: bool) -> void:

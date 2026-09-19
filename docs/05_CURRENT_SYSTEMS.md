@@ -23,6 +23,41 @@ the same pull request.
 
 ---
 
+# 0. System Status & Content Volume (quick reference)
+
+## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
+
+**Current: 467 tests, 467 passing, 0 failing**
+
+Progression history: 103 → 118/117 (stale count fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7 campaign + M1/M2 tail) → 323/322 (M7.5, self-reported, did not reproduce) → 324/323 (M7.5 correction) → 326/326 (M10, ocean LOD closes the standing failure) → 391/391 (M9) → 396/396 (M12) → 417/417 (M15) → 419/419 (fresh M14 start) → 464/464 (M14 complete) → **467/467 (BUG_REPORT.md fix pass 2026-09-14: 3 new regression tests for save/load and campaign-gating edge cases)**
+
+**Note:** `AGENTS.md`/`CLAUDE.md` still reference `test_property_21_lod_distance_transitions` as the "one accepted failing test" — that was true before M10 closed the LOD gap but is now stale. The suite has had **zero known failures since M10**. Worth correcting wherever it's still referenced.
+
+## Content Volume Targets (as of 2026-09-14, post-M14)
+
+| Content | Now | v1 Target | Gap |
+|---|---|---|---|
+| Regions | 5 (M14: +2 Ancient Ocean, Ghost Reaches) | 3 | — (post-v1 growth intentional) |
+| Islands | 11 (M14: +2 Widow's Reach, Fogbound Cay) | 8–10 | — |
+| Buildings (types × levels) | 10 × 5 | 10 × 5 | — |
+| Ships | 8 (+2 Ghost Fleet, +1 boss-only) | 8 | — |
+| Captains | 20 | 20 | — |
+| Techs | 13 (M11: +11) | 12–15 | — |
+| Chapters | 10 (M14: +5, chapters 6-10) | 5 | — (post-v1 growth intentional) |
+| Seasonal Events | 1 (Spring Crossing) | — | — |
+| Bosses | 6 (M11: +2; M14: +1) | 3–5 | — |
+| World Events | 9 (M11: +6; 11 EventData files total) | 8–10 | — |
+| SFX Cues | 25 (M11: +25) + 2 music tracks | 25–30 | — |
+| Portraits | 20 of 27 (captains complete; 7 cast pending) | 27 + fallback | +7 (non-blocking, intentional fallback) |
+
+**Note:** This table's v1 targets are frozen as of M13 (Android launch). M14's growth in Chapters/Regions/Bosses is intentional post-v1 scope ("a content update ships without a code change"); the refresh in M11 corrected stale unrelated rows (Chapters showed 0 despite M7 shipping 5).
+
+## Naming Conventions (enforced)
+
+`PascalCase` classes · `snake_case` vars/functions/signals · `UPPER_CASE` constants · building levels `<Name>_L<N>.tres` (resolved by convention in `Island.restore_buildings()`) · ids are `snake_case` and must match across `.tres` files and any doc that references them.
+
+---
+
 # 1. What already exists (do not rebuild these)
 
 ## Combat — fully working

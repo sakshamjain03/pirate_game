@@ -44,6 +44,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="CenterContainer"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(500, 300)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_MenuBg")

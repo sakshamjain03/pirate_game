@@ -35,6 +35,8 @@ func _ready() -> void:
 			if not dir.current_is_dir() and file_name.ends_with(".tres"):
 				var region = load("res://resources/world/regions/" + file_name) as RegionData
 				if region:
+					if region.tier <= 0:
+						push_error("EmpireManager: RegionData %s has no authored tier (got %d) - raid difficulty for this region will be wrong." % [file_name, region.tier])
 					_regions.append(region)
 					# Region 1 is true, others false initially
 					_region_active[region.id] = (region.tier == 1)

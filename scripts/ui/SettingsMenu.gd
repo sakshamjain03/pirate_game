@@ -29,6 +29,9 @@ class_name SettingsMenu
 ## - Add visual feedback for successful settings save
 
 @onready var root_control: Control = $Control
+@onready var title_label: Label = $Control/TitleLabel
+@onready var tab_container: TabContainer = $Control/TabContainer
+@onready var general_tab: Control = $Control/TabContainer/General
 @onready var master_slider: HSlider = $Control/TabContainer/General/GridContainer/MasterSlider
 @onready var music_slider: HSlider = $Control/TabContainer/General/GridContainer/MusicSlider
 @onready var sfx_slider: HSlider = $Control/TabContainer/General/GridContainer/SFXSlider
@@ -37,11 +40,21 @@ class_name SettingsMenu
 @onready var vsync_check: CheckButton = $Control/TabContainer/General/GridContainer/VSyncCheckButton
 @onready var back_button: Button = $Control/BackButton
 @onready var replay_tutorial_button: Button = $Control/TabContainer/General/GridContainer/ReplayTutorialButton
+@onready var grid_container: GridContainer = $Control/TabContainer/General/GridContainer
+@onready var fullscreen_label: Label = $Control/TabContainer/General/GridContainer/FullscreenLabel
+@onready var resolution_label: Label = $Control/TabContainer/General/GridContainer/ResolutionLabel
+@onready var vsync_label: Label = $Control/TabContainer/General/GridContainer/VSyncLabel
 
 @onready var controls_vbox: VBoxContainer = $Control/TabContainer/Controls/ScrollContainer/ControlsVBox
 @onready var account_vbox: VBoxContainer = $Control/TabContainer/Account/ScrollContainer/AccountVBox
 
 var _awaiting_rebind: String = ""
+var _settings_card: Panel
+var _mobile_general_scroll: ScrollContainer
+
+## Desktop test runners cannot report an Android/iOS feature. This allows the
+## phone presentation to be layout-tested without changing a shipping build.
+@export var force_mobile_layout_for_test: bool = false
 
 var settings_manager: Node = SettingsManager
 var audio_manager: Node = AudioManager
@@ -56,6 +69,8 @@ const PRIVACY_URL := "https://sakshamjain03.github.io/pirate_game/privacy.html"
 ## preload rather than the bare global class name — headless GUT runs don't always have a
 ## freshly rebuilt global-script-class cache, and the bare identifier can fail to resolve.
 const ChoiceDialogScript := preload("res://scripts/ui/ChoiceDialog.gd")
+const PurchaseSupportScreenScene := preload("res://scenes/ui/PurchaseSupportScreen.tscn")
+const ConsentPanelScene := preload("res://scenes/ui/ConsentPanel.tscn")
 
 var _account_email_field: LineEdit
 var _account_password_field: LineEdit
@@ -66,6 +81,7 @@ func _ready() -> void:
 	# M9 Requirement 3 (D70) — the only screen in scenes/ui/ that never applied
 	# the theme, rendering as raw default Godot UI.
 	root_control.theme = PirateThemeBuilder.build()
+	_apply_settings_visual_language()
 
 	# Populate controls from SettingsManager
 	master_slider.value = settings_manager.master_volume
@@ -103,11 +119,155 @@ func _ready() -> void:
 	_populate_account_tab()
 	PirateThemeBuilder.apply_button_juice(root_control)
 
+	if _uses_mobile_layout():
+		_apply_mobile_sizing()
+
+
+func _uses_mobile_layout() -> bool:
+	return force_mobile_layout_for_test or PirateThemeBuilder.is_mobile()
+
+
+func _apply_settings_visual_language() -> void:
+	## Settings used to be an unframed, edge-to-edge TabContainer. Give every
+	## device a deliberate surface, while the mobile branch below narrows it to
+	## a readable, thumb-friendly panel instead of scaling a desktop rectangle.
+	_settings_card = Panel.new()
+	_settings_card.name = "SettingsCard"
+	_settings_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_settings_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_settings_card.offset_left = 72.0
+	_settings_card.offset_top = 32.0
+	_settings_card.offset_right = -72.0
+	_settings_card.offset_bottom = -32.0
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color("17243a")
+	card_style.border_width_left = 2
+	card_style.border_width_top = 2
+	card_style.border_width_right = 2
+	card_style.border_width_bottom = 2
+	card_style.border_color = Color("b98a3f")
+	card_style.corner_radius_top_left = 18
+	card_style.corner_radius_top_right = 18
+	card_style.corner_radius_bottom_left = 18
+	card_style.corner_radius_bottom_right = 18
+	card_style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+	card_style.shadow_size = 16
+	_settings_card.add_theme_stylebox_override("panel", card_style)
+	root_control.add_child(_settings_card)
+	root_control.move_child(_settings_card, 1)
+
+	title_label.add_theme_font_size_override("font_size", 32)
+	title_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	title_label.add_theme_color_override("font_outline_color", Color("07101d"))
+	title_label.add_theme_constant_override("outline_size", 6)
+	tab_container.add_theme_font_size_override("font_size", 18)
+	# The frame intentionally leaves an even margin around all pages.
+	tab_container.offset_left = 100.0
+	tab_container.offset_top = 104.0
+	tab_container.offset_right = -100.0
+	tab_container.offset_bottom = -104.0
+
+## Fullscreen/Resolution/VSync are PC display concepts with no mobile
+## equivalent (a phone app is always "fullscreen" and its OS controls actual
+## resolution) — hidden outright on mobile rather than resized, per explicit
+## direction, then everything that remains is enlarged the same way every
+## other screen in this pass is.
+func _apply_mobile_sizing() -> void:
+	var safe := MobileLayoutManager.safe_area(get_viewport())
+	var viewport_size := get_viewport().get_visible_rect().size
+	var side_margin := clampf(viewport_size.x * 0.045, 24.0, 56.0)
+	var top_margin := maxf(20.0, safe.position.y + 12.0)
+	var bottom_margin := maxf(20.0, viewport_size.y - safe.end.y + 12.0)
+
+	# Phone/tablet pages stay inside a surfaced frame rather than running to
+	# display edges. This protects against cut-outs and makes text scannable.
+	_settings_card.offset_left = side_margin
+	_settings_card.offset_top = top_margin
+	_settings_card.offset_right = -side_margin
+	_settings_card.offset_bottom = -bottom_margin
+	title_label.position = Vector2(0.0, top_margin + 12.0)
+	title_label.size = Vector2(viewport_size.x, 52.0)
+	title_label.add_theme_font_size_override("font_size", 34)
+	tab_container.offset_left = side_margin + 16.0
+	tab_container.offset_top = top_margin + 78.0
+	tab_container.offset_right = -side_margin - 16.0
+	tab_container.offset_bottom = -bottom_margin - 76.0
+	tab_container.add_theme_font_size_override("font_size", 22)
+
+	for ctrl in [fullscreen_label, fullscreen_check, resolution_label, resolution_option,
+			vsync_label, vsync_check]:
+		ctrl.visible = false
+
+	# General becomes a vertical, scrollable set of settings rows. A phone
+	# should never compress a label and its control into an unreadable two-column
+	# desktop grid, especially in landscape or split-screen tablet mode.
+	grid_container.columns = 1
+	grid_container.add_theme_constant_override("h_separation", 12)
+	grid_container.add_theme_constant_override("v_separation", 10)
+	grid_container.custom_minimum_size = Vector2(maxf(320.0, tab_container.size.x - 32.0), 0.0)
+	grid_container.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	grid_container.position = Vector2(16.0, 16.0)
+	if not _mobile_general_scroll:
+		_mobile_general_scroll = ScrollContainer.new()
+		_mobile_general_scroll.name = "GeneralScrollContainer"
+		_mobile_general_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_mobile_general_scroll.offset_left = 12.0
+		_mobile_general_scroll.offset_top = 12.0
+		_mobile_general_scroll.offset_right = -12.0
+		_mobile_general_scroll.offset_bottom = -12.0
+		general_tab.add_child(_mobile_general_scroll)
+		grid_container.reparent(_mobile_general_scroll)
+	for label in [
+		grid_container.get_node("MasterVolumeLabel"),
+		grid_container.get_node("MusicVolumeLabel"),
+		grid_container.get_node("SFXVolumeLabel"),
+		grid_container.get_node("TutorialLabel"),
+	]:
+		label.add_theme_font_size_override("font_size", 21)
+		label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+		label.custom_minimum_size = Vector2(0.0, 32.0)
+	for slider in [master_slider, music_slider, sfx_slider]:
+		slider.custom_minimum_size = Vector2(0.0, 64.0)
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	replay_tutorial_button.custom_minimum_size = Vector2(0.0, 68.0)
+	replay_tutorial_button.add_theme_font_size_override("font_size", 20)
+	back_button.custom_minimum_size = Vector2(176.0, 62.0)
+	back_button.position = Vector2(viewport_size.x * 0.5 - 88.0, viewport_size.y - bottom_margin - 66.0)
+	back_button.add_theme_font_size_override("font_size", 21)
+
+	_style_mobile_scroll_content(controls_vbox)
+	_style_mobile_scroll_content(account_vbox)
+
+
+func _style_mobile_scroll_content(container: VBoxContainer) -> void:
+	## Controls and Account are built at runtime, so normalise their type and
+	## touch targets after population. The internal page margin is deliberately
+	## consistent with General's scroll view.
+	container.add_theme_constant_override("separation", 14)
+	container.add_theme_constant_override("margin_left", 18)
+	container.add_theme_constant_override("margin_right", 18)
+	container.custom_minimum_size.x = maxf(320.0, tab_container.size.x - 36.0)
+	for child in container.get_children():
+		if child is Button or child is CheckButton or child is OptionButton or child is LineEdit:
+			child.custom_minimum_size.y = maxf(child.custom_minimum_size.y, 64.0)
+			child.add_theme_font_size_override("font_size", 20)
+		elif child is HBoxContainer:
+			child.custom_minimum_size.y = maxf(child.custom_minimum_size.y, 64.0)
+			for row_child in child.get_children():
+				if row_child is Label:
+					row_child.add_theme_font_size_override("font_size", 19)
+				elif row_child is Button or row_child is OptionButton:
+					row_child.custom_minimum_size.y = maxf(row_child.custom_minimum_size.y, 60.0)
+					row_child.add_theme_font_size_override("font_size", 19)
+				elif row_child is HSlider:
+					row_child.custom_minimum_size.y = maxf(row_child.custom_minimum_size.y, 60.0)
+
 func _populate_controls() -> void:
 	for child in controls_vbox.get_children():
 		child.queue_free()
 		
 	_add_input_feel_controls()
+	_add_mobile_controls()
 	_add_graphics_quality_control()
 
 	# Was a hardcoded copy of the action list, which had already drifted — it
@@ -141,6 +301,10 @@ func _populate_controls() -> void:
 	)
 	controls_vbox.add_child(reset_btn)
 
+	PirateThemeBuilder.apply_mobile_control_scaling(controls_vbox)
+	if _uses_mobile_layout():
+		_style_mobile_scroll_content(controls_vbox)
+
 func _add_input_feel_controls() -> void:
 	## M2 Task 6.3 — adjustable sensitivity and dead zone. Persisted through
 	## SettingsManager alongside every other setting; InputManager picks the new
@@ -157,6 +321,34 @@ func _add_input_feel_controls() -> void:
 			InputManager.set_dead_zone(v)
 			settings_manager.save_settings())
 
+	controls_vbox.add_child(HSeparator.new())
+
+
+func _add_mobile_controls() -> void:
+	if OS.has_feature("pc"):
+		return
+	var handed := CheckButton.new()
+	handed.text = tr("Left-handed Controls")
+	handed.button_pressed = settings_manager.mobile_left_handed
+	handed.toggled.connect(func(enabled: bool):
+		settings_manager.mobile_left_handed = enabled
+		settings_manager.save_settings()
+		MobileLayoutManager.notify_layout_changed())
+	controls_vbox.add_child(handed)
+	var haptics := CheckButton.new()
+	haptics.text = tr("Haptic Feedback")
+	haptics.button_pressed = settings_manager.haptics_enabled
+	haptics.toggled.connect(func(enabled: bool):
+		settings_manager.haptics_enabled = enabled
+		settings_manager.save_settings())
+	controls_vbox.add_child(haptics)
+	var advanced_fire := CheckButton.new()
+	advanced_fire.text = tr("Advanced Fire Controls")
+	advanced_fire.button_pressed = settings_manager.mobile_advanced_combat_controls
+	advanced_fire.toggled.connect(func(enabled: bool):
+		settings_manager.mobile_advanced_combat_controls = enabled
+		settings_manager.save_settings())
+	controls_vbox.add_child(advanced_fire)
 	controls_vbox.add_child(HSeparator.new())
 
 
@@ -281,7 +473,73 @@ func _populate_account_tab() -> void:
 		_build_signed_in_account_ui()
 	else:
 		_build_signed_out_account_ui()
+	_build_purchases_ui()
 	PirateThemeBuilder.apply_button_juice(account_vbox)
+	PirateThemeBuilder.apply_mobile_control_scaling(account_vbox)
+	if _uses_mobile_layout():
+		_style_mobile_scroll_content(account_vbox)
+
+## M17 Requirement 3.2/3.5 — restore purchases and purchase support, shown
+## regardless of sign-in state since store restore works independently of
+## an M15 account.
+func _build_purchases_ui() -> void:
+	account_vbox.add_child(HSeparator.new())
+
+	var purchases_label := Label.new()
+	purchases_label.text = tr("Purchases")
+	account_vbox.add_child(purchases_label)
+
+	var restore_button := Button.new()
+	restore_button.text = tr("Restore Purchases")
+	restore_button.custom_minimum_size = Vector2(0, 44)
+	restore_button.pressed.connect(_on_restore_purchases_pressed)
+	account_vbox.add_child(restore_button)
+
+	var support_button := Button.new()
+	support_button.text = tr("Purchase Support")
+	support_button.custom_minimum_size = Vector2(0, 44)
+	support_button.pressed.connect(_on_purchase_support_pressed)
+	account_vbox.add_child(support_button)
+
+	var ad_prefs_button := Button.new()
+	ad_prefs_button.text = tr("Ad Preferences")
+	ad_prefs_button.custom_minimum_size = Vector2(0, 44)
+	ad_prefs_button.pressed.connect(_on_ad_preferences_pressed)
+	account_vbox.add_child(ad_prefs_button)
+
+func _on_restore_purchases_pressed() -> void:
+	if not StoreManager.restore_completed.is_connected(_on_restore_completed):
+		StoreManager.restore_completed.connect(_on_restore_completed, CONNECT_ONE_SHOT)
+	StoreManager.restore_purchases()
+
+func _on_restore_completed(granted_count: int) -> void:
+	if granted_count > 0:
+		_show_message(tr("Restored %d purchase(s).") % granted_count)
+	else:
+		_show_message(tr("No new purchases to restore."))
+
+func _on_purchase_support_pressed() -> void:
+	var screen: Control = PurchaseSupportScreenScene.instantiate()
+	root_control.add_child(screen)
+	screen.open()
+
+## M17 Requirement 5.6 — review/change the ad consent choice later. Only
+## meaningful once AdManager has actually resolved past the age gate; a
+## fresh account with no ad-permission history yet has nothing to review.
+func _on_ad_preferences_pressed() -> void:
+	if AdManager.state == AdManager.State.UNKNOWN or AdManager.state == AdManager.State.AGE_GATE_PENDING:
+		_show_message(tr("Ad preferences haven't been set up yet."))
+		return
+	if AdManager.state == AdManager.State.CHILD_DIRECTED:
+		_show_message(tr("Ads are set to non-personalized and can't be changed on this account."))
+		return
+	var panel: Control = ConsentPanelScene.instantiate()
+	root_control.add_child(panel)
+	var free_when_resolved := func(new_state: AdManager.State) -> void:
+		if new_state != AdManager.State.CONSENT_PENDING and is_instance_valid(panel):
+			panel.queue_free()
+	AdManager.state_changed.connect(free_when_resolved, CONNECT_ONE_SHOT)
+	AdManager.reopen_consent()
 
 func _build_signed_out_account_ui() -> void:
 	var email_label := Label.new()
@@ -446,6 +704,7 @@ func _show_message(text_content: String, is_warning: bool = false) -> void:
 	panel.offset_top = 100.0
 	panel.offset_bottom = 160.0
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	PirateThemeBuilder.apply_mobile_control_scaling(panel)
 
 	root_control.add_child(panel)
 

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RegionData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
+[ext_resource type="Resource" path="res://resources/ships/Galleon.tres" id="2_galleon"]
+[ext_resource type="Resource" path="res://resources/ships/ManOWar.tres" id="3_manowar"]
+
+[resource]
+script = ExtResource("1_reg")
+id = "ancient_ocean"
+display_name = "The Ancient Ocean"
+tier = 4
+dominant_faction = "pirate_clans"
+activation_notoriety_threshold = 300.0
+island_ids = Array[String](["widows_reach"])
+display_ring_radius = 900.0
+wave_intensity_multiplier = 1.9
+fog_density_multiplier = 1.6
+enemy_ship_pool = Array[ShipStats]([ExtResource("2_galleon"), ExtResource("3_manowar")])
+wind_strength = 0.9
+wind_direction_degrees = 270.0

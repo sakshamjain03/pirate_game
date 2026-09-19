@@ -1,0 +1,91 @@
+[gd_resource type="Resource" script_class="ChapterData" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
+[ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
+[ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+
+[sub_resource type="Resource" id="Open_1"]
+script = ExtResource("3_beat")
+speaker_id = "marguerite"
+speaker_name = "Marguerite the Merciless"
+text = "You already know what Vance and Hollis did to my port. I've sailed under your flag three years and never once asked you to do anything about it."
+mood = 2
+
+[sub_resource type="Resource" id="Open_2"]
+script = ExtResource("3_beat")
+speaker_id = "marguerite"
+speaker_name = "Marguerite the Merciless"
+text = "I'm asking now. It's still theirs. It's still burned. And I would very much like to stop describing it in the past tense."
+mood = 3
+
+[sub_resource type="Resource" id="Open_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "She's earned this a hundred times over, Captain. Try not to make her wait for the hundred-and-first."
+mood = 1
+
+[sub_resource type="Resource" id="Obj_7_1"]
+script = ExtResource("2_objective")
+objective_id = "7.1"
+description = "Clear the approaches"
+condition = 3
+target_id = "royal_navy"
+target_count = 10
+
+[sub_resource type="Resource" id="Obj_7_2"]
+script = ExtResource("2_objective")
+objective_id = "7.2"
+description = "Take Marguerite's harbour back"
+condition = 6
+target_id = "blackwater_shoal"
+target_count = 1
+
+[sub_resource type="Resource" id="Obj_7_3"]
+script = ExtResource("2_objective")
+objective_id = "7.3"
+description = "Keep being noticed"
+condition = 13
+target_value = 400.0
+
+[sub_resource type="Resource" id="Obj_7_4"]
+script = ExtResource("2_objective")
+objective_id = "7.4"
+description = "Cripple a Navy ship rather than sink it"
+condition = 4
+target_id = "royal_navy"
+target_count = 2
+is_optional = true
+
+[sub_resource type="Resource" id="Close_1"]
+script = ExtResource("3_beat")
+speaker_id = "marguerite"
+speaker_name = "Marguerite the Merciless"
+text = "It's not the harbour it was. It's mine again, which is most of the way there."
+mood = 1
+
+[sub_resource type="Resource" id="Close_2"]
+script = ExtResource("3_beat")
+speaker_id = "marguerite"
+speaker_name = "Marguerite the Merciless"
+text = "Ask Morrow's old lieutenants what's left of Skull Cove's leadership sometime. I hear it's a mess even by pirate standards."
+mood = 4
+
+[sub_resource type="Resource" id="Close_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "There it is — the smile I've been waiting three years to see."
+mood = 1
+
+[resource]
+script = ExtResource("1_chapter")
+chapter_id = "ch7_marguerites_harbour"
+chapter_number = 7
+title = "Marguerite's Harbour"
+log_summary = "Cleared the approaches and retook Blackwater Shoal — Marguerite's port, hers again after Vance's blockade."
+required_previous_chapter = "ch6_the_wandering_widow"
+opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
+objectives = Array[ObjectiveData]([SubResource("Obj_7_1"), SubResource("Obj_7_2"), SubResource("Obj_7_3"), SubResource("Obj_7_4")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+reward_gold = 11000

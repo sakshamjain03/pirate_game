@@ -6,6 +6,8 @@ class_name DeathScreen extends Control
 
 @onready var respawn_button: Button = %RespawnButton
 @onready var penalty_label: Label = %PenaltyLabel
+@onready var panel: PanelContainer = %Panel
+@onready var title_label: Label = %TitleLabel
 
 var player_ship: ShipController = null
 var _penalty_amount: int = 0
@@ -13,12 +15,19 @@ var _penalty_amount: int = 0
 func _ready() -> void:
 	respawn_button.pressed.connect(_on_respawn_pressed)
 	hide()
-	
+
 	# Ensure this UI can process while the tree is paused
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	
+
 	theme = PirateThemeBuilder.build()
 	PirateThemeBuilder.apply_button_juice(self)
+
+	if PirateThemeBuilder.is_mobile():
+		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
+		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(42))
+		penalty_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
+		respawn_button.custom_minimum_size = PirateThemeBuilder.scaled_size(respawn_button.custom_minimum_size)
+		respawn_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 
 func open(ship: ShipController) -> void:
 	player_ship = ship

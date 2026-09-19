@@ -13,19 +13,37 @@ extends Node
 ## reads/writes user://account_data.json itself.
 
 signal entitlement_granted(id: StringName)
+signal entitlement_revoked(id: StringName)
 
 const ACCOUNT_DATA_PATH := "user://account_data.json"
 const ACCOUNT_SCHEMA_VERSION := 1
+
+## M17 — the one well-known entitlement id that isn't a cosmetic. Grantable
+## through the same single write path as every cosmetic (see grant()/
+## grant_batch() below) rather than needing a separate ad-free flag store.
+const AD_FREE_ID: StringName = &"ad_free"
 
 # Each entry: id -> { "source": String, "granted_at": int }. Deliberately no
 # quantity/count/balance field anywhere in this dictionary shape — an
 # entitlement is owned or not, never spent, never stacked (AGENTS.md).
 var _entitlements: Dictionary = {}
 
+## Test seam, mirroring SaveManager/AuthManager's own established convention
+## for a manager that talks to Supabase — a test replaces this Callable to
+## intercept every _send_cloud_request() call instead of hitting the network.
+var _request_override: Callable
+var _did_launch_cloud_check := false
+
 
 func _ready() -> void:
 	_load_or_seed_account_data()
 	_connect_play_earned_grants()
+	# fresh_sign_in, not signed_in — a background token refresh also emits
+	# signed_in (for UI reactivity) and would otherwise re-trigger a full
+	# pull-and-push cycle mid-flight through an unrelated sync's own 401
+	# retry, exactly the cascade SaveManager's own identical comment (see
+	# SaveManager.gd) already warns about.
+	AuthManager.fresh_sign_in.connect(_on_signed_in)
 
 
 ## Re-reads user://account_data.json from disk, seeding defaults if it's
@@ -51,17 +69,86 @@ func get_all_entitlement_ids() -> Array[StringName]:
 ## is a silent no-op, not a duplicate or a re-emit. Rejects an id the
 ## catalogue doesn't recognize rather than recording an entitlement to
 ## nothing. This is the ONLY write path into _entitlements — M17's purchase
-## flow must route through this same function rather than adding a second one
+## flow routes through grant_batch() below rather than adding a second one
 ## (see this milestone's own tasks.md Notes).
 func grant(id: StringName, source: String) -> void:
-	if _entitlements.has(id):
+	if not _stage_entitlement(id, source, ""):
 		return
-	if CosmeticCatalogue.get_cosmetic(id) == null:
-		push_error("EntitlementManager: grant of unknown cosmetic '%s'" % id)
-		return
-	_entitlements[id] = {"source": source, "granted_at": _now_unix()}
 	_write_account_data()
 	entitlement_granted.emit(id)
+	_sync_to_cloud_if_signed_in()
+
+
+## M17 Task 5 — stages every id then writes once, so a bundle purchase (e.g.
+## the Supporter Pack granting ad-free plus several cosmetics) can never end
+## up partially owned after a crash mid-bundle (Requirement 2.4). Still the
+## same _entitlements dict, still the same single write path as grant()
+## above — this is the one addition to M16's API, per design.md §4.
+func grant_batch(ids: Array, source: String, order_id: String = "") -> void:
+	var newly_granted: Array[StringName] = []
+	for id in ids:
+		if _stage_entitlement(id, source, order_id):
+			newly_granted.append(id)
+	if newly_granted.is_empty():
+		return
+	_write_account_data()
+	for id in newly_granted:
+		entitlement_granted.emit(id)
+	_sync_to_cloud_if_signed_in()
+
+
+## The only removal path (Requirement 8.4) — called when the store reports a
+## purchase as refunded or revoked, never for any other reason. Touches
+## account data only, never the save (design.md §7's "Save integrity" hazard)
+## and never runs from inside a save/load operation.
+func revoke(id: StringName) -> void:
+	if not _entitlements.has(id):
+		return
+	_entitlements.erase(id)
+	_write_account_data()
+	entitlement_revoked.emit(id)
+	# Pushes the now-smaller set as a full overwrite (not a merge) — this is
+	# the one case where cloud sync actively removes something, because a
+	# revocation is authoritative, not a passive sync gap (design.md §8: only
+	# Requirement 8 revocation ever removes an entitlement).
+	_sync_to_cloud_if_signed_in()
+
+
+## The order id a purchased entitlement was granted under, for the
+## purchase-support screen (Requirement 3.5). Empty for a non-purchase grant.
+func get_order_id(id: StringName) -> String:
+	return _entitlements.get(id, {}).get("order_id", "")
+
+
+## Distinct, non-empty order ids across every currently-owned entitlement —
+## what the purchase-support screen actually lists (a player may have bought
+## more than one product).
+func get_all_order_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for entry in _entitlements.values():
+		var order_id: String = entry.get("order_id", "")
+		if order_id != "" and not ids.has(order_id):
+			ids.append(order_id)
+	return ids
+
+
+## Stages one entitlement into _entitlements without writing or emitting —
+## grant()/grant_batch() share this so a bundle purchase writes exactly once
+## while a single non-purchase grant still writes immediately. Returns
+## whether anything was actually staged (false for an already-owned id or an
+## id neither CosmeticCatalogue nor AD_FREE_ID recognizes).
+func _stage_entitlement(id: StringName, source: String, order_id: String) -> bool:
+	if _entitlements.has(id):
+		return false
+	if not _is_grantable_id(id):
+		push_error("EntitlementManager: grant of unknown entitlement '%s'" % id)
+		return false
+	_entitlements[id] = {"source": source, "granted_at": _now_unix(), "order_id": order_id}
+	return true
+
+
+func _is_grantable_id(id: StringName) -> bool:
+	return id == AD_FREE_ID or CosmeticCatalogue.get_cosmetic(id) != null
 
 
 func get_save_data() -> Dictionary:
@@ -168,3 +255,123 @@ func _write_account_data() -> void:
 
 func _now_unix() -> int:
 	return Time.get_unix_time_from_system()
+
+
+## M17 Requirement 3.3 — called once per session (World.gd, mirroring
+## SaveManager.check_cloud_save_on_launch()'s own established convention) so
+## a returning signed-in player's other-device purchases show up without
+## any action. A no-op for a signed-out player.
+func check_cloud_sync_on_launch() -> void:
+	if _did_launch_cloud_check:
+		return
+	_did_launch_cloud_check = true
+	await AuthManager.await_initial_check()
+	if not AuthManager.is_signed_in():
+		return
+	await _pull_and_push_union()
+
+
+func _on_signed_in(_user_id: String) -> void:
+	await _pull_and_push_union()
+
+
+## Requirement 3.6 — the union, never the intersection. Anything the cloud
+## has that this device doesn't gets granted locally (never the reverse:
+## sync only ever adds); the merged result — now a superset of both — is
+## pushed back so a third device converges too. Only revoke() above ever
+## removes anything.
+func _pull_and_push_union() -> void:
+	var cloud_ids := await _fetch_cloud_entitlement_ids()
+	var missing: Array[StringName] = []
+	for id in cloud_ids:
+		var sid := StringName(id)
+		if not _entitlements.has(sid) and _is_grantable_id(sid):
+			missing.append(sid)
+	if not missing.is_empty():
+		grant_batch(missing, "cloud_sync")
+	else:
+		# grant_batch() above already pushes when it writes; if there was
+		# nothing new to grant, still push once so a first-time signed-in
+		# push actually reaches the cloud.
+		await _push_entitlements_to_cloud(_entitlements)
+
+
+func _sync_to_cloud_if_signed_in() -> void:
+	if AuthManager.is_signed_in():
+		# Fire-and-forget, exactly like SaveManager._sync_to_cloud() — a
+		# grant/revoke must never block on the network to complete locally.
+		_push_entitlements_to_cloud(_entitlements)
+
+
+## Returns every entitlement id the cloud currently has recorded for this
+## account, or an empty array if signed out, offline, or nothing exists yet.
+func _fetch_cloud_entitlement_ids() -> Array:
+	var result := await _send_cloud_request(
+		HTTPClient.METHOD_GET, "/rest/v1/player_entitlements?select=entitlements", [], "")
+	var code: int = result.get("code", 0)
+	if code == 401 and await AuthManager.refresh_session():
+		result = await _send_cloud_request(
+			HTTPClient.METHOD_GET, "/rest/v1/player_entitlements?select=entitlements", [], "")
+		code = result.get("code", 0)
+	if code < 200 or code >= 300:
+		return []
+	var body = result.get("body", [])
+	if body is Array and body.size() > 0 and body[0] is Dictionary:
+		var ents = body[0].get("entitlements", {})
+		if ents is Dictionary:
+			return ents.keys()
+	return []
+
+
+## Upserts the given full entitlement set as this account's cloud row (one
+## row per account, same on_conflict=user_id shape SaveManager's
+## player_saves upsert already uses).
+func _push_entitlements_to_cloud(entitlements: Dictionary) -> void:
+	var payload := {
+		"user_id": AuthManager.get_user_id(),
+		"entitlements": entitlements,
+	}
+	var result := await _send_cloud_request(
+		HTTPClient.METHOD_POST,
+		"/rest/v1/player_entitlements?on_conflict=user_id",
+		["Prefer: resolution=merge-duplicates,return=minimal"],
+		JSON.stringify(payload))
+	if result.get("code", 0) == 401 and await AuthManager.refresh_session():
+		await _send_cloud_request(
+			HTTPClient.METHOD_POST,
+			"/rest/v1/player_entitlements?on_conflict=user_id",
+			["Prefer: resolution=merge-duplicates,return=minimal"],
+			JSON.stringify(payload))
+
+
+func _send_cloud_request(method: HTTPClient.Method, endpoint: String, extra_headers: Array, body: String) -> Dictionary:
+	if _request_override.is_valid():
+		return await _request_override.call(method, endpoint, extra_headers, body)
+
+	var headers := PackedStringArray([
+		"apikey: %s" % AuthManager.SUPABASE_ANON_KEY,
+		"Authorization: Bearer %s" % AuthManager.get_access_token(),
+		"Content-Type: application/json",
+	])
+	for h in extra_headers:
+		headers.append(h)
+
+	var http := HTTPRequest.new()
+	add_child(http)
+	var err := http.request(AuthManager.SUPABASE_URL + endpoint, headers, method, body)
+	if err != OK:
+		http.queue_free()
+		return {"code": 0, "body": {}}
+
+	var result: Array = await http.request_completed
+	http.queue_free()
+
+	var response_code: int = result[1]
+	var response_body: PackedByteArray = result[3]
+	var parsed = {}
+	var text := response_body.get_string_from_utf8()
+	if not text.is_empty():
+		var json := JSON.new()
+		if json.parse(text) == OK:
+			parsed = json.data
+	return {"code": response_code, "body": parsed}

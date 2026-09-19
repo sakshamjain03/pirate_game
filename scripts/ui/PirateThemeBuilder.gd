@@ -46,6 +46,69 @@ static func _font_scale() -> float:
 	return 1.0 if OS.has_feature("pc") else MOBILE_FONT_SCALE
 
 
+## M13 Task 16.5 follow-up #2 (2026-09-20) — the first mobile-sizing pass only
+## touched MobileControls/WorldHUD's button row/MainMenu; 14 other screens
+## (PauseMenu, SettingsMenu, WorldMapScreen, WardrobeScreen, IslandMenu,
+## CaptainsLog, DeathScreen, RaidReportScreen, TutorialDialogue,
+## WhatsNewScreen, PurchaseSupportScreen, StoreScreen, EnemyHealthBar,
+## CreditsScreen, FloatingDamage) still render at PC-tuned pixel sizes on
+## phone. Rather than hand-tuning a bespoke PC/mobile Vector2 pair per screen
+## (as WorldHUD.gd's HUD_BUTTON_SIZE_PC/MOBILE did — fine for 1-2 screens, not
+## 14), this is the single dynamic-scaling mechanism every screen calls: one
+## constant to retune from real-device screenshots instead of 14 files' worth
+## of magic numbers. Separate knob from MOBILE_FONT_SCALE since text and
+## control geometry don't need to move in lockstep.
+const MOBILE_CONTROL_SCALE := 1.5
+## A 48dp target becomes 72 canvas pixels at the mobile control scale. This
+## floor is applied to every Button through apply_button_juice(), including
+## dynamically-created menu rows, so a new screen cannot accidentally ship
+## desktop-sized touch controls.
+const MOBILE_MIN_TOUCH_TARGET := Vector2(72, 72)
+
+static var force_mobile_scaling_for_test: bool = false
+
+static func is_mobile() -> bool:
+	return force_mobile_scaling_for_test or not OS.has_feature("pc")
+
+static func scaled_size(pc_size: Vector2) -> Vector2:
+	return pc_size if not is_mobile() else pc_size * MOBILE_CONTROL_SCALE
+
+static func scaled(value: float) -> float:
+	return value if not is_mobile() else value * MOBILE_CONTROL_SCALE
+
+## Several dialog screens set an explicit theme_override_font_sizes/font_size
+## per-Label/Button, which bypasses build()'s own MOBILE_FONT_SCALE entirely —
+## those overrides need their own mobile scaling call, using the same
+## already-device-verified font ratio (not MOBILE_CONTROL_SCALE) so dialog
+## text scales the same amount project text already does.
+static func scaled_font_size(pc_size: int) -> int:
+	return pc_size if not is_mobile() else roundi(pc_size * MOBILE_FONT_SCALE)
+
+
+## For screens that build their interactive content at runtime rather than
+## laying it out once in a .tscn (IslandMenu's building/ship/captain/fleet/
+## research/trade rows in particular — dozens of Button.new()/Label.new()
+## call sites, each with its own hardcoded PC custom_minimum_size/font_size
+## override) — walk a freshly-built subtree once and scale every explicit
+## size/override found, instead of touching every call site individually.
+## Safe to call once per rebuild (each _refresh_*() frees its old children
+## and creates new ones from the same PC-literal values, so there is no
+## already-scaled value here to compound against) — NOT safe to call twice
+## on the same still-alive subtree.
+static func apply_mobile_control_scaling(root: Node) -> void:
+	if not is_mobile():
+		return
+	if root is Control:
+		var ctrl := root as Control
+		if ctrl.custom_minimum_size != Vector2.ZERO:
+			ctrl.custom_minimum_size = scaled_size(ctrl.custom_minimum_size)
+		if ctrl.has_theme_font_size_override("font_size"):
+			ctrl.add_theme_font_size_override(
+				"font_size", scaled_font_size(ctrl.get_theme_font_size("font_size")))
+	for child in root.get_children():
+		apply_mobile_control_scaling(child)
+
+
 static func build() -> Theme:
 	var theme := Theme.new()
 	var scale := _font_scale()
@@ -183,6 +246,11 @@ static func _make_panel_stylebox(bg: Color, border: Color, border_w: float, radi
 ## is N chances to repeat it. Idempotent, so it's safe to call on a
 ## partially-juiced tree.
 static func apply_button_juice(root: Node) -> void:
+	if is_mobile() and root is BaseButton:
+		var target := root as BaseButton
+		target.custom_minimum_size = Vector2(
+			maxf(target.custom_minimum_size.x, MOBILE_MIN_TOUCH_TARGET.x),
+			maxf(target.custom_minimum_size.y, MOBILE_MIN_TOUCH_TARGET.y))
 	if root is Button:
 		var already_juiced := false
 		for child in root.get_children():
@@ -191,6 +259,9 @@ static func apply_button_juice(root: Node) -> void:
 				break
 		if not already_juiced:
 			root.add_child(ButtonJuice.new())
+			# One short confirmation pulse per completed UI press. The feedback
+			# manager itself is a mobile-only, player-toggleable no-op elsewhere.
+			root.pressed.connect(HapticFeedbackManager.tap)
 	for child in root.get_children():
 		apply_button_juice(child)
 

@@ -103,7 +103,7 @@ func test_economy_tick_trade_mission_grants_gold_and_captain_xp():
 	FleetManager.assign_mission(1, 0, "trade")
 
 	ResourceManager.current_resources["gold"] = 0
-	FleetManager._on_economy_tick()
+	FleetManager.on_economy_tick()
 
 	assert_eq(ResourceManager.get_resource("gold"), 10 * captain.level,
 		"a trade mission must earn 10 * captain.level gold per tick")
@@ -114,7 +114,7 @@ func test_economy_tick_patrol_mission_grants_merchant_reputation():
 	FleetManager.assign_mission(1, 0, "patrol")
 
 	var rep_before = FactionManager.get_reputation("merchant_guild")
-	FleetManager._on_economy_tick()
+	FleetManager.on_economy_tick()
 
 	assert_eq(FactionManager.get_reputation("merchant_guild"), rep_before + 1,
 		"a patrol mission must earn 1 merchant_guild reputation per tick")

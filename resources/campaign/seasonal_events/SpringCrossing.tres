@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="SeasonalEventData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/SeasonalEventData.gd" id="1_event"]
+[ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
+
+[sub_resource type="Resource" id="Obj_8_1"]
+script = ExtResource("2_objective")
+objective_id = "8.1"
+description = "Break the crossing"
+condition = 3
+target_id = "spanish_empire"
+target_count = 10
+
+[sub_resource type="Resource" id="Obj_8_2"]
+script = ExtResource("2_objective")
+objective_id = "8.2"
+description = "Plunder the crossing instead of just breaking it"
+condition = 4
+target_id = "spanish_empire"
+target_count = 2
+is_optional = true
+
+[resource]
+script = ExtResource("1_event")
+event_id = "spring_crossing"
+display_name = "The Spring Crossing"
+log_summary = "Cárdenas promised another crossing in the spring. She wasn't lying, and neither is the sea — it comes back every year."
+fallback_window_start_month_day = "03-01"
+fallback_window_end_month_day = "05-31"
+objectives = Array[ObjectiveData]([SubResource("Obj_8_1"), SubResource("Obj_8_2")])
+reward_gold = 2000

@@ -36,6 +36,37 @@ create policy "Users can update their own save"
 -- RLS by design; that is the only sanctioned way a player_saves row is ever removed.
 
 -- ---------------------------------------------------------------------------
+-- M17 Requirement 3.3/3.6 — player_entitlements (per-user cloud entitlement
+-- sync, RLS-gated). Union-merge only, per design.md §8: a client never
+-- deletes a row here on its own — it only ever upserts the full current set
+-- (which is how a revocation actually removes something: the row is
+-- overwritten with the smaller set, not edited in place).
+-- ---------------------------------------------------------------------------
+
+create table public.player_entitlements (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) unique,
+    entitlements jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now()
+);
+
+alter table public.player_entitlements enable row level security;
+
+create policy "Users can read their own entitlements"
+    on public.player_entitlements for select
+    using (auth.uid() = user_id);
+
+create policy "Users can insert their own entitlements"
+    on public.player_entitlements for insert
+    with check (auth.uid() = user_id);
+
+create policy "Users can update their own entitlements"
+    on public.player_entitlements for update
+    using (auth.uid() = user_id);
+
+-- No delete policy — same rationale as player_saves above.
+
+-- ---------------------------------------------------------------------------
 -- Requirement 11 — remote_config (public read, no per-row restriction)
 -- ---------------------------------------------------------------------------
 

@@ -20,6 +20,16 @@ class_name ChapterData extends Resource
 @export var required_region_id: String = ""
 ## Empty = no prior-chapter gate (Chapter 1).
 @export var required_previous_chapter: String = ""
+## M14 Requirement 1.3/3 — a real, small data-model gap found authoring
+## Chapter 9 (An Unwelcome Ally): its gate is "the Spring Crossing has been
+## completed at least once," which is neither a permanent prior-chapter
+## completion nor a region-activation threshold — the two gate shapes above
+## can't express it. Generic (any future chapter can use it), not a special
+## case hardcoded for one chapter id. Empty = no seasonal-event gate.
+## Checked against `SeasonalEventManager.has_ever_completed()` — the one-way
+## "ever" flag, deliberately not `is_completed_this_window()`, since a chapter
+## gate must never re-lock once opened.
+@export var required_seasonal_event_id: String = ""
 
 @export_group("Content")
 @export var opening_beats: Array[DialogueBeatData] = []

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="IslandData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/IslandData.gd" id="1_id"]
+
+[resource]
+script = ExtResource("1_id")
+island_id = "widows_reach"
+island_name = "Widow's Reach"
+discovered = false
+island_type = 4
+has_dock = true
+docking_speed_limit = 5.0
+world_position = Vector2(-850, 100)
+region_id = "ancient_ocean"
+terrain_theme = 1

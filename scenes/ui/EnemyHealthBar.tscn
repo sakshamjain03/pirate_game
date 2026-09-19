@@ -4,8 +4,8 @@
 
 [node name="EnemyHealthBar" type="Label3D"]
 billboard = 1
-text = "[||||||||||]"
-font_size = 48
-outline_size = 4
-modulate = Color(1, 0.2, 0.2, 1)
+font_size = 32
+outline_size = 6
+outline_modulate = Color(0.02, 0.04, 0.1, 1)
+modulate = Color(0.35, 1, 0.45, 1)
 script = ExtResource("1_ehb")

@@ -40,6 +40,11 @@ const DEFAULT_INPUT_DEAD_ZONE: float = 0.2
 ## Graphics quality (M2 Task 12.1). 0: Low, 1: Medium, 2: High — matches
 ## OceanController.quality_level's existing ladder.
 const DEFAULT_GRAPHICS_QUALITY: int = 1
+const DEFAULT_MOBILE_LEFT_HANDED: bool = false
+const DEFAULT_HAPTICS_ENABLED: bool = true
+## Auto-fire remains the phone default; this opt-in restores the two manual
+## broadside buttons for players who explicitly prefer direct firing.
+const DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS: bool = false
 
 ## The gameplay actions the player may rebind. Single source of truth — this
 ## list was previously duplicated verbatim in both save_settings() and
@@ -62,6 +67,9 @@ var vsync: bool = DEFAULT_VSYNC
 var input_sensitivity: float = DEFAULT_INPUT_SENSITIVITY
 var input_dead_zone: float = DEFAULT_INPUT_DEAD_ZONE
 var graphics_quality: int = DEFAULT_GRAPHICS_QUALITY
+var mobile_left_handed: bool = DEFAULT_MOBILE_LEFT_HANDED
+var haptics_enabled: bool = DEFAULT_HAPTICS_ENABLED
+var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 
 var _settings_path: String = "user://settings.cfg"
 
@@ -153,6 +161,12 @@ func load_settings() -> void:
 
 	var _quality = config.get_value("display", "quality", DEFAULT_GRAPHICS_QUALITY)
 	graphics_quality = _quality if typeof(_quality) == TYPE_INT else DEFAULT_GRAPHICS_QUALITY
+	var _left_handed = config.get_value("mobile", "left_handed", DEFAULT_MOBILE_LEFT_HANDED)
+	mobile_left_handed = _left_handed if typeof(_left_handed) == TYPE_BOOL else DEFAULT_MOBILE_LEFT_HANDED
+	var _haptics = config.get_value("mobile", "haptics_enabled", DEFAULT_HAPTICS_ENABLED)
+	haptics_enabled = _haptics if typeof(_haptics) == TYPE_BOOL else DEFAULT_HAPTICS_ENABLED
+	var _advanced_combat = config.get_value("mobile", "advanced_combat_controls", DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS)
+	mobile_advanced_combat_controls = _advanced_combat if typeof(_advanced_combat) == TYPE_BOOL else DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 
 	if apply_input_bindings_on_load:
 		load_input_bindings(config)
@@ -178,6 +192,9 @@ func save_settings() -> void:
 
 	config.set_value("input", "sensitivity", input_sensitivity)
 	config.set_value("input", "dead_zone", input_dead_zone)
+	config.set_value("mobile", "left_handed", mobile_left_handed)
+	config.set_value("mobile", "haptics_enabled", haptics_enabled)
+	config.set_value("mobile", "advanced_combat_controls", mobile_advanced_combat_controls)
 
 	# Write input bindings under the "input" section. Only actions that actually
 	# carry key events are written — persisting an empty array would read back
@@ -254,3 +271,6 @@ func _apply_defaults() -> void:
 	input_sensitivity = DEFAULT_INPUT_SENSITIVITY
 	input_dead_zone = DEFAULT_INPUT_DEAD_ZONE
 	graphics_quality = DEFAULT_GRAPHICS_QUALITY
+	mobile_left_handed = DEFAULT_MOBILE_LEFT_HANDED
+	haptics_enabled = DEFAULT_HAPTICS_ENABLED
+	mobile_advanced_combat_controls = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS

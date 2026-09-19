@@ -46,7 +46,7 @@ func _ready() -> void:
 		dock_area.body_exited.connect(_on_dock_area_body_exited)
 
 	if ResourceManager.has_signal("global_economy_tick"):
-		ResourceManager.global_economy_tick.connect(_on_economy_tick)
+		ResourceManager.global_economy_tick.connect(on_economy_tick)
 
 	_spawn_defenses()
 	_apply_terrain_theme()
@@ -116,14 +116,17 @@ func _spawn_defenses() -> void:
 				parent = get_tree().root
 			parent.call_deferred("add_child", enemy)
 			enemy.global_position = global_position + Vector3(30, 0, 30)
-			
+
 			# Monitor enemy death for capture logic
 			var combat = enemy.get_node_or_null("ShipCombat")
 			if combat:
 				combat.died.connect(_on_defense_destroyed)
 
 func _on_defense_destroyed() -> void:
-	# Capture the island if the defending fleet is destroyed
+	# Capture the island if the defending fleet is destroyed. The defender
+	# ship itself is not freed here — ShipController._on_died() already
+	# queues its own removal (after playing the sinking sequence), same as
+	# any other destroyed enemy ship.
 	if FactionManager.has_method("get_player_faction"):
 		capture_island(FactionManager.get_player_faction())
 
@@ -145,11 +148,11 @@ func capture_island(new_faction: Resource) -> void:
 		if hud and hud.has_method("announce_event"):
 			hud.announce_event("Captured " + get_island_name() + "!")
 
-func _on_economy_tick() -> void:
-	# Only produce if owned by player or friendly
-	if island_data and island_data.island_type == IslandData.IslandType.ENEMY:
+func on_economy_tick() -> void:
+	# Only produce if owned by player (FRIENDLY or CAPITAL)
+	if not island_data or not island_data.is_owned_by_player():
 		return
-		
+
 	# Tick production for each building
 	for building in built_buildings:
 		if building.production_amount > 0 and building.produces_resource != "":
@@ -213,9 +216,12 @@ func has_shipyard() -> bool:
 	return has_building("shipyard")
 
 func build_structure(building: BuildingData) -> bool:
+	if not island_data or not island_data.is_owned_by_player():
+		return false # Can only build on islands the player owns
+
 	if has_building(building.building_id):
 		return false # Already built
-		
+
 	# Pay cost
 	var cost = building.get_cost_dict()
 	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):

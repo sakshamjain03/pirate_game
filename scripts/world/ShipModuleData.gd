@@ -15,6 +15,11 @@ enum Slot { HULL, CANNON, SAIL, UTILITY, SPECIAL }
 @export var display_name: String = ""
 @export_multiline var description: String = ""
 @export var slot: Slot = Slot.HULL
+## Which ShipStats.ship_class tiers (1-5) this module can be equipped on.
+## Empty means "fits every class" — the correct default for a generic module
+## like most of the existing authored ones; only set this when a module is
+## meant to be class-specific (e.g. a heavy module that shouldn't fit a Sloop).
+@export var compatible_ship_classes: Array[int] = []
 
 @export_group("Cost")
 @export_range(0, 20000) var cost_gold: int = 0
@@ -36,6 +41,10 @@ enum Slot { HULL, CANNON, SAIL, UTILITY, SPECIAL }
 
 func get_slot_name() -> String:
 	return Slot.keys()[slot].capitalize()
+
+
+func is_compatible_with_class(ship_class: int) -> bool:
+	return compatible_ship_classes.is_empty() or ship_class in compatible_ship_classes
 
 
 func describe() -> String:

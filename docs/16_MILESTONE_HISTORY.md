@@ -18,8 +18,8 @@ defects it produced or fixed, by D-number, cross-referenced to `docs/05_CURRENT_
 full technical detail.
 
 **This doc is a historical record, not living documentation of current system behavior.** For
-"what actually runs today," read `docs/05_CURRENT_SYSTEMS.md` and `docs/14_SYSTEM_INVENTORY.md`
-instead — they supersede anything here that later changed. For "what's next," read
+"what actually runs today," read `docs/05_CURRENT_SYSTEMS.md` (which includes system status and
+content volume targets) — it supersedes anything here that later changed. For "what's next," read
 `docs/15_MASTER_PLAN.md`.
 
 `.kiro/specs/milestone-m7.5-stabilization/` is the one milestone spec kept on disk, since it's

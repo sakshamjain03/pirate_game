@@ -51,7 +51,10 @@ func _ready() -> void:
 		# node) — fall back to the player ship so the rig isn't just frozen
 		# at its scene-default transform forever.
 		target = get_tree().get_first_node_in_group("player_ship")
-	target_zoom = settings.default_distance
+	# Mobile needs the ship and nearby threats to read at arm's length. The
+	# values remain authored in CameraSettings rather than embedded in camera
+	# code, so camera framing can be tuned without touching gameplay logic.
+	target_zoom = settings.default_distance if OS.has_feature("pc") else settings.mobile_default_distance
 	if spring_arm:
 		spring_arm.spring_length = target_zoom
 	_exclude_target_from_spring_arm()
@@ -118,7 +121,9 @@ func add_pitch(amount: float) -> void:
 
 func add_zoom(amount: float) -> void:
 	target_zoom -= amount
-	target_zoom = clamp(target_zoom, settings.min_distance, settings.max_distance)
+	var min_distance := settings.min_distance if OS.has_feature("pc") else settings.mobile_min_distance
+	var max_distance := settings.max_distance if OS.has_feature("pc") else settings.mobile_max_distance
+	target_zoom = clamp(target_zoom, min_distance, max_distance)
 
 func set_mode(mode: CameraMode) -> void:
 	if current_mode != mode:

@@ -65,13 +65,15 @@ func _load_all_chapters() -> Array[ChapterData]:
 	return out
 
 
-func test_the_real_chapters_1_through_5_all_load():
+func test_the_real_chapters_1_through_10_all_load():
 	var chapters := _load_all_chapters()
 	var numbers: Array[int] = []
 	for c in chapters:
 		numbers.append(c.chapter_number)
 	numbers.sort()
-	assert_eq(numbers, [1, 2, 3, 4, 5], "Chapters 1-5 must all be present and uniquely numbered")
+	assert_eq(numbers, [1, 2, 3, 4, 5, 6, 7, 9, 10],
+		"Chapters 1-7, 9-10 must all be present and uniquely numbered (8 is the Spring Crossing, " +
+		"a SeasonalEventData, not a ChapterData — M14)")
 
 
 func test_every_chapter_id_is_unique():
@@ -87,7 +89,9 @@ func test_every_gate_reference_resolves_to_a_real_chapter_or_region():
 	var chapter_ids: Array[String] = []
 	for c in chapters:
 		chapter_ids.append(c.chapter_id)
-	var real_regions := ["beginner_waters", "contested_waters", "imperial_waters"]
+	var real_regions := ["beginner_waters", "contested_waters", "imperial_waters",
+		"ancient_ocean", "ghost_reaches"]
+	var seasonal_event_ids := _collect_ids("res://resources/campaign/seasonal_events/", "event_id")
 
 	for c in chapters:
 		if not c.required_previous_chapter.is_empty():
@@ -98,6 +102,10 @@ func test_every_gate_reference_resolves_to_a_real_chapter_or_region():
 			assert_true(real_regions.has(c.required_region_id),
 				"%s.required_region_id '%s' does not name a real region"
 				% [c.chapter_id, c.required_region_id])
+		if not c.required_seasonal_event_id.is_empty():
+			assert_true(seasonal_event_ids.has(c.required_seasonal_event_id),
+				"%s.required_seasonal_event_id '%s' does not name a real seasonal event (M14)"
+				% [c.chapter_id, c.required_seasonal_event_id])
 
 
 func test_every_objective_id_is_globally_unique():

@@ -613,3 +613,48 @@ func test_both_authored_chapter_bosses_are_gated_to_their_own_chapter():
 		"HMS Intransigent must only be ambiently reachable during Chapter 4")
 	assert_eq(cardenas.required_chapter_id, "ch5_the_silver_fleet",
 		"Cárdenas' flagship must only be ambiently reachable during Chapter 5")
+
+
+# === M14 Requirement 2.3 — region-gated encounters (the Ghost Fleet boss) ===
+# Mirrors the chapter-gate tests just above exactly: required_region_id is the
+# same shape as required_chapter_id, gating on EmpireManager.is_region_active()
+# instead of CampaignManager.is_chapter_current().
+
+func test_region_gated_encounter_is_excluded_before_its_region_activates():
+	var saved_active = EmpireManager._region_active.duplicate()
+	EmpireManager._region_active["ghost_reaches"] = false
+
+	var gated := _encounter(1)
+	gated.required_region_id = "ghost_reaches"
+	_mgr.encounter_pool = [gated]
+	_mgr.ambient_enabled = true
+	_mgr._ambient_timer = _mgr.ambient_interval
+
+	_mgr._start_random_ambient()
+	assert_false(_mgr.is_active(),
+		"A region-gated encounter must not be a candidate before its region is active")
+
+	EmpireManager._region_active = saved_active
+
+
+func test_region_gated_encounter_is_eligible_once_its_region_activates():
+	var saved_active = EmpireManager._region_active.duplicate()
+	EmpireManager._region_active["ghost_reaches"] = true
+
+	var gated := _encounter(1)
+	gated.required_region_id = "ghost_reaches"
+	_mgr.encounter_pool = [gated]
+	_mgr.ambient_enabled = true
+	_mgr._ambient_timer = _mgr.ambient_interval
+
+	_mgr._start_random_ambient()
+	assert_true(_mgr.is_active(),
+		"Once its region is active, the gated encounter must be reachable ambiently")
+
+	EmpireManager._region_active = saved_active
+
+
+func test_the_ghost_fleet_boss_is_gated_to_the_ghost_reaches():
+	var ghost_boss: EncounterData = load("res://resources/combat/encounters/GhostFleetBoss.tres")
+	assert_eq(ghost_boss.required_region_id, "ghost_reaches",
+		"The dedicated Ghost Fleet boss must only be ambiently reachable once the Ghost Reaches is active")

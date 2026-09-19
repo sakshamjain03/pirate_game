@@ -6,7 +6,7 @@
 >
 > Companion documents: `docs/11_WORLD_MAP.md` (geography), `docs/12_CHARACTER_BIBLE.md`
 > (people), `docs/13_CAMPAIGN_LEVELS_1-5.md` (the playable chapters),
-> `docs/14_SYSTEM_INVENTORY.md` (what must be built), `docs/15_MASTER_PLAN.md` (sequencing).
+> `docs/05_CURRENT_SYSTEMS.md` (ground truth: what's built and its status), `docs/15_MASTER_PLAN.md` (sequencing).
 
 ---
 

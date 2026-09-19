@@ -15,6 +15,7 @@ signal _dummy  # ensures signals section exists
 @onready var speed_label     : Label        = %SpeedLabel
 @onready var sail_label      : Label        = %SailLabel
 @onready var health_bar      : ProgressBar  = %HealthBar
+@onready var health_container: Control      = %HealthBarContainer
 @onready var health_left     : Label        = %HealthLeftLabel
 @onready var health_right    : Label        = %HealthRightLabel
 @onready var port_label      : Label        = %PortCooldown
@@ -36,21 +37,26 @@ signal _dummy  # ensures signals section exists
 @onready var codex_screen: CanvasLayer = %CodexScreen
 @onready var whats_new_screen: WhatsNewScreen = %WhatsNewScreen
 @onready var wardrobe_screen: WardrobeScreen = %WardrobeScreen
+
+## M17 Requirement 6.1 — one of the three permitted rewarded surfaces.
+const RewardedBonusOfferScene := preload("res://scenes/ui/RewardedBonusOffer.tscn")
 @onready var top_right_panel : VBoxContainer = %TopRightPanel
 @onready var resource_bar    : PanelContainer = %ResourceBar
 @onready var cannons_container: HBoxContainer = %CannonsContainer
 @onready var tutorial_dialogue: TutorialDialogue = %TutorialDialogue
 
-## M13 Task 16.5 follow-up (2026-09-19) — the Log/Map/Codex/New/Wardrobe row
-## measured at 70x32 (≈11dp tall), the single worst touch-target offender
-## found in the mobile UX audit. PC keeps this size (mouse-precise, and this
-## corner already reads fine at the existing size on a desktop monitor);
-## mobile gets a real touch-sized button instead of the same box shared
-## across both input methods.
+## M13 Task 16.5 gave the utility buttons usable mobile targets, but five
+## permanent targets still obscure the world and compete with sailing/combat.
+## PC keeps direct mouse-accessible buttons. Phone builds expose one Menu
+## button and reveal these infrequent destinations only on demand.
 const HUD_BUTTON_SIZE_PC     := Vector2(70, 32)
 const HUD_BUTTON_SIZE_MOBILE := Vector2(120, 52)
 static func _hud_button_min_size() -> Vector2:
 	return HUD_BUTTON_SIZE_PC if OS.has_feature("pc") else HUD_BUTTON_SIZE_MOBILE
+
+## Test-only injection for the mobile branch: desktop CI cannot report a
+## phone OS feature, so layout coverage needs a deterministic override.
+@export var force_mobile_utility_menu: bool = false
 
 var _ship_controller: ShipController
 # M11 — lazily cached; looked up once found since EnvironmentController is a
@@ -71,7 +77,9 @@ var _stbd_cooldown_start_ms: int = 0
 var _arc_locked := {"port": false, "starboard": false}
 var _special_label: Label
 var _objective_label: Label
+var _objective_card: PanelContainer
 var _ability_label: Label
+var _last_reported_health: float = -1.0
 
 func _ready() -> void:
 	# Island.gd (capture announcements) and EncounterManager (encounter/boss
@@ -99,6 +107,18 @@ func _ready() -> void:
 	if SaveManager.has_signal("game_loaded") and not SaveManager.game_loaded.is_connected(_check_whats_new):
 		SaveManager.game_loaded.connect(_check_whats_new)
 	_create_fps_label()
+	if PirateThemeBuilder.is_mobile():
+		MobileLayoutManager.layout_changed.connect(_apply_mobile_safe_area)
+		get_viewport().size_changed.connect(_apply_mobile_safe_area)
+		# Auto-fire makes side-fire buttons and their cooldown readout redundant
+		# on a phone. The compact controls retain the special broadside instead.
+		if cannons_container:
+			cannons_container.hide()
+		if dock_prompt:
+			dock_prompt.hide()
+		if board_prompt:
+			board_prompt.hide()
+		call_deferred("_apply_mobile_safe_area")
 	if tutorial_dialogue and not tutorial_dialogue.visibility_changed.is_connected(_on_tutorial_dialogue_visibility_changed):
 		tutorial_dialogue.visibility_changed.connect(_on_tutorial_dialogue_visibility_changed)
 
@@ -115,6 +135,53 @@ func _on_tutorial_dialogue_visibility_changed() -> void:
 	if cannons_container:
 		cannons_container.modulate.a = 0.35 if tutorial_dialogue.visible else 1.0
 
+
+func _apply_mobile_safe_area() -> void:
+	## HUD edge widgets use Android's unobscured rectangle rather than assuming
+	## the whole display is tappable. Centred modals stay centred and therefore
+	## need no separate phone/tablet layout variant.
+	var safe := MobileLayoutManager.safe_area(get_viewport())
+	var top_bar: Control = %TopBar
+	var hud_scale := 1.45
+	if top_bar:
+		top_bar.scale = Vector2.ONE * hud_scale
+		top_bar.position = safe.position + Vector2(12, 12)
+	if top_right_panel:
+		# The resource/notoriety cluster was authored at desktop reading size.
+		# Scale it as one compact unit so the icon, amount, and panel spacing keep
+		# their relationship instead of producing a row of tiny phone text.
+		top_right_panel.scale = Vector2.ONE * hud_scale
+		top_right_panel.position = Vector2(
+			safe.end.x - top_right_panel.size.x * hud_scale - 12.0,
+			safe.position.y + 12.0)
+	if health_container:
+		# Hull health is always visible but no longer competes with steering in
+		# the lower-left corner. A single centred readout avoids the duplicate
+		# current/max labels the original desktop HUD carried.
+		var health_scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
+		health_container.size = Vector2(320.0 * health_scale, 44.0 * health_scale)
+		var top_bar_bottom := (top_bar.position.y + top_bar.size.y * hud_scale) if top_bar else safe.position.y + 62.0
+		health_container.position = Vector2(safe.position.x + 12.0, top_bar_bottom + 10.0)
+		if health_right:
+			health_right.hide()
+	if mobile_utility_menu_button:
+		var button_size := mobile_utility_menu_button.size
+		# Captain is a secondary utility. Right-middle keeps it available without
+		# crowding the lower-third sailing and combat controls.
+		mobile_utility_menu_button.position = Vector2(
+			safe.end.x - button_size.x - 16.0,
+			safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5)
+	if mobile_utility_drawer:
+		var drawer_width := minf(420.0, safe.size.x - 32.0)
+		mobile_utility_drawer.size = Vector2(drawer_width, 276.0)
+		mobile_utility_drawer.position = Vector2(safe.get_center().x - drawer_width * 0.5, safe.end.y - 366.0)
+	if _objective_card:
+		var action_scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
+		var card_width := 378.0 * action_scale
+		var action_x := safe.position.x + 16.0 if MobileLayoutManager.is_left_handed() else safe.end.x - card_width - 16.0
+		_objective_card.position = Vector2(action_x, safe.end.y - 510.0 * action_scale)
+		_objective_card.size = Vector2(card_width, 72.0 * action_scale)
+
 func _check_whats_new() -> void:
 	## M14 Requirement 5.2 — one-time auto-show, same shape as
 	## _check_offline_return() below but keyed off content version rather
@@ -126,6 +193,7 @@ func _check_whats_new() -> void:
 		return
 	SaveManager.last_seen_whats_new_version = latest
 	whats_new_screen.open()
+	_update_mobile_menu_badge()
 
 
 func _check_offline_return() -> void:
@@ -134,6 +202,22 @@ func _check_offline_return() -> void:
 		var ticks = SaveManager._pending_offline_ticks
 		SaveManager._pending_offline_ticks = 0
 		announce_event(tr("While you were away: your empire kept running (%d ticks)") % ticks)
+		_offer_offline_income_bonus()
+
+
+## M17 Requirement 6.1/6.5 — the offline-return rewarded surface. The
+## baseline income is already granted unconditionally by SaveManager's own
+## catch-up loop above, before this is ever called; this only offers a
+## bonus on top of it, and silently does nothing if there was no income or
+## today's cap is already spent (RewardedBonusOffer.present() itself checks
+## AdManager.can_offer()).
+func _offer_offline_income_bonus() -> void:
+	if SaveManager._pending_offline_income.is_empty():
+		return
+	var offer: RewardedBonusOffer = RewardedBonusOfferScene.instantiate()
+	add_child(offer)
+	offer.present(&"offline_double", tr("Watch an ad to double the income you just earned?"),
+		SaveManager.grant_offline_income_bonus)
 
 func _apply_theme() -> void:
 	## Inject the runtime pirate theme into this HUD
@@ -175,13 +259,20 @@ func _find_ship() -> void:
 			ship.combat.fired.connect(_on_cannon_fired)
 		if ship.combat and ship.combat.has_signal("arc_lock_changed"):
 			ship.combat.arc_lock_changed.connect(_on_arc_lock_changed)
+		var captain_ability: Node = ship.get_node_or_null("CaptainAbility")
+		if captain_ability and captain_ability.has_signal("ability_ready"):
+			captain_ability.ability_ready.connect(func(): HapticFeedbackManager.ready())
 
 	# Connect to global systems
 	if ResourceManager.has_signal("resources_changed"):
 		ResourceManager.resources_changed.connect(_on_resources_changed)
 		# Initialize display
 		_on_resources_changed(ResourceManager.current_resources)
-		
+
+	if EventManager.has_signal("ocean_event_resolved"):
+		EventManager.ocean_event_resolved.connect(_on_ocean_event_resolved)
+
+
 	var current_scene = get_tree().current_scene
 	var dock_sys = current_scene.get_node_or_null("Systems/DockingSystem") if current_scene else null
 	if dock_sys:
@@ -221,17 +312,12 @@ func _find_ship() -> void:
 	_create_objective_label()
 
 	# Captain's Log (M7 §9.1) + campaign objective feedback (§9.2/9.4)
-	_create_captains_log_button()
-	_create_world_map_button()
-	_create_codex_button()
-	_create_whats_new_button()
-	_create_wardrobe_button()
-	if not OS.has_feature("pc"):
-		# TopRightPanel (WorldHUD.tscn) is anchored with an explicit
-		# offset_bottom sized to fit the old 70x32 buttons — grown here rather
-		# than in the scene file since only mobile needs the extra room;
-		# PC's smaller buttons still fit the original budget untouched.
-		top_right_panel.offset_bottom = 350.0
+	_create_utility_controls()
+	if _uses_mobile_utility_menu():
+		# The collapsed phone control needs room for the resource and notoriety
+		# readouts plus one 52dp button. The drawer is deliberately allowed to
+		# expand only after the player asks for it.
+		top_right_panel.offset_bottom = 180.0
 	CampaignManager.objective_completed.connect(_on_campaign_objective_completed)
 	CampaignManager.chapter_completed.connect(_on_campaign_chapter_completed)
 	CampaignManager.chapter_started.connect(_on_campaign_chapter_started)
@@ -240,7 +326,7 @@ func _find_ship() -> void:
 var _economy_label: Label
 func _create_economy_label() -> void:
 	_economy_label = Label.new()
-	_economy_label.add_theme_font_size_override("font_size", 14)
+	_economy_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(14))
 	_economy_label.add_theme_color_override("font_color", Color(0.6, 0.8, 0.6))
 	# Position top center
 	_economy_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -252,17 +338,162 @@ func _create_fps_label() -> void:
 	## M2 Task 12.1 — frame time monitoring and display.
 	_fps_label = Label.new()
 	_fps_label.name = "FpsLabel"
-	_fps_label.add_theme_font_size_override("font_size", 12)
+	_fps_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(12))
 	_fps_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
 	_fps_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_fps_label.position = Vector2(8, -20)
 	add_child(_fps_label)
+	if not OS.has_feature("pc"):
+		# Frame telemetry is useful in desktop development, not as persistent
+		# player-facing phone HUD noise.
+		_fps_label.hide()
 
 var notoriety_label: Label
 var captains_log_button: Button
+var world_map_button: Button
+var codex_button: Button
+var whats_new_button: Button
+var wardrobe_button: Button
+var mobile_utility_menu_button: Button
+var mobile_utility_drawer: PanelContainer
+var mobile_utility_badge: Label
+
+func _uses_mobile_utility_menu() -> bool:
+	return force_mobile_utility_menu or not OS.has_feature("pc")
+
+
+func _mobile_utility_button_size() -> Vector2:
+	## HUD utility actions need the same device-pixel allowance as the rest of
+	## the phone UI. This is intentionally separate from the PC 70x32 utility
+	## buttons, which remain mouse-sized and are never used on a phone build.
+	return HUD_BUTTON_SIZE_MOBILE * PirateThemeBuilder.MOBILE_CONTROL_SCALE
+
+
+func _create_utility_controls() -> void:
+	if _uses_mobile_utility_menu():
+		_create_mobile_utility_menu()
+		return
+	_create_captains_log_button()
+	_create_world_map_button()
+	_create_codex_button()
+	_create_whats_new_button()
+	_create_wardrobe_button()
+
+
+func _rebuild_utility_controls() -> void:
+	## Keeps the platform branch testable without changing the runtime's OS
+	## feature detection. All utility controls are owned by TopRightPanel.
+	for child in top_right_panel.get_children():
+		if child.name.begins_with("Utility"):
+			child.queue_free()
+	for child in get_children():
+		if child.name.begins_with("Utility"):
+			child.queue_free()
+	await get_tree().process_frame
+	captains_log_button = null
+	world_map_button = null
+	codex_button = null
+	whats_new_button = null
+	wardrobe_button = null
+	mobile_utility_menu_button = null
+	mobile_utility_drawer = null
+	_create_utility_controls()
+
+
+func _create_mobile_utility_menu() -> void:
+	mobile_utility_menu_button = Button.new()
+	mobile_utility_menu_button.name = "UtilityMenuButton"
+	mobile_utility_menu_button.text = tr("Captain")
+	mobile_utility_menu_button.custom_minimum_size = _mobile_utility_button_size()
+	mobile_utility_menu_button.size = _mobile_utility_button_size()
+	mobile_utility_menu_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mobile_utility_menu_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	mobile_utility_menu_button.theme = PirateThemeBuilder.build()
+	add_child(mobile_utility_menu_button)
+	mobile_utility_menu_button.add_child(ButtonJuice.new())
+	mobile_utility_badge = Label.new()
+	mobile_utility_badge.name = "UtilityAttentionBadge"
+	mobile_utility_badge.text = "!"
+	mobile_utility_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mobile_utility_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mobile_utility_badge.position = Vector2(mobile_utility_menu_button.size.x - 30, 4)
+	mobile_utility_badge.size = Vector2(24, 24)
+	mobile_utility_badge.add_theme_font_size_override("font_size", 16)
+	mobile_utility_badge.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	mobile_utility_menu_button.add_child(mobile_utility_badge)
+
+	mobile_utility_drawer = PanelContainer.new()
+	mobile_utility_drawer.name = "UtilityMenuDrawer"
+	mobile_utility_drawer.process_mode = Node.PROCESS_MODE_ALWAYS
+	mobile_utility_drawer.theme = PirateThemeBuilder.build()
+	mobile_utility_drawer.visible = false
+	add_child(mobile_utility_drawer)
+	var items := GridContainer.new()
+	items.name = "Items"
+	items.columns = 2
+	items.add_theme_constant_override("separation", 8)
+	mobile_utility_drawer.add_child(items)
+	_add_mobile_utility_item(items, "Log", "log")
+	_add_mobile_utility_item(items, "Map", "map")
+	_add_mobile_utility_item(items, "Codex", "codex")
+	_add_mobile_utility_item(items, "New", "new")
+	_add_mobile_utility_item(items, "Wardrobe", "wardrobe")
+	mobile_utility_menu_button.pressed.connect(func():
+		mobile_utility_drawer.visible = not mobile_utility_drawer.visible)
+	_update_mobile_menu_badge()
+	call_deferred("_apply_mobile_safe_area")
+
+
+func _update_mobile_menu_badge() -> void:
+	## The Captain badge is reserved for unread information; it is hidden in
+	## ordinary play so it never becomes another permanent visual demand.
+	if not mobile_utility_badge:
+		return
+	var needs_attention := false
+	if whats_new_screen and whats_new_screen.patch_notes:
+		var latest: String = whats_new_screen.patch_notes.latest_version()
+		needs_attention = not latest.is_empty() and latest != SaveManager.last_seen_whats_new_version
+	mobile_utility_badge.visible = needs_attention
+
+
+func _add_mobile_utility_item(parent: Container, label: String, destination: String) -> void:
+	var item := Button.new()
+	item.name = "Utility%sButton" % destination.capitalize()
+	item.text = tr(label)
+	item.custom_minimum_size = _mobile_utility_button_size()
+	item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	item.process_mode = Node.PROCESS_MODE_ALWAYS
+	item.pressed.connect(_open_mobile_utility.bind(destination))
+	parent.add_child(item)
+	item.add_child(ButtonJuice.new())
+
+
+func _open_mobile_utility(destination: String) -> void:
+	if mobile_utility_drawer:
+		mobile_utility_drawer.hide()
+	match destination:
+		"log":
+			if captains_log:
+				captains_log.open()
+		"map":
+			if world_map_screen:
+				world_map_screen.open()
+		"codex":
+			if codex_screen and not codex_screen.visible:
+				codex_screen.toggle()
+		"new":
+			if whats_new_screen:
+				whats_new_screen.open()
+		"wardrobe":
+			if tutorial_dialogue and tutorial_dialogue.visible:
+				return
+			if wardrobe_screen:
+				wardrobe_screen.open()
+
+
 func _create_notoriety_label() -> void:
 	notoriety_label = Label.new()
-	notoriety_label.add_theme_font_size_override("font_size", 14)
+	notoriety_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(14))
 	notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 	notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
@@ -270,6 +501,10 @@ func _create_notoriety_label() -> void:
 	# counters, instead of bare floating text.
 	var chip := PanelContainer.new()
 	chip.add_theme_stylebox_override("panel", PirateThemeBuilder.make_chip_stylebox(Color(1.0, 0.5, 0.2, 1)))
+	# Shrink-to-content rather than the VBoxContainer default of filling
+	# TopRightPanel's full width — a full-width tinted panel behind a short
+	# "Notoriety: 0.0" readout rendered as a large mostly-empty bar.
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_END
 	chip.add_child(notoriety_label)
 
 	# Added as a sibling of ResourceBar inside TopRightPanel (a VBoxContainer)
@@ -296,6 +531,7 @@ func _create_captains_log_button() -> void:
 	## the exact "two independently-hardcoded numbers drift apart" failure
 	## mode D36 already burned this HUD on once.
 	captains_log_button = Button.new()
+	captains_log_button.name = "UtilityLogButton"
 	captains_log_button.text = tr("Log")
 	captains_log_button.custom_minimum_size = _hud_button_min_size()
 	captains_log_button.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -312,13 +548,13 @@ func _create_captains_log_button() -> void:
 	top_right_panel.add_child(captains_log_button)
 	captains_log_button.add_child(ButtonJuice.new())
 
-var world_map_button: Button
 func _create_world_map_button() -> void:
 	## M10 Requirement 3 — same dynamic-positioning pattern as
 	## _create_captains_log_button() just above: a fourth child of
 	## top_right_panel, container-positioned rather than a fifth
 	## independently-hardcoded offset.
 	world_map_button = Button.new()
+	world_map_button.name = "UtilityMapButton"
 	world_map_button.text = tr("Map")
 	world_map_button.custom_minimum_size = _hud_button_min_size()
 	world_map_button.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -334,7 +570,8 @@ func _create_world_map_button() -> void:
 func _create_codex_button() -> void:
 	## Uses the same container-owned placement as Log/Map, avoiding a second
 	## hard-coded HUD offset and its known overlap regression (D36).
-	var codex_button := Button.new()
+	codex_button = Button.new()
+	codex_button.name = "UtilityCodexButton"
 	codex_button.text = tr("Codex")
 	codex_button.custom_minimum_size = _hud_button_min_size()
 	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -349,7 +586,8 @@ func _create_codex_button() -> void:
 
 func _create_whats_new_button() -> void:
 	## M14 Requirement 5.1 — same container-owned placement as Log/Map/Codex.
-	var whats_new_button := Button.new()
+	whats_new_button = Button.new()
+	whats_new_button.name = "UtilityNewButton"
 	whats_new_button.text = tr("New")
 	whats_new_button.custom_minimum_size = _hud_button_min_size()
 	whats_new_button.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -364,7 +602,8 @@ func _create_whats_new_button() -> void:
 
 func _create_wardrobe_button() -> void:
 	## M16 Task 18 — same container-owned placement as Log/Map/Codex/New.
-	var wardrobe_button := Button.new()
+	wardrobe_button = Button.new()
+	wardrobe_button.name = "UtilityWardrobeButton"
 	wardrobe_button.text = tr("Wardrobe")
 	wardrobe_button.custom_minimum_size = _hud_button_min_size()
 	wardrobe_button.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -467,24 +706,37 @@ func _on_region_activated(region_id: String) -> void:
 	announce_event((tr("%s is now active!") % region_name) + "\n" + (tr("%s is hunting you!") % faction_name))
 
 func _on_dock_area_entered(_island_id: String) -> void:
-	show_dock_prompt(true)
+	if _uses_mobile_utility_menu():
+		_set_mobile_context_state("dock", true)
+	else:
+		show_dock_prompt(true)
+	HapticFeedbackManager.available()
 
 func _on_dock_area_exited(_island_id: String) -> void:
-	show_dock_prompt(false)
+	if _uses_mobile_utility_menu():
+		_set_mobile_context_state("dock", false)
+	else:
+		show_dock_prompt(false)
 
 func _on_dock_speed_exceeded() -> void:
 	announce_event(tr("Too fast to dock — slow down!"), true)
 
 func _on_boarding_prompt_available(_enemy_ship: Node) -> void:
-	if board_prompt:
+	if _uses_mobile_utility_menu():
+		_set_mobile_context_state("board", true)
+	elif board_prompt:
 		board_prompt.visible = true
+	HapticFeedbackManager.available()
 
 func _on_boarding_prompt_unavailable() -> void:
-	if board_prompt:
+	if _uses_mobile_utility_menu():
+		_set_mobile_context_state("board", false)
+	elif board_prompt:
 		board_prompt.visible = false
 
 func _on_boarding_resolved(success: bool, loot: Dictionary, _target_faction_id: String = "", _target_ship_id: String = "") -> void:
 	if success:
+		HapticFeedbackManager.reward()
 		var text = tr("Boarding Successful!") + "\n"
 		for k in loot.keys():
 			text += tr("+%d %s ") % [loot[k], tr(k.capitalize())]
@@ -523,7 +775,10 @@ func _on_resources_changed(res: Dictionary) -> void:
 		_economy_label.set_meta("res_str", res_str)
 
 func _on_dock_completed(island_id: String) -> void:
-	show_dock_prompt(false)
+	if _uses_mobile_utility_menu():
+		_set_mobile_context_state("dock", false)
+	else:
+		show_dock_prompt(false)
 	if island_menu:
 		# Find the island node
 		var dock_sys = get_tree().current_scene.get_node_or_null("Systems/DockingSystem")
@@ -558,6 +813,9 @@ func _on_ship_destroyed() -> void:
 		death_screen.open(_ship_controller)
 
 func _on_health_changed(current: float, maximum: float) -> void:
+	if _last_reported_health >= 0.0 and current < _last_reported_health:
+		HapticFeedbackManager.damage()
+	_last_reported_health = current
 	set_health(current, maximum)
 
 func _process(_delta: float) -> void:
@@ -638,7 +896,7 @@ func set_health(current: float, maximum: float) -> void:
 		tween.tween_property(health_bar, "value", current, 0.25)
 		_set_health_pulse(maximum > 0.0 and current / maximum < 0.25)
 	if health_left:
-		health_left.text = tr("%d / %d HP") % [int(current), int(maximum)]
+		health_left.text = tr("HULL  %d / %d") % [int(current), int(maximum)]
 	if health_right:
 		health_right.text = "%d / %d" % [int(current), int(maximum)]
 
@@ -661,13 +919,25 @@ func _on_arc_lock_changed(side: String, locked: bool) -> void:
 
 # --- Encounter readout ---
 
+func _set_mobile_context_state(kind: String, available: bool) -> void:
+	var mobile_controls := get_node_or_null("MobileControls")
+	if not mobile_controls:
+		return
+	if kind == "dock" and mobile_controls.has_method("set_dock_available"):
+		mobile_controls.set_dock_available(available)
+	elif kind == "board" and mobile_controls.has_method("set_board_available"):
+		mobile_controls.set_board_available(available)
+
 func _create_objective_label() -> void:
+	if _uses_mobile_utility_menu():
+		_create_mobile_objective_card()
+		return
 	## Top-centre, under the economy label. Anchored in an explicit rect that grows
 	## from the centre so long objective text cannot run off either edge — the D36
 	## failure mode with PRESET_CENTER's zero-width rect.
 	_objective_label = Label.new()
 	_objective_label.name = "ObjectiveLabel"
-	_objective_label.add_theme_font_size_override("font_size", 18)
+	_objective_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
 	_objective_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -677,10 +947,31 @@ func _create_objective_label() -> void:
 	_objective_label.visible = false
 	add_child(_objective_label)
 
+
+func _create_mobile_objective_card() -> void:
+	## The objective remains visible while the player steers, but belongs just
+	## above the primary action cluster instead of competing with top HUD data.
+	_objective_card = PanelContainer.new()
+	_objective_card.name = "ObjectiveCard"
+	_objective_card.theme = PirateThemeBuilder.build()
+	_objective_card.visible = false
+	add_child(_objective_card)
+	_objective_label = Label.new()
+	_objective_label.name = "ObjectiveLabel"
+	_objective_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
+	_objective_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_objective_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_objective_card.add_child(_objective_label)
+	call_deferred("_apply_mobile_safe_area")
+
 func _on_encounter_started(data) -> void:
 	if not _objective_label:
 		return
 	_objective_label.visible = true
+	if _objective_card:
+		_objective_card.visible = true
 	_objective_label.text = tr("%s — %s") % [data.get_kind_name(), data.display_name]
 
 func _on_objective_progress(current: int, total: int) -> void:
@@ -690,9 +981,38 @@ func _on_objective_progress(current: int, total: int) -> void:
 		_objective_label.text = "%s  [%d / %d]" % [
 			_objective_label.text.split("  [")[0], current, total]
 
-func _on_encounter_ended(_victory: bool, _rewards: Dictionary) -> void:
+func _on_encounter_ended(victory: bool, rewards: Dictionary) -> void:
 	if _objective_label:
 		_objective_label.visible = false
+	if _objective_card:
+		_objective_card.visible = false
+	# M17 Requirement 6.1/6.5/6.6 — the post-battle salvage surface. Offered
+	# after the VICTORY result is already announced (EncounterManager._resolve()
+	# calls _announce() before emitting this signal), never between the battle
+	# ending and its result being shown. "Salvage" is the gold component of
+	# the reward already granted unconditionally by EncounterManager's own
+	# _grant_rewards() — this only offers to grant that same amount again.
+	if victory and int(rewards.get("gold", 0)) > 0:
+		HapticFeedbackManager.reward()
+		_offer_salvage_bonus(int(rewards["gold"]))
+
+func _offer_salvage_bonus(gold_already_earned: int) -> void:
+	var offer: RewardedBonusOffer = RewardedBonusOfferScene.instantiate()
+	add_child(offer)
+	offer.present(&"salvage_double", tr("Watch an ad to double the salvage you just earned?"),
+		func(): ResourceManager.add_resource("gold", gold_already_earned))
+
+## M17 Requirement 6.1/6.5 — the event-reroll rewarded surface. The event
+## named here has already applied unconditionally (EventManager emits this
+## after applying, never before); this only announces it and offers a bonus
+## SECOND roll, never a replacement of the first.
+func _on_ocean_event_resolved(_event_id: String, display_text: String) -> void:
+	if not display_text.is_empty():
+		announce_event(display_text)
+	var offer: RewardedBonusOffer = RewardedBonusOfferScene.instantiate()
+	add_child(offer)
+	offer.present(&"event_reroll", tr("Watch an ad for a bonus second event?"),
+		EventManager.reroll_last_ocean_event)
 
 func set_cannon_cooldown(side: String, ready: bool, pct: float = 1.0) -> void:
 	var label: Label = port_label if side == "port" else stbd_label
@@ -799,7 +1119,7 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	label.text = text_content
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 32)
+	label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(32))
 	label.add_theme_color_override("font_color",
 		PirateThemeBuilder.COLOR_RED_HEALTH if is_warning else PirateThemeBuilder.COLOR_GOLD_BRIGHT)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)

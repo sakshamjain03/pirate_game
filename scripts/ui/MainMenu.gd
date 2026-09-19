@@ -11,11 +11,14 @@ class_name MainMenu extends CanvasLayer
 @onready var continue_button : Button = $Control/ButtonPanel/VBoxContainer/ContinueButton
 @onready var new_game_button : Button = $Control/ButtonPanel/VBoxContainer/NewGameButton
 @onready var settings_button : Button = $Control/ButtonPanel/VBoxContainer/SettingsButton
+@onready var store_button    : Button = $Control/ButtonPanel/VBoxContainer/StoreButton
 @onready var credits_button  : Button = $Control/ButtonPanel/VBoxContainer/CreditsButton
 @onready var quit_button     : Button = $Control/ButtonPanel/VBoxContainer/QuitButton
 @onready var title_label     : Label  = $Control/TitleContainer/TitleLabel
 @onready var subtitle_label  : Label  = $Control/TitleContainer/SubtitleLabel
 @onready var version_label   : Label  = $Control/VersionLabel
+## M17 Requirement 4.1 — the store's other required entry point.
+@onready var store_screen    : StoreScreen = %StoreScreen
 
 ## M13 Task 16.5 follow-up (2026-09-19) — main menu buttons measured 240x44
 ## (≈16dp tall), one of the specifically flagged "game menu buttons too
@@ -37,11 +40,10 @@ func _apply_theme() -> void:
 	var theme := PirateThemeBuilder.build()
 	root_control.theme = theme
 	PirateThemeBuilder.apply_button_juice(root_control)
-	if not OS.has_feature("pc"):
-		_apply_mobile_button_sizing()
+	_apply_button_sizing()
 
-func _apply_mobile_button_sizing() -> void:
-	for btn in [continue_button, new_game_button, settings_button, credits_button, quit_button]:
+func _apply_button_sizing() -> void:
+	for btn in [continue_button, new_game_button, settings_button, store_button, credits_button, quit_button]:
 		btn.custom_minimum_size = MOBILE_BUTTON_MIN_SIZE
 	button_panel.offset_left   = -170.0
 	button_panel.offset_right  = 170.0
@@ -52,6 +54,7 @@ func _connect_buttons() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
+	store_button.pressed.connect(store_screen.open)
 	credits_button.pressed.connect(_on_credits_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	

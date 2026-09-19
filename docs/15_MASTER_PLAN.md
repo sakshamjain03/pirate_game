@@ -4,8 +4,7 @@
 > Status: Living Document — end-to-end plan from here to v1
 > Owner: Project Lead
 >
-> Reads on top of: `AGENTS.md` (constitution) → `docs/05_CURRENT_SYSTEMS.md` (what runs) →
-> `docs/14_SYSTEM_INVENTORY.md` (what's missing) → this document (the order to build it in).
+> Reads on top of: `AGENTS.md` (constitution) → `docs/05_CURRENT_SYSTEMS.md` (what runs, what's missing, system status, content volume) → this document (the order to build it in).
 >
 > **Note on `Prd.md` §21.** The PRD's milestone roadmap (M1 Foundation … M10 Polish) has diverged
 > from the milestones actually executed in `.kiro/specs/` (M1 app-shell, M2 playable-world,
@@ -247,7 +246,7 @@ project) and used to run both required checks: GUT suite **326/326 passing, 0 fa
 project's first 0-known-failures result — and a headful `CaptureHarness` capture, reviewed. **The
 60fps-on-mid-range-Android half of this exit criterion remains unverified and likely to stay
 that way** — this project has never had device-profiling access at any milestone
-(`docs/14_SYSTEM_INVENTORY.md` §5), and M13 is still the first milestone with guaranteed hardware.
+(see `docs/05_CURRENT_SYSTEMS.md` platform sections), and M13 is still the first milestone with guaranteed hardware.
 The "player can see where they are/haven't been" half is implemented and its HUD entry point
 confirmed on screen (the new "Map" button, correctly positioned, no overlap), but the
 `WorldMapScreen` itself (rings/markers/player-heading rendering) was not opened during the
@@ -372,6 +371,26 @@ dependency only**: this milestone is fully startable and shippable with M15 not 
 running entirely on authored local fallbacks.
 
 **Exit criteria:** a content update ships without a code change.
+
+**Exit criteria results (2026-09-07):** met — Chapter 6 (the literal proof case) required zero
+script changes; the one schema addition this milestone made
+(`ChapterData.required_seasonal_event_id`) belongs to Chapter 9's gate, a real data-model gap
+found during authoring (Requirement 1.3), not a change needed to add a chapter per se. All scope
+items landed: Chapters 6–10, Regions 4/5 (Ancient Ocean, Ghost Reaches) each with one island, the
+Ghost Fleet's real mechanical presence in Region 5 (regular ambient hulls plus a dedicated
+region-gated boss, alongside — not replacing — the pre-existing rare global ambient event),
+`docs/CONTENT_AUTHORING_GUIDE.md` (validated by actually authoring Ch6–10 against it), the What's
+New panel (one-time auto-show, `CaptainsLog`'s exact pattern), and `LiveOpsConfig`. GUT suite:
+**419/419 → 464/464**, 0 failures throughout (baseline re-verified fresh at the start of this
+milestone rather than trusted from the prior M15.5 section's own stale "434/434" figure — see
+`docs/05_CURRENT_SYSTEMS.md`'s note on this). **Remote-config status:** `LiveOpsConfig`'s code path
+(remote-value-wins, kill-switch, and the fallback reverting correctly when a key is removed) is
+fully unit-tested against a faked `RemoteConfigManager` cache — the same method M15 used for its
+own tests. Whether the real Spring Crossing window was actually configured in the live Supabase
+project and verified end-to-end depends on Supabase MCP access this environment didn't have at the
+milestone's start; see `docs/05_CURRENT_SYSTEMS.md`'s M14 section for the exact status. Headful
+visual review of Regions 4/5's terrain/content and the What's New panel is flagged, not claimed —
+this environment has no display.
 
 Full spec, now at full depth including `tasks.md` (previously outline-only):
 `.kiro/specs/milestone-m14-live-operations/`.
@@ -652,7 +671,7 @@ M10/M11 onward, not a hard dependency.
 
 | Risk | Impact | Likelihood | Mitigation |
 |---|---|---|---|
-| **Checkpoints keep being accepted on self-reports** | Compounding invisible breakage — already produced D15, D42, D57, and two tasks ticked with zero file changes | **High** — it happened again at M6 Task 29 | Every checkpoint runs the GUT suite and pastes real totals; the binary path is now recorded in `docs/14_SYSTEM_INVENTORY.md` §6 |
+| **Checkpoints keep being accepted on self-reports** | Compounding invisible breakage — already produced D15, D42, D57, and two tasks ticked with zero file changes | **High** — it happened again at M6 Task 29 | Every checkpoint runs the GUT suite and pastes real totals; the binary path is documented in `CLAUDE.md` |
 | Ocean LOD proves hard, blocking the world's size | The AC-IV "long voyage" feel never lands | Medium | Compact map is playable and shipped in M7; Expanded is upside, not a dependency of the campaign |
 | Engine version drift (declared 4.3, running 4.7.1) | Rendering/behaviour differences discovered late | Medium | Audit in M13 at the latest (Requirement 1 there); note it in every visual finding until then |
 | No balance model | More D53s | **High** | Started as an M11 deliverable, completed in M12 — but D53's fix should keep informing it now |
@@ -793,7 +812,7 @@ else could, and they're cheaper to fix now than to build more world on top of.
 | `docs/11_WORLD_MAP.md` | Where is everything, and why there? |
 | `docs/12_CHARACTER_BIBLE.md` | Who is in it? |
 | `docs/13_CAMPAIGN_LEVELS_1-5.md` | What happens in the first five chapters? |
-| `docs/14_SYSTEM_INVENTORY.md` | **Everything that must exist, and its status.** |
+| `docs/05_CURRENT_SYSTEMS.md` | **Ground truth: what exists, its status, content volume targets.** |
 | `docs/15_MASTER_PLAN.md` | In what order do we build the rest? |
 | `docs/16_MILESTONE_HISTORY.md` | What happened in each completed milestone, condensed? |
 | `docs/17_MONETIZATION.md` | **What is sold, what is never sold, and how ownership works.** |

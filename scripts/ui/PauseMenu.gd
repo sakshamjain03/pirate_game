@@ -7,6 +7,8 @@ class_name PauseMenu extends Control
 @onready var resume_button: Button = %ResumeButton
 @onready var settings_button: Button = %SettingsButton
 @onready var quit_button: Button = %QuitButton
+@onready var panel: PanelContainer = %Panel
+@onready var title_label: Label = %TitleLabel
 
 func _ready() -> void:
 	resume_button.pressed.connect(_on_resume_pressed)
@@ -20,6 +22,15 @@ func _ready() -> void:
 
 	theme = PirateThemeBuilder.build()
 	PirateThemeBuilder.apply_button_juice(self)
+	if PirateThemeBuilder.is_mobile():
+		_apply_mobile_sizing()
+
+func _apply_mobile_sizing() -> void:
+	panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
+	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(36))
+	for btn in [resume_button, settings_button, quit_button]:
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(btn.custom_minimum_size)
+		btn.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(22))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):

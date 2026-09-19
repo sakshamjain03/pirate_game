@@ -117,6 +117,39 @@ func test_a_previous_chapter_gate_holds_until_that_chapter_completes():
 	assert_true(CampaignManager.is_chapter_completed("ch1"))
 
 
+func test_a_seasonal_event_gated_chapter_holds_until_the_event_has_ever_completed():
+	## M14 Requirement 1.3/3 — Chapter 9's gate ("the Spring Crossing has been
+	## completed at least once") needed a real, small ChapterData field
+	## (required_seasonal_event_id) since neither existing gate shape can
+	## express "a repeatable event has ever finished."
+	var saved_events := SeasonalEventManager._events.duplicate()
+	var saved_windows := SeasonalEventManager._completed_windows.duplicate(true)
+	SeasonalEventManager._completed_windows = {}
+	var e := SeasonalEventData.new()
+	e.event_id = "spring_crossing"
+	SeasonalEventManager._events = [e]
+
+	var ch9 := ChapterData.new()
+	ch9.chapter_id = "ch9"
+	ch9.chapter_number = 9
+	ch9.required_seasonal_event_id = "spring_crossing"
+	CampaignManager.chapters = [ch9]
+
+	CampaignManager._catch_up()
+	assert_eq(CampaignManager.current_chapter_index, -1,
+		"the gate must hold until the seasonal event has completed at least once")
+
+	SeasonalEventManager._date_override = "2027-04-01"
+	SeasonalEventManager.mark_completed("spring_crossing")
+	SeasonalEventManager._date_override = ""
+	CampaignManager._advance_to_next_chapter()
+	assert_eq(CampaignManager.current_chapter_index, 0,
+		"has_ever_completed() being true must release the gate")
+
+	SeasonalEventManager._events = saved_events.duplicate()
+	SeasonalEventManager._completed_windows = saved_windows.duplicate(true)
+
+
 func test_the_overshoot_case_cascades_through_already_satisfied_gates():
 	## Requirement 6.8: a save can load with `completed_chapter_ids` already
 	## holding real completions and a region independently active, while
@@ -377,6 +410,25 @@ func test_save_load_round_trips_chapter_and_objective_progress():
 	assert_eq(CampaignManager.current_chapter_index, 1)
 	assert_true(CampaignManager.completed_chapter_ids.has("ch1"))
 	assert_true(CampaignManager._completed_objective_ids.has("1.1"))
+
+
+func test_catch_up_handles_completed_chapter_ids_with_a_gap():
+	## BUG_REPORT.md #38 -- a save where completed_chapter_ids records ch1 and
+	## ch3 as done but not ch2 (e.g. an authoring/import gap, or ch2 having no
+	## real gate of its own). _catch_up() must land on ch2 (the first
+	## genuinely-incomplete chapter) rather than looping forever or skipping
+	## past it because a later chapter is already marked complete.
+	CampaignManager.completed_chapter_ids = ["ch1", "ch3"]
+	var ch1 := _chapter("ch1", 1, [])
+	var ch2 := _chapter("ch2", 2, [], "ch1")
+	var ch3 := _chapter("ch3", 3, [], "ch2")
+	CampaignManager.chapters = [ch1, ch2, ch3]
+
+	CampaignManager._catch_up()
+
+	assert_eq(CampaignManager.current_chapter_index, 1,
+		"Must land on ch2 (index 1), the first chapter not already marked complete")
+	assert_false(CampaignManager.is_chapter_completed("ch2"))
 
 
 func test_get_save_data_returns_a_duplicate_not_the_live_array():

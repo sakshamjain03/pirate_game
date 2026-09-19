@@ -165,7 +165,8 @@ func _process_healing(delta: float) -> void:
 		return
 		
 	var island = active_dock_area.get_parent()
-	if island and island.has_method("has_shipyard") and island.has_shipyard():
+	var owned_by_player: bool = island and island.island_data and island.island_data.is_owned_by_player()
+	if island and owned_by_player and island.has_method("has_shipyard") and island.has_shipyard():
 		_repair_timer += delta
 		if _repair_timer >= 1.0:
 			_repair_timer -= 1.0

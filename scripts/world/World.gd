@@ -27,6 +27,7 @@ func _ready() -> void:
 	# existing save with a different home island must never be overwritten.
 	if not SaveManager.has_save_data():
 		call_deferred("_seed_port_royal_as_home", islands)
+		call_deferred("_seed_whats_new_version")
 
 	# Load game state (if coming from Continue)
 	if SaveManager.has_method("load_game"):
@@ -38,10 +39,16 @@ func _ready() -> void:
 	if SaveManager.has_method("check_cloud_save_on_launch"):
 		SaveManager.call_deferred("check_cloud_save_on_launch")
 
+	# M17 Requirement 3.3 — same once-per-session, internally-guarded convention as above.
+	if EntitlementManager.has_method("check_cloud_sync_on_launch"):
+		EntitlementManager.call_deferred("check_cloud_sync_on_launch")
+
 	# Deferred (and queued after load_game above) so resumed campaign progress
 	# from a loaded save is already in place before signals start firing.
 	if world_manager and CampaignManager.has_method("on_world_ready"):
 		CampaignManager.call_deferred("on_world_ready", world_manager)
+	if world_manager and SeasonalEventManager.has_method("on_world_ready"):
+		SeasonalEventManager.call_deferred("on_world_ready", world_manager)
 	if AnalyticsManager.has_method("on_world_ready"):
 		AnalyticsManager.call_deferred("on_world_ready", self)
 
@@ -56,3 +63,13 @@ func _seed_port_royal_as_home(islands: Array) -> void:
 		island.island_data.owner_faction = load("res://resources/factions/PlayerFaction.tres")
 		EmpireManager.home_island_id = "port_royal"
 		return
+
+
+## M14 Requirement 5.2 — a genuinely new player experiences Ch6-10, Regions
+## 4/5, and the Spring Crossing firsthand through normal progression; they
+## must never see a "what's new" popup for content they haven't reached yet.
+## Guarded the same way as _seed_port_royal_as_home() (a new game only).
+func _seed_whats_new_version() -> void:
+	var patch_notes: PatchNotesData = load("res://resources/ui/PatchNotes.tres")
+	if patch_notes:
+		SaveManager.last_seen_whats_new_version = patch_notes.latest_version()

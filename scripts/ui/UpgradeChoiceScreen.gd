@@ -70,13 +70,13 @@ func _build() -> void:
 	var title := Label.new()
 	title.text = "CHOOSE ONE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 38)
+	title.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(38))
 	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.42))
 	col.add_child(title)
 
 	_subtitle = Label.new()
 	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_subtitle.add_theme_font_size_override("font_size", 15)
+	_subtitle.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(15))
 	_subtitle.add_theme_color_override("font_color", Color(0.72, 0.68, 0.60))
 	col.add_child(_subtitle)
 
@@ -114,7 +114,7 @@ func _make_card(upgrade: BattleUpgradeData) -> Button:
 	card.custom_minimum_size = Vector2(228, 210)
 	card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.text = "%s\n\n%s\n\n%s" % [upgrade.icon, upgrade.display_name, upgrade.describe()]
-	card.add_theme_font_size_override("font_size", 17)
+	card.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(17))
 	card.tooltip_text = upgrade.describe()
 	card.pressed.connect(_on_card_pressed.bind(upgrade))
 	return card
@@ -124,6 +124,10 @@ func _on_card_pressed(upgrade: BattleUpgradeData) -> void:
 	if _encounter_manager and _encounter_manager.has_method("apply_upgrade_choice"):
 		_encounter_manager.apply_upgrade_choice(upgrade)
 	upgrade_chosen.emit(upgrade)
+	# A confirmed battle-upgrade pick is a meaningful player-visible success —
+	# one short reward pulse via the central gateway (HapticFeedbackManager is
+	# a no-op on PC and when the player's toggle is off).
+	HapticFeedbackManager.reward()
 	_close()
 
 

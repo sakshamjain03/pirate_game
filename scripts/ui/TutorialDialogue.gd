@@ -15,6 +15,7 @@ class_name TutorialDialogue extends Control
 @onready var portrait_label: Label = %PortraitLabel
 @onready var next_button: Button = %NextButton
 @onready var skip_button: Button = %SkipButton
+@onready var portrait_panel: PanelContainer = $Panel/Margin/HBox/PortraitPanel
 
 var _queue: Array[DialogueBeatData] = []
 var _queue_index: int = -1
@@ -35,6 +36,23 @@ func _ready() -> void:
 
 	CampaignManager.chapter_started.connect(_on_chapter_started)
 	CampaignManager.chapter_completed.connect(_on_chapter_completed)
+
+	if PirateThemeBuilder.is_mobile():
+		_apply_mobile_sizing()
+
+
+func _apply_mobile_sizing() -> void:
+	offset_left = PirateThemeBuilder.scaled(offset_left)
+	offset_top = PirateThemeBuilder.scaled(offset_top)
+	offset_right = PirateThemeBuilder.scaled(offset_right)
+	offset_bottom = PirateThemeBuilder.scaled(offset_bottom)
+	portrait_panel.custom_minimum_size = PirateThemeBuilder.scaled_size(portrait_panel.custom_minimum_size)
+	next_button.custom_minimum_size = PirateThemeBuilder.scaled_size(next_button.custom_minimum_size)
+	portrait_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(36))
+	name_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
+	text_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(16))
+	skip_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(14))
+	next_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(16))
 
 
 func is_blocking() -> bool:

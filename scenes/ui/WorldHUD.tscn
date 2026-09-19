@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -10,7 +10,10 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/CaptainsLog.tscn" id="7_captains_log"]
 [ext_resource type="PackedScene" path="res://scenes/ui/WorldMapScreen.tscn" id="8_world_map"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CodexScreen.tscn" id="9_codex"]
+[ext_resource type="PackedScene" path="res://scenes/ui/WhatsNewScreen.tscn" id="15_whats_new"]
 [ext_resource type="PackedScene" path="res://scenes/ui/WardrobeScreen.tscn" id="16_wardrobe"]
+[ext_resource type="PackedScene" path="res://scenes/ui/AgeGate.tscn" id="17_agegate"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ConsentPanel.tscn" id="18_consent"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/gold.png" id="10_gold_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/wood.png" id="11_wood_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/iron.png" id="12_iron_icon"]
@@ -65,6 +68,7 @@ size_flags_horizontal = 3
 
 
 [node name="HealthBarContainer" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0
@@ -94,13 +98,14 @@ anchor_top = 0.5
 anchor_bottom = 0.5
 offset_left = 12.0
 offset_top = -11.5
-offset_right = 100.0
+offset_right = -12.0
 offset_bottom = 11.5
 grow_vertical = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 18
-text = "🤍 100/100 HP"
+text = "HULL  100 / 100"
+horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="HealthRightLabel" type="Label" parent="HealthBarContainer/HealthBar"]
@@ -123,6 +128,7 @@ theme_override_font_sizes/font_size = 18
 text = "100/100"
 horizontal_alignment = 2
 vertical_alignment = 1
+visible = false
 
 [node name="CannonsContainer" type="HBoxContainer" parent="."]
 unique_name_in_owner = true
@@ -508,7 +514,18 @@ visible = false
 unique_name_in_owner = true
 visible = false
 
+[node name="WhatsNewScreen" parent="." instance=ExtResource("15_whats_new")]
+unique_name_in_owner = true
+visible = false
 
 [node name="WardrobeScreen" parent="." instance=ExtResource("16_wardrobe")]
+unique_name_in_owner = true
+visible = false
+
+[node name="AgeGate" parent="." instance=ExtResource("17_agegate")]
+unique_name_in_owner = true
+visible = false
+
+[node name="ConsentPanel" parent="." instance=ExtResource("18_consent")]
 unique_name_in_owner = true
 visible = false

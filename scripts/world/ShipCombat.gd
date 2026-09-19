@@ -67,7 +67,7 @@ var current_health: float:
 			if delta_hp > 0.0:
 				dmg.repair("hull", delta_hp)
 			elif delta_hp < 0.0:
-				dmg.hull = maxf(value, 0.0)
+				dmg.hull = clamp(value, 0.0, dmg.get_pool_maximum("hull"))
 				dmg.pool_changed.emit("hull", dmg.hull, dmg.get_pool_maximum("hull"))
 		else:
 			_fallback_health = value
@@ -331,8 +331,23 @@ func fire_broadside(side: String) -> bool:
 	if side in can_fire and not can_fire[side]:
 		return false
 
+	# A hull only actually carries a bow/stern chaser if ship_stats says so —
+	# bow_markers/stern_markers are populated from scene node names alone
+	# (_ready()) regardless of that flag, same distinction _spawn_cannon_models()
+	# already draws. No current caller fires "bow"/"stern" directly (chasers
+	# only fire through the auto-fire loop, which already gates on the flag),
+	# but fire_broadside() must not silently fire an unmounted chaser if that
+	# ever changes.
+	if side == "bow" and not ship_stats.has_bow_chaser:
+		return false
+	if side == "stern" and not ship_stats.has_stern_chaser:
+		return false
+
 	var markers_by_side := {"port": port_markers, "starboard": starboard_markers,
 		"bow": bow_markers, "stern": stern_markers}
+	if not markers_by_side.has(side):
+		push_warning("ShipCombat.fire_broadside: unrecognized side '%s'." % side)
+		return false
 	var markers: Array[Node3D] = markers_by_side.get(side, [])
 	var fired_any = false
 

@@ -9,6 +9,13 @@ enum IslandType { NEUTRAL, FRIENDLY, ENEMY, CAPITAL, LEGENDARY }
 @export var island_type: IslandType = IslandType.NEUTRAL
 @export var owner_faction: Resource # FactionData
 
+## Whether this island is under the player's control — FRIENDLY (captured) or
+## CAPITAL (the player's own starting island). Used to gate anything that
+## should only happen on the player's own territory: economy ticks, building,
+## and shipyard repair.
+func is_owned_by_player() -> bool:
+	return island_type == IslandType.FRIENDLY or island_type == IslandType.CAPITAL
+
 @export_group("World")
 ## Authored XZ position, kept in sync with this island's transform in World.tscn.
 ## The scene file is still what places the island; this mirrors it so that code and

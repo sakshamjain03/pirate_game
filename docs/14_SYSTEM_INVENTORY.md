@@ -17,12 +17,16 @@
 
 # 0. Architecture snapshot (verified 2026-08-25, M7 campaign spine)
 
-**Autoloads** (`project.godot` `[autoload]`, in load order) — 13 registered:
+**Autoloads** (`project.godot` `[autoload]`, in load order) — 19 registered (updated 2026-09-07,
+M14 — Live Operations added `SeasonalEventManager`/`LiveOpsConfig`; M15 had already added
+`AuthManager`/`RemoteConfigManager`; M12 had already added `CrashReporter`/`AnalyticsManager`/
+`LocalNotificationManager`):
 
 ```
-SaveManager, SceneManager, SettingsManager, InputManager, AudioManager, ResourceManager,
-FleetManager, TechManager, EventManager, FactionManager, EmpireManager, CampaignManager,
-TutorialManager
+SaveManager, AuthManager, RemoteConfigManager, SceneManager, SettingsManager, InputManager,
+AudioManager, ResourceManager, FleetManager, TechManager, EventManager, FactionManager,
+EmpireManager, CampaignManager, SeasonalEventManager, LiveOpsConfig, TutorialManager,
+CrashReporter, AnalyticsManager, LocalNotificationManager
 ```
 
 `GameManager` is **gone** — only an orphaned `scripts/managers/GameManager.gd.uid` remains.
@@ -39,12 +43,22 @@ WorldManager, DockingSystem, EnemySpawner, EncounterManager, BoardingSystem
 `WorldEventManager` was **deleted in M8** — `EncounterManager` absorbed its boss timer.
 `InputManager` moved out of this list into the autoload list above (D57, M7).
 
-**Test baseline (measured 2026-08-26 after the M7.5 checkpoint correction, Godot 4.7.1):** **324
-tests, 323 passing, 1 failing** — `test_property_21_lod_distance_transitions`, the known LOD gap,
-unchanged since M6. **324/323 is the number to regress against.** (History: 103 → 118/117 (stale
-count fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7 campaign spine + M1/M2
-tail) → 323/322 (M7.5 — D64/D65, self-reported, did not reproduce) → 324/323 (M7.5 checkpoint
-correction — D66/D67).)
+**Test baseline (measured 2026-09-14, real Godot 4.3, after the BUG_REPORT.md fix pass):**
+**467 tests, 467 passing, 0 failing** — the ocean-LOD gap this section's history once tracked was
+closed back in M10. **467/467 is the number to regress against going forward.** (History:
+103 → 118/117 (stale count fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7
+campaign spine + M1/M2 tail) → 323/322 (M7.5 — D64/D65, self-reported, did not reproduce) → 324/323
+(M7.5 checkpoint correction — D66/D67) → 326/326 (M10, ocean LOD closes the standing failure) →
+391/391 (M9) → 396/396 (M12) → 417/417 (M15) → 419/419 (fresh re-verification at the start of M14,
+see `docs/05_CURRENT_SYSTEMS.md`'s M15.5 note on the stale "434/434" figure) → 464/464 (M14 — Live
+Operations complete) → **467/467 (BUG_REPORT.md fix pass, 2026-09-14 — 3 new regression tests for
+previously-uncovered save/load and campaign-gating edge cases; see
+`docs/05_CURRENT_SYSTEMS.md`'s matching entry).**)
+
+Note: `AGENTS.md`/`CLAUDE.md`/the `godot-verify` skill still describe
+`test_property_21_lod_distance_transitions` as the project's one accepted failing test — that was
+true before M10 closed the LOD gap (line above) but is now stale; the suite has had 0 known
+failures since M10. Worth correcting wherever it's still referenced.
 
 ---
 
@@ -69,7 +83,7 @@ correction — D66/D67).)
 | Faction reputation (−100..100) | `FactionManager` | ✅ | 6 factions authored |
 | Hostility + hunter dispatch | `FactionManager` | ✅ | the raid-mechanic extension point |
 | Notoriety | `EmpireManager` | ✅ | +1/+5 per kill, +15 per capture, decays after 10 min idle |
-| Region activation by notoriety | `EmpireManager` + `RegionData` | ✅ | 3 regions, thresholds 0/60/150 |
+| Region activation by notoriety | `EmpireManager` + `RegionData` | ✅ | 5 regions (M14: +2), thresholds 0/60/150/300/500 |
 | Difficulty scaling by region + notoriety | `EnemySpawner.compute_spawn_multiplier()` | ✅ | `is_empire` factions only |
 | Home-island raids | `EmpireManager._resolve_raid()` | ✅ | 15 min roll, defence vs attack score |
 | Loot tables + class/notoriety scaling | `LootTableData`, `ShipController`, `BoardingSystem` | ✅ | M6 Task 22 |
@@ -79,8 +93,9 @@ correction — D66/D67).)
 | Save / load | `SaveManager` | ✅ | `get_save_data()`/`load_save_data()` convention |
 | Offline catch-up (capped 4 h) | `SaveManager` | ✅ | M5; deliberately does not re-emit the tick signal |
 | Tutorial / onboarding | `TutorialManager` | ✅ | **M7:** reduced to a thin wrapper — UI-unlock/replay logic only; the 8 hardcoded steps are gone, replaced by `CampaignManager` |
-| **Campaign / chapter director** | `CampaignManager` | ✅ **M7** | 5 authored chapters, gated by region activation / prior-chapter completion, cascading catch-up |
-| **Objective tracking + progress** | `CampaignManager` | ✅ **M7** | 15-condition `ObjectiveData.Condition` enum, dispatched off real gameplay signals |
+| **Campaign / chapter director** | `CampaignManager` | ✅ **M7**, extended **M14** | 10 authored chapters (M14: 5→10), gated by region activation / prior-chapter completion / (M14) a seasonal event's ever-completed flag, cascading catch-up |
+| **Objective tracking + progress** | `CampaignManager` | ✅ **M7** | 15-condition `ObjectiveData.Condition` enum, dispatched off real gameplay signals; shared matching/arithmetic extracted to `ObjectiveDispatch` (M14) |
+| **Seasonal repeatable events** | `SeasonalEventManager` | ✅ **M14** | per-window active/completed tracking (not `ChapterData`'s permanent flag); 1 authored (the Spring Crossing); date-window sourced from `LiveOpsConfig` with a local fallback |
 | **Island discovery / fog of war** | `CampaignManager._on_island_discovered()`, `WorldManager._check_island_discovery()` | ✅ **M10** | **M7:** on-dock write path. **M10:** extended to reveal-on-approach — `WorldManager` checks player distance to every undiscovered island each frame (configurable `discovery_radius`) and emits the previously-dead `island_discovered` signal, now connected to `CampaignManager`; `WorldMapScreen` (below) renders only discovered islands. `discovered` is now actually persisted through `SaveManager` — it never was before M10, silently resetting to false on every load |
 | Diplomacy (treaties, tribute) | — | ❌ M11 | PRD §16 |
 | Trade routes as placeable objects | — | ❌ M11 | today: abstract missions only |
@@ -189,14 +204,15 @@ correction — D66/D67).)
 
 | Content | Now | v1 target | Gap |
 |---|---|---|---|
-| Regions | 3 | 3 | — |
-| Islands | 9 (M10 added 3) | 8–10 | — |
+| Regions | **5** (M14: 3→5 — Ancient Ocean, Ghost Reaches) | 3 | — (post-v1 growth) |
+| Islands | **11** (M10 added 3; M14 added 2 — Widow's Reach, Fogbound Cay) | 8–10 | — |
 | Buildings (types × levels) | 10 × 5 | 10 × 5 | — |
-| Ships | 8 | 8 | — |
+| Ships | 8 (+2 regular Ghost Fleet hulls, +1 dedicated boss hull — enemy-only, not player-purchasable) | 8 | — |
 | Captains | 20 | 20 | — |
 | Techs | **13** (M11: 2→13) | 12–15 | — |
-| Chapters | 5 | 5 | — |
-| Bosses | **5** (M11: 3→5 — The Iron Vulture, Fortune's Toll added) | 3–5 | — |
+| Chapters | **10** (M14: 5→10 — Chapters 6-10) | 5 | — (post-v1 growth) |
+| Seasonal events | **1** (M14: the Spring Crossing, `SeasonalEventData` — new content type v1 never had) | — | — |
+| Bosses | **6** (M11: 3→5 — The Iron Vulture, Fortune's Toll added; M14: +1 — the Ghost Fleet flagship) | 3–5 | — |
 | World events | **9** (M11: 3→9; 11 total `EventData` files including the 2 boss ambient events) | 8–10 | — |
 | SFX cues | **25** (M11: 0→25, plus 2 music tracks) | 25–30 | — |
 | Portraits | **20 of 27** (M11: 20 captains, flat-color icon-bust substitute; 7 named cast still use M9's monogram fallback) | 27 + fallback | +7 (non-blocking, intentional fallback) |
@@ -207,11 +223,12 @@ M10 adding 3 more). Refreshed in full during M11's documentation pass, not just 
 since a content-volume table that's wrong on unrelated rows isn't trustworthy on the rows it does
 own either.
 
-**This table is v1's target only** (through M13's Android launch) — deliberately unchanged by
-M14's scope. M14 (Live Operations, post-v1) targets Chapters 5→10, Regions 3→5, plus one new
-content type v1 never had: seasonal repeatable events (Spring Crossing, 1 authored) and a
-"What's New" patch-notes panel — tracked in `.kiro/specs/milestone-m14-live-operations/`, not
-folded into this v1 table.
+**This table's v1 target column is v1's own target only** (through M13's Android launch) —
+deliberately unchanged by M14's scope, since Chapters/Regions/Bosses/Seasonal events growing past
+their v1 targets is the *point* of M14 (Live Operations, post-v1: "a content update ships without a
+code change"), not a gap against them. `docs/CONTENT_AUTHORING_GUIDE.md` (new, M14) documents the
+process that made this growth possible without a programmer's involvement for the .tres-authoring
+half of it.
 
 ## Naming conventions (enforced)
 
@@ -236,7 +253,7 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 | Password reset | ✅ M15 | `AuthManager.request_password_reset()`; no deep-link dependency, works via Supabase's hosted browser fallback since no custom URI scheme is registered |
 | Account deletion | ✅ M15 | `AuthManager.delete_account()` + a Supabase Edge Function (`supabase/functions/delete-account/`); in-app path exists, web-accessible path is M13's privacy-policy contact email (below). Verified for real against the live project — row deletion confirmed via direct SQL, replay with a stale token rejected |
 | Privacy policy / Play Console Data Safety | 🟡 M13 | Page published to the `gh-pages` branch (content sourced from M15's real Requirement 9.2 enumeration) — **GitHub Pages itself is not yet enabled in repo Settings, and the Play Console Data Safety form has not been filled out** (no Play Console access in this environment). See `docs/05_CURRENT_SYSTEMS.md`'s M13 section |
-| Remote config / feature flags | ✅ M15 | `RemoteConfigManager` — flat public key/value table, no per-user targeting; never blocks/errors on a missing key or failed fetch. Table is empty in the real project, ready for M14's actual keys |
+| Remote config / feature flags | ✅ M15, consumed **M14** | `RemoteConfigManager` — flat public key/value table, no per-user targeting; never blocks/errors on a missing key or failed fetch. `LiveOpsConfig` (M14) is the sole consumer — `seasonal_window_<event_id>`/`kill_switch_<content_id>` keys, both with a fully local fallback |
 | Analytics / telemetry | ✅ **M12** | `AnalyticsManager` — local JSON-lines funnel log (`user://telemetry/`), no Firebase/backend configured yet; the documented fallback, not a stopgap |
 | Crash reporting | ✅ **M12** | `CrashReporter` — local, opt-in-disclosed report bundle; no configured support endpoint to send it to yet |
 | Localisation | ✅ **M12** | see "Localisation-ready strings" above |
@@ -263,7 +280,7 @@ ids are `snake_case` and must match across `.tres` files and any doc that refere
 | Visual bug ledger | ✅ | `docs/09_VISUAL_BUG_TRACKER.md` |
 | Asset request pipeline | ✅ | `docs/10_ASSET_REQUESTS.md` |
 | Balance tuning pass | ✅ **M11/M12** | `docs/BALANCE_MODEL.md` — started M11 (ship ladder, techs, bosses, events), extended M12 (buildings, modules, captains, raid theft fraction, loot tables). Every resource/encounter category with a cost or reward field now traces to it — the artefact D53 was missing |
-| Content authoring guide (for a non-coder) | ❌ M10 | needed before chapters/techs scale |
+| Content authoring guide (for a non-coder) | ✅ **M14** | `docs/CONTENT_AUTHORING_GUIDE.md` — one section per schema, validated by actually authoring Chapters 6-10 against it |
 | Release checklist | ✅ M13 | `docs/RELEASE_CHECKLIST.md` — executed against this milestone's own release as its first real use; found real gaps (export blocker, deferred icon/screenshots) rather than passing cleanly |
 | Playtest protocol | 🟡 **M12** | `docs/PLAYTEST_PROTOCOL.md` written; **no real round has been run yet** — nobody outside the project has played it. Requires a human to actually execute; not something an AI session can do alone |
 

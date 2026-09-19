@@ -159,12 +159,33 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
   the Chapter 5 prize), Isla del Rey (enemy, Spanish garrison — M10).
 - **Purpose:** the mid-game plateau. Level-5 buildings and the largest hulls live here.
 
-## Reserved regions (do not build; keep the ids free)
+## Region 4 — The Ancient Ocean (tier 4, threshold 300) — built M14
 
-| id | Name | Tier | Threshold | Bearing | Seeded by |
-|---|---|---|---|---|---|
-| `ancient_ocean` | The Ancient Ocean | 4 | 300 | due W, past Cartagena | Ch5 closing beat |
-| `ghost_reaches` | The Ghost Reaches | 5 | 500 | due N, past Frostbite | Ghost Fleet flavour |
+- **Dominant faction:** Pirate Clans (reused rather than inventing a new faction — Solomon Vane,
+  whose lost ship this region's story is about, was a legendary pirate captain). **Bearing:** due
+  west, past Cartagena.
+- **Enemies:** Galleons and Men O'War (`AncientOcean.tres`'s `enemy_ship_pool`) — the highest-tier
+  existing hulls, no new ship stats needed for ambient combat here.
+- **Islands:** Widow's Reach (`widows_reach`, LEGENDARY — the first-ever use of that `IslandType`
+  value; a discovery/wreck site, not a garrison, so it carries no `owner_faction`).
+- **Purpose:** Chapter 6 (The Wandering Widow) — Higgins' forty-year secret and Vane's chart, both
+  paid off here.
+
+## Region 5 — The Ghost Reaches (tier 5, threshold 500) — built M14
+
+- **Dominant faction:** The Ghost Fleet (`ghost_fleet`, already existed as a rumour-only faction
+  pre-M14). **Bearing:** due north, past Frostbite.
+- **Enemies:** Ghost Raiders/Ghost Marauders (`GhostReaches.tres`'s `enemy_ship_pool`, class 3/4,
+  reusing the existing `ship-ghost.glb` model) for ordinary ambient combat, plus a dedicated
+  region-gated boss, "The Wandering Widow" (`ghost_fleet_flagship`) — the Ghost Fleet's first real,
+  regular, everyday mechanical presence rather than the pre-existing rare global ambient event
+  (`GhostShipBoss`), which still exists unchanged alongside it.
+- **Islands:** Fogbound Cay (`fogbound_cay`, ENEMY, owned by the Ghost Fleet).
+- **Purpose:** the tone rule's Chapters 1–5 boundary ("the supernatural is rumoured, never
+  confirmed") is deliberately left behind here — real ships, real crew, real combat, real
+  boarding/looting — while the *supernatural explanation* stays unconfirmed on purpose (M14
+  design.md's explicit resolution, not a default). No chapter is gated on this region; it's pure
+  world-expansion content, same as the original three regions.
 
 ---
 
@@ -233,6 +254,26 @@ The fortified staging port for the treasure fleet crossing.
   island (the first non-home island the player can develop).
 - **Costs:** the hardest content in v1.
 - **Story:** Chapter 5 finale; Cárdenas; the unmapped chart.
+
+### Widow's Reach — `widows_reach` · Ancient Ocean · **Legendary** (M14)
+The wreck site of the *Wandering Widow*, Solomon Vane's ship, lost forty years before the
+campaign begins. The first island in the game to use `IslandType.LEGENDARY`.
+- **Gives:** no production, no capture — a discovery/story site, not a garrison. Carries no
+  `owner_faction`.
+- **Costs:** nothing to visit; the danger on the way there is the region's ambient Pirate Clan
+  presence, not the island itself.
+- **Story:** Chapter 6 (The Wandering Widow) in its entirety — Higgins' forty-year secret (he was
+  the Widow's cabin boy) and the payoff of Vane's chart from Chapter 5's closing beat.
+
+### Fogbound Cay — `fogbound_cay` · Ghost Reaches · Enemy (M14)
+A reef permanently wrapped in fog, held by the Ghost Fleet.
+- **Gives:** on capture — the deepest-water resource yield in the game (not yet a chapter
+  objective; a region-filling target, same category Blackwater Shoal/Isla del Rey were before
+  M14 gave one of them a chapter hook).
+- **Costs:** the hardest ambient combat in the game — Ghost Raiders/Marauders, plus a dedicated
+  boss ("The Wandering Widow," `ghost_fleet_flagship`) once the region is active.
+- **Story:** no chapter hook — the Ghost Fleet's tone-rule boundary (rumour → real mechanical
+  presence) is the point of this region, not a story beat tied to a specific chapter.
 
 ---
 

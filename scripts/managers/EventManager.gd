@@ -1,6 +1,10 @@
 extends Node
 
 signal world_event_triggered(event_name: String, data: Dictionary)
+## M17 Requirement 6.1 — fires once an ocean event has already picked and
+## applied itself, so the event-reroll rewarded surface can offer a bonus
+## second roll. Never fires before the event applies (never a gate).
+signal ocean_event_resolved(event_id: String, display_text: String)
 
 enum EventPriority {
 	LOW,
@@ -152,6 +156,19 @@ func _trigger_random_ocean_event() -> void:
 			_apply_temporary_wind_modifier(0.0, 30.0)
 		_:
 			push_warning("EventManager: Unknown event_id '%s'" % picked_event.event_id)
+
+	# M17 Requirement 6.1 — the event-reroll rewarded surface listens for
+	# this; the event above has already applied unconditionally (never a
+	# gate), this only announces it happened and offers a bonus SECOND roll.
+	ocean_event_resolved.emit(picked_event.event_id, picked_event.display_text)
+
+
+## M17 Requirement 6.5 — the "reroll" a watched ad grants. A fresh,
+## independent roll applied ON TOP of whatever the natural trigger already
+## picked and applied (design.md §6's reward-shape rule: a bonus, never a
+## replacement or an undo of what the player already has).
+func reroll_last_ocean_event() -> void:
+	_trigger_random_ocean_event()
 
 func _get_player_region_tier() -> int:
 	## Reuse the nearest-island pattern (same as EnemySpawner) to find the

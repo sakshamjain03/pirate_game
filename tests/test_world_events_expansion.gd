@@ -73,3 +73,22 @@ func test_get_player_region_exists_for_the_wind_events_to_resolve_a_target():
 	assert_true(mgr.has_method("_get_player_region"),
 		"Favorable Winds/Becalmed need a way to find which region's wind to touch")
 	mgr.free()
+
+
+func test_reroll_last_ocean_event_emits_ocean_event_resolved():
+	## M17 Task 22/Requirement 6.1 — the event-reroll rewarded surface calls
+	## this real entry point on the live EventManager autoload (ocean events
+	## need _ocean_events populated by _ready() and a real player_ship, so a
+	## bare .new() instance — used elsewhere in this file for method-existence
+	## checks only — can't exercise the actual roll).
+	var fake_ship := Node3D.new()
+	fake_ship.add_to_group("player_ship")
+	add_child_autofree(fake_ship)
+	var saved_player_ship = EventManager._player_ship
+	EventManager._player_ship = fake_ship
+
+	watch_signals(EventManager)
+	EventManager.reroll_last_ocean_event()
+
+	assert_signal_emitted(EventManager, "ocean_event_resolved")
+	EventManager._player_ship = saved_player_ship

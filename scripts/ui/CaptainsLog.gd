@@ -9,6 +9,8 @@ class_name CaptainsLog extends Control
 @onready var panel: Control = %Panel
 @onready var content: VBoxContainer = %Content
 @onready var close_button: Button = %CloseButton
+@onready var title_label: Label = %TitleLabel
+@onready var scroll_container: ScrollContainer = %ScrollContainer
 
 
 func _ready() -> void:
@@ -17,6 +19,12 @@ func _ready() -> void:
 	theme = PirateThemeBuilder.build()
 	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
+
+	if PirateThemeBuilder.is_mobile():
+		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
+		scroll_container.custom_minimum_size = PirateThemeBuilder.scaled_size(scroll_container.custom_minimum_size)
+		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(100, 48))
 
 	CampaignManager.objective_progressed.connect(func(_a, _b, _c): _refresh())
 	CampaignManager.objective_completed.connect(func(_a): _refresh())
@@ -60,6 +68,7 @@ func _refresh() -> void:
 	var current := CampaignManager._current_chapter()
 	if not current:
 		_add_header(tr("No Active Chapter"))
+		PirateThemeBuilder.apply_mobile_control_scaling(content)
 		return
 
 	_add_header(current.title)
@@ -79,6 +88,8 @@ func _refresh() -> void:
 		_add_header(tr("Optional"))
 		for objective in optional:
 			_add_objective_row(objective)
+
+	PirateThemeBuilder.apply_mobile_control_scaling(content)
 
 
 func _add_objective_row(objective: ObjectiveData) -> void:

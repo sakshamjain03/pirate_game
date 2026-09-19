@@ -14,8 +14,13 @@ class_name WardrobeScreen extends Control
 @onready var slot_tabs: HBoxContainer = %SlotTabs
 @onready var content: GridContainer = %Content
 @onready var equip_button: Button = %EquipButton
+@onready var store_button: Button = %StoreButton
 @onready var close_button: Button = %CloseButton
 @onready var detail_label: Label = %DetailLabel
+@onready var title_label: Label = %TitleLabel
+## M17 Requirement 4.1 — one of the store's two required entry points, opened
+## from within the wardrobe, never unprompted.
+@onready var store_screen: StoreScreen = %StoreScreen
 
 const _SLOTS: Array[String] = ["hull", "sails", "flag", "figurehead", "decoration"]
 ## Requirement 4.6 / `docs/18_ACCESSIBILITY.md` §6 — minimum touch target size.
@@ -32,9 +37,14 @@ func _ready() -> void:
 	theme = PirateThemeBuilder.build()
 	close_button.pressed.connect(close)
 	equip_button.pressed.connect(_on_equip_pressed)
+	store_button.pressed.connect(store_screen.open)
 	equip_button.disabled = true
 	_build_slot_tabs()
 	PirateThemeBuilder.apply_button_juice(self)
+	if PirateThemeBuilder.is_mobile():
+		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
+		for btn in [equip_button, store_button, close_button]:
+			btn.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(100, 48))
 
 
 func open() -> void:
@@ -65,7 +75,7 @@ func _build_slot_tabs() -> void:
 		var btn := Button.new()
 		btn.name = "Slot_%s" % slot
 		btn.text = slot.capitalize()
-		btn.custom_minimum_size = _MIN_TOUCH_SIZE
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(_MIN_TOUCH_SIZE)
 		btn.toggle_mode = true
 		btn.pressed.connect(_select_slot.bind(slot))
 		slot_tabs.add_child(btn)
@@ -96,7 +106,7 @@ func _build_entry(cosmetic: CosmeticData) -> Button:
 	var owned: bool = EntitlementManager.has_entitlement(cosmetic.id)
 
 	var btn := Button.new()
-	btn.custom_minimum_size = _MIN_TOUCH_SIZE
+	btn.custom_minimum_size = PirateThemeBuilder.scaled_size(_MIN_TOUCH_SIZE)
 	btn.text = cosmetic.display_name if owned else tr("%s (Not Owned)") % cosmetic.display_name
 	btn.disabled = not owned
 	if cosmetic.icon:

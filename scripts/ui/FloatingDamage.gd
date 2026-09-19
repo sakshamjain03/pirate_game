@@ -17,7 +17,7 @@ func _ready() -> void:
 	modulate = Color(1.0, 0.2, 0.2, 1.0) # Red
 	outline_modulate = Color(0.0, 0.0, 0.0, 1.0) # Black outline
 	outline_size = 4
-	font_size = 64
+	font_size = PirateThemeBuilder.scaled_font_size(64)
 	
 	# Start tween animation
 	var tween = create_tween().set_parallel(true)

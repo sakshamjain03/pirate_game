@@ -40,17 +40,23 @@ func _process(delta: float) -> void:
 func add_resource(type: String, amount: int) -> void:
 	if amount <= 0:
 		return
-		
+
 	type = type.to_lower()
-	var cap = max_storage.get(type, 999999)
+	if not max_storage.has(type):
+		# Every resource type must be declared in max_storage/base_storage up
+		# front (data-driven balance) -- an undeclared type showing up here is
+		# a data bug, not a new resource to grant unlimited (999999) storage.
+		push_error("ResourceManager: add_resource called with undeclared resource type '%s'." % type)
+		return
+	var cap = max_storage[type]
 	if current_resources.has(type):
 		current_resources[type] += amount
 	else:
 		current_resources[type] = amount
-		
+
 	if current_resources[type] > cap:
 		current_resources[type] = cap
-		
+
 	resources_changed.emit(current_resources)
 
 func spend_resource(type: String, amount: int) -> bool:
@@ -126,12 +132,25 @@ func recalculate_storage_capacity() -> void:
 							max_storage[res_type] = val
 			
 	var changed = false
+	# Union of both key sets: a type that only exists in max_storage so far
+	# (declared capacity, no balance yet) still needs a current_resources
+	# entry so a later add_resource() sees its real cap instead of falling
+	# through to the unknown-type rejection above.
+	var all_types := {}
 	for type in current_resources.keys():
-		var cap = max_storage.get(type, 999999)
+		all_types[type] = true
+	for type in max_storage.keys():
+		all_types[type] = true
+
+	for type in all_types.keys():
+		var cap = max_storage.get(type, 0)
+		if not current_resources.has(type):
+			current_resources[type] = 0
+			changed = true
 		if current_resources[type] > cap:
 			current_resources[type] = cap
 			changed = true
-			
+
 	if changed:
 		resources_changed.emit(current_resources)
 

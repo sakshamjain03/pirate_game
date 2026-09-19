@@ -1,0 +1,92 @@
+[gd_resource type="Resource" script_class="ChapterData" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
+[ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
+[ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+
+[sub_resource type="Resource" id="Open_1"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "Word from Skull Cove — what's left of Morrow's lieutenants are still arguing over his chair. Four years, and nobody's sat in it since."
+mood = 0
+
+[sub_resource type="Resource" id="Open_2"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "It's your rum island either way, Captain. Might as well be your name over the door too, official-like, before one of them gets ambitious."
+mood = 1
+
+[sub_resource type="Resource" id="Open_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "I never thought I'd hear myself recommend a coronation. Try not to enjoy it too much."
+mood = 4
+
+[sub_resource type="Resource" id="Obj_10_1"]
+script = ExtResource("2_objective")
+objective_id = "10.1"
+description = "Put down the last of Morrow's holdouts"
+condition = 3
+target_id = "pirate_clans"
+target_count = 12
+
+[sub_resource type="Resource" id="Obj_10_2"]
+script = ExtResource("2_objective")
+objective_id = "10.2"
+description = "Raise Skull Cove to tier 4"
+condition = 2
+target_id = "skull_cove"
+target_count = 4
+
+[sub_resource type="Resource" id="Obj_10_3"]
+script = ExtResource("2_objective")
+objective_id = "10.3"
+description = "Prove the cove still runs on rum"
+condition = 12
+target_id = "rum"
+target_value = 300.0
+
+[sub_resource type="Resource" id="Obj_10_4"]
+script = ExtResource("2_objective")
+objective_id = "10.4"
+description = "Take one of the holdouts alive"
+condition = 4
+target_id = "pirate_clans"
+target_count = 2
+is_optional = true
+
+[sub_resource type="Resource" id="Close_1"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "There. Skull Cove's yours in more than name now. Blackjaw would hate every part of this."
+mood = 4
+
+[sub_resource type="Resource" id="Close_2"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "That's five ports, an admiral who used to hunt us, and a chart to an island nobody but you and I have ever set foot on."
+mood = 0
+
+[sub_resource type="Resource" id="Close_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+text = "I'll be honest, Captain. I stopped expecting to leave a long time ago. I'm glad of it."
+mood = 1
+
+[resource]
+script = ExtResource("1_chapter")
+chapter_id = "ch10_the_cove_without_a_king"
+chapter_number = 10
+title = "The Cove Without a King"
+log_summary = "Morrow's clan seat was never formally inherited. It is now — Skull Cove, properly claimed at last."
+required_previous_chapter = "ch7_marguerites_harbour"
+opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
+objectives = Array[ObjectiveData]([SubResource("Obj_10_1"), SubResource("Obj_10_2"), SubResource("Obj_10_3"), SubResource("Obj_10_4")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+reward_gold = 15000

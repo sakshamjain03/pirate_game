@@ -94,3 +94,99 @@ func test_load_game_caps_offline_ticks_at_max():
 	var max_ticks = int(SaveManager.MAX_OFFLINE_SECONDS / ResourceManager.ECONOMY_TICK_INTERVAL)
 	assert_eq(SaveManager._pending_offline_ticks, max_ticks,
 		"offline ticks should be capped at MAX_OFFLINE_SECONDS worth of ticks, not 100 hours")
+
+func test_offline_catch_up_advances_active_fleet_mission():
+	## Regression test for BUG_REPORT.md #37 -- offline catch-up must actually
+	## drive FleetManager.on_economy_tick() (a trade mission earning gold),
+	## not just compute a tick count.
+	var had_fleet_state := FleetManager.owned_captains.size() > 1 or not FleetManager.active_missions.is_empty()
+	var fleet_backup := {
+		"owned_ships": FleetManager.owned_ships.duplicate(),
+		"owned_captains": FleetManager.owned_captains.duplicate(),
+		"active_missions": FleetManager.active_missions.duplicate(true),
+	}
+
+	# Captains persist by resource_path (FleetManager.get_save_data()), so the
+	# fixture must use the loaded resource directly -- a .duplicate() has an
+	# empty resource_path and can never round-trip through save/load.
+	FleetManager.owned_captains.append(load("res://resources/captains/Jack.tres"))
+	var captain_index := FleetManager.owned_captains.size() - 1
+	var ship_index := 1 if FleetManager.active_ship_index != 1 else 2
+	FleetManager.active_missions[ship_index] = {
+		"captain_index": captain_index,
+		"mission_type": "trade",
+		"timer": 0.0,
+	}
+
+	var gold_before: int = ResourceManager.get_resource("gold")
+
+	SaveManager.save_game()
+	var file = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.READ)
+	var json = JSON.new()
+	json.parse(file.get_as_text())
+	file.close()
+	var data = json.data
+	data["last_saved_unix"] = int(Time.get_unix_time_from_system()) - 100
+	var write_file = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	write_file.store_string(JSON.stringify(data, "\t"))
+	write_file.close()
+
+	SaveManager.load_game()
+
+	assert_gt(ResourceManager.get_resource("gold"), gold_before,
+		"offline catch-up must run the active trade mission's economy tick and grant gold")
+
+	if not had_fleet_state:
+		FleetManager.owned_ships = fleet_backup["owned_ships"]
+		FleetManager.owned_captains = fleet_backup["owned_captains"]
+		FleetManager.active_missions = fleet_backup["active_missions"]
+
+
+func test_offline_catch_up_tracks_the_income_delta_for_the_m17_bonus_surface():
+	## M17 Requirement 6.1/6.5 — the offline-return rewarded surface offers
+	## to double the exact amount just granted above, never a separately
+	## guessed number. Reuses the same guaranteed-to-earn-gold trade-mission
+	## fixture as test_offline_catch_up_advances_active_fleet_mission.
+	var had_fleet_state := FleetManager.owned_captains.size() > 1 or not FleetManager.active_missions.is_empty()
+	var fleet_backup := {
+		"owned_ships": FleetManager.owned_ships.duplicate(),
+		"owned_captains": FleetManager.owned_captains.duplicate(),
+		"active_missions": FleetManager.active_missions.duplicate(true),
+	}
+
+	FleetManager.owned_captains.append(load("res://resources/captains/Jack.tres"))
+	var captain_index := FleetManager.owned_captains.size() - 1
+	var ship_index := 1 if FleetManager.active_ship_index != 1 else 2
+	FleetManager.active_missions[ship_index] = {
+		"captain_index": captain_index,
+		"mission_type": "trade",
+		"timer": 0.0,
+	}
+
+	SaveManager.save_game()
+	var file = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.READ)
+	var json = JSON.new()
+	json.parse(file.get_as_text())
+	file.close()
+	var data = json.data
+	data["last_saved_unix"] = int(Time.get_unix_time_from_system()) - 100
+	var write_file = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	write_file.store_string(JSON.stringify(data, "\t"))
+	write_file.close()
+
+	var gold_before: int = ResourceManager.get_resource("gold")
+	SaveManager.load_game()
+	var gold_after_baseline: int = ResourceManager.get_resource("gold")
+	var actual_gain := gold_after_baseline - gold_before
+
+	assert_true(SaveManager._pending_offline_income.has("gold"))
+	assert_almost_eq(SaveManager._pending_offline_income["gold"], float(actual_gain), 0.01)
+
+	SaveManager.grant_offline_income_bonus()
+	assert_eq(ResourceManager.get_resource("gold"), gold_after_baseline + actual_gain,
+		"the bonus must grant the exact same delta again, on top of the baseline")
+
+	if not had_fleet_state:
+		FleetManager.owned_ships = fleet_backup["owned_ships"]
+		FleetManager.owned_captains = fleet_backup["owned_captains"]
+		FleetManager.active_missions = fleet_backup["active_missions"]

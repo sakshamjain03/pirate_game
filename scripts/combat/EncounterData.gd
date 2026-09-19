@@ -34,6 +34,12 @@ enum Objective {
 ## player, but also must not require its own bespoke trigger system to be
 ## reachable at all once its chapter *is* current.
 @export var required_chapter_id: String = ""
+## M14 Requirement 2.3 — mirrors required_chapter_id exactly, but gates on a
+## region's activation instead of a chapter's progress: a region isn't a
+## chapter, so the existing gate can't express "only once the Ghost Reaches
+## is active." Empty = always eligible (every pre-M14 encounter, including
+## the un-region-gated ghost_ship_boss ambient event).
+@export var required_region_id: String = ""
 
 @export_group("Type")
 @export var kind: Kind = Kind.ENCOUNTER

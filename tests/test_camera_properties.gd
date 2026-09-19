@@ -25,6 +25,20 @@ func test_property_1_camera_bounds():
 	rig.queue_free()
 	assert_true(passed, "Property 1: Camera shall maintain distance and not exceed vertical angle limits")
 
+
+func test_mobile_camera_defaults_frame_more_closely_than_desktop():
+	var settings := load("res://resources/world/CameraSettings.tres") as CameraSettingsClass
+	assert_not_null(settings)
+	assert_lt(settings.mobile_default_distance, settings.default_distance,
+		"Phone framing must begin closer to the ship than the desktop camera.")
+	assert_true(settings.mobile_min_distance <= settings.mobile_default_distance
+		and settings.mobile_default_distance <= settings.mobile_max_distance,
+		"The authored phone camera default must be reachable within its zoom bounds.")
+	assert_gt(settings.drag_yaw_degrees_per_pixel, 0.0,
+		"World dragging must have a positive, data-authored orbit sensitivity.")
+	assert_gt(settings.drag_pitch_degrees_per_pixel, 0.0,
+		"World dragging must have a positive, data-authored pitch sensitivity.")
+
 func test_property_2_obstacle_avoidance():
 	var passed = true
 	var rig = CameraRigScene.instantiate() as CameraRigClass

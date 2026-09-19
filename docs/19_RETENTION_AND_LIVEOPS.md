@@ -14,6 +14,14 @@
 > is the gap that decides whether a freemium game earns anything: a player who does not return on
 > day two never converts, no matter how good the store page is. Milestone **M18** implements this
 > document.
+>
+> **Scope flag (2026-09-20 docs audit):** this system is an accretion on top of the three core
+> pillars (Build / Explore / Conquer, `docs/00_VISION.md` §4) — it was not called for by the
+> original vision and isn't itself a pillar. It's flagged here rather than folded into
+> `00_VISION.md`, so the question of whether the vision doc should formally absorb a live-service
+> layer stays open for a deliberate future decision instead of drifting in by default. Every
+> mechanic added under this document should still be checked against the principle in §1 and
+> against whether it serves Build/Explore/Conquer, not against retention metrics alone.
 
 ---
 

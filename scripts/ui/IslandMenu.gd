@@ -18,6 +18,7 @@ signal structure_changed(building_id: String, is_upgrade: bool)
 @onready var trade_container: VBoxContainer = %TradeContainer
 @onready var close_button: Button = %CloseButton
 @onready var island_name_label: Label = %IslandNameLabel
+@onready var panel: PanelContainer = $Panel
 
 var current_island: Node3D = null
 
@@ -36,6 +37,7 @@ func _ready() -> void:
 	tab_container.tab_changed.connect(func(_idx): if AudioManager: AudioManager.play_sound("ui_tab_switch"))
 	_load_building_data()
 	hide()
+	PirateThemeBuilder.apply_button_juice(self)
 
 	# Keep processing input while paused — open()/close() pause the game so
 	# enemies don't keep sailing and shooting the player (and the economy
@@ -49,12 +51,19 @@ func _ready() -> void:
 	# Create Colonize Button
 	colonize_btn = Button.new()
 	colonize_btn.text = tr("Colonize (1000 Gold)")
-	colonize_btn.custom_minimum_size = Vector2(150, 40)
+	colonize_btn.custom_minimum_size = Vector2(150, 48)
 	colonize_btn.pressed.connect(_on_colonize_pressed)
 	island_name_label.get_parent().add_child(colonize_btn)
 	
 	# Apply theme
 	theme = PirateThemeBuilder.build()
+
+	if PirateThemeBuilder.is_mobile():
+		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_size(close_button.custom_minimum_size)
+		close_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(20))
+		island_name_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(32))
+		colonize_btn.custom_minimum_size = PirateThemeBuilder.scaled_size(colonize_btn.custom_minimum_size)
 
 func _load_building_data() -> void:
 	# In a real game, this would load from a directory or registry
@@ -226,6 +235,7 @@ func _refresh_buildings() -> void:
 		
 	for building in available_buildings:
 		_create_building_entry(building)
+	PirateThemeBuilder.apply_mobile_control_scaling(buildings_container)
 
 func _create_building_entry(building: BuildingData) -> void:
 	var hbox = HBoxContainer.new()
@@ -339,21 +349,69 @@ func _on_build_pressed(building: BuildingData) -> void:
 			elif building.building_id.begins_with("tavern"):
 				tab_container.set_tab_hidden(2, false)
 				_refresh_captains()
+			if AudioManager: AudioManager.play_sound("build_success")
 			structure_changed.emit(building.building_id, false)
+			HapticFeedbackManager.reward()
 
 func _on_upgrade_pressed(old_id: String, next_upgrade: BuildingData) -> void:
 	if current_island and current_island.has_method("upgrade_structure"):
 		if current_island.upgrade_structure(old_id, next_upgrade):
 			_refresh_buildings()
+			if AudioManager: AudioManager.play_sound("upgrade_success")
 			structure_changed.emit(next_upgrade.building_id, true)
+			HapticFeedbackManager.reward()
 
 # --- SHIPYARD ---
 
 func _refresh_ships() -> void:
 	for child in ships_container.get_children():
 		child.queue_free()
+	_create_repair_ship_entry()
 	for ship in available_ships:
 		_create_ship_entry(ship)
+	PirateThemeBuilder.apply_mobile_control_scaling(ships_container)
+
+
+func _create_repair_ship_entry() -> void:
+	## DockingSystem still provides passive repairs, but a player should not have
+	## to wait or infer that a shipyard is doing work. This explicit action is
+	## available only through the friendly-island Shipyard tab that calls it.
+	var player := get_tree().get_first_node_in_group("player_ship")
+	var damage = player.get_node_or_null("ShipDamage") if player else null
+	if not damage:
+		return
+	var hull: float = damage.get("hull")
+	var hull_max: float = damage.get_pool_maximum("hull")
+	var sails: float = damage.get("sails")
+	var sails_max: float = damage.get_pool_maximum("sails")
+	var row := HBoxContainer.new()
+	var details := Label.new()
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details.text = tr("Hull %d / %d  •  Rigging %d / %d") % [roundi(hull), roundi(hull_max), roundi(sails), roundi(sails_max)]
+	details.add_theme_font_size_override("font_size", 14)
+	row.add_child(details)
+	var repair_button := Button.new()
+	repair_button.text = tr("Repair Ship")
+	repair_button.custom_minimum_size = Vector2(120, 44)
+	repair_button.disabled = is_equal_approx(hull, hull_max) and is_equal_approx(sails, sails_max)
+	if not repair_button.disabled:
+		repair_button.pressed.connect(_on_repair_ship_pressed.bind(damage))
+	row.add_child(repair_button)
+	ships_container.add_child(row)
+	ships_container.add_child(HSeparator.new())
+
+
+func _on_repair_ship_pressed(damage: Node) -> void:
+	if not is_instance_valid(damage):
+		return
+	## A Shipyard restores hull and rigging. Crew remain a Tavern concern, so
+	## this does not erase the recruit/boarding economy.
+	var restored: float = damage.repair("hull", damage.get_pool_maximum("hull"))
+	restored += damage.repair("sails", damage.get_pool_maximum("sails"))
+	if restored <= 0.0:
+		return
+	HapticFeedbackManager.reward()
+	_refresh_ships()
 
 func _create_ship_entry(ship: ShipStats) -> void:
 	var hbox = HBoxContainer.new()
@@ -422,6 +480,7 @@ func _refresh_captains() -> void:
 		if not CampaignManager.is_chapter_completed(cap.unlock_chapter_id):
 			continue
 		_create_captain_entry(cap)
+	PirateThemeBuilder.apply_mobile_control_scaling(captains_container)
 
 func _create_crew_recruitment_entry() -> void:
 	var player = get_tree().get_first_node_in_group("player_ship")
@@ -568,6 +627,7 @@ func _refresh_fleet() -> void:
 	for i in range(FleetManager.owned_ships.size()):
 		var owned = FleetManager.owned_ships[i]
 		_create_fleet_entry(owned, i)
+	PirateThemeBuilder.apply_mobile_control_scaling(fleet_container)
 
 func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
 	var ship: ShipStats = owned.ship_stats
@@ -781,6 +841,7 @@ func _refresh_research() -> void:
 		
 	for tech in available_techs:
 		_create_research_entry(tech)
+	PirateThemeBuilder.apply_mobile_control_scaling(research_container)
 
 func _create_research_entry(tech: TechData) -> void:
 	var hbox = HBoxContainer.new()
@@ -864,6 +925,7 @@ func _refresh_trade() -> void:
 
 	for faction_id in ["pirate_clans", "royal_navy", "merchant_guild"]:
 		_create_tribute_entry(faction_id)
+	PirateThemeBuilder.apply_mobile_control_scaling(trade_container)
 
 func _create_tribute_entry(faction_id: String) -> void:
 	## M11 Requirement 6 — the inverse of the existing "attacking a faction's

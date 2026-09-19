@@ -657,9 +657,9 @@ The cast, including all twenty existing captains.
 
 What actually happens in the first five chapters.
 
-`docs/14_SYSTEM_INVENTORY.md`
+`docs/05_CURRENT_SYSTEMS.md`
 
-Every component and process the game needs, with its status.
+Ground truth: what runs today file-by-file, including system status, known defects, and content volume targets.
 
 `docs/15_MASTER_PLAN.md`
 

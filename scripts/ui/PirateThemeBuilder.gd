@@ -80,10 +80,13 @@ static func build() -> Theme:
 	theme.set_stylebox("disabled", "Button", btn_disabled)
 	theme.set_font("font",      "Button", cinzel_font)
 	theme.set_font_size("font_size", "Button", roundi(15 * scale))
-	theme.set_color("font_color",          "Button", COLOR_SHADOW_DARK)
-	theme.set_color("font_hover_color",    "Button", COLOR_SHADOW_DARK)
-	theme.set_color("font_pressed_color",  "Button", COLOR_SHADOW_DARK)
-	theme.set_color("font_focus_color",    "Button", COLOR_SHADOW_DARK)
+	# Button face is dark navy (see button_normal.png etc.) — label text needs
+	# to be light to read against it, not COLOR_SHADOW_DARK (that was tuned
+	# for the old light/tan textured-button art and is near-invisible here).
+	theme.set_color("font_color",          "Button", COLOR_TEXT_LIGHT)
+	theme.set_color("font_hover_color",    "Button", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_pressed_color",  "Button", COLOR_TEXT_LIGHT)
+	theme.set_color("font_focus_color",    "Button", COLOR_TEXT_LIGHT)
 	theme.set_color("font_disabled_color", "Button", Color(0.4, 0.4, 0.42, 0.8))
 
 	# --- Panels (enhanced flat fallback — no matching texture asset sourced) ---

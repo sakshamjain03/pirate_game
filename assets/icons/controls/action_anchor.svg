@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Anchor">
+<title>Anchor</title>
+<path fill-rule="evenodd" fill="#FFFFFF" d="M64 8 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 Z M70 8 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 Z"/>
+<rect x="60" y="20" width="8" height="78" fill="#FFFFFF"/>
+<rect x="40" y="44" width="48" height="8" fill="#FFFFFF"/>
+<path fill="#FFFFFF" d="M64 92L28 116L44 120L64 98Z"/>
+<path fill="#FFFFFF" d="M64 92L100 116L84 120L64 98Z"/>
+</svg>

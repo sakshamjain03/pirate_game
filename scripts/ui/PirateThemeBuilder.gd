@@ -83,10 +83,13 @@ static func build() -> Theme:
 	# Button face is dark navy (see button_normal.png etc.) — label text needs
 	# to be light to read against it, not COLOR_SHADOW_DARK (that was tuned
 	# for the old light/tan textured-button art and is near-invisible here).
-	theme.set_color("font_color",          "Button", COLOR_TEXT_LIGHT)
+	# Matches the button's own gold border art (COLOR_GOLD) rather than a
+	# plain light neutral, per explicit direction — text should read as part
+	# of the same gold accent as the border, not just "readable."
+	theme.set_color("font_color",          "Button", COLOR_GOLD)
 	theme.set_color("font_hover_color",    "Button", COLOR_GOLD_BRIGHT)
-	theme.set_color("font_pressed_color",  "Button", COLOR_TEXT_LIGHT)
-	theme.set_color("font_focus_color",    "Button", COLOR_TEXT_LIGHT)
+	theme.set_color("font_pressed_color",  "Button", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_focus_color",    "Button", COLOR_GOLD)
 	theme.set_color("font_disabled_color", "Button", Color(0.4, 0.4, 0.42, 0.8))
 
 	# --- Panels (enhanced flat fallback — no matching texture asset sourced) ---

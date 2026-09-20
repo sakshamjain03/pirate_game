@@ -52,9 +52,13 @@ const TIER_BANDS := {
 
 const HOME_ISLAND_ID := "port_royal"
 
-## Islands must not overlap: the beach/terrain union radius is ~13.7u (see D25), so
-## two islands need >= 40u between centres to leave navigable water between them.
-const MIN_ISLAND_SPACING := 40.0
+## Islands must not overlap: the beach/terrain union radius is ~40.5u since the
+## island scale-up (docs/21_WORLD_SCALE_AND_MAINLANDS.md §2/§9 task 1; was ~13.7u,
+## see D25), so two islands need >= 95u between centres to leave navigable water
+## between them. Verified against every currently-authored island pair — the
+## tightest, Skull Cove <-> Blackwater Shoal at 110u, still clears this with a
+## 15u margin; no island needed to move.
+const MIN_ISLAND_SPACING := 95.0
 
 var _islands: Dictionary = {}   # island_id -> IslandData
 var _regions: Array = []        # RegionData

@@ -126,7 +126,7 @@ shadow_enabled = false
 ; every island below; the 13.7u terrain union radius is a fixed physical
 ; prop size and does not scale, so clearance only improves at this distance.
 [node name="PlayerShip" parent="." instance=ExtResource("3_ship")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 100)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 150)
 
 [node name="Enemies" type="Node3D" parent="."]
 

@@ -52,13 +52,22 @@ Godot world space, Y-up. The ocean plane is XZ.
 
 | Constant | Value | Source |
 |---|---|---|
-| Island collision cylinder radius | 11 u | `Island.tscn` |
-| Island beach/terrain union radius | ≈ 13.7 u | D25 fix |
-| Island dock marker | x = 16 u | `Island.tscn` |
-| Minimum safe island-to-island spacing | **40 u** | 13.7 × 2 + navigation clearance |
+| Island collision cylinder radius | 38 u | `Island.tscn` (was 11u — see 2026-09-21 scale-up below) |
+| Island beach/terrain union radius | ≈ 40.5 u | rounded-square tiling in `Island.tscn` (was ≈13.7u, D25 fix) |
+| Island dock marker | x = 34 u | `Island.tscn` (was x=16u) |
+| Minimum safe island-to-island spacing | **95 u** | 40.5 × 2 + navigation clearance (was 40u) |
 | Player cruise speed (Sloop) | 15 u/s max, ≈ 11–12 u/s realistic | `resources/ships/Sloop.tres` |
 | Islands collision layer | 17 (layer 1 + layer 5 = terrain) | D31 |
 | Camera spring-arm mask | 16 (terrain only) | D31 |
+
+> **2026-09-21 island scale-up** (`docs/21_WORLD_SCALE_AND_MAINLANDS.md` §2/§9 task 1): islands
+> were ~2.5-3 ship-lengths wide and read as props, not places. `Island.tscn`'s terrain footprint
+> grew ~3.5x by *tiling* more copies of the same sand/grass pieces at their existing scale (not
+> stretching them) out to a rounded-square shape, plus building slots 8→14 spread across two
+> rings and the dock/collision boundary moved outward to match. No island's `world_position`
+> moved — the new 95u minimum spacing was checked against every existing pair and the tightest
+> (Skull Cove ↔ Blackwater Shoal, 110u) still clears it. Decor/prop repositioning and additional
+> filler are deliberately deferred to that doc's task 2/3, not part of this pass.
 
 ---
 

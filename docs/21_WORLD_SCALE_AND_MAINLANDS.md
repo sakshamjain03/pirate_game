@@ -291,9 +291,20 @@ except where noted.
    (`test_world_map_layout.gd` passes with the new `MIN_ISLAND_SPACING`; every pairwise distance
    manually re-verified), headful capture harness shows a visibly bigger island relative to the
    ship with no clipping/overlap between neighbors.
+   **Status: done.** Collision radius 11u→38u, terrain tiled (not stretched) from 4 sand tiles to
+   24 plus 8 new grass tiles, building slots 8→14, dock/trigger moved outward, `MIN_ISLAND_SPACING`
+   40u→95u (checked against all 11 islands' real pairwise distances — tightest pair, Skull Cove ↔
+   Blackwater Shoal at 110u, still clears it), player spawn and `CameraSettings` zoom range
+   re-tuned. Full suite: 624 tests, 622 passing (same 2 pre-existing unrelated failures as
+   baseline, no count drift). Headful capture confirmed visually.
 2. **Reposition existing decor to the new footprint** — mechanical follow-up to 1, not a new
    design decision. Acceptance: headful screenshot, every prop sits on terrain, none floating or
    clipped through the new geometry.
+   **Status: done.** Palm1-3/Rocks1-3/Barrel1-2/TreasureChest moved from their old ~9-14u cluster
+   out to ~22-31u, each position checked against the actual Sand1-24 tile squares so nothing sits
+   over open water between tiled rings. `House`/`PirateFlag` deliberately left at the centre — they
+   mark the settlement itself, not ambient filler. GUT unaffected (decoration only, no gameplay
+   code touched); headful capture confirmed visually.
 3. **More filler decor, v1** (§3 v1 task) — more of the same asset kinds, still shared across
    islands. Acceptance: headful screenshot, island reads as fuller; GUT suite unaffected (no
    gameplay code touched, decoration only).

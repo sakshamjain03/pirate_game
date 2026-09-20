@@ -167,8 +167,8 @@ exercised this pass).
 
 ## 7. Store listing update (if changed)
 
-If gameplay, UI, or the icon changed since the last release, refresh `docs/STORE_LISTING.md`'s
-screenshots and description before updating the Play Console listing.
+If gameplay, UI, or the icon changed since the last release, refresh the store listing copy below
+(Appendix A) — screenshots and description — before updating the Play Console listing.
 
 ## 8. Privacy policy / Data Safety re-check
 
@@ -194,5 +194,74 @@ data-collection enumeration this page must stay consistent with.
   flat placeholder color, not real branded art rasterized from `icon.svg` — deprioritized behind
   getting the export pipeline itself working at all. A real icon pass is a named follow-up, not
   silently forgotten.
-- Screenshots for `docs/STORE_LISTING.md` are not yet captured, for the same reason as Step 6 —
-  gated on having something real to screenshot.
+- Screenshots for Appendix A below are not yet captured, for the same reason as Step 6 — gated on
+  having something real to screenshot.
+
+---
+
+## Appendix A — Store listing copy
+
+> Folded in from `docs/STORE_LISTING.md` during the 2026-09-20 docs consolidation pass (release
+> assets and the checklist that governs them belong together). Satisfies
+> `.kiro/specs/milestone-m13-ship-it/` Requirement 5. Copy is drawn directly from
+> `docs/00_VISION.md` §1–§4's existing, already-approved positioning — not freshly invented for the
+> store listing.
+
+**Title:** Pirate Empire
+
+**Short description** (≤80 characters, Play Console limit — 79 used):
+> Build the greatest pirate empire ever known. Sail, raid, and rule the seas.
+
+**Full description:**
+
+**Can you become a legendary pirate? Pirate Empire asks something bigger: can you build the
+greatest pirate civilization in history?**
+
+You are not role-playing a pirate. You are building history.
+
+Start with a single ship and an unclaimed island. Grow it into an empire.
+
+**BUILD** — Develop your islands, construct trade buildings, upgrade your infrastructure, and
+unlock new technology. Every level of every building reads as visible investment — a thriving port
+looks different from a struggling outpost, from a distance.
+
+**EXPLORE** — Sail an ocean with real geography: three regions, each riskier and richer than the
+last. Discover new islands, find hidden treasure, and uncover what's waiting past the fog.
+
+**CONQUER** — Naval combat that rewards positioning and skill, not tap speed. Line up your
+broadsides, fire your special volley at the right moment, and use your captain's unique ability to
+turn a fight. Capture islands, defeat rival factions, and take down the two legendary warships that
+patrol the deep water.
+
+**COMMAND YOUR CAPTAINS** — Recruit and level up a roster of 20 distinct captains, each with their
+own home, allegiance, and a combat ability that's genuinely theirs — not just a bigger number on
+the same fight.
+
+**LIVE A STORY** — A five-chapter campaign carries you from an unknown sailor to a name the seas
+remember, with dialogue, objectives, and stakes that build as your empire grows.
+
+Every session should leave something meaningfully different behind — a fleet that came home, an
+island that finished upgrading, a captain who leveled up. Return tomorrow and find your empire kept
+moving without you.
+
+Pirate Empire is free to play, in full. Every island, ship, captain, and chapter is reachable
+without spending anything.
+
+**Category:** Games → Strategy
+
+**Content rating:** To be completed via Play Console's IARC content-rating questionnaire at
+submission time — not guessed here.
+
+**Icon:** `icon.svg` (D38) — a store-resolution (512×512) rasterized PNG export is required by Play
+Console and is a follow-up task; the in-app launcher icon currently ships as an unbranded
+solid-color placeholder pending real icon art (see Step 4 above and the M13 checkpoint notes for
+why this wasn't finished in that pass — it was gated behind the Android export pipeline itself
+working, which hit a blocking engine issue since resolved).
+
+**Screenshots:** Not yet captured — gated behind a working exported/running build (Requirement 3's
+device pass, or a fresh `CaptureHarness` run) so they reflect actual current gameplay, not stale
+pre-M9 captures.
+
+**Privacy policy URL:** https://sakshamjain03.github.io/pirate_game/privacy.html (published — see
+`.kiro/specs/milestone-m13-ship-it/` Requirement 7; user must enable GitHub Pages in repo settings
+for this URL to resolve, per the checkpoint notes).

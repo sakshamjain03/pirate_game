@@ -22,6 +22,7 @@ mood = 3
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "She's earned this a hundred times over, Captain. Try not to make her wait for the hundred-and-first."
 mood = 1
 
@@ -75,6 +76,7 @@ mood = 4
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "There it is — the smile I've been waiting three years to see."
 mood = 1
 

@@ -6,8 +6,8 @@
 > Created: 2026-08-27
 >
 > **Why this document exists.** A gap audit on 2026-08-27 found that accessibility had **zero
-> coverage anywhere in the roadmap** — not in `docs/14_SYSTEM_INVENTORY.md`, not in any
-> `.kiro/specs/` milestone from M9 through M15. That is a real hole: it excludes players, and
+> coverage anywhere in the roadmap** — not in the system-status document (`docs/05_CURRENT_SYSTEMS.md`),
+> not in any `.kiro/specs/` milestone from M9 through M15. That is a real hole: it excludes players, and
 > accessibility is a Google Play quality-listing factor that affects store placement.
 >
 > This document defines the standard. Milestone **M19** implements it. Every UI screen built

@@ -185,6 +185,145 @@ static func build() -> Theme:
 	theme.set_stylebox("panel", "Panel",          panel_style)
 	theme.set_stylebox("panel", "PanelContainer", panel_style)
 
+	# --- HSlider (M18 settings uplift — was fully unstyled, rendering as
+	# stock Godot gray against the gold/navy card; low contrast and visually
+	# inconsistent with the rest of the theme) ---
+	var slider_groove := _make_panel_stylebox(COLOR_SHADOW_DARK, COLOR_GOLD.darkened(0.35), 1.5, 8.0)
+	slider_groove.content_margin_left = 0.0
+	slider_groove.content_margin_right = 0.0
+	slider_groove.content_margin_top = 0.0
+	slider_groove.content_margin_bottom = 0.0
+	var slider_fill := _make_panel_stylebox(COLOR_GOLD, COLOR_GOLD_BRIGHT, 1.0, 8.0)
+	slider_fill.content_margin_left = 0.0
+	slider_fill.content_margin_right = 0.0
+	slider_fill.content_margin_top = 0.0
+	slider_fill.content_margin_bottom = 0.0
+	theme.set_stylebox("slider",       "HSlider", slider_groove)
+	theme.set_stylebox("grabber_area", "HSlider", slider_fill)
+	theme.set_stylebox("grabber_area_highlight", "HSlider", slider_fill)
+	var grabber_icon := _make_slider_grabber_icon(COLOR_GOLD_BRIGHT, COLOR_SHADOW_DARK)
+	theme.set_icon("grabber",           "HSlider", grabber_icon)
+	theme.set_icon("grabber_highlight", "HSlider", grabber_icon)
+	theme.set_icon("grabber_disabled",  "HSlider", _make_slider_grabber_icon(Color(0.4, 0.4, 0.42, 0.8), COLOR_SHADOW_DARK))
+	theme.set_constant("center_grabber", "HSlider", 1)
+
+	# --- CheckButton (on/off pill toggle) ---
+	var cb_on  := _make_toggle_icon(true)
+	var cb_off := _make_toggle_icon(false)
+	theme.set_icon("on",              "CheckButton", cb_on)
+	theme.set_icon("on_disabled",     "CheckButton", cb_on)
+	theme.set_icon("off",             "CheckButton", cb_off)
+	theme.set_icon("off_disabled",    "CheckButton", cb_off)
+	theme.set_font("font",            "CheckButton", cinzel_font)
+	theme.set_font_size("font_size",  "CheckButton", roundi(15 * scale))
+	theme.set_color("font_color",          "CheckButton", COLOR_TEXT_LIGHT)
+	theme.set_color("font_hover_color",    "CheckButton", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_pressed_color",  "CheckButton", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_focus_color",    "CheckButton", COLOR_TEXT_LIGHT)
+	theme.set_color("font_disabled_color", "CheckButton", Color(0.4, 0.4, 0.42, 0.8))
+	var check_row_style := StyleBoxFlat.new()
+	check_row_style.bg_color = Color(0, 0, 0, 0)
+	theme.set_stylebox("normal",   "CheckButton", check_row_style)
+	theme.set_stylebox("hover",    "CheckButton", check_row_style)
+	theme.set_stylebox("pressed",  "CheckButton", check_row_style)
+	theme.set_stylebox("disabled", "CheckButton", check_row_style)
+	theme.set_stylebox("focus",    "CheckButton", check_row_style)
+
+	# --- CheckBox (square check, used in Account's terms-agreement row) ---
+	var chk_on  := _make_checkbox_icon(true)
+	var chk_off := _make_checkbox_icon(false)
+	theme.set_icon("checked",           "CheckBox", chk_on)
+	theme.set_icon("unchecked",         "CheckBox", chk_off)
+	theme.set_icon("checked_disabled",  "CheckBox", chk_on)
+	theme.set_icon("unchecked_disabled","CheckBox", chk_off)
+	theme.set_font("font",            "CheckBox", cinzel_font)
+	theme.set_font_size("font_size",  "CheckBox", roundi(15 * scale))
+	theme.set_color("font_color",          "CheckBox", COLOR_TEXT_LIGHT)
+	theme.set_color("font_hover_color",    "CheckBox", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_pressed_color",  "CheckBox", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_focus_color",    "CheckBox", COLOR_TEXT_LIGHT)
+	theme.set_stylebox("normal",   "CheckBox", check_row_style)
+	theme.set_stylebox("hover",    "CheckBox", check_row_style)
+	theme.set_stylebox("pressed",  "CheckBox", check_row_style)
+	theme.set_stylebox("disabled", "CheckBox", check_row_style)
+	theme.set_stylebox("focus",    "CheckBox", check_row_style)
+
+	# --- OptionButton (dropdowns — Graphics Quality, Resolution) ---
+	theme.set_stylebox("normal",   "OptionButton", btn_normal)
+	theme.set_stylebox("hover",    "OptionButton", btn_hover)
+	theme.set_stylebox("pressed",  "OptionButton", btn_pressed)
+	theme.set_stylebox("focus",    "OptionButton", btn_focus)
+	theme.set_stylebox("disabled", "OptionButton", btn_disabled)
+	theme.set_font("font",      "OptionButton", cinzel_font)
+	theme.set_font_size("font_size", "OptionButton", roundi(15 * scale))
+	theme.set_color("font_color",          "OptionButton", COLOR_GOLD)
+	theme.set_color("font_hover_color",    "OptionButton", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_pressed_color",  "OptionButton", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_focus_color",    "OptionButton", COLOR_GOLD)
+	theme.set_color("font_disabled_color", "OptionButton", Color(0.4, 0.4, 0.42, 0.8))
+	var popup_panel_style := _make_panel_stylebox(COLOR_DARK_PANEL, COLOR_GOLD, 2.0, 8.0)
+	theme.set_stylebox("panel", "PopupMenu", popup_panel_style)
+	theme.set_color("font_color",         "PopupMenu", COLOR_TEXT_LIGHT)
+	theme.set_color("font_hover_color",   "PopupMenu", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_accelerator_color", "PopupMenu", COLOR_GOLD)
+	var popup_hover_style := _make_panel_stylebox(Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.18), COLOR_GOLD, 1.0, 6.0)
+	theme.set_stylebox("hover", "PopupMenu", popup_hover_style)
+	theme.set_font("font", "PopupMenu", pirata_font)
+	theme.set_font_size("font_size", "PopupMenu", roundi(14 * scale))
+
+	# --- LineEdit (Email/Password fields) ---
+	var line_edit_style := _make_panel_stylebox(COLOR_SHADOW_DARK, COLOR_GOLD.darkened(0.3), 1.5, 8.0)
+	var line_edit_focus := _make_panel_stylebox(COLOR_SHADOW_DARK, COLOR_GOLD_BRIGHT, 2.0, 8.0)
+	theme.set_stylebox("normal", "LineEdit", line_edit_style)
+	theme.set_stylebox("focus",  "LineEdit", line_edit_focus)
+	theme.set_stylebox("read_only", "LineEdit", line_edit_style)
+	theme.set_font("font",      "LineEdit", pirata_font)
+	theme.set_font_size("font_size", "LineEdit", roundi(15 * scale))
+	theme.set_color("font_color",          "LineEdit", COLOR_TEXT_LIGHT)
+	theme.set_color("font_placeholder_color", "LineEdit", Color(COLOR_TEXT_LIGHT.r, COLOR_TEXT_LIGHT.g, COLOR_TEXT_LIGHT.b, 0.45))
+	theme.set_color("font_selected_color", "LineEdit", COLOR_SHADOW_DARK)
+	theme.set_color("selection_color",     "LineEdit", Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.55))
+	theme.set_color("caret_color",         "LineEdit", COLOR_GOLD_BRIGHT)
+
+	# --- TabContainer / TabBar (gold pill for the active tab) ---
+	var tab_unselected := _make_panel_stylebox(Color(COLOR_DARK_PANEL.r, COLOR_DARK_PANEL.g, COLOR_DARK_PANEL.b, 0.4), COLOR_GOLD.darkened(0.45), 1.0, 10.0)
+	tab_unselected.content_margin_left = 18.0
+	tab_unselected.content_margin_right = 18.0
+	tab_unselected.content_margin_top = 8.0
+	tab_unselected.content_margin_bottom = 8.0
+	var tab_selected := _make_panel_stylebox(COLOR_GOLD, COLOR_GOLD_BRIGHT, 1.5, 10.0)
+	tab_selected.content_margin_left = 18.0
+	tab_selected.content_margin_right = 18.0
+	tab_selected.content_margin_top = 8.0
+	tab_selected.content_margin_bottom = 8.0
+	var tab_hovered := _make_panel_stylebox(Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.25), COLOR_GOLD, 1.0, 10.0)
+	tab_hovered.content_margin_left = 18.0
+	tab_hovered.content_margin_right = 18.0
+	tab_hovered.content_margin_top = 8.0
+	tab_hovered.content_margin_bottom = 8.0
+	var tab_panel_style := _make_panel_stylebox(Color(COLOR_DARK_PANEL.r, COLOR_DARK_PANEL.g, COLOR_DARK_PANEL.b, 0.55), COLOR_GOLD.darkened(0.3), 1.0, 12.0)
+	theme.set_stylebox("tab_selected",   "TabContainer", tab_selected)
+	theme.set_stylebox("tab_unselected", "TabContainer", tab_unselected)
+	theme.set_stylebox("tab_hovered",    "TabContainer", tab_hovered)
+	theme.set_stylebox("tab_selected",   "TabBar", tab_selected)
+	theme.set_stylebox("tab_unselected", "TabBar", tab_unselected)
+	theme.set_stylebox("tab_hovered",    "TabBar", tab_hovered)
+	theme.set_stylebox("panel",          "TabContainer", tab_panel_style)
+	theme.set_font("font",       "TabContainer", cinzel_font)
+	theme.set_font("font",       "TabBar", cinzel_font)
+	theme.set_font_size("font_size", "TabContainer", roundi(15 * scale))
+	theme.set_font_size("font_size", "TabBar", roundi(15 * scale))
+	# Selected tab has a solid gold pill background — its label reads best in
+	# the same dark navy the buttons/panels already use, not gold-on-gold.
+	theme.set_color("font_selected_color",   "TabContainer", COLOR_DARK_NAVY)
+	theme.set_color("font_unselected_color", "TabContainer", COLOR_TEXT_LIGHT)
+	theme.set_color("font_hovered_color",    "TabContainer", COLOR_GOLD_BRIGHT)
+	theme.set_color("font_selected_color",   "TabBar", COLOR_DARK_NAVY)
+	theme.set_color("font_unselected_color", "TabBar", COLOR_TEXT_LIGHT)
+	theme.set_color("font_hovered_color",    "TabBar", COLOR_GOLD_BRIGHT)
+	theme.set_constant("h_separation", "TabContainer", 8)
+	theme.set_constant("h_separation", "TabBar", 8)
+
 	# --- ProgressBar (enhanced flat fallback) ---
 	var pb_bg  := _make_panel_stylebox(COLOR_SHADOW_DARK, COLOR_GOLD, 1.5, 12.0)
 	var pb_fill := StyleBoxFlat.new()
@@ -290,6 +429,87 @@ static func apply_button_juice(root: Node) -> void:
 			root.pressed.connect(HapticFeedbackManager.tap)
 	for child in root.get_children():
 		apply_button_juice(child)
+
+
+## Generates the HSlider grabber (a small filled gold circle with a dark
+## outline) as an ImageTexture — no sourced art matches this shape, and a
+## StyleBoxFlat can't be used as an "icon" theme slot.
+static func _make_slider_grabber_icon(fill: Color, outline: Color) -> ImageTexture:
+	var size := 22
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center := Vector2(size / 2.0, size / 2.0)
+	var radius := size / 2.0 - 1.0
+	for y in range(size):
+		for x in range(size):
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(center)
+			if d <= radius:
+				img.set_pixel(x, y, fill if d <= radius - 2.0 else outline)
+			else:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+	return ImageTexture.create_from_image(img)
+
+
+## Generates a rounded on/off pill icon for CheckButton (a mobile-style
+## toggle switch) — drawn once and reused across every CheckButton on the
+## theme, matching the gold/navy palette instead of Godot's default switch art.
+static func _make_toggle_icon(is_on: bool) -> ImageTexture:
+	var w := 48
+	var h := 26
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var track_color := COLOR_GOLD if is_on else Color(0.25, 0.27, 0.32, 1.0)
+	var knob_color := COLOR_DARK_NAVY if is_on else COLOR_TEXT_LIGHT
+	var radius := h / 2.0
+	for y in range(h):
+		for x in range(w):
+			var p := Vector2(x + 0.5, y + 0.5)
+			var in_track := false
+			if p.x < radius:
+				in_track = p.distance_to(Vector2(radius, radius)) <= radius
+			elif p.x > w - radius:
+				in_track = p.distance_to(Vector2(w - radius, radius)) <= radius
+			else:
+				in_track = p.y >= 0.0 and p.y <= h
+			img.set_pixel(x, y, track_color if in_track else Color(0, 0, 0, 0))
+	var knob_center := Vector2(w - radius, radius) if is_on else Vector2(radius, radius)
+	var knob_radius := radius - 3.0
+	for y in range(h):
+		for x in range(w):
+			if Vector2(x + 0.5, y + 0.5).distance_to(knob_center) <= knob_radius:
+				img.set_pixel(x, y, knob_color)
+	return ImageTexture.create_from_image(img)
+
+
+## Generates a square checkbox icon (checked = gold fill + dark checkmark,
+## unchecked = dark inset box with gold outline) for CheckBox.
+static func _make_checkbox_icon(is_checked: bool) -> ImageTexture:
+	var size := 26
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var bg := COLOR_GOLD if is_checked else COLOR_SHADOW_DARK
+	var border := COLOR_GOLD_BRIGHT if is_checked else COLOR_GOLD.darkened(0.2)
+	for y in range(size):
+		for x in range(size):
+			var on_border := x < 2 or x >= size - 2 or y < 2 or y >= size - 2
+			img.set_pixel(x, y, border if on_border else bg)
+	if is_checked:
+		# Checkmark as two thick line segments (short leg + long leg),
+		# drawn by thresholding distance-to-segment rather than per-pixel
+		# loops, so it stays a clean V shape regardless of `size`.
+		var p1 := Vector2(size * 0.22, size * 0.52)
+		var p2 := Vector2(size * 0.42, size * 0.72)
+		var p3 := Vector2(size * 0.80, size * 0.28)
+		var thickness := 2.6
+		for y in range(size):
+			for x in range(size):
+				var p := Vector2(x + 0.5, y + 0.5)
+				if _dist_to_segment(p, p1, p2) <= thickness or _dist_to_segment(p, p2, p3) <= thickness:
+					img.set_pixel(x, y, COLOR_DARK_NAVY)
+	return ImageTexture.create_from_image(img)
+
+
+static func _dist_to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+	return p.distance_to(a + ab * t)
 
 
 ## Small rounded "chip" background for a resource/stat readout (icon + count),

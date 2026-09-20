@@ -649,7 +649,7 @@ The premise, the tone, and the five-chapter spine.
 
 Where every island is, and why it is there.
 
-`docs/12_CHARACTER_BIBLE.md`
+`docs/06_NARRATIVE_AND_WORLD.md` §10 (character bible)
 
 The cast, including all twenty existing captains.
 

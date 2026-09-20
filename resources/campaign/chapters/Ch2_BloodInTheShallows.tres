@@ -94,6 +94,7 @@ is_optional = true
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Blackjaw's flag is off the pole and the cove is ours. I'd enjoy it more if the smoke wasn't visible from the trade lane."
 mood = 0
 
@@ -101,6 +102,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "That lane is the King's."
 mood = 2
 

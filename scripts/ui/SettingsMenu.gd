@@ -247,10 +247,20 @@ func _style_mobile_scroll_content(container: VBoxContainer) -> void:
 	container.add_theme_constant_override("margin_left", 18)
 	container.add_theme_constant_override("margin_right", 18)
 	container.custom_minimum_size.x = maxf(320.0, tab_container.size.x - 36.0)
-	for child in container.get_children():
+	# Section headers/cards (added by _add_section_header/_add_section_card)
+	# nest rows inside PanelContainer > VBoxContainer, so this needs to recurse
+	# rather than assume every row is a direct child of `container`.
+	_style_mobile_rows_recursive(container)
+
+
+func _style_mobile_rows_recursive(node: Node) -> void:
+	for child in node.get_children():
 		if child is Button or child is CheckButton or child is OptionButton or child is LineEdit:
 			child.custom_minimum_size.y = maxf(child.custom_minimum_size.y, 64.0)
 			child.add_theme_font_size_override("font_size", 20)
+		elif child is Label:
+			if not child.has_theme_font_size_override("font_size"):
+				child.add_theme_font_size_override("font_size", 19)
 		elif child is HBoxContainer:
 			child.custom_minimum_size.y = maxf(child.custom_minimum_size.y, 64.0)
 			for row_child in child.get_children():
@@ -261,15 +271,28 @@ func _style_mobile_scroll_content(container: VBoxContainer) -> void:
 					row_child.add_theme_font_size_override("font_size", 19)
 				elif row_child is HSlider:
 					row_child.custom_minimum_size.y = maxf(row_child.custom_minimum_size.y, 60.0)
+		elif child is PanelContainer or child is VBoxContainer:
+			_style_mobile_rows_recursive(child)
 
 func _populate_controls() -> void:
 	for child in controls_vbox.get_children():
 		child.queue_free()
-		
-	_add_input_feel_controls()
-	_add_mobile_controls()
-	_add_graphics_quality_control()
 
+	_add_section_header(controls_vbox, tr("Input Feel"))
+	var feel_card := _add_section_card(controls_vbox)
+	_add_input_feel_controls(feel_card)
+
+	if not OS.has_feature("pc"):
+		_add_section_header(controls_vbox, tr("Mobile Controls"))
+		var mobile_card := _add_section_card(controls_vbox)
+		_add_mobile_controls(mobile_card)
+
+	_add_section_header(controls_vbox, tr("Display"))
+	var display_card := _add_section_card(controls_vbox)
+	_add_graphics_quality_control(display_card)
+
+	_add_section_header(controls_vbox, tr("Key Bindings"))
+	var bindings_card := _add_section_card(controls_vbox)
 	# Was a hardcoded copy of the action list, which had already drifted — it
 	# predated M8 and so offered no way to rebind `special_broadside` or
 	# `captain_ability`. SettingsManager.REBINDABLE_ACTIONS is the single source
@@ -277,56 +300,51 @@ func _populate_controls() -> void:
 	for action in SettingsManager.REBINDABLE_ACTIONS:
 		if InputMap.has_action(action):
 			var hbox = HBoxContainer.new()
-			var label = Label.new()
-			label.text = tr(action.capitalize().replace("_", " "))
+			var label = _make_row_label(tr(action.capitalize().replace("_", " ")))
 			label.custom_minimum_size.x = 200
 			hbox.add_child(label)
-			
+
 			var btn = Button.new()
 			var events = InputMap.action_get_events(action)
 			if events.size() > 0 and events[0] is InputEventKey:
 				btn.text = OS.get_keycode_string(events[0].keycode)
 			else:
 				btn.text = tr("Unbound")
-			
+
 			btn.pressed.connect(func(): _on_rebind_pressed(action, btn))
 			hbox.add_child(btn)
-			controls_vbox.add_child(hbox)
-			
+			bindings_card.add_child(hbox)
+
 	var reset_btn = Button.new()
 	reset_btn.text = tr("Reset to Defaults")
 	reset_btn.pressed.connect(func():
 		InputManager.reset_to_defaults()
 		_populate_controls()
 	)
-	controls_vbox.add_child(reset_btn)
+	bindings_card.add_child(reset_btn)
 
 	PirateThemeBuilder.apply_mobile_control_scaling(controls_vbox)
 	if _uses_mobile_layout():
 		_style_mobile_scroll_content(controls_vbox)
 
-func _add_input_feel_controls() -> void:
+func _add_input_feel_controls(card: VBoxContainer) -> void:
 	## M2 Task 6.3 — adjustable sensitivity and dead zone. Persisted through
 	## SettingsManager alongside every other setting; InputManager picks the new
 	## values up from its `settings_changed` connection.
-	_add_input_slider(tr("Sensitivity"), 0.1, 3.0, 0.05, settings_manager.input_sensitivity,
+	_add_input_slider(card, tr("Sensitivity"), 0.1, 3.0, 0.05, settings_manager.input_sensitivity,
 		func(v: float):
 			settings_manager.input_sensitivity = v
 			InputManager.set_sensitivity(v)
 			settings_manager.save_settings())
 
-	_add_input_slider(tr("Dead Zone"), 0.0, 0.9, 0.05, settings_manager.input_dead_zone,
+	_add_input_slider(card, tr("Dead Zone"), 0.0, 0.9, 0.05, settings_manager.input_dead_zone,
 		func(v: float):
 			settings_manager.input_dead_zone = v
 			InputManager.set_dead_zone(v)
 			settings_manager.save_settings())
 
-	controls_vbox.add_child(HSeparator.new())
 
-
-func _add_mobile_controls() -> void:
-	if OS.has_feature("pc"):
-		return
+func _add_mobile_controls(card: VBoxContainer) -> void:
 	var handed := CheckButton.new()
 	handed.text = tr("Left-handed Controls")
 	handed.button_pressed = settings_manager.mobile_left_handed
@@ -334,21 +352,21 @@ func _add_mobile_controls() -> void:
 		settings_manager.mobile_left_handed = enabled
 		settings_manager.save_settings()
 		MobileLayoutManager.notify_layout_changed())
-	controls_vbox.add_child(handed)
+	card.add_child(handed)
 	var haptics := CheckButton.new()
 	haptics.text = tr("Haptic Feedback")
 	haptics.button_pressed = settings_manager.haptics_enabled
 	haptics.toggled.connect(func(enabled: bool):
 		settings_manager.haptics_enabled = enabled
 		settings_manager.save_settings())
-	controls_vbox.add_child(haptics)
+	card.add_child(haptics)
 	var advanced_fire := CheckButton.new()
 	advanced_fire.text = tr("Advanced Fire Controls")
 	advanced_fire.button_pressed = settings_manager.mobile_advanced_combat_controls
 	advanced_fire.toggled.connect(func(enabled: bool):
 		settings_manager.mobile_advanced_combat_controls = enabled
 		settings_manager.save_settings())
-	controls_vbox.add_child(advanced_fire)
+	card.add_child(advanced_fire)
 
 	# Only meaningful with a live HUD to edit — Settings is always its own
 	# scene (never an overlay on World.tscn), so "would going back return to
@@ -360,18 +378,16 @@ func _add_mobile_controls() -> void:
 		customize.pressed.connect(func():
 			settings_manager.pending_hud_customize_request = true
 			SceneManager.go_back())
-		controls_vbox.add_child(customize)
-	controls_vbox.add_child(HSeparator.new())
+		card.add_child(customize)
 
 
-func _add_graphics_quality_control() -> void:
+func _add_graphics_quality_control(card: VBoxContainer) -> void:
 	## M2 Task 12.1 — quality settings adaptation. Drives
 	## OceanController.quality_level (currently the only quality-scaled
 	## system) via SettingsManager.settings_changed, the same pattern
 	## InputManager uses for sensitivity/dead zone.
 	var hbox := HBoxContainer.new()
-	var label := Label.new()
-	label.text = tr("Graphics Quality")
+	var label := _make_row_label(tr("Graphics Quality"))
 	label.custom_minimum_size.x = 200
 	hbox.add_child(label)
 
@@ -385,15 +401,13 @@ func _add_graphics_quality_control() -> void:
 		settings_manager.save_settings())
 	hbox.add_child(option)
 
-	controls_vbox.add_child(hbox)
-	controls_vbox.add_child(HSeparator.new())
+	card.add_child(hbox)
 
 
-func _add_input_slider(label_text: String, min_v: float, max_v: float, step: float,
+func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, max_v: float, step: float,
 		value: float, on_changed: Callable) -> void:
 	var hbox := HBoxContainer.new()
-	var label := Label.new()
-	label.text = label_text
+	var label := _make_row_label(label_text)
 	label.custom_minimum_size.x = 200
 	hbox.add_child(label)
 
@@ -406,8 +420,8 @@ func _add_input_slider(label_text: String, min_v: float, max_v: float, step: flo
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(slider)
 
-	var value_label := Label.new()
-	value_label.text = "%.2f" % value
+	var value_label := _make_row_label("%.2f" % value)
+	value_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
 	value_label.custom_minimum_size.x = 50
 	hbox.add_child(value_label)
 
@@ -415,7 +429,60 @@ func _add_input_slider(label_text: String, min_v: float, max_v: float, step: flo
 		value_label.text = "%.2f" % v
 		on_changed.call(v))
 
-	controls_vbox.add_child(hbox)
+	card.add_child(hbox)
+
+
+## M18 settings uplift — every screen-built Label previously relied on the
+## theme's fallback Label color, which reads fine on some panels but low-
+## contrast on others (Account/Controls tabs reported as hard to read).
+## Every dynamically-built row label now goes through this single helper so
+## color stays consistent and correctable in one place.
+func _make_row_label(text_content: String) -> Label:
+	var label := Label.new()
+	label.text = text_content
+	label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_TEXT_LIGHT)
+	return label
+
+
+## Bold gold section title used to head each grouped card in Controls/Account.
+func _add_section_header(parent: VBoxContainer, text_content: String) -> void:
+	var label := Label.new()
+	label.text = text_content
+	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	label.add_theme_color_override("font_outline_color", PirateThemeBuilder.COLOR_SHADOW_DARK)
+	label.add_theme_constant_override("outline_size", 3)
+	parent.add_child(label)
+
+
+## Nested gold-bordered card grouping one logical settings section — the
+## CoC-style "settings group panel" look, replacing a single flat column of
+## unrelated rows with no visual separation.
+func _add_section_card(parent: VBoxContainer) -> VBoxContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.071, 0.102, 0.18, 0.55)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = PirateThemeBuilder.COLOR_GOLD.darkened(0.3)
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	style.content_margin_left = 14.0
+	style.content_margin_right = 14.0
+	style.content_margin_top = 10.0
+	style.content_margin_bottom = 10.0
+	panel.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	panel.add_child(vbox)
+	parent.add_child(panel)
+	parent.add_child(HSeparator.new())
+	return vbox
 
 
 func _on_rebind_pressed(action: String, btn: Button) -> void:
@@ -495,29 +562,26 @@ func _populate_account_tab() -> void:
 ## regardless of sign-in state since store restore works independently of
 ## an M15 account.
 func _build_purchases_ui() -> void:
-	account_vbox.add_child(HSeparator.new())
-
-	var purchases_label := Label.new()
-	purchases_label.text = tr("Purchases")
-	account_vbox.add_child(purchases_label)
+	_add_section_header(account_vbox, tr("Purchases"))
+	var card := _add_section_card(account_vbox)
 
 	var restore_button := Button.new()
 	restore_button.text = tr("Restore Purchases")
 	restore_button.custom_minimum_size = Vector2(0, 44)
 	restore_button.pressed.connect(_on_restore_purchases_pressed)
-	account_vbox.add_child(restore_button)
+	card.add_child(restore_button)
 
 	var support_button := Button.new()
 	support_button.text = tr("Purchase Support")
 	support_button.custom_minimum_size = Vector2(0, 44)
 	support_button.pressed.connect(_on_purchase_support_pressed)
-	account_vbox.add_child(support_button)
+	card.add_child(support_button)
 
 	var ad_prefs_button := Button.new()
 	ad_prefs_button.text = tr("Ad Preferences")
 	ad_prefs_button.custom_minimum_size = Vector2(0, 44)
 	ad_prefs_button.pressed.connect(_on_ad_preferences_pressed)
-	account_vbox.add_child(ad_prefs_button)
+	card.add_child(ad_prefs_button)
 
 func _on_restore_purchases_pressed() -> void:
 	if not StoreManager.restore_completed.is_connected(_on_restore_completed):
@@ -554,90 +618,92 @@ func _on_ad_preferences_pressed() -> void:
 	AdManager.reopen_consent()
 
 func _build_signed_out_account_ui() -> void:
-	var email_label := Label.new()
-	email_label.text = tr("Email")
-	account_vbox.add_child(email_label)
+	_add_section_header(account_vbox, tr("Sign In / Sign Up"))
+	var card := _add_section_card(account_vbox)
+
+	card.add_child(_make_row_label(tr("Email")))
 
 	_account_email_field = LineEdit.new()
 	_account_email_field.custom_minimum_size = Vector2(0, 44)
-	account_vbox.add_child(_account_email_field)
+	card.add_child(_account_email_field)
 
-	var password_label := Label.new()
-	password_label.text = tr("Password")
-	account_vbox.add_child(password_label)
+	card.add_child(_make_row_label(tr("Password")))
 
 	_account_password_field = LineEdit.new()
 	_account_password_field.secret = true
 	_account_password_field.custom_minimum_size = Vector2(0, 44)
-	account_vbox.add_child(_account_password_field)
+	card.add_child(_account_password_field)
 
-	account_vbox.add_child(HSeparator.new())
+	card.add_child(HSeparator.new())
 
 	var terms_hbox := HBoxContainer.new()
+	terms_hbox.add_theme_constant_override("separation", 6)
 	_account_terms_check = CheckBox.new()
 	_account_terms_check.toggled.connect(func(_pressed: bool): _update_sign_up_enabled())
 	terms_hbox.add_child(_account_terms_check)
 
-	var terms_label := Label.new()
-	terms_label.text = tr("I agree to the ")
-	terms_hbox.add_child(terms_label)
+	terms_hbox.add_child(_make_row_label(tr("I agree to the ")))
 
 	var terms_link := LinkButton.new()
 	terms_link.text = tr("Terms of Service")
+	terms_link.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
 	terms_link.pressed.connect(func(): OS.shell_open(TERMS_URL))
 	terms_hbox.add_child(terms_link)
 
-	var and_label := Label.new()
-	and_label.text = tr(" and ")
-	terms_hbox.add_child(and_label)
+	terms_hbox.add_child(_make_row_label(tr(" and ")))
 
 	var privacy_link := LinkButton.new()
 	privacy_link.text = tr("Privacy Policy")
+	privacy_link.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
 	privacy_link.pressed.connect(func(): OS.shell_open(PRIVACY_URL))
 	terms_hbox.add_child(privacy_link)
 
-	account_vbox.add_child(terms_hbox)
+	card.add_child(terms_hbox)
 
 	_account_sign_up_button = Button.new()
 	_account_sign_up_button.text = tr("Sign Up")
 	_account_sign_up_button.custom_minimum_size = Vector2(0, 44)
 	_account_sign_up_button.disabled = true
 	_account_sign_up_button.pressed.connect(_on_sign_up_pressed)
-	account_vbox.add_child(_account_sign_up_button)
+	card.add_child(_account_sign_up_button)
 
 	var sign_in_button := Button.new()
 	sign_in_button.text = tr("Sign In")
 	sign_in_button.custom_minimum_size = Vector2(0, 44)
 	sign_in_button.pressed.connect(_on_sign_in_pressed)
-	account_vbox.add_child(sign_in_button)
+	card.add_child(sign_in_button)
 
 	var forgot_link := LinkButton.new()
 	forgot_link.text = tr("Forgot password?")
+	forgot_link.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD)
 	forgot_link.pressed.connect(_on_forgot_password_pressed)
-	account_vbox.add_child(forgot_link)
+	card.add_child(forgot_link)
 
 func _update_sign_up_enabled() -> void:
 	if _account_sign_up_button:
 		_account_sign_up_button.disabled = not _account_terms_check.button_pressed
 
 func _build_signed_in_account_ui() -> void:
-	var status_label := Label.new()
-	status_label.text = tr("Signed in")
-	account_vbox.add_child(status_label)
+	_add_section_header(account_vbox, tr("Account"))
+	var card := _add_section_card(account_vbox)
+
+	var status_label := _make_row_label(tr("Signed in"))
+	status_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	card.add_child(status_label)
 
 	var sign_out_button := Button.new()
 	sign_out_button.text = tr("Sign Out")
 	sign_out_button.custom_minimum_size = Vector2(0, 44)
 	sign_out_button.pressed.connect(_on_sign_out_pressed)
-	account_vbox.add_child(sign_out_button)
+	card.add_child(sign_out_button)
 
-	account_vbox.add_child(HSeparator.new())
+	card.add_child(HSeparator.new())
 
 	var delete_button := Button.new()
 	delete_button.text = tr("Delete my account")
 	delete_button.custom_minimum_size = Vector2(0, 44)
 	delete_button.pressed.connect(_on_delete_account_pressed)
-	account_vbox.add_child(delete_button)
+	card.add_child(delete_button)
 
 func _on_sign_up_pressed() -> void:
 	auth_manager.sign_up(_account_email_field.text, _account_password_field.text)

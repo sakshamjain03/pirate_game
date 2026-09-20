@@ -8,6 +8,7 @@
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "That's it, then. That's Port Royal. Half of it's under the water and the other half wishes it was."
 mood = 0
 
@@ -15,6 +16,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Two thousand souls in one afternoon, and the King's men sailed off and called it cursed. So did everyone else, which is the only reason it's ours."
 mood = 2
 
@@ -22,6 +24,7 @@ mood = 2
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Say the word and I'll turn us about. …No? Right. Then we'd best start with something that makes rum, because I'm not doing this sober."
 mood = 4
 

@@ -4,8 +4,8 @@
 > Status: Living Document — playable chapter design
 > Owner: Project Lead
 >
-> Story: `docs/06_NARRATIVE_AND_WORLD.md` · Map: `docs/11_WORLD_MAP.md` ·
-> Cast: `docs/12_CHARACTER_BIBLE.md` · What exists: `docs/05_CURRENT_SYSTEMS.md`
+> Story & cast: `docs/06_NARRATIVE_AND_WORLD.md` (§10 for the character bible) · Map:
+> `docs/11_WORLD_MAP.md` · What exists: `docs/05_CURRENT_SYSTEMS.md`
 
 ---
 

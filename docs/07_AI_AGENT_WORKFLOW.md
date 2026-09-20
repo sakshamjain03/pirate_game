@@ -1,8 +1,12 @@
 # 07_AI_AGENT_WORKFLOW.md
 
-> Version: 2.0
+> Version: 2.1
 > Status: Living Document
 > Owner: Project Lead
+>
+> Also covers what were previously separate documents, folded in during the 2026-09-20 docs
+> consolidation pass: the human playtest protocol (was `docs/PLAYTEST_PROTOCOL.md`) and the
+> Android/PC build-deploy-screenshot workflow (was `docs/21_TESTING_WORKFLOW.md`).
 
 ---
 
@@ -170,8 +174,9 @@ be invisible to the GUT suite — run the headful screenshot harness and actuall
 ```
 
 Run headful (no `--headless` — the dummy renderer produces blank images), zero player input,
-screenshots at t≈0/1/3/7/12s. See `docs/09_VISUAL_BUG_TRACKER.md` for the full history of what this
-harness has caught that code review and automated tests both missed.
+screenshots at t≈0/1/3/7/12s. See `docs/09_VISUAL_BUG_TRACKER.md` for active issues and methodology,
+and `docs/16_MILESTONE_HISTORY.md`'s resolved bug archive for the full history of what this harness
+has caught that code review and automated tests both missed.
 
 ## Baseline discipline
 
@@ -210,7 +215,7 @@ These are not hypothetical; each was a real defect that cost real debugging time
 
 1. **Ship stability.** The buoyancy/stability-torque/yaw-servo code in `BuoyancySimulator.gd` and
    `ShipMovement.gd` was stabilized across **four separate root causes**
-   (`docs/09_VISUAL_BUG_TRACKER.md` V1). The yaw servo deliberately preserves roll and pitch.
+   (`docs/16_MILESTONE_HISTORY.md`'s resolved bug archive, V1). The yaw servo deliberately preserves roll and pitch.
    Regressing it re-capsizes every enemy ship. Do not touch this code unless a task explicitly says
    to.
 2. **Cannon firing direction** derives forward from the **hull basis**
@@ -268,6 +273,135 @@ environment.** There is repeated precedent for this honesty across this project'
 
 Update its entry in `docs/05_CURRENT_SYSTEMS.md` **in the same change** (Rule 6). That file is the
 living ground-truth doc and exists specifically to stop systems from being silently reimplemented.
+
+---
+
+# Human playtest protocol
+
+Everything above verifies correctness and visual/physics regressions from inside an automated or
+AI-driven pass. None of that answers the one question only a real, unprimed human can answer:
+**can a person who has never seen this game pick it up and get through Chapter 1 without help?**
+M7's own exit criteria flagged this as "not verified, cannot be judged headlessly," and it needs a
+real round, not a simulated one. This is that protocol (created M12, "Playtest & Instrumentation,"
+Requirement 5).
+
+**Build to give them:** the current `main` branch, exported normally for whatever platform the
+tester already has (desktop is lowest-friction for a first round). Don't hand-hold with a debug
+build unless reproducing a specific bug — the point is the unassisted first-run experience.
+
+**Recruitment:** informal is fine for a first round — friends/family/coworkers, a small
+Discord/forum post, anyone reachable who hasn't seen the design docs or a prior build. Target ≥10
+participants (Requirement 5.2), but **log the real number reached, whatever it is** — 3 honestly
+logged is worth more than a fabricated or extrapolated 10.
+
+**Session structure:**
+1. **No priming** — hand over the build with only a store-page-level pitch.
+2. **Silent observation** — watch without narrating; the goal is their unassisted path.
+3. **20–40 minutes**, or until Chapter 1 completes, whichever comes first.
+4. **Intervene only if stuck >~3 minutes with visible frustration** — a little friction is
+   expected and worth recording, not immediately rescued. Log the intervention itself as a finding.
+5. **Debrief (5 min):** 2–3 open questions ("What were you trying to do?" / "What was confusing?"
+   / "What would you do next?") — never leading ("did you find the tutorial helpful?").
+
+**What to observe:** whether Chapter 1 completes unassisted (the central pass/fail), where they got
+stuck and for how long, what they clicked that didn't do what they expected, unprompted comments
+(highest-signal data in the session — write near-verbatim), whether they seemed goal-directed vs.
+just clicking, and any visible delight or frustration.
+
+**Logging template (one copy per participant):**
+
+```
+### Participant N — <date>
+- Platform/build:
+- Session length:
+- Reached: (e.g. "Chapter 1 complete" / "stuck at <objective>" / "quit before finishing")
+- Completed Chapter 1 unassisted? Y/N (if N: where and why they stopped)
+- Interventions: (what, when, why)
+- Stuck points: (list, with approx. timestamp/duration each)
+- Unprompted comments: (as close to verbatim as possible)
+- Debrief answers:
+- Anything else notable:
+```
+
+**Round summary (after all sessions):**
+
+```
+### Round summary — <date range>
+- Participants reached: N (report the real number — do not round up or assert ≥10 without evidence)
+- Recruitment channel(s) used:
+- Chapter 1 unassisted completion rate: N/M
+- Top 3 recurring stuck points (by frequency across participants):
+- Top 3 unprompted quotes:
+- Recommended follow-ups (bugs, UX changes, tutorial gaps) — file these against the relevant
+  milestone or `docs/09_VISUAL_BUG_TRACKER.md`, don't let them evaporate in this doc.
+```
+
+**The one hard rule:** the round summary's participant count and completion rate must be the real,
+observed numbers. A milestone checkpoint that cites this protocol must point at a completed copy of
+the template above, not a paraphrased claim that testing "went well."
+
+**Environment note:** this protocol cannot be executed by an AI coding agent alone — it requires
+real external participants and human observation. A milestone checkpoint that depends on it must
+log its status as either "run, with N real participants and a completed summary" or explicitly
+"not yet run," per this document's broader discipline around claims that can't be verified in an
+automated environment (see "What cannot be verified in this environment," above).
+
+---
+
+# Build, deploy & screenshot workflow (Android + PC)
+
+Steps for building the game, pushing it to a connected Android device, and capturing screenshots
+for both Mobile and PC. Distinct from the `CaptureHarness` headful capture used for automated
+visual verification above — this is for manually cataloguing UI flows/game states on real
+hardware/builds.
+
+**1. Connect the Android device.** Enable Developer Options + USB Debugging, connect via USB, then:
+```powershell
+$adb = "C:\Users\saksham\AppData\Local\Android\Sdk\platform-tools\adb.exe"
+& $adb devices
+```
+
+**2. Build the APK.** Always use `Godot_v4.3-stable_win64_console.exe` for command-line builds, and
+never `--check-only` (Rule 7 — it hangs).
+```powershell
+$godot = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.3-stable_win64_console.exe"
+& $godot --headless --path . --export-debug "Android" "builds/pirate_empire_debug.apk"
+```
+First Gradle build takes 2–3 minutes; subsequent builds are faster.
+
+**3. Push & launch.**
+```powershell
+& $adb install -r -d builds/pirate_empire_debug.apk
+& $adb shell am start -n com.sakshamjain03.pirateempire/com.godot.game.GodotApp
+```
+
+**4. Screenshot capture.** Screenshots split into `screenshots/mobile/` and `screenshots/pc/`.
+
+Mobile — pull raw PNGs off the device frame buffer:
+```powershell
+& $adb shell input tap 2250 120          # e.g. tap Pause
+Start-Sleep -Seconds 2
+& $adb shell screencap -p /sdcard/screen_manual_pause.png
+& $adb pull /sdcard/screen_manual_pause.png "D:\Pirate-game\screenshots\mobile\screen_manual_pause.png"
+```
+
+PC — launch headful and capture via Windows Forms:
+```powershell
+$godot = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.3-stable_win64.exe"
+Start-Process $godot -ArgumentList "--path ."
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$bmp = New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
+$graphics = [System.Drawing.Graphics]::FromImage($bmp)
+$graphics.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
+$bmp.Save("D:\Pirate-game\screenshots\pc\screen_pc_1.png")
+$graphics.Dispose(); $bmp.Dispose()
+```
+
+**Troubleshooting:** black screen on boot with the Android status bar visible usually means a
+crash during initial scene load (often a syntax error) — check `adb logcat -s godot`. A hanging
+export: `Stop-Process -Name "Godot*"`, check for lock files, and confirm you're using the
+`_console.exe` binary.
 
 ---
 

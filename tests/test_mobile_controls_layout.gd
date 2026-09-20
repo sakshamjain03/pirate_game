@@ -67,6 +67,12 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 		_hud._apply_mobile_safe_area()
 		var blockers := {
 			"HealthBarContainer": _hud.get_node("HealthBarContainer").get_global_rect(),
+			# D-something: BtnPause used to sit at a hardcoded "150 * this
+			# script's own mobile_scale()" offset, unrelated to the fixed
+			# hud_scale=1.45 WorldHUD actually positions this panel with — the
+			# two drifted apart on real devices, leaving only BtnPause's bottom
+			# sliver clickable under the panel. Guards that regression.
+			"TopRightPanel": _hud.top_right_panel.get_global_rect(),
 		}
 		var mobile_buttons := {
 			"BtnLeft": mobile_controls.get_node("Movement/BtnLeft"),
@@ -150,6 +156,35 @@ func test_property_mobile_clusters_sit_just_above_the_safe_area_bottom():
 				assert_true(rendered_bottom >= safe.end.y - max_slack,
 					"%s (rendered bottom %s) should sit close to the reachable bottom edge (%s), not float with excess slack, at viewport size %s" %
 						[cluster_name, rendered_bottom, safe.end.y, size])
+
+		_viewport.queue_free()
+		_viewport = null
+		_hud = null
+
+
+# Property: the "Next Production" economy label never overlaps TopBar or
+# TopRightPanel on a phone-width viewport. It kept its desktop-authored
+# PRESET_CENTER_TOP anchor + fixed "+20" offset on mobile too — on a narrow
+# phone screen, "screen-center" lands under TopRightPanel's much wider
+# (scaled) footprint, hiding all but a sliver of the text behind it
+# (device-test feedback 2026-09-20).
+func test_property_economy_label_never_overlaps_top_clusters():
+	var sizes: Array[Vector2i] = [Vector2i(900, 1600), Vector2i(2340, 1080), Vector2i(750, 1334)]
+	for size in sizes:
+		_instantiate_hud_at_size(size)
+		await wait_seconds(0.3)
+
+		_hud._apply_mobile_safe_area()
+		var economy_rect: Rect2 = _hud._economy_label.get_global_rect()
+		var top_bar_rect: Rect2 = _hud.get_node("%TopBar").get_global_rect()
+		var panel_rect: Rect2 = _hud.top_right_panel.get_global_rect()
+
+		assert_false(top_bar_rect.intersects(economy_rect),
+			"TopBar (%s) must not overlap the economy label (%s) at viewport size %s" %
+				[top_bar_rect, economy_rect, size])
+		assert_false(panel_rect.intersects(economy_rect),
+			"TopRightPanel (%s) must not overlap the economy label (%s) at viewport size %s" %
+				[panel_rect, economy_rect, size])
 
 		_viewport.queue_free()
 		_viewport = null

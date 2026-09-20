@@ -474,9 +474,9 @@ building upgrade tier.
 
 ## Visual & physics defect sweep (screenshot-driven)
 
-Worked through `docs/09_VISUAL_BUG_TRACKER.md`, which holds the full per-bug
-detail, the numeric verification, and the wrong diagnoses. Summary of what
-changed in the systems this doc covers:
+Worked through the visual bug tracker — active items in `docs/09_VISUAL_BUG_TRACKER.md`, resolved
+per-bug detail/numeric verification/wrong diagnoses in `docs/16_MILESTONE_HISTORY.md`'s resolved
+archive appendix. Summary of what changed in the systems this doc covers:
 
 | ID | Defect | Resolution |
 |---|---|---|
@@ -524,8 +524,8 @@ from `scenes/debug/CaptureHarness.tscn`, which captures the real viewport at
 
 Implemented against `docs/navalCombat.md`. **Suite: 126 → 214 tests, 213 passing, still exactly
 one known LOD failure** (`test_property_21_lod_distance_transitions`). Note the pre-M8 baseline
-measured 126, not the 118 recorded in `docs/14_SYSTEM_INVENTORY.md` §0 — that figure was itself
-stale. **214 / 213 is the number to regress against.**
+measured 126, not the 118 figure recorded earlier — that was itself stale. **214 / 213 is the
+number to regress against.**
 
 ### Defects found and fixed during the audit (D60–D63)
 
@@ -550,7 +550,7 @@ relationship holds, so the two numbers cannot drift apart again.
 
 `base_boarding_modifier` was authored on **0 of 20** captains, so `BoardingSystem`'s live read
 always returned the 1.0 default and captain choice had no effect on boarding. Now authored on all
-20 to the values in `docs/12_CHARACTER_BIBLE.md` §5, so `"Cutlass" Kane` — whose entire authored
+20 to the values in `docs/06_NARRATIVE_AND_WORLD.md` §10.5, so `"Cutlass" Kane` — whose entire authored
 personality is *"prefers boarding actions to broadsides"* — is finally mechanically the best
 boarder. (`hire_cost_gold`, D56, is untouched: economy, not combat. Still open for M7.)
 
@@ -585,7 +585,7 @@ World → battle → ability → auto-fire → upgrade choice → victory → re
 
 Found while writing `docs/06_NARRATIVE_AND_WORLD.md` and `docs/11`–`15`, by direct inspection of
 the resource files and UI scripts that no previous pass had cross-checked against each other.
-None of these were known before. Full context for each is in `docs/14_SYSTEM_INVENTORY.md` §7.
+None of these were known before; each defect is documented in the defect table below.
 
 Also confirmed in this pass, and now fixed in this document: §4's autoload registry was stale
 (listed the deleted `GameManager`, omitted the registered `TutorialManager`).
@@ -729,7 +729,7 @@ gate — starts immediately), **Ch2 Blood in the Shallows** (`required_previous_
 **Ch3 The King's Answer** (`required_region_id = "contested_waters"`), **Ch4 The Admiral's Gambit**
 (`required_previous_chapter = ch3`), **Ch5 The Silver Fleet**
 (`required_region_id = "imperial_waters"`). ~40 objectives, ~15 dialogue beats total. All 20
-captains' `unlock_chapter_id` authored per `docs/12_CHARACTER_BIBLE.md` §4;
+captains' `unlock_chapter_id` authored per `docs/06_NARRATIVE_AND_WORLD.md` §10.4;
 `IslandMenu._refresh_captains()` now hides a captain until `CampaignManager.is_chapter_completed()`
 for their unlock chapter. One deliberate simplification: Chapter 3's objective 3.5 checks
 `OWN_SHIP_CLASS` only, not also a "Defend Home" flag — extending the fixed `Condition` enum for one
@@ -791,7 +791,7 @@ all. **Suite: 320 → 323 tests, 322 passing, still exactly one known LOD failur
 
 | # | Defect | Resolution |
 |---|--------|------------|
-| D64 | 🔴 **A save with no player position silently teleported the ship into Port Royal's own collision.** `SaveManager.save_game()` wrote `"player": {}` whenever it ran with no `player_ship` group member in the tree (e.g. a test/verification harness without a full `World` scene — exactly what produced the corrupted local save this defect was found through). On load, `load_game()` couldn't distinguish "no position was ever recorded" from "recorded, and it's `{}`" — `data.has("player")` was true either way — so `player_data.get("pos_x", 0.0)`/`get("pos_y", 1.0)`/`get("pos_z", 0.0)` defaulted the ship to `Vector3(0, 1, 0)`. That default was harmless until M7 made Port Royal (which sits at that exact world origin, ~13.7-unit collision radius) the home island: loading such a save now embeds the ship in the island's own terrain, and `CameraRig`'s `SpringArm3D` (collision mask includes terrain, D31) collapses toward it, pinning the camera at the ship's own height aimed steeply into the hull/terrain — the 3D viewport renders solid black while the HUD keeps working normally (confirmed via instrumented diagnostics: sun energy, ambient light, active camera, and encounter state were all reported as completely healthy the entire time; only the camera's actual world position had collapsed toward the target). | **Resolved.** `save_game()` no longer writes a `"player"` key at all when no player node exists to read from (instead of an empty dict); `load_game()` only restores position/rotation when the save actually recorded `pos_x`, otherwise leaves the ship at the scene's authored spawn transform. Guarded by the existing `SaveManager`/`CampaignManager` test suites (no regression) — the fix is defensive-default correctness, not new behavior to unit-test in isolation. Full screenshot-driven repro, the three disproved theories tried first, and validation renders: `docs/09_VISUAL_BUG_TRACKER.md` V12. |
+| D64 | 🔴 **A save with no player position silently teleported the ship into Port Royal's own collision.** `SaveManager.save_game()` wrote `"player": {}` whenever it ran with no `player_ship` group member in the tree (e.g. a test/verification harness without a full `World` scene — exactly what produced the corrupted local save this defect was found through). On load, `load_game()` couldn't distinguish "no position was ever recorded" from "recorded, and it's `{}`" — `data.has("player")` was true either way — so `player_data.get("pos_x", 0.0)`/`get("pos_y", 1.0)`/`get("pos_z", 0.0)` defaulted the ship to `Vector3(0, 1, 0)`. That default was harmless until M7 made Port Royal (which sits at that exact world origin, ~13.7-unit collision radius) the home island: loading such a save now embeds the ship in the island's own terrain, and `CameraRig`'s `SpringArm3D` (collision mask includes terrain, D31) collapses toward it, pinning the camera at the ship's own height aimed steeply into the hull/terrain — the 3D viewport renders solid black while the HUD keeps working normally (confirmed via instrumented diagnostics: sun energy, ambient light, active camera, and encounter state were all reported as completely healthy the entire time; only the camera's actual world position had collapsed toward the target). | **Resolved.** `save_game()` no longer writes a `"player"` key at all when no player node exists to read from (instead of an empty dict); `load_game()` only restores position/rotation when the save actually recorded `pos_x`, otherwise leaves the ship at the scene's authored spawn transform. Guarded by the existing `SaveManager`/`CampaignManager` test suites (no regression) — the fix is defensive-default correctness, not new behavior to unit-test in isolation. Full screenshot-driven repro, the three disproved theories tried first, and validation renders: `docs/16_MILESTONE_HISTORY.md`'s resolved bug archive, V12. |
 | D65 | 🟡 **Chapter 4/5's dedicated bosses had no in-world trigger.** HMS Intransigent (Ch4) and Cárdenas' flagship (Ch5) each got a fully dedicated `ShipStats`/scene/`EncounterData` (confirmed necessary — see the M7 section above), and each chapter's real `DEFEAT_BOSS` objective (Ch4 `4.6`, Ch5's equivalent) targets that dedicated `ship_id` — but neither `EncounterData` was in `World.tscn`'s ambient `encounter_pool`, so neither chapter was actually completable by a real player; only a manual `EncounterManager.start_encounter()` call could reach them. Honestly flagged as a known gap when M7 shipped, not silently left broken. | **Resolved.** `EncounterData` gained `required_chapter_id: String = ""` — empty means always eligible (every pre-existing encounter), non-empty gates it to only draw while `CampaignManager.is_chapter_current()` (new public helper, mirrors the existing `is_chapter_completed()`) reports that chapter as the one in progress. `IntransigentBoss.tres`/`CardenasBoss.tres` set it to `"ch4_the_admirals_gambit"`/`"ch5_the_silver_fleet"` and both were added to `World.tscn`'s `encounter_pool`. `EncounterManager._start_random_ambient()` filters candidates through the gate before picking one — a Chapter 1 player still cannot stumble into a Chapter 4 boss, and a Chapter 4 player now can reach it without a scripted trigger system. `tests/test_encounters.gd` gained 3 tests pinning the gate (excluded before the chapter, eligible once current, both authored bosses carry the right id) and extended `test_every_authored_encounter_is_loadable_and_coherent`'s path list to actually cover both boss `.tres` files, which it had never done. |
 
 **Not fixed in this pass, noted for whoever picks up the map/discovery work in M9**: the boss fight
@@ -1108,8 +1108,8 @@ Rule 8. Two spec-drift corrections made with direct evidence before implementing
 boss-count arithmetic in `requirements.md` ("bringing the total to 3") was stale — 3 boss
 `EncounterData` files already existed pre-M11 (Ghost Ship, Intransigent, Cárdenas), not 1 — so the
 literal "2 new dedicated bosses" acceptance criterion was followed as written, landing at 5 total;
-and the content-volume table in `docs/14_SYSTEM_INVENTORY.md` was refreshed in full (not just the
-M11-owned rows), since several unrelated rows (Chapters, Islands) had been stale since before M7/M10.
+and the content-volume table (see §0) was refreshed in full (not just the M11-owned rows), since
+several unrelated rows (Chapters, Islands) had been stale since before M7/M10.
 
 **Verification status: engine-verified, 2026-08-28.** Full GUT suite run for real at the final
 checkpoint; the headful `CaptureHarness` capture is from mid-milestone (a final re-run hung — see
@@ -1167,7 +1167,7 @@ available from game start"): a health chain (`reinforced_hulls` → `sturdier_hu
 `deep_hold` → `grand_cargo`) and a 2-deep speed chain (`swifter_sails` → `copper_plating`). No 5th
 modifier category was added — every new tech expresses its effect through the 4 categories
 `TechManager` already applies (health/damage/speed/storage). Costs authored against
-`docs/BALANCE_MODEL.md`'s tier bands (see Requirement 10).
+`docs/CONTENT_AUTHORING_GUIDE.md` §5's tier bands (see Requirement 10).
 
 ### Requirement 2 — Wind and sail-trim mechanic
 
@@ -1520,10 +1520,10 @@ section). 5 new tests added: `test_localization.gd` (3) and two additions to
 **Note found while starting this milestone:** the working tree already contained substantial,
 uncommitted `.kiro/specs/milestone-m15-backend-cloud-services/` work (Supabase email/password auth,
 Account settings UI, cloud save sync) from a session working in parallel. It has since been
-committed and pushed to `origin/main` (`e0b8e35`, `be46960`) but **M15 has not written its own
-`docs/05_CURRENT_SYSTEMS.md` section or updated `docs/14_SYSTEM_INVENTORY.md`'s Meta/platform
-table yet** — both still read as if M15 hadn't started. This section documents only M13's own
-scope; M15's implementing session still owes its own documentation pass per Rule 6. M13's Wave 3
+committed and pushed to `origin/main` (`e0b8e35`, `be46960`) but **M15's documentation section**
+was not yet written at the time of M13's closure — the Meta/platform sections in this document
+still read as if M15 hadn't started. This section documents only M13's own scope; M15's
+implementing session owes its own documentation pass per Rule 6. M13's Wave 3
 privacy-policy work below was written directly against the actual landed M15 code (per
 `.kiro/specs/milestone-m13-ship-it/` Requirement 7.2's instruction to source from M15's real state,
 not guess), since M15's data-collection enumeration (Requirement 9.2: email address + gameplay save
@@ -1826,9 +1826,9 @@ Focused test: `test_save_manager_sync.gd` (6/6).
 
 ### Requirement 6 — Documentation
 
-This section, plus `docs/14_SYSTEM_INVENTORY.md`, `docs/02_TECH_STACK.md`, `docs/15_MASTER_PLAN.md`,
-and `docs/SUPABASE_SETUP.md` (new) were all updated in the same change per the milestone's own
-Requirement 6.
+This section (including system status and content-volume tables), plus `docs/02_TECH_STACK.md`,
+`docs/15_MASTER_PLAN.md`, and `docs/SUPABASE_SETUP.md` (new) were all updated in the same change
+per the milestone's own Requirement 6.
 
 ### Requirement 7 — Password reset
 
@@ -2209,10 +2209,9 @@ removed, and the authored local fallback was confirmed to take over again.]
 
 ### Documentation (Requirement 7)
 
-This section, `docs/14_SYSTEM_INVENTORY.md` (content-volume table, autoload list, test baseline),
-`docs/11_WORLD_MAP.md` (Region 4/5 entries, new island dossiers), and `docs/15_MASTER_PLAN.md` (M14
-exit-criteria results) all updated in this same change, per Requirement 7 and
-`docs/07_AI_AGENT_WORKFLOW.md` Rule 6.
+This section (§0 with system status, content-volume table, test baseline), `docs/11_WORLD_MAP.md`
+(Region 4/5 entries, new island dossiers), and `docs/15_MASTER_PLAN.md` (M14 exit-criteria results)
+all updated in this same change, per Requirement 7 and `docs/07_AI_AGENT_WORKFLOW.md` Rule 6.
 
 ## BUG_REPORT.md fix pass (2026-09-14)
 
@@ -2305,10 +2304,9 @@ Economy, Fleet, Tech, Faction, and Empire state together, not one manager at a t
 offline-catch-up loop must actually drive a fleet mission's gold payout, not just compute a tick
 count), and `test_catch_up_handles_completed_chapter_ids_with_a_gap` in
 `tests/test_campaign_manager.gd` (above). Full suite: **467/467 passing** (baseline was 464/464 at
-the end of M14; see `docs/14_SYSTEM_INVENTORY.md`'s updated test-baseline note, which also flags
-that this project's "one known accepted failure" (`test_property_21_lod_distance_transitions`) is
-itself a stale reference — that gap was closed back in M10, and the suite has had 0 known failures
-since).
+the end of M14; see §0 for the full test baseline progression). Note: this project's "one known
+accepted failure" (`test_property_21_lod_distance_transitions`) is itself a stale reference — that
+gap was closed back in M10, and the suite has had 0 known failures since.
 
 ## M16 — Cosmetics & Entitlements (2026-09-14)
 

@@ -8,6 +8,7 @@
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Six weeks, the Admiral said. It's been five."
 mood = 0
 
@@ -15,6 +16,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Cárdenas stages out of Cartagena and coals at Mount Brimstone — that volcano's the whole reason the crossing works. Cut the mountain and the fleet crosses thirsty."
 mood = 0
 
@@ -22,6 +24,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "I've never in my life advised anyone to attack an empire. I'm advising it now. I'd like the record to show I've changed."
 mood = 4
 
@@ -110,6 +113,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Captain. There's a chart in here that shouldn't be. There's an island on it that isn't on anything else I've ever seen — and I know this hand. This is Solomon Vane's hand, and Vane went down with the Wandering Widow forty years back."
 mood = 3
 
@@ -117,6 +121,7 @@ mood = 3
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "…I'd very much like you to tell me I'm wrong."
 mood = 3
 

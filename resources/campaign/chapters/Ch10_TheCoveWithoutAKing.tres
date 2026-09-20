@@ -8,6 +8,7 @@
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "Word from Skull Cove — what's left of Morrow's lieutenants are still arguing over his chair. Four years, and nobody's sat in it since."
 mood = 0
 
@@ -15,6 +16,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "It's your rum island either way, Captain. Might as well be your name over the door too, official-like, before one of them gets ambitious."
 mood = 1
 
@@ -22,6 +24,7 @@ mood = 1
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "I never thought I'd hear myself recommend a coronation. Try not to enjoy it too much."
 mood = 4
 
@@ -62,6 +65,7 @@ is_optional = true
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "There. Skull Cove's yours in more than name now. Blackjaw would hate every part of this."
 mood = 4
 
@@ -69,6 +73,7 @@ mood = 4
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "That's five ports, an admiral who used to hunt us, and a chart to an island nobody but you and I have ever set foot on."
 mood = 0
 
@@ -76,6 +81,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
 text = "I'll be honest, Captain. I stopped expecting to leave a long time ago. I'm glad of it."
 mood = 1
 

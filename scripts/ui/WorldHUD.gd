@@ -172,6 +172,30 @@ func _apply_mobile_safe_area() -> void:
 			"top_right_panel", base_position, hud_scale, get_viewport(), top_right_panel.size)
 		top_right_panel.position = result.position
 		top_right_panel.scale = Vector2.ONE * float(result.scale)
+		# MobileControls.btn_pause placed itself using a starting guess (its
+		# own MobileLayoutManager.mobile_scale(), floor 0.55) that has no
+		# relationship to this panel's own fixed hud_scale = 1.45 above — on a
+		# real device where the two diverge, the panel (taller than guessed)
+		# covered all but btn_pause's bottom sliver, making it nearly
+		# untappable. Nudged down here, right after this panel's real bottom
+		# edge is known, rather than guessed a second time.
+		var mobile_controls_for_pause := get_node_or_null("MobileControls")
+		var pause_btn_to_nudge: Control = mobile_controls_for_pause.btn_pause \
+			if mobile_controls_for_pause and "btn_pause" in mobile_controls_for_pause else null
+		if pause_btn_to_nudge:
+			var min_pause_y := top_right_panel.get_global_rect().end.y + 12.0
+			pause_btn_to_nudge.position.y = maxf(pause_btn_to_nudge.position.y, min_pause_y)
+	if _economy_label:
+		# _economy_label ("Next Production: Xs") kept its desktop-authored
+		# PRESET_CENTER_TOP + a fixed +20 offset on mobile too — on a phone-width
+		# viewport, screen-center lands under/behind top_right_panel's now much
+		# wider (scaled) footprint, hiding all but a sliver of the text behind
+		# it (device-test feedback 2026-09-20). Anchor stays CENTER_TOP (keeps
+		# it horizontally centred regardless of text length); only the Y offset
+		# is pushed below whichever of TopBar/top_right_panel sits lower.
+		var top_bar_bottom_for_econ := (top_bar.position.y + top_bar.size.y * hud_scale) if top_bar else safe.position.y + 62.0
+		var panel_bottom_for_econ := top_right_panel.get_global_rect().end.y if top_right_panel else safe.position.y + 62.0
+		_economy_label.position.y = maxf(top_bar_bottom_for_econ, panel_bottom_for_econ) + 10.0
 	if health_container:
 		# Hull health is always visible but no longer competes with steering in
 		# the lower-left corner. A single centred readout avoids the duplicate
@@ -184,11 +208,21 @@ func _apply_mobile_safe_area() -> void:
 			health_right.hide()
 	if mobile_utility_menu_button:
 		var button_size := mobile_utility_menu_button.size
-		# Captain is a secondary utility. Right-middle keeps it available without
-		# crowding the lower-third sailing and combat controls.
-		mobile_utility_menu_button.position = Vector2(
-			safe.end.x - button_size.x - 16.0,
-			safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5)
+		# Stacked directly below MobileControls' Pause button (measured, not a
+		# second hardcoded offset — see CLAUDE.md's "two independently
+		# hardcoded pixel offsets" failure mode, already hit once by this same
+		# HUD's health bar). Previously floated at a fixed 48% of screen
+		# height with no visual relationship to anything else, reading as
+		# randomly placed (device-test feedback 2026-09-20); grouping it under
+		# Pause forms one clear top-right utility corner instead.
+		var mobile_controls := get_node_or_null("MobileControls")
+		var pause_btn: Control = mobile_controls.btn_pause if mobile_controls and "btn_pause" in mobile_controls else null
+		var top_y: float
+		if pause_btn:
+			top_y = pause_btn.position.y + pause_btn.size.y + 16.0
+		else:
+			top_y = safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5
+		mobile_utility_menu_button.position = Vector2(safe.end.x - button_size.x - 16.0, top_y)
 	if mobile_utility_drawer:
 		var drawer_width := minf(420.0, safe.size.x - 32.0)
 		mobile_utility_drawer.size = Vector2(drawer_width, 276.0)

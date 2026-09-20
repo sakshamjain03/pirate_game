@@ -6,8 +6,7 @@
 >
 > Source: "Pirate Empire — Naval Combat Decisions v0.1" (user, 2026-08-14).
 > Reconciled against what M1–M6 actually shipped — see §0 and the ⚠️ markers throughout.
-> Related: `docs/05_CURRENT_SYSTEMS.md` (ground truth) · `docs/14_SYSTEM_INVENTORY.md` (gap
-> tracking) · `docs/13_CAMPAIGN_LEVELS_1-5.md` (where each mechanic is first taught).
+> Related: `docs/05_CURRENT_SYSTEMS.md` (ground truth including system status and gaps) · `docs/13_CAMPAIGN_LEVELS_1-5.md` (where each mechanic is first taught).
 
 ---
 
@@ -74,8 +73,8 @@ difficult to master.** No realistic wind simulation in v1.
 
 ✅ **Matches shipped code.** `ShipMovement` + `BuoyancySimulator` already deliver
 acceleration/drag/drift/turn-rate with mass-appropriate inertia (D33 fixed capsizing; D34 tuned
-damping). Wind-as-mechanic is correctly deferred — see `docs/14_SYSTEM_INVENTORY.md` §2 ("Wind as
-a mechanic ❌ M9").
+damping). Wind-as-mechanic is correctly deferred — see `docs/05_CURRENT_SYSTEMS.md` for the current status
+of this and other deferred systems.
 
 ---
 
@@ -168,9 +167,8 @@ Final model — hull / sails / crew, exactly as M6 shipped:
 | Sails | Speed floored at `min_speed_fraction` | `ShipDamage.sails` |
 | Crew | Cannot fire | `ShipDamage.crew` |
 
-**Visible critical state** (hull very low → visibly damaged hull before sinking) is **not yet
-built** — see `docs/14_SYSTEM_INVENTORY.md` §3, "Damage state on hulls ❌ M8". This is the one
-piece of §7 still open, and it is already scheduled.
+**Visible critical state** (hull very low → visibly damaged hull before sinking) is **implemented
+in M8 Phase 2** (see `docs/05_CURRENT_SYSTEMS.md` for current implementation status).
 
 Correctly still out of scope, per the original decision: individual cannon health, flooding
 simulation, per-crew-member state.
@@ -214,7 +212,7 @@ Unlock abilities → Improve skills → Specialize.
 health/boarding — though see D55, boarding is currently unauthored on all 20) and XP/leveling.
 **Active, player-triggered abilities in battle do not exist yet.** This is new scope for the
 combat-rework milestone in §14, and it is the mechanism that finally gives each of the 20
-captains in `docs/12_CHARACTER_BIBLE.md` a distinct *in-battle* verb, not just a passive number.
+captains in `docs/06_NARRATIVE_AND_WORLD.md` §10 a distinct *in-battle* verb, not just a passive number.
 
 ---
 
@@ -237,8 +235,8 @@ per-instance level M6 already established for empire-scaled enemy stats
 
 Not on a fast fixed timer (avoids noise). Target cadence: **every ~30–60 seconds, or after major
 combat milestones**, offering 2–4 choices in a normal battle and more meaningful choices in a
-boss fight. Exact cadence and choice count are tuning, not a fixed spec — refine in playtest
-(`docs/15_MASTER_PLAN.md` M10).
+boss fight. Exact cadence and choice count are tuning, not a fixed spec — refined in M10
+(see `docs/16_MILESTONE_HISTORY.md`).
 
 ---
 
@@ -298,8 +296,8 @@ hull rather than everyone converging on identical stats.
 Upgrades should visibly change the ship, L1 (small wooden starter) through L5
 (elite/legendary silhouette).
 
-🟡 **Partial.** `docs/14_SYSTEM_INVENTORY.md` already tracks *building* visual level-up as
-scale-only, not distinct models (§3). Ships have no level concept yet at all (see above), so ship
+🟡 **Partial.** `docs/05_CURRENT_SYSTEMS.md` documents *building* visual level-up as
+scale-only, not distinct models. Ships have no level concept yet at all (see above), so ship
 visual progression is net-new, gated on the module/level system existing first.
 
 ## The full strategic loop (§21 of the source)
@@ -341,16 +339,15 @@ written now — this is a constraint on *not coupling* those three layers, not a
 
 # 15. Scope note — a dedicated combat-rework milestone, not folded into M7
 
-`docs/15_MASTER_PLAN.md`'s M7 (Campaign Spine & Economy Correction) is written against **today's**
-manual-fire combat model — its chapter objectives (`DESTROY_SHIPS`, `BOARD_SHIPS`, `DEFEAT_BOSS`)
-resolve from signals that already exist and do not depend on how firing is triggered. **This
+`docs/16_MILESTONE_HISTORY.md`'s M7 (Campaign Spine & Economy Correction) was written against
+the manual-fire combat model at the time — its chapter objectives (`DESTROY_SHIPS`, `BOARD_SHIPS`,
+`DEFEAT_BOSS`) resolve from signals that do not depend on how firing is triggered. **This
 document's central change — automatic fire on arc alignment (§4), weapon slots (§4), captain
-active abilities (§10), temporary battle upgrades (§11), and ship modules (§13) — is scoped as
-its own milestone, inserted after M7 and before M9 in the roadmap:**
+active abilities (§10), temporary battle upgrades (§11), and ship modules (§13) — was scoped as
+its own milestone (M8 — Combat Identity Rework), actually executed before M7 in real history.**
 
-**M8 — Combat Identity Rework** *(renumbers the legibility-focused milestone previously called M8
-in `docs/15_MASTER_PLAN.md` to M8.5, or folds it in — reconcile numbering when this milestone is
-actually scaffolded)*
+This was the prioritization noted in the original plan as a hypothetical; M8's execution order
+relative to M7 is recorded in `docs/16_MILESTONE_HISTORY.md` and `docs/05_CURRENT_SYSTEMS.md`.
 
 > **All eight items below are built, as of 2026-08-16 (Phase 1: 2026-08-14, Phase 2: 2026-08-16).**
 > Kept as originally written for the historical record of what was scoped; see
@@ -363,7 +360,7 @@ actually scaffolded)*
   `has_bow_chaser`/`has_stern_chaser`, authored on Frigate/Galleon/Man O'War; the special volley
   from Phase 1 already covers the "special weapon" slot.)*
 - ✅ Captain active abilities (one per captain, keyed to their existing passive flavour in
-  `docs/12_CHARACTER_BIBLE.md`). *(Phase 1)*
+  `docs/06_NARRATIVE_AND_WORLD.md` §10). *(Phase 1)*
 - ✅ Temporary in-battle upgrade offers (roguelite layer), 2–4 choices per normal encounter.
   *(Phase 1)*
 - ✅ Ship modules (Hull/Cannon/Sail/Utility/Special) + a ship Level separate from captain Level.
@@ -375,8 +372,8 @@ actually scaffolded)*
   `AIProfileData` rather than replacing it. *(Phase 2 — `role` is a content tag; only `SUPPORT`
   drives its own code branch, repairing a wounded ally instead of attacking.)*
 - ✅ Encounter-type framework: Encounter / Convoy / Ambush / Elite / Boss / Defense, as data
-  (`EventData`, already scoped in `docs/14_SYSTEM_INVENTORY.md` §1). *(Phase 2 — `DEFENSE` gained
-  a real `PROTECT_TARGET` objective with an escort and optional fighting allies; `CONVOY` already
-  diverged via its `DESTROY_COUNT` objective and reward tuning.)*
+  (`EncounterData`). *(Phase 2 — `DEFENSE` gained a real `PROTECT_TARGET` objective with an escort
+  and optional fighting allies; `CONVOY` already diverged via its `DESTROY_COUNT` objective and
+  reward tuning.)*
 
 This was deliberately **not** small — it touched the core input loop of the game.

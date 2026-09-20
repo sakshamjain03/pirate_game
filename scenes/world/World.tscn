@@ -163,23 +163,23 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 island_data = ExtResource("16_port_royal")
 
 [node name="Island2" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -175, 0, 137.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 170, 0, -140)
 island_data = ExtResource("17_tortuga")
 
 [node name="Island3" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, -375)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, -430)
 island_data = ExtResource("18_skull_cove")
 
 [node name="Island4" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -450, 0, -375)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 480, 0, 380)
 island_data = ExtResource("20_volcano")
 
 [node name="Island5" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 375, 0, 150)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 280, 0, -340)
 island_data = ExtResource("21_frozen")
 
 [node name="Island6" parent="Islands" instance=ExtResource("5_isl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -500, 0, 400)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 120, 0, 630)
 island_data = ExtResource("22_cartagena")
 
 ; M10 Requirement 7 — three new islands, one per existing region, filling

@@ -9,5 +9,5 @@ island_name = "Tortuga"
 discovered = false
 has_dock = true
 docking_speed_limit = 5.0
-world_position = Vector2(-175, 137.5)
+world_position = Vector2(170, -140)
 region_id = "beginner_waters"

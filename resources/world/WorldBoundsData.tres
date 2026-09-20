@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="WorldBoundsData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/WorldBoundsData.gd" id="1_wbd"]
+
+[resource]
+script = ExtResource("1_wbd")
+half_extent = 1400.0

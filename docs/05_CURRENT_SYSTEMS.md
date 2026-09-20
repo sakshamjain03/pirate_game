@@ -983,14 +983,35 @@ drawn.
 ### Requirement 2 — Expanded map layout
 
 All 6 original islands' `world_position` moved to the Expanded coordinates (Compact × 2.5,
-`docs/11_WORLD_MAP.md` §4b): Port Royal (0,0), Tortuga (−175, 137.5), Skull Cove (100, −375),
-Frostbite Reef (375, 150), Mount Brimstone (−450, −375), Cartagena Outpost (−500, 400).
-`Island.gd::_ready()` now writes the node's `global_position` from `island_data.world_position`
-(XZ only, Y stays whatever the scene authored) whenever `island_data` was actually assigned —
-making the data authoritative rather than agreeing with `World.tscn`'s hand-placed transforms only
-by convention. `World.tscn`'s transforms were also updated to the same values (for accurate editor
-preview) plus `PlayerShip`/`EnemyShip1-3`'s placeholder transforms scaled the same ×2.5.
-`EnemySpawner`'s spawn distances needed no change (see "Corrections" above).
+`docs/11_WORLD_MAP.md` §4b). **Superseded by the realistic-geography pass** (see below) for 5 of
+the 6 — Port Royal alone stays at the origin. `Island.gd::_ready()` writes the node's
+`global_position` from `island_data.world_position` (XZ only, Y stays whatever the scene
+authored) whenever `island_data` was actually assigned — making the data authoritative rather
+than agreeing with `World.tscn`'s hand-placed transforms only by convention. `World.tscn`'s
+transforms are kept in sync by hand for accurate editor preview.
+
+### Realistic-geography repositioning + bounded world
+
+Tortuga, Skull Cove, Frostbite Reef, Mount Brimstone and Cartagena Outpost were re-bearinged
+(same ring-band distance from home, new compass direction) to echo real Golden Age of Piracy
+geography now that the game uses real place names — current values and rationale in
+`docs/11_WORLD_MAP.md` §4c. `pelican_cay`, `blackwater_shoal`, `isla_del_rey`, `widows_reach`,
+`fogbound_cay` are unchanged for now.
+
+The world is also now bounded: a new `WorldBoundsData` resource
+(`resources/world/WorldBoundsData.tres`, `half_extent = 1400.0`) defines a square the player (and
+every AI ship) can't sail past, enforced in `ShipController._clamp_to_world_bounds()` — position-
+only, so `ShipMovement.gd`'s fragile force/torque path is untouched. 1400u comfortably clears
+Ghost Reaches' 1150u ring, the outermost currently authored content.
+
+Port Royal is no longer force-owned on a new game (`World._seed_port_royal_as_home()` deleted).
+It stays `NEUTRAL`/undefended, like Tortuga, and the player claims it through the ordinary
+Colonize flow — `IslandData.colonize_cost_gold` is now per-island (default 1000, Port Royal
+overrides to 100) rather than a hardcoded flat cost in `IslandMenu.gd`. Chapter 1 gained a new
+opening objective (`CAPTURE_ISLAND port_royal`) ahead of its build objectives. Two new
+`IslandData.TerrainTheme` values (`DROWNED_RUIN` for Port Royal, `FORTIFIED` for Cartagena
+Outpost, plus `CALDERA` for Skull Cove) give the first 5 islands real visual distinctiveness
+instead of 4 of them rendering as identical stock-tropical islands.
 
 ### Requirement 3 — World map UI
 

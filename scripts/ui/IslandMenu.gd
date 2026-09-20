@@ -48,9 +48,10 @@ func _ready() -> void:
 		ResourceManager.resources_changed.connect(_on_resources_changed)
 
 
-	# Create Colonize Button
+	# Create Colonize Button — label text is set per-island in open(), since cost is
+	# now authored per-IslandData (IslandData.colonize_cost_gold) rather than fixed.
 	colonize_btn = Button.new()
-	colonize_btn.text = tr("Colonize (1000 Gold)")
+	colonize_btn.text = tr("Colonize")
 	colonize_btn.custom_minimum_size = Vector2(150, 48)
 	colonize_btn.pressed.connect(_on_colonize_pressed)
 	island_name_label.get_parent().add_child(colonize_btn)
@@ -165,7 +166,9 @@ func open(island: Node3D) -> void:
 
 	if colonize_btn:
 		colonize_btn.visible = type == IslandData.IslandType.NEUTRAL
-		
+		if colonize_btn.visible and island.island_data:
+			colonize_btn.text = tr("Colonize (%d Gold)") % island.island_data.colonize_cost_gold
+
 		# Task 10: disable if not active
 		if current_island.has_method("_should_be_active") and not current_island._should_be_active():
 			colonize_btn.disabled = true
@@ -217,8 +220,10 @@ func _on_close_pressed() -> void:
 func _on_colonize_pressed() -> void:
 	if not current_island or not current_island.has_method("capture_island"):
 		return
-		
-	var cost = {"gold": 1000}
+	if not current_island.island_data:
+		return
+
+	var cost = {"gold": current_island.island_data.colonize_cost_gold}
 	if ResourceManager.spend_resources(cost):
 		if FactionManager.has_method("get_player_faction"):
 			current_island.capture_island(FactionManager.get_player_faction())

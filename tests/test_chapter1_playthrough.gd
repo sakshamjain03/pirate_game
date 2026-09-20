@@ -44,7 +44,7 @@ func test_chapter_1_starts_immediately_on_a_new_game():
 	var chapter := CampaignManager._current_chapter()
 	assert_not_null(chapter, "Chapter 1 has no gate — it must be current from the first frame")
 	assert_eq(chapter.chapter_id, "ch1_the_drowned_port")
-	assert_eq(chapter.objectives.size(), 8)
+	assert_eq(chapter.objectives.size(), 9)
 
 
 func test_playing_chapter_1_for_real_completes_it_with_its_authored_reward():
@@ -53,19 +53,21 @@ func test_playing_chapter_1_for_real_completes_it_with_its_authored_reward():
 
 	# 1.1 dock at Port Royal
 	CampaignManager._on_player_docked("port_royal")
-	# 1.2-1.4, 1.6 build the four required structures
+	# 1.2 claim the drowned port (Colonize) before anything can be built on it
+	CampaignManager._on_island_captured("port_royal")
+	# 1.3-1.5, 1.7 build the four required structures
 	CampaignManager._on_structure_changed("farm_l1", false)
 	CampaignManager._on_structure_changed("lumber_mill_l1", false)
 	CampaignManager._on_structure_changed("warehouse_l1", false)
 	CampaignManager._on_structure_changed("tavern_l1", false)
-	# 1.5 sink 3 Pirate Clan hulls
+	# 1.6 sink 3 Pirate Clan hulls
 	var pirate_faction := load("res://resources/factions/PirateClans.tres")
 	for i in range(3):
 		var ship := MockShip.new()
 		ship.faction = pirate_faction
 		add_child_autoqfree(ship)
 		CampaignManager._on_ship_destroyed(ship)
-	# 1.7 recruit a captain
+	# 1.8 recruit a captain
 	CampaignManager._on_captain_recruited(null)
 
 	assert_true(CampaignManager.is_chapter_completed("ch1_the_drowned_port"),
@@ -77,6 +79,7 @@ func test_playing_chapter_1_for_real_completes_it_with_its_authored_reward():
 
 func test_the_optional_tier_objective_does_not_block_completion():
 	CampaignManager._on_player_docked("port_royal")
+	CampaignManager._on_island_captured("port_royal")
 	CampaignManager._on_structure_changed("farm_l1", false)
 	CampaignManager._on_structure_changed("lumber_mill_l1", false)
 	CampaignManager._on_structure_changed("warehouse_l1", false)
@@ -95,6 +98,7 @@ func test_the_optional_tier_objective_does_not_block_completion():
 
 func test_completing_chapter_1_hands_off_to_chapter_2():
 	CampaignManager._on_player_docked("port_royal")
+	CampaignManager._on_island_captured("port_royal")
 	CampaignManager._on_structure_changed("farm_l1", false)
 	CampaignManager._on_structure_changed("lumber_mill_l1", false)
 	CampaignManager._on_structure_changed("warehouse_l1", false)

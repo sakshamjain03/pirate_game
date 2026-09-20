@@ -32,6 +32,10 @@ signal anchor_raised()
 @onready var model: Node3D = get_node_or_null("ShipModel")
 @onready var combat: Node = get_node_or_null("ShipCombat")
 
+const WORLD_BOUNDS_PATH := "res://resources/world/WorldBoundsData.tres"
+@onready var _world_bounds: WorldBoundsData = load(WORLD_BOUNDS_PATH)
+var _was_at_world_edge: bool = false
+
 var current_forward_input: float = 0.0
 var current_turn_input: float = 0.0
 var is_docked: bool = false
@@ -188,9 +192,60 @@ func _physics_process(delta: float) -> void:
 	if buoyancy:
 		buoyancy.apply_buoyancy(delta)
 
+	_clamp_to_world_bounds()
+
 	# Emit speed signal for HUD
 	var speed = linear_velocity.length()
 	ship_speed_changed.emit(speed)
+
+## Holds a ship at the edge of the bounded square world instead of letting it sail into
+## unlimited space. Position-only — never touches ShipMovement's force/torque path, so the
+## fragile buoyancy/stability tuning there is untouched (AGENTS.md).
+func _clamp_to_world_bounds() -> void:
+	if not _world_bounds:
+		return
+
+	var half := _world_bounds.half_extent
+	var pos := global_position
+	var at_edge := false
+
+	if pos.x > half:
+		pos.x = half
+		at_edge = true
+	elif pos.x < -half:
+		pos.x = -half
+		at_edge = true
+	if pos.z > half:
+		pos.z = half
+		at_edge = true
+	elif pos.z < -half:
+		pos.z = -half
+		at_edge = true
+
+	if not at_edge:
+		_was_at_world_edge = false
+		return
+
+	global_position = pos
+
+	# Zero only the velocity component pushing further outward, so a ship
+	# settles at the wall instead of jittering back and forth against the clamp.
+	var vel := linear_velocity
+	if is_equal_approx(pos.x, half) and vel.x > 0.0:
+		vel.x = 0.0
+	elif is_equal_approx(pos.x, -half) and vel.x < 0.0:
+		vel.x = 0.0
+	if is_equal_approx(pos.z, half) and vel.z > 0.0:
+		vel.z = 0.0
+	elif is_equal_approx(pos.z, -half) and vel.z < 0.0:
+		vel.z = 0.0
+	linear_velocity = vel
+
+	if not _was_at_world_edge and is_in_group("player_ship"):
+		var hud = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("announce_event"):
+			hud.announce_event("The charts end here — the open ocean gives way to nothing.")
+	_was_at_world_edge = true
 
 func set_input(forward: float, turn: float) -> void:
 	if not is_docked and not is_anchored:

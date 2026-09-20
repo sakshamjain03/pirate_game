@@ -21,10 +21,20 @@
    `Island._should_be_active()` gates defenders and capture on it. A player *can* sail into a
    dormant region early; it will simply be empty and uncapturable. That is a feature: the fog
    is lifted by fame, not by travel time.
-4. **The world expands outward forever.** New regions are new rings. No existing coordinate
-   ever has to move to add content.
-5. **Readable from the compass alone.** Each region owns a rough bearing so players build a
-   mental map: *Navy is north-east, Spain is south-west, the pirates are close in.*
+4. **The world is bounded, generously.** Originally "expands outward forever" — amended once the
+   game shipped with unlimited sailable space, which read as a bug rather than a feature. The
+   world is now a square, ±1400 u from the origin (`WorldBoundsData.tres`,
+   `ShipController._clamp_to_world_bounds()`), sized with headroom past Ghost Reaches' 1150 u
+   ring (the outermost currently authored content). New regions still don't require moving any
+   existing coordinate; growing past this bound in some future milestone means revisiting this
+   one number.
+5. **Readable from the compass alone, and now anchored to real Golden Age of Piracy geography**
+   since the named islands are real places. Beginner Waters (Port Royal, Tortuga) sits at the
+   English/buccaneer home waters (Jamaica–Hispaniola corridor); Contested Waters (Skull Cove,
+   Frostbite Reef) clusters **north**, echoing the real Bahamas as the era's biggest lawless
+   pirate haven; Imperial Waters (Mount Brimstone, Cartagena Outpost) clusters **south/south-east**,
+   the real Spanish Main. Mental map: *the pirates are close in, the lawless north is where the
+   Navy hunts, Spain is south.*
 
 ---
 
@@ -118,6 +128,24 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 > `PlaneMesh` LOD (`OceanController.get_lod_level()`); see `docs/05_CURRENT_SYSTEMS.md`'s M10
 > section for the implementation.
 
+## 4c. Realistic-geography bearings (current)
+
+The 5 islands the campaign builds around (Chapters 1, 2, 4, 5) were repositioned to real Golden
+Age of Piracy bearings, keeping each inside its already-live Expanded ring band (§4b) — only the
+compass direction changed, not the distance-equals-danger pacing:
+
+| Island | Region | Coordinates (x, z) | Distance | Bearing | Real-world echo |
+|---|---|---|---|---|---|
+| Port Royal | Beginner | (0, 0) | — | home | Jamaica |
+| Tortuga | Beginner | (170, −140) | 220 u | ENE | Real Tortuga sits NE of Jamaica |
+| Skull Cove | Contested | (60, −430) | 434 u | N | The Bahamas — the era's biggest pirate haven |
+| Frostbite Reef | Contested | (280, −340) | 440 u | NE | Groups with Skull Cove as the lawless north |
+| Mount Brimstone | Imperial | (480, 380) | 612 u | SE | Real volcanic islands (Lesser Antilles) sit SE |
+| Cartagena Outpost | Imperial | (120, 630) | 641 u | S | Real Cartagena is due south of Jamaica |
+
+`pelican_cay`, `blackwater_shoal`, `isla_del_rey`, `widows_reach`, `fogbound_cay` keep their
+pre-existing coordinates for now — a natural follow-up once these 5 are done.
+
 ## Sail-time budget (design target, ≈ 12 u/s cruise)
 
 | Trip | Compact | Expanded | Feel we want |
@@ -142,7 +170,7 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 
 ## Region 2 — Contested Waters (tier 2, threshold 60)
 
-- **Dominant faction:** Royal Navy. **Bearing:** north and east.
+- **Dominant faction:** Royal Navy. **Bearing:** north (the Bahamas-like lawless channel).
 - **Weather:** choppier seas, occasional squall (visual only at first).
 - **Enemies:** Schooners, Brigantines, Corvettes. `StandardEnemy` profile. Navy patrols travel
   in pairs. Spawn multiplier 1.3+ for `is_empire` factions.
@@ -152,7 +180,7 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 
 ## Region 3 — Imperial Waters (tier 3, threshold 150)
 
-- **Dominant faction:** Spanish Empire. **Bearing:** west and south-west.
+- **Dominant faction:** Spanish Empire. **Bearing:** south and south-east (the Spanish Main).
 - **Weather:** heavy seas; Mount Brimstone carries ash haze, Cartagena is fog-prone.
 - **Enemies:** Frigates and Galleons, `AggressiveGalleon` profile. Spawn multiplier 1.6+.
 - **Islands:** Mount Brimstone (enemy, volcanic — iron/sulphur), Cartagena Outpost (capital,
@@ -193,12 +221,20 @@ deepest one-way voyage ≈ 55 s, which is the AC-IV-like commitment we actually 
 
 Each island answers: what it *gives*, what it *costs*, and what story it carries.
 
-### Port Royal — `port_royal` · Beginner · **HOME**
-Drowned in the quake, half of it still underwater. The player's capital.
-- **Gives:** every build slot the player owns; the only island with the full building set.
-- **Costs:** nothing to hold — but it is the *only* raid target (`EmpireManager._resolve_raid()`).
+### Port Royal — `port_royal` · Beginner · **HOME (once claimed)**
+Drowned in the quake, half of it still underwater. Pirate-friendly and undefended, but **not
+owned at game start** — the player claims it via the ordinary Colonize flow (Chapter 1's new
+opening objective), at a story-cheap cost (`colonize_cost_gold = 100`) nobody else wanted to
+charge for a ruin.
+- **Gives:** every build slot the player owns, once claimed; the only island with the full
+  building set.
+- **Costs:** nothing to hold — but once home, it is the *only* raid target
+  (`EmpireManager._resolve_raid()`).
 - **Story:** Chapter 1 in its entirety. The harbour board with the empire's name on it.
-- **Type:** should be `CAPITAL` once owned (currently `NEUTRAL`).
+- **Type:** `NEUTRAL` until claimed, then `FRIENDLY` — the same generic `capture_island()` path
+  every other island uses (no more special-cased `CAPITAL` seeding).
+- **Visual:** `DROWNED_RUIN` terrain theme — a bleached, waterlogged tint distinct from a stock
+  tropical island.
 
 ### Tortuga — `tortuga` · Beginner · Friendly
 The pirate port that *didn't* sink, and is quietly smug about it.
@@ -220,6 +256,8 @@ A drowned volcanic caldera with one entrance. Morrow's seat.
   raiding.
 - **Costs:** capture tanks Pirate Clan reputation permanently; they spawn hostile after.
 - **Story:** the whole of Chapter 2. Target of the first island capture the player *chooses*.
+- **Visual:** `CALDERA` terrain theme — a dark basalt tint, distinct from Mount Brimstone's
+  scorched-ash `VOLCANIC` theme despite both being volcanic in lore.
 
 ### Frostbite Reef — `frozen_island` · Contested · Enemy
 Not truly frozen — a cold-current reef with wrecks locked in rime. Navy deep anchorage.
@@ -254,6 +292,8 @@ The fortified staging port for the treasure fleet crossing.
   island (the first non-home island the player can develop).
 - **Costs:** the hardest content in v1.
 - **Story:** Chapter 5 finale; Cárdenas; the unmapped chart.
+- **Visual:** `FORTIFIED` terrain theme — a grey stone/arid tint matching its colonial garrison
+  lore.
 
 ### Widow's Reach — `widows_reach` · Ancient Ocean · **Legendary** (M14)
 The wreck site of the *Wandering Widow*, Solomon Vane's ship, lost forty years before the

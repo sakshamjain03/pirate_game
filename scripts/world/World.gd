@@ -20,13 +20,13 @@ func _ready() -> void:
 	if docking_system and docking_system.has_method("initialize") and ship:
 		docking_system.initialize(ship)
 
-	# D58 cold start fix: a genuinely new game (no save file at all — Continue
-	# always leaves one) starts owning no island and no production, gated behind
-	# an unreachable 1000-gold colonize cost against a 200-gold starting purse.
-	# Guarded on "is this a new game", never "is home_island_id empty" — an
-	# existing save with a different home island must never be overwritten.
+	# D58 cold start fix (superseded): Port Royal used to be force-owned on a
+	# genuinely new game. It's now a NEUTRAL, undefended island like Tortuga —
+	# "pirate-friendly" but not owned — that the player claims via the same
+	# Colonize flow every other island uses, at a story-cheap authored cost
+	# (IslandData.colonize_cost_gold on PortRoyal.tres) reachable from the
+	# 200-gold starting purse. See Ch1_TheDrownedPort.tres's new claim objective.
 	if not SaveManager.has_save_data():
-		call_deferred("_seed_port_royal_as_home", islands)
 		call_deferred("_seed_whats_new_version")
 
 	# Load game state (if coming from Continue)
@@ -53,22 +53,10 @@ func _ready() -> void:
 		AnalyticsManager.call_deferred("on_world_ready", self)
 
 
-func _seed_port_royal_as_home(islands: Array) -> void:
-	for island in islands:
-		if not (island.has_method("get_island_id") and island.get_island_id() == "port_royal"):
-			continue
-		if not island.island_data:
-			return
-		island.island_data.island_type = IslandData.IslandType.CAPITAL
-		island.island_data.owner_faction = load("res://resources/factions/PlayerFaction.tres")
-		EmpireManager.home_island_id = "port_royal"
-		return
-
-
 ## M14 Requirement 5.2 — a genuinely new player experiences Ch6-10, Regions
 ## 4/5, and the Spring Crossing firsthand through normal progression; they
 ## must never see a "what's new" popup for content they haven't reached yet.
-## Guarded the same way as _seed_port_royal_as_home() (a new game only).
+## Guarded the same way as the block above (a new game only).
 func _seed_whats_new_version() -> void:
 	var patch_notes: PatchNotesData = load("res://resources/ui/PatchNotes.tres")
 	if patch_notes:

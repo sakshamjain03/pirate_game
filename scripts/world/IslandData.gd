@@ -28,6 +28,9 @@ func is_owned_by_player() -> bool:
 
 @export_group("Progression")
 @export var min_buildings_for_tier: int = 2
+## Gold cost of the Colonize action (IslandMenu) for a NEUTRAL island. Per-island so a
+## story-cheap first claim (Port Royal) doesn't have to match every other island's price.
+@export var colonize_cost_gold: int = 1000
 
 @export_group("Docking")
 @export var has_dock: bool = true
@@ -40,5 +43,5 @@ func is_owned_by_player() -> bool:
 ## island (e.g. a volcano or a frozen reef, by name) re-tint its shared
 ## terrain materials at runtime instead of reading as a copy-pasted
 ## tropical island regardless of its name and lore.
-enum TerrainTheme { TROPICAL, VOLCANIC, FROZEN }
+enum TerrainTheme { TROPICAL, VOLCANIC, FROZEN, DROWNED_RUIN, FORTIFIED, CALDERA }
 @export var terrain_theme: TerrainTheme = TerrainTheme.TROPICAL

@@ -72,6 +72,21 @@ func _apply_terrain_theme() -> void:
 				"res://resources/materials/sand.tres": "res://resources/materials/sand_frozen.tres",
 				"res://resources/materials/grass.tres": "res://resources/materials/grass_frozen.tres",
 			}
+		IslandData.TerrainTheme.DROWNED_RUIN:
+			substitutions = {
+				"res://resources/materials/sand.tres": "res://resources/materials/sand_drowned.tres",
+				"res://resources/materials/grass.tres": "res://resources/materials/grass_drowned.tres",
+			}
+		IslandData.TerrainTheme.FORTIFIED:
+			substitutions = {
+				"res://resources/materials/sand.tres": "res://resources/materials/sand_fortified.tres",
+				"res://resources/materials/grass.tres": "res://resources/materials/grass_fortified.tres",
+			}
+		IslandData.TerrainTheme.CALDERA:
+			substitutions = {
+				"res://resources/materials/sand.tres": "res://resources/materials/sand_caldera.tres",
+				"res://resources/materials/grass.tres": "res://resources/materials/grass_caldera.tres",
+			}
 
 	var terrain := get_node_or_null("Terrain")
 	if not terrain:

@@ -1,102 +1,58 @@
 extends GutTest
 
 # test_cold_start.gd
-# D58: a genuinely new game started owning no island and no production, gated
-# behind a 1000-gold colonize cost against a 200-gold starting purse.
-# World._seed_port_royal_as_home() closes this on a real new game only —
-# guarded on "no save file exists", never "home_island_id happens to be empty",
-# so an existing save with a different home island is never overwritten.
+# D58 (superseded): a genuinely new game used to start owning no island and no
+# production, gated behind an unreachable 1000-gold colonize cost against a
+# 200-gold starting purse. That was fixed by force-owning Port Royal on new
+# game (World._seed_port_royal_as_home(), now deleted).
+#
+# Per the "claim your first island" redesign, Port Royal is no longer
+# force-owned — it stays NEUTRAL and undefended, exactly like Tortuga,
+# "pirate-friendly" but not the player's. The same cold-start softlock is
+# instead avoided by pricing Port Royal's Colonize action (IslandMenu) low
+# enough to be reachable from the starting purse, and by capture_island()
+# already being generic: whichever island is captured first becomes home,
+# with no special-casing left in World.gd. These tests guard that
+# resolution instead of the deleted seeding method.
 
-class MockIsland extends Node:
-	var island_data: IslandData
-	var _id: String
-	func _init(id: String) -> void:
-		_id = id
-		island_data = IslandData.new()
-		island_data.island_id = id
-	func get_island_id() -> String:
-		return _id
-
-var _world
 var _saved_home_island_id: String
 
-var _backup_path := "user://save_data_test_backup.json"
-var _save_backup_path := "user://save_data_test_backup.json.bak"
-var _had_backup := false
-var _had_save_backup := false
 
 func before_each():
-	# World.gd's _ready() unconditionally defers a real SaveManager.load_game()
-	# call (line 32-34) regardless of has_save_data() at line 28 — so whatever
-	# is actually on disk gets applied to the real EmpireManager/SaveManager
-	# autoloads. Region activation is sticky (EmpireManager._check_region_activation
-	# only ever sets true, never false), so a stale save with real notoriety
-	# would otherwise permanently poison EmpireManager for every test that runs
-	# after this one in the same suite. Back up/restore around this test, same
-	# pattern as test_save_manager_offline.gd / test_region_gates.gd.
-	if SaveManager.has_save_data():
-		_had_backup = true
-		var src = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.READ)
-		var dst = FileAccess.open(_backup_path, FileAccess.WRITE)
-		dst.store_string(src.get_as_text())
-		src.close()
-		dst.close()
-	if FileAccess.file_exists(SaveManager.BACKUP_PATH):
-		_had_save_backup = true
-		var backup_src = FileAccess.open(SaveManager.BACKUP_PATH, FileAccess.READ)
-		var backup_dst = FileAccess.open(_save_backup_path, FileAccess.WRITE)
-		backup_dst.store_string(backup_src.get_as_text())
-		backup_src.close()
-		backup_dst.close()
-	SaveManager.delete_save()
-
-	_world = load("res://scripts/world/World.gd").new()
-	add_child_autoqfree(_world)
 	_saved_home_island_id = EmpireManager.home_island_id
 	EmpireManager.home_island_id = ""
+
 
 func after_each():
 	EmpireManager.home_island_id = _saved_home_island_id
 
-	var dir = DirAccess.open("user://")
-	if _had_backup:
-		var src = FileAccess.open(_backup_path, FileAccess.READ)
-		var dst = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
-		dst.store_string(src.get_as_text())
-		src.close()
-		dst.close()
-		dir.remove("save_data_test_backup.json")
-	else:
-		SaveManager.delete_save()
-	if _had_save_backup:
-		var backup_src = FileAccess.open(_save_backup_path, FileAccess.READ)
-		var backup_dst = FileAccess.open(SaveManager.BACKUP_PATH, FileAccess.WRITE)
-		backup_dst.store_string(backup_src.get_as_text())
-		backup_src.close()
-		backup_dst.close()
-		dir.remove("save_data_test_backup.json.bak")
-	_had_backup = false
-	_had_save_backup = false
+
+func test_port_royal_starts_neutral_and_unowned():
+	var port_royal: IslandData = load("res://resources/world/PortRoyal.tres")
+	assert_eq(port_royal.island_type, IslandData.IslandType.NEUTRAL,
+		"Port Royal must not be pre-owned on a new game — the player claims it")
+	assert_false(port_royal.is_owned_by_player())
 
 
-func test_seeding_grants_port_royal_as_capital_and_sets_home():
-	var port_royal := MockIsland.new("port_royal")
-	var tortuga := MockIsland.new("tortuga")
-
-	_world._seed_port_royal_as_home([port_royal, tortuga])
-
-	assert_eq(port_royal.island_data.island_type, IslandData.IslandType.CAPITAL,
-		"Port Royal must become the capital on a new game")
-	assert_not_null(port_royal.island_data.owner_faction,
-		"Port Royal must be owned by the player faction")
-	assert_eq(port_royal.island_data.owner_faction.faction_id, "player")
-	assert_eq(EmpireManager.home_island_id, "port_royal")
-	assert_eq(tortuga.island_data.island_type, IslandData.IslandType.NEUTRAL,
-		"Only Port Royal is touched, not every island in the list")
+func test_port_royals_colonize_cost_is_reachable_from_the_starting_purse():
+	var port_royal: IslandData = load("res://resources/world/PortRoyal.tres")
+	var starting_gold: int = int(ResourceManager.current_resources.get("gold", 0))
+	assert_lte(port_royal.colonize_cost_gold, starting_gold,
+		("Port Royal's Colonize cost (%d) must be affordable from the %d-gold starting purse " +
+		"or the D58 cold-start softlock returns in a new form")
+		% [port_royal.colonize_cost_gold, starting_gold])
 
 
-func test_seeding_is_a_no_op_without_a_port_royal_island_in_the_list():
-	var tortuga := MockIsland.new("tortuga")
-	_world._seed_port_royal_as_home([tortuga])
-	assert_eq(EmpireManager.home_island_id, "",
-		"With no port_royal island present, nothing should be set")
+func test_claiming_port_royal_sets_it_as_home_with_no_special_casing():
+	# Island.gd's capture_island() is generic (test_cartagena_buildable.gd already
+	# proves this for Cartagena) — this just confirms Port Royal goes through the
+	# exact same unmodified path now that World.gd no longer force-seeds it.
+	var island: Node = load("res://scripts/world/Island.gd").new()
+	island.island_data = load("res://resources/world/PortRoyal.tres").duplicate()
+	add_child_autoqfree(island)
+
+	island.capture_island(load("res://resources/factions/PlayerFaction.tres"))
+
+	assert_eq(island.island_data.island_type, IslandData.IslandType.FRIENDLY)
+	assert_eq(EmpireManager.home_island_id, "port_royal",
+		"Claiming Port Royal must set it as home, exactly like any other island's first capture")

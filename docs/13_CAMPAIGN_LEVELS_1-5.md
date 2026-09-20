@@ -132,21 +132,31 @@ hull" line below are written against the E1 target ladder, not against current p
 
 **Gate:** new game. **Region:** Beginner Waters. **Target:** 25–40 min.
 
-## Cold start — resolved
+## Cold start — resolved (redesigned)
 
-`ResourceManager` starts the player on **200 gold**; `IslandMenu`'s colonize button costs
-**1000**; and `EmpireManager.home_island_id` is only ever set by `Island.gd:124` on a successful
-capture. A new player therefore cannot own *any* island, has no production, and must grind 800
-gold from combat before the game's central verb becomes available.
+`ResourceManager` starts the player on **200 gold**; `IslandMenu`'s colonize button used to cost
+a flat **1000** for every island; and `EmpireManager.home_island_id` is only ever set by
+`Island.capture_island()` on a successful capture. A new player therefore could not own *any*
+island, had no production, and would have to grind 800 gold from combat before the game's
+central verb became available.
 
-**Resolution:** a new game **starts with Port Royal already owned and set as home.**
-`island_type` becomes `CAPITAL`, `owner_faction` is `PlayerFaction.tres`, and
-`EmpireManager.home_island_id = "port_royal"` is seeded on new-game.
+**Original resolution (superseded):** a new game started with Port Royal force-owned
+(`World._seed_port_royal_as_home()`), `island_type` seeded to `CAPITAL`.
 
-Story-justified: it is a drowned ruin that three empires wrote off. Nobody is charging for it.
-The 1000-gold colonise cost still applies to every *additional* island, so the mechanic keeps
-its teeth from Chapter 2 onward — and this matches Clash of Clans, where you never have to earn
-the right to have a base.
+**Current resolution:** Port Royal is no longer pre-owned. It stays `NEUTRAL` and undefended —
+pirate-friendly, like Tortuga, but not the player's — and the player claims it through the same
+Colonize action every other island uses. `IslandData` now carries a **per-island**
+`colonize_cost_gold` (default 1000, still the price for every other island) rather than a
+hardcoded flat cost; Port Royal's `.tres` overrides it to **100**, reachable from the 200-gold
+starting purse. `capture_island()` was always generic (sets `FRIENDLY`, assigns
+`home_island_id` on the first capture regardless of which island) — Port Royal now goes through
+that exact same path, with no special-casing left in `World.gd`. Chapter 1 gained a new opening
+objective (1.2, "Plant your flag on the ruin," `CAPTURE_ISLAND`) ahead of the build objectives.
+
+Story-justified: it is a drowned ruin that three empires wrote off. Nobody is charging much for
+it — but the flag still has to be planted, which is now something the player *does* rather than
+wakes up owning. The full-price colonise cost still applies to every additional island (Skull
+Cove et al.), so the mechanic keeps its teeth from Chapter 2 onward.
 
 ## Opening beat — Higgins
 
@@ -164,18 +174,20 @@ the right to have a base.
 | # | Objective | `ObjectiveData.condition` | Target | Count |
 |---|---|---|---|---|
 | 1.1 | Come alongside the drowned port | `DOCK_AT_ISLAND` | `port_royal` | 1 |
-| 1.2 | Raise a distillery from the rubble | `BUILD_STRUCTURE` | `farm` | 1 |
-| 1.3 | Get the timber flowing | `BUILD_STRUCTURE` | `lumber_mill` | 1 |
-| 1.4 | Somewhere to put it all | `BUILD_STRUCTURE` | `warehouse` | 1 |
-| 1.5 | Sink whatever comes sniffing | `DESTROY_SHIPS` | `pirate_clans` | 3 |
-| 1.6 | A roof for the crew | `BUILD_STRUCTURE` | `tavern` | 1 |
-| 1.7 | Sign your first captain | `RECRUIT_CAPTAIN` | — | 1 |
-| 1.8 *(optional)* | Raise the port to tier 2 | `REACH_ISLAND_TIER` | `port_royal` | 2 |
+| 1.2 | Plant your flag on the ruin | `CAPTURE_ISLAND` | `port_royal` | 1 |
+| 1.3 | Raise a distillery from the rubble | `BUILD_STRUCTURE` | `farm` | 1 |
+| 1.4 | Get the timber flowing | `BUILD_STRUCTURE` | `lumber_mill` | 1 |
+| 1.5 | Somewhere to put it all | `BUILD_STRUCTURE` | `warehouse` | 1 |
+| 1.6 | Sink whatever comes sniffing | `DESTROY_SHIPS` | `pirate_clans` | 3 |
+| 1.7 | A roof for the crew | `BUILD_STRUCTURE` | `tavern` | 1 |
+| 1.8 | Sign your first captain | `RECRUIT_CAPTAIN` | — | 1 |
+| 1.9 *(optional)* | Raise the port to tier 2 | `REACH_ISLAND_TIER` | `port_royal` | 2 |
 
-The existing 8 `TutorialManager` steps map onto 1.1–1.7 almost exactly — sail, dock, build,
-recruit, fight, capture. **They become this chapter's data.** The one step that changes is
-`capture`: the player already owns Port Royal, so the capture beat moves to Chapter 2 where it
-is a real decision.
+The existing 8 `TutorialManager` steps map onto 1.1, 1.3–1.8 almost exactly — sail, dock, build,
+recruit, fight. **They become this chapter's data**, plus one genuinely new step: 1.2's claim,
+which didn't exist as a tutorial step because Port Royal used to be pre-owned. The capture-as-a-
+*choice* beat still belongs to Chapter 2 (Skull Cove) — 1.2 is a cheap, near-automatic claim on
+an island nobody was defending, not a real decision.
 
 ## What it teaches
 Sailing and docking · the build menu · the economy tick · that broadsides must be *aimed* ·
@@ -203,10 +215,11 @@ notoriety lands ~15–20 from the three kills and nothing else.
 *(This is the empire-naming prompt.)*
 
 ## Softlock guards
-- Objectives 1.2–1.4 cost 75/50/100 gold against a 200 start plus production and kill loot —
-  reachable even if the player never fires a shot, because 1.5's enemies come to *them*.
+- 1.2's claim costs 100 gold, and 1.3–1.5 cost 75/50/100 gold — 325 total against a 200 start
+  plus production and kill loot — reachable even if the player never fires a shot, because
+  1.6's enemies come to *them*.
 - If the player's ship is destroyed, respawn at Port Royal with a repair cost, never a loss.
-- If 1.5 stalls (no spawns), `EnemySpawner.spawn_hunter()` is called on the objective's stall
+- If 1.6 stalls (no spawns), `EnemySpawner.spawn_hunter()` is called on the objective's stall
   timer — the same escape hatch `TutorialManager._spawn_tutorial_hunter()` already uses.
 
 ---

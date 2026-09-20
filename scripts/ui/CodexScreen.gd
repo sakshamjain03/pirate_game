@@ -40,8 +40,14 @@ func _build_ui() -> void:
 	_panel = PanelContainer.new()
 	_panel.theme = PirateThemeBuilder.build()
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.position = Vector2(-390, -300)
-	_panel.size = Vector2(780, 600)
+	# On mobile, a flat 1.5x of this small PC box still reads as a narrow
+	# column surrounded by wasted space (device-test feedback 2026-09-20) —
+	# same fix as CaptainsLog/WorldMapScreen/WhatsNewScreen's panel sizing.
+	var panel_size := Vector2(780, 600)
+	if PirateThemeBuilder.is_mobile():
+		panel_size = MobileLayoutManager.mobile_dialog_size(panel_size, get_viewport())
+	_panel.position = panel_size * -0.5
+	_panel.size = panel_size
 	root.add_child(_panel)
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 12)
@@ -50,7 +56,7 @@ func _build_ui() -> void:
 	layout.add_child(header)
 	var title := Label.new()
 	title.text = tr("Codex")
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(30))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	var close_button := Button.new()
@@ -87,6 +93,12 @@ func _refresh() -> void:
 	for faction in _load_encountered_factions():
 		_add_entry(faction.faction_name, tr("Encountered through your crew and campaign progress."))
 
+	# Explicit per-label font overrides below bypass build()'s own project-
+	# wide mobile font multiplier (same reasoning as CaptainsLog's own
+	# comment on this) — sweep them the same way CaptainsLog/WhatsNewScreen
+	# already do for their own dynamically-built content.
+	PirateThemeBuilder.apply_mobile_control_scaling(_entries)
+
 
 func _add_section(text_value: String) -> void:
 	var label := Label.new()
@@ -99,11 +111,13 @@ func _add_section(text_value: String) -> void:
 func _add_entry(title_text: String, body_text: String) -> void:
 	var title := Label.new()
 	title.text = title_text
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 20)
 	_entries.add_child(title)
 	var body := Label.new()
 	body.text = body_text
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", 15)
+	body.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	_entries.add_child(body)
 	_entries.add_child(HSeparator.new())
 

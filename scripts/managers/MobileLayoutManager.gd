@@ -31,6 +31,27 @@ func mobile_scale(viewport: Viewport) -> float:
 	var safe := safe_area(viewport)
 	return minf(safe.size.x / REFERENCE_LANDSCAPE.x, safe.size.y / REFERENCE_LANDSCAPE.y)
 
+## A modal dialog's PC-authored panel size, scaled to a generous fraction of
+## the actual phone/tablet viewport instead of a flat multiplier of a small
+## desktop box — a 480x560 PC panel * PirateThemeBuilder.control_scale()
+## (1.5x) is still only ~31% of a 2340-wide landscape phone's width, reading
+## as a narrow column surrounded by wasted space with text that barely grew
+## (device-test feedback 2026-09-20). Fills a large, capped fraction of the
+## safe area at the panel's own original aspect ratio instead — CaptainsLog/
+## WorldMapScreen/WhatsNewScreen/CodexScreen's panel sizing all route through
+## this one place rather than each picking its own fraction.
+func mobile_dialog_size(pc_size: Vector2, viewport: Viewport) -> Vector2:
+	var safe := safe_area(viewport)
+	var flat_scaled := pc_size * PirateThemeBuilder.control_scale()
+	var target_width := safe.size.x * 0.75
+	var target_height := safe.size.y * 0.8
+	var aspect := pc_size.y / maxf(pc_size.x, 1.0)
+	var width := maxf(flat_scaled.x, target_width)
+	var height := maxf(flat_scaled.y, minf(width * aspect, target_height))
+	width = minf(width, safe.size.x - 32.0)
+	height = minf(height, safe.size.y - 32.0)
+	return Vector2(width, height)
+
 ## Android's own "smallest width" convention (sw600dp) for phone/tablet
 ## classification — a tablet has more physical inches per logical pixel at a
 ## typical viewing distance, so it needs bigger text but not proportionally

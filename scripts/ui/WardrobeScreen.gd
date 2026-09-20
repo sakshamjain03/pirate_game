@@ -25,6 +25,13 @@ class_name WardrobeScreen extends Control
 const _SLOTS: Array[String] = ["hull", "sails", "flag", "figurehead", "decoration"]
 ## Requirement 4.6 / `docs/18_ACCESSIBILITY.md` §6 — minimum touch target size.
 const _MIN_TOUCH_SIZE := Vector2(48, 48)
+## WardrobeScreen's panel already fills nearly the whole mobile screen
+## (unlike CaptainsLog/CodexScreen/WorldMapScreen/WhatsNewScreen, which get
+## MobileLayoutManager.mobile_dialog_size() instead) — the slot tabs sitting
+## alone atop that mostly-empty panel read as tiny, adrift labels rather than
+## deliberate controls (device-test feedback 2026-09-20), so they're sized
+## well past the bare touch-target floor instead.
+const _MOBILE_TAB_SIZE := Vector2(160, 96)
 
 var _ship_visuals: Node = null
 var _current_slot: String = ""
@@ -75,7 +82,11 @@ func _build_slot_tabs() -> void:
 		var btn := Button.new()
 		btn.name = "Slot_%s" % slot
 		btn.text = slot.capitalize()
-		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(_MIN_TOUCH_SIZE)
+		if PirateThemeBuilder.is_mobile():
+			btn.custom_minimum_size = PirateThemeBuilder.scaled_size(_MOBILE_TAB_SIZE)
+			btn.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(20))
+		else:
+			btn.custom_minimum_size = _MIN_TOUCH_SIZE
 		btn.toggle_mode = true
 		btn.pressed.connect(_select_slot.bind(slot))
 		slot_tabs.add_child(btn)

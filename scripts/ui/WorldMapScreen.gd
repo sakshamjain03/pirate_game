@@ -40,8 +40,13 @@ func _ready() -> void:
 
 
 func _apply_mobile_sizing() -> void:
-	panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
-	map_display.custom_minimum_size = PirateThemeBuilder.scaled_size(map_display.custom_minimum_size)
+	panel.custom_minimum_size = MobileLayoutManager.mobile_dialog_size(panel.custom_minimum_size, get_viewport())
+	# The map itself is the whole point of this screen — let it grow with the
+	# panel (which is now a generous fraction of the real viewport, not a
+	# flat multiple of a small PC box) rather than capping it at its own
+	# separately-scaled minimum, which previously left a large blank
+	# region inside a still-too-small panel.
+	map_display.custom_minimum_size = panel.custom_minimum_size - Vector2(64.0, 160.0)
 	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 	for btn in [view_log_button, close_button]:
 		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(140, 48))

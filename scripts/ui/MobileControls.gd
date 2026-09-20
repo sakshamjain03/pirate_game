@@ -158,8 +158,10 @@ func _apply_mobile_layout() -> void:
 	movement.scale = Vector2.ONE * float(movement_result.scale)
 	combat.position = combat_result.position
 	combat.scale = Vector2.ONE * float(combat_result.scale)
-	# Positioned below the enlarged resource/notoriety strip. This remains a
-	# 48dp-equivalent target without consuming lower-third combat space.
+	# This is a starting position only, nudged down by WorldHUD._apply_mobile_safe_area()
+	# right after it lays out top_right_panel (see the comment there) — that
+	# function, not this one, knows that panel's real on-screen bottom edge for
+	# the current device, since it positions the panel itself.
 	btn_pause.position = Vector2(safe.end.x - 108.0 * scale - 16.0, safe.position.y + 150.0 * scale)
 	btn_pause.size = Vector2(108.0 * scale, 72.0 * scale)
 
@@ -168,10 +170,14 @@ func _layout_primary_actions() -> void:
 	## The action cluster intentionally has four targets only: one contextual
 	## world action, ability, broadside, and pause. This prevents six permanent
 	## buttons from competing with moment-to-moment steering.
+	# Matches Movement's 150x150 touch targets (_create_sail_control()) — these
+	# were previously 180x120, noticeably shorter than the movement cluster's
+	# buttons, reading as visibly smaller/less important despite serving
+	# equally primary actions (device-test feedback 2026-09-20).
 	btn_captain_ability.position = Vector2(0, 136)
-	btn_captain_ability.size = Vector2(180, 120)
+	btn_captain_ability.size = Vector2(180, 150)
 	btn_special_broadside.position = Vector2(198, 136)
-	btn_special_broadside.size = Vector2(180, 120)
+	btn_special_broadside.size = Vector2(180, 150)
 	for button in [btn_pause, btn_captain_ability, btn_special_broadside]:
 		_center_button_content(button)
 
@@ -279,8 +285,12 @@ func _on_context_action_pressed() -> void:
 func _create_sail_control() -> void:
 	var sail := Button.new()
 	sail.name = "SailControl"
-	sail.custom_minimum_size = Vector2(180, 180)
-	sail.position = Vector2(180, 0)
+	# Matches BtnLeft/BtnRight's 150x150 (down from 180x180) — the three-square
+	# cluster read as oversized/heavy on a real device (device-test feedback
+	# 2026-09-20). Centred in the 180px gap between the two 180-wide arrow
+	# slots: 180 + (180-150)/2 = 195.
+	sail.custom_minimum_size = Vector2(150, 150)
+	sail.position = Vector2(195, 0)
 	# Text makes the control meaningful even if an SVG import is unavailable on
 	# a device. The old icon-only control rendered as an empty square.
 	sail.add_theme_font_size_override("font_size", 20)

@@ -54,3 +54,36 @@ func test_apply_mobile_control_scaling_is_a_noop_on_pc():
 		"The recursive scaling sweep must not touch custom_minimum_size on PC")
 	assert_eq(child.get_theme_font_size("font_size"), 18,
 		"The recursive scaling sweep must not touch a font_size override on PC")
+
+
+# 2026-09-20 phone/tablet split — a tablet has more physical inches per
+# logical pixel than a phone at typical viewing distance, so it should get
+# bigger text without proportionally bigger touch targets. control_scale()/
+# font_scale()/_min_touch_target() are the one place that picks phone vs.
+# tablet; every existing scaled_size()/scaled_font_size()/apply_button_juice()
+# call site becomes tablet-aware automatically through them.
+func test_tablet_control_scale_is_smaller_than_phone_but_font_scale_is_not():
+	PirateThemeBuilder.force_mobile_scaling_for_test = true
+	MobileLayoutManager.force_tablet_for_test = true
+
+	assert_lt(PirateThemeBuilder.control_scale(), PirateThemeBuilder.MOBILE_CONTROL_SCALE,
+		"A tablet's touch targets should not grow as much as a phone's")
+	assert_gt(PirateThemeBuilder.control_scale(), 1.0,
+		"A tablet still needs some touch-target growth over PC, just less than a phone")
+	assert_true(PirateThemeBuilder.font_scale() >= PirateThemeBuilder.MOBILE_FONT_SCALE,
+		"A tablet's text should grow at least as much as a phone's, even though its buttons grow less")
+
+	MobileLayoutManager.force_tablet_for_test = false
+	PirateThemeBuilder.force_mobile_scaling_for_test = false
+
+
+func test_phone_scaling_is_unchanged_when_tablet_is_not_forced():
+	PirateThemeBuilder.force_mobile_scaling_for_test = true
+	MobileLayoutManager.force_tablet_for_test = false
+
+	assert_eq(PirateThemeBuilder.control_scale(), PirateThemeBuilder.MOBILE_CONTROL_SCALE,
+		"Without tablet detection, control_scale() must stay the existing phone constant")
+	assert_eq(PirateThemeBuilder.font_scale(), PirateThemeBuilder.MOBILE_FONT_SCALE,
+		"Without tablet detection, font_scale() must stay the existing phone constant")
+
+	PirateThemeBuilder.force_mobile_scaling_for_test = false

@@ -111,6 +111,51 @@ func test_property_every_mobile_control_button_meets_the_minimum_touch_target():
 			"MobileControls/%s (%s) must meet the 72x72 phone touch target" % [path, rect.size])
 
 
+# Property: each bottom cluster sits just above the safe-area's true bottom
+# edge — never past it (would clip into the gesture-nav bar) and never with
+# excessive unused slack below it either. Movement/Combat/Actions previously
+# used three independently-hardcoded offsets from safe.end.y (680/580/420)
+# that only "happened" not to overlap; Movement in particular left ~300px of
+# unscaled dead space below it instead of sitting near the reachable bottom
+# edge. _apply_mobile_layout() now derives each cluster's placement from its
+# own measured content height plus one shared gap constant instead.
+func test_property_mobile_clusters_sit_just_above_the_safe_area_bottom():
+	var sizes: Array[Vector2i] = [Vector2i(2340, 1080), Vector2i(1920, 1080), Vector2i(750, 1334), Vector2i(1024, 768)]
+	for size in sizes:
+		_instantiate_mobile_hud_at_size(size)
+		await wait_seconds(0.1)
+
+		var mobile_controls = _hud.get_node("MobileControls")
+		var safe: Rect2 = MobileLayoutManager.safe_area(_hud.get_viewport())
+		var scale: float = maxf(0.55, MobileLayoutManager.mobile_scale(_hud.get_viewport()))
+		var max_slack: float = (mobile_controls._CLUSTER_EDGE_GAP + 40.0) * scale
+
+		# The cluster Control's own .size is an authored container rect left
+		# over from the old anchor-based scene layout, not the real bounding
+		# box of its (individually-positioned) children — the actual rendered
+		# bottom edge is the cluster's placed position plus its measured
+		# visible content height, which is exactly what _apply_mobile_layout()
+		# itself derives placement from.
+		for cluster_name in ["Movement", "Combat", "Actions"]:
+			var cluster: Control = mobile_controls.get_node(cluster_name)
+			var rendered_bottom: float = cluster.position.y + mobile_controls._measured_bottom(cluster) * scale
+			assert_true(rendered_bottom <= safe.end.y + 0.5,
+				"%s (rendered bottom %s) must not clip past the safe-area bottom (%s) at viewport size %s" %
+					[cluster_name, rendered_bottom, safe.end.y, size])
+			# Combat is deliberately stacked above Actions (and its fire-port/
+			# starboard buttons are hidden by default), not anchored to
+			# safe.end.y directly, so "no excess slack below the safe edge"
+			# only applies to the two clusters actually anchored to it.
+			if cluster_name != "Combat":
+				assert_true(rendered_bottom >= safe.end.y - max_slack,
+					"%s (rendered bottom %s) should sit close to the reachable bottom edge (%s), not float with excess slack, at viewport size %s" %
+						[cluster_name, rendered_bottom, safe.end.y, size])
+
+		_viewport.queue_free()
+		_viewport = null
+		_hud = null
+
+
 func test_mobile_hud_keeps_only_persistent_controls_and_one_context_action():
 	_instantiate_mobile_hud_at_size(Vector2i(2340, 1080))
 	await wait_seconds(0.1)

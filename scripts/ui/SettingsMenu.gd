@@ -349,6 +349,18 @@ func _add_mobile_controls() -> void:
 		settings_manager.mobile_advanced_combat_controls = enabled
 		settings_manager.save_settings())
 	controls_vbox.add_child(advanced_fire)
+
+	# Only meaningful with a live HUD to edit — Settings is always its own
+	# scene (never an overlay on World.tscn), so "would going back return to
+	# gameplay" is the only signal available; see SceneManager.
+	# get_previous_scene_path()'s own comment for why.
+	if SceneManager.get_previous_scene_path() == "res://scenes/world/World.tscn":
+		var customize := Button.new()
+		customize.text = tr("Customize HUD Layout")
+		customize.pressed.connect(func():
+			settings_manager.pending_hud_customize_request = true
+			SceneManager.go_back())
+		controls_vbox.add_child(customize)
 	controls_vbox.add_child(HSeparator.new())
 
 

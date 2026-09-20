@@ -17,6 +17,7 @@ var _viewport: SubViewport
 var _hud
 
 func after_each():
+	PirateThemeBuilder.force_mobile_scaling_for_test = false
 	if is_instance_valid(_viewport):
 		_viewport.queue_free()
 	_viewport = null
@@ -119,6 +120,14 @@ func test_mobile_utility_controls_are_collapsed_behind_one_menu_button():
 	_instantiate_hud_at_size(Vector2i(750, 1334))
 	await wait_seconds(0.1)
 
+	# _mobile_utility_button_size() now sources its multiplier from
+	# PirateThemeBuilder.control_scale() (phone/tablet-aware) rather than a
+	# bare constant, so exercising the "touch-friendly mobile scale" this
+	# test checks for requires forcing PirateThemeBuilder's own mobile
+	# detection too, not just WorldHUD's force_mobile_utility_menu seam —
+	# on a real phone build both are driven by the same OS feature check and
+	# never diverge.
+	PirateThemeBuilder.force_mobile_scaling_for_test = true
 	_hud.force_mobile_utility_menu = true
 	await _hud._rebuild_utility_controls()
 	await wait_seconds(0.1)

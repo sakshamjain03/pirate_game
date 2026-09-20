@@ -42,8 +42,33 @@ const COLOR_GREEN_HEALTH := Color(0.22,  0.7,   0.27,  1.0)
 ## appropriate sizing, not one shared size.
 const MOBILE_FONT_SCALE := 1.45
 
+## Tablet tier — a tablet has more physical inches per logical pixel at a
+## typical viewing distance than a phone, so text should grow further while
+## touch targets should NOT grow proportionally (a finger isn't bigger on a
+## bigger screen). See MobileLayoutManager.is_tablet() for device-class
+## detection; control_scale()/font_scale()/_min_touch_target() below are the
+## single place that picks phone vs. tablet, so every existing call site
+## (scaled_size(), scaled_font_size(), apply_button_juice(), etc.) becomes
+## tablet-aware automatically with no changes of its own.
+const TABLET_CONTROL_SCALE := 1.15
+const TABLET_FONT_SCALE := 1.6
+const TABLET_MIN_TOUCH_TARGET := Vector2(56, 56)
+
+static func control_scale() -> float:
+	if not is_mobile():
+		return 1.0
+	return TABLET_CONTROL_SCALE if MobileLayoutManager.is_tablet() else MOBILE_CONTROL_SCALE
+
+static func font_scale() -> float:
+	if not is_mobile():
+		return 1.0
+	return TABLET_FONT_SCALE if MobileLayoutManager.is_tablet() else MOBILE_FONT_SCALE
+
+static func _min_touch_target() -> Vector2:
+	return TABLET_MIN_TOUCH_TARGET if MobileLayoutManager.is_tablet() else MOBILE_MIN_TOUCH_TARGET
+
 static func _font_scale() -> float:
-	return 1.0 if OS.has_feature("pc") else MOBILE_FONT_SCALE
+	return font_scale()
 
 
 ## M13 Task 16.5 follow-up #2 (2026-09-20) — the first mobile-sizing pass only
@@ -71,10 +96,10 @@ static func is_mobile() -> bool:
 	return force_mobile_scaling_for_test or not OS.has_feature("pc")
 
 static func scaled_size(pc_size: Vector2) -> Vector2:
-	return pc_size if not is_mobile() else pc_size * MOBILE_CONTROL_SCALE
+	return pc_size if not is_mobile() else pc_size * control_scale()
 
 static func scaled(value: float) -> float:
-	return value if not is_mobile() else value * MOBILE_CONTROL_SCALE
+	return value if not is_mobile() else value * control_scale()
 
 ## Several dialog screens set an explicit theme_override_font_sizes/font_size
 ## per-Label/Button, which bypasses build()'s own MOBILE_FONT_SCALE entirely —
@@ -82,7 +107,7 @@ static func scaled(value: float) -> float:
 ## already-device-verified font ratio (not MOBILE_CONTROL_SCALE) so dialog
 ## text scales the same amount project text already does.
 static func scaled_font_size(pc_size: int) -> int:
-	return pc_size if not is_mobile() else roundi(pc_size * MOBILE_FONT_SCALE)
+	return pc_size if not is_mobile() else roundi(pc_size * font_scale())
 
 
 ## For screens that build their interactive content at runtime rather than
@@ -248,9 +273,10 @@ static func _make_panel_stylebox(bg: Color, border: Color, border_w: float, radi
 static func apply_button_juice(root: Node) -> void:
 	if is_mobile() and root is BaseButton:
 		var target := root as BaseButton
+		var min_target := _min_touch_target()
 		target.custom_minimum_size = Vector2(
-			maxf(target.custom_minimum_size.x, MOBILE_MIN_TOUCH_TARGET.x),
-			maxf(target.custom_minimum_size.y, MOBILE_MIN_TOUCH_TARGET.y))
+			maxf(target.custom_minimum_size.x, min_target.x),
+			maxf(target.custom_minimum_size.y, min_target.y))
 	if root is Button:
 		var already_juiced := false
 		for child in root.get_children():

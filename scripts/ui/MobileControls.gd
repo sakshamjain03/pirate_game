@@ -102,6 +102,26 @@ func _ready() -> void:
 	_bind_ship_context()
 
 
+## Gap kept between a cluster's true rendered bottom edge and the reference
+## edge below it (the safe-area bottom, or the next cluster stacked on it).
+## One number, reused everywhere a cluster is placed — not one hardcoded
+## offset per cluster that can silently drift apart (see CLAUDE.md's
+## documented "two independently hardcoded pixel offsets" failure mode).
+## Combat/Actions/Movement previously used three unrelated safe.end.y offsets
+## (420/580/680) that only "happened" not to overlap — Movement in particular
+## sat ~300px of unscaled slack above the reachable bottom edge for no reason.
+const _CLUSTER_EDGE_GAP := 24.0
+
+func _measured_bottom(cluster: Control) -> float:
+	# Local-space (unscaled) bottom edge of the lowest *visible* child — a
+	# hidden fire-port/starboard button (advanced combat controls off) must
+	# not reserve dead space in the cluster's placement.
+	var max_bottom := 0.0
+	for child in cluster.get_children():
+		if child is Control and child.visible:
+			max_bottom = maxf(max_bottom, child.position.y + child.size.y)
+	return max_bottom
+
 func _apply_mobile_layout() -> void:
 	var safe := MobileLayoutManager.safe_area(get_viewport())
 	var scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
@@ -114,15 +134,34 @@ func _apply_mobile_layout() -> void:
 	# The action cluster is on the dominant side; steering moves to the other.
 	var action_x := safe.position.x + 16.0 if left_handed else safe.end.x - action_width - 16.0
 	var movement_x := safe.end.x - movement_width - 16.0 if left_handed else safe.position.x + 16.0
-	actions.position = Vector2(action_x, safe.end.y - 420.0 * scale)
-	combat.position = Vector2(action_x, safe.end.y - 580.0 * scale)
-	movement.position = Vector2(movement_x, safe.end.y - 680.0 * scale)
+	var actions_y := safe.end.y - _CLUSTER_EDGE_GAP * scale - _measured_bottom(actions) * scale
+	var movement_y := safe.end.y - _CLUSTER_EDGE_GAP * scale - _measured_bottom(movement) * scale
+	# Stacked ON Actions' own placed position, not an independent safe.end.y
+	# budget — structurally cannot drift apart or overlap regardless of
+	# either cluster's content height.
+	var combat_y := actions_y - _CLUSTER_EDGE_GAP * scale - _measured_bottom(combat) * scale
+
+	# A player's saved drag/resize customization (Settings > Customize HUD
+	# Layout) is applied as a bounded delta on top of this clip-safe default —
+	# never a replacement of it — so a customization can never reintroduce
+	# the clipping/overlap this function exists to prevent.
+	var vp := get_viewport()
+	var actions_result := MobileLayoutManager.apply_control_override(
+		"actions", Vector2(action_x, actions_y), scale, vp, Vector2(378.0, _measured_bottom(actions)))
+	var movement_result := MobileLayoutManager.apply_control_override(
+		"movement", Vector2(movement_x, movement_y), scale, vp, Vector2(540.0, _measured_bottom(movement)))
+	var combat_result := MobileLayoutManager.apply_control_override(
+		"combat", Vector2(action_x, combat_y), scale, vp, Vector2(378.0, _measured_bottom(combat)))
+	actions.position = actions_result.position
+	actions.scale = Vector2.ONE * float(actions_result.scale)
+	movement.position = movement_result.position
+	movement.scale = Vector2.ONE * float(movement_result.scale)
+	combat.position = combat_result.position
+	combat.scale = Vector2.ONE * float(combat_result.scale)
 	# Positioned below the enlarged resource/notoriety strip. This remains a
 	# 48dp-equivalent target without consuming lower-third combat space.
 	btn_pause.position = Vector2(safe.end.x - 108.0 * scale - 16.0, safe.position.y + 150.0 * scale)
 	btn_pause.size = Vector2(108.0 * scale, 72.0 * scale)
-	for cluster in [movement, combat, actions]:
-		cluster.scale = Vector2.ONE * scale
 
 
 func _layout_primary_actions() -> void:

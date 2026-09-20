@@ -105,6 +105,18 @@ func change_scene_with_fade(path: String, duration: float = 0.4, push_to_history
 	
 	emit_signal("scene_changed", path)
 
+## Returns the path go_back() would return to, or "" if there is none. Lets a
+## scene decide "would going back return to gameplay" without reaching into
+## the history stack directly (e.g. SettingsMenu's mobile HUD customization
+## entry point, which is a full scene of its own — Settings is always
+## reached via a scene swap, never as an overlay on a live World scene, so
+## there is no in-tree HUD node to check for; the history is the only way to
+## know a live game is what "back" leads to).
+func get_previous_scene_path() -> String:
+	if _scene_history.size() < 2:
+		return ""
+	return _scene_history[_scene_history.size() - 2]
+
 func go_back() -> void:
 	if _scene_history.size() <= 1:
 		push_warning("SceneManager: History stack has no previous scene, cannot go back")

@@ -40,6 +40,10 @@ signal _dummy  # ensures signals section exists
 
 ## M17 Requirement 6.1 — one of the three permitted rewarded surfaces.
 const RewardedBonusOfferScene := preload("res://scenes/ui/RewardedBonusOffer.tscn")
+## preload rather than the bare global class name — headless GUT runs don't
+## always have a freshly rebuilt global-script-class cache (same reasoning
+## as SettingsMenu.gd's own ChoiceDialogScript constant).
+const HudCustomizeOverlayScript := preload("res://scripts/ui/HudCustomizeOverlay.gd")
 @onready var top_right_panel : VBoxContainer = %TopRightPanel
 @onready var resource_bar    : PanelContainer = %ResourceBar
 @onready var cannons_container: HBoxContainer = %CannonsContainer
@@ -119,6 +123,12 @@ func _ready() -> void:
 		if board_prompt:
 			board_prompt.hide()
 		call_deferred("_apply_mobile_safe_area")
+		# Settings > Customize HUD Layout is only meaningful with a live HUD,
+		# but Settings is always its own scene (never an overlay on
+		# World.tscn) — see SettingsManager.pending_hud_customize_request's
+		# own comment. Queued after the deferred safe-area call above so
+		# handles are built from each control's final, post-layout position.
+		call_deferred("_open_hud_customize_overlay_if_requested")
 	if tutorial_dialogue and not tutorial_dialogue.visibility_changed.is_connected(_on_tutorial_dialogue_visibility_changed):
 		tutorial_dialogue.visibility_changed.connect(_on_tutorial_dialogue_visibility_changed)
 
@@ -143,17 +153,25 @@ func _apply_mobile_safe_area() -> void:
 	var safe := MobileLayoutManager.safe_area(get_viewport())
 	var top_bar: Control = %TopBar
 	var hud_scale := 1.45
+	# A player's saved drag/resize customization (Settings > Customize HUD
+	# Layout) is applied as a bounded delta on top of each element's already-
+	# computed default position/scale — never a replacement of it.
 	if top_bar:
-		top_bar.scale = Vector2.ONE * hud_scale
-		top_bar.position = safe.position + Vector2(12, 12)
+		var result := MobileLayoutManager.apply_control_override(
+			"top_bar", safe.position + Vector2(12, 12), hud_scale, get_viewport(), top_bar.size)
+		top_bar.position = result.position
+		top_bar.scale = Vector2.ONE * float(result.scale)
 	if top_right_panel:
 		# The resource/notoriety cluster was authored at desktop reading size.
 		# Scale it as one compact unit so the icon, amount, and panel spacing keep
 		# their relationship instead of producing a row of tiny phone text.
-		top_right_panel.scale = Vector2.ONE * hud_scale
-		top_right_panel.position = Vector2(
+		var base_position := Vector2(
 			safe.end.x - top_right_panel.size.x * hud_scale - 12.0,
 			safe.position.y + 12.0)
+		var result := MobileLayoutManager.apply_control_override(
+			"top_right_panel", base_position, hud_scale, get_viewport(), top_right_panel.size)
+		top_right_panel.position = result.position
+		top_right_panel.scale = Vector2.ONE * float(result.scale)
 	if health_container:
 		# Hull health is always visible but no longer competes with steering in
 		# the lower-left corner. A single centred readout avoids the duplicate
@@ -203,6 +221,20 @@ func _check_offline_return() -> void:
 		SaveManager._pending_offline_ticks = 0
 		announce_event(tr("While you were away: your empire kept running (%d ticks)") % ticks)
 		_offer_offline_income_bonus()
+
+
+func _open_hud_customize_overlay_if_requested() -> void:
+	## Consumed the same way SaveManager._pending_offline_ticks is above —
+	## SettingsMenu's "Customize HUD Layout" button sets this then calls
+	## SceneManager.go_back(), which reloads World.tscn (Settings is always
+	## its own scene, never an overlay), landing back here on the next
+	## WorldHUD._ready().
+	if not SettingsManager.pending_hud_customize_request:
+		return
+	SettingsManager.pending_hud_customize_request = false
+	var overlay: Control = HudCustomizeOverlayScript.new()
+	add_child(overlay)
+	overlay.open(self)
 
 
 ## M17 Requirement 6.1/6.5 — the offline-return rewarded surface. The
@@ -366,7 +398,7 @@ func _mobile_utility_button_size() -> Vector2:
 	## HUD utility actions need the same device-pixel allowance as the rest of
 	## the phone UI. This is intentionally separate from the PC 70x32 utility
 	## buttons, which remain mouse-sized and are never used on a phone build.
-	return HUD_BUTTON_SIZE_MOBILE * PirateThemeBuilder.MOBILE_CONTROL_SCALE
+	return HUD_BUTTON_SIZE_MOBILE * PirateThemeBuilder.control_scale()
 
 
 func _create_utility_controls() -> void:

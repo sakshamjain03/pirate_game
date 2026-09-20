@@ -70,6 +70,23 @@ var graphics_quality: int = DEFAULT_GRAPHICS_QUALITY
 var mobile_left_handed: bool = DEFAULT_MOBILE_LEFT_HANDED
 var haptics_enabled: bool = DEFAULT_HAPTICS_ENABLED
 var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
+## Per-control HUD layout customization (drag to move/resize on mobile).
+## Keyed by control id (e.g. "movement", "top_bar"); each entry is
+## {"position": Vector2, "scale_mult": float}, where "position" is a delta
+## from the computed default in reference-scale units — see
+## MobileLayoutManager.apply_control_override(). An empty dict is both the
+## default and the fully-reset state.
+var mobile_control_overrides: Dictionary = {}
+
+## Transient handoff flag, not persisted (mirrors SaveManager._pending_offline_ticks'
+## pattern) — "Customize HUD Layout" is only meaningful with a live HUD on
+## screen, but SettingsMenu is always reached via a full scene swap (never an
+## overlay on World.tscn), so there is no live HUD node to open the editor on
+## directly. Set here, then SceneManager.go_back() returns to World.tscn,
+## which reloads and calls SaveManager.load_game() as it always does; WorldHUD.
+## _ready() checks and consumes this flag the same way it already checks
+## SaveManager._pending_offline_ticks after a fresh load.
+var pending_hud_customize_request: bool = false
 
 var _settings_path: String = "user://settings.cfg"
 
@@ -167,6 +184,8 @@ func load_settings() -> void:
 	haptics_enabled = _haptics if typeof(_haptics) == TYPE_BOOL else DEFAULT_HAPTICS_ENABLED
 	var _advanced_combat = config.get_value("mobile", "advanced_combat_controls", DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS)
 	mobile_advanced_combat_controls = _advanced_combat if typeof(_advanced_combat) == TYPE_BOOL else DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
+	var _overrides = config.get_value("mobile", "control_overrides", {})
+	mobile_control_overrides = _overrides if typeof(_overrides) == TYPE_DICTIONARY else {}
 
 	if apply_input_bindings_on_load:
 		load_input_bindings(config)
@@ -195,6 +214,7 @@ func save_settings() -> void:
 	config.set_value("mobile", "left_handed", mobile_left_handed)
 	config.set_value("mobile", "haptics_enabled", haptics_enabled)
 	config.set_value("mobile", "advanced_combat_controls", mobile_advanced_combat_controls)
+	config.set_value("mobile", "control_overrides", mobile_control_overrides)
 
 	# Write input bindings under the "input" section. Only actions that actually
 	# carry key events are written — persisting an empty array would read back
@@ -274,3 +294,4 @@ func _apply_defaults() -> void:
 	mobile_left_handed = DEFAULT_MOBILE_LEFT_HANDED
 	haptics_enabled = DEFAULT_HAPTICS_ENABLED
 	mobile_advanced_combat_controls = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
+	mobile_control_overrides = {}

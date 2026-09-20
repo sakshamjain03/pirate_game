@@ -165,6 +165,51 @@ func has_any_target() -> bool:
 		or is_aligned(SIDE_BOW) or is_aligned(SIDE_STERN)
 
 
+func get_alignment_preview(side: String) -> Dictionary:
+	## Read-only HUD helper (docs/navalCombat.md §5.2 — alignment must be legible
+	## *before* the guns fire, not only after). Reports how far the nearest hostile
+	## on this broadside is from a lock even when it doesn't yet pass the arc/range
+	## gate `_rescan()` requires. Never writes to `_targets`; cannot affect auto-fire.
+	var result := {"found": false, "angle_off_deg": 180.0, "in_range": false, "aligned": false}
+	if not _ship or not is_instance_valid(_ship) or not ship_stats:
+		return result
+
+	var broadside_range := get_range()
+	var broadside_arc := get_arc_degrees()
+	var best_dist_sq := INF
+
+	for candidate in _gather_candidates():
+		if not is_instance_valid(candidate) or candidate == _ship:
+			continue
+		if not are_hostile(_ship, candidate):
+			continue
+		var dmg = candidate.get_node_or_null("ShipDamage")
+		if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
+			continue
+
+		var to_target: Vector3 = candidate.global_position - _ship.global_position
+		var flat := Vector3(to_target.x, 0.0, to_target.z)
+		var dist_sq := flat.length_squared()
+		if dist_sq < 0.01:
+			continue
+		var dir := flat.normalized()
+		if side_for_direction(dir) != side:
+			continue
+
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			var angle := get_broadside_angle(dir)
+			var in_range: bool = broadside_range > 0.0 and dist_sq <= broadside_range * broadside_range
+			result = {
+				"found": true,
+				"angle_off_deg": angle,
+				"in_range": in_range,
+				"aligned": in_range and angle <= broadside_arc,
+			}
+
+	return result
+
+
 func force_rescan() -> void:
 	## Lets a caller get a fresh solution without waiting out retarget_interval —
 	## used by the player-triggered special volley so it never fires blind.

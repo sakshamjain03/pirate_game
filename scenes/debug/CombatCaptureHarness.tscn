@@ -1,0 +1,15 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/world/World.tscn" id="1_world"]
+[ext_resource type="Script" path="res://scripts/debug/ScreenshotCapture.gd" id="2_capture"]
+[ext_resource type="Script" path="res://scripts/debug/DebugEnemySpawner.gd" id="3_spawner"]
+
+[node name="CombatCaptureHarness" type="Node"]
+
+[node name="World" parent="." instance=ExtResource("1_world")]
+
+[node name="ScreenshotCapture" type="Node" parent="."]
+script = ExtResource("2_capture")
+
+[node name="DebugEnemySpawner" type="Node" parent="."]
+script = ExtResource("3_spawner")

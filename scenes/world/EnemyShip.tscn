@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ShipController.gd" id="1_ship"]
 [ext_resource type="Script" path="res://scripts/world/ShipMovement.gd" id="2_mov"]
@@ -9,7 +9,6 @@
 [ext_resource type="Script" path="res://scripts/combat/EnemyAI.gd" id="10_ai"]
 [ext_resource type="Script" path="res://scripts/world/ShipDamage.gd" id="12_damage"]
 [ext_resource type="Script" path="res://scripts/combat/FiringSolver.gd" id="20_solver"]
-[ext_resource type="PackedScene" path="res://scenes/ui/EnemyHealthBar.tscn" id="11_ehb"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/StandardEnemy.tres" id="13_prof"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_hull"]
@@ -101,6 +100,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 4.3)
 
 [node name="WakeSpawnPoint" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 4.8)
-
-[node name="EnemyHealthBar" parent="." instance=ExtResource("11_ehb")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.0, 0)

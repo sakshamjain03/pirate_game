@@ -6,8 +6,6 @@ class_name ShipController extends RigidBody3D
 ##   notoriety — +5 if the destroyed ship's faction is_empire, else +1 (M4).
 ## Dependencies: ShipMovement, BuoyancySimulator, ShipVisuals (children), EmpireManager
 
-const EnemyHealthBarScene := preload("res://scenes/ui/EnemyHealthBar.tscn")
-
 signal ship_speed_changed(speed: float)
 signal ship_health_changed(current: float, maximum: float)
 signal ship_destroyed()
@@ -71,24 +69,11 @@ func _ready() -> void:
 	if combat:
 		combat.health_changed.connect(_on_health_changed)
 		combat.died.connect(_on_died)
-	_ensure_enemy_health_bar()
-		
+
 	if is_in_group("player_ship") and TechManager:
 		TechManager.tech_recalculated.connect(_apply_tech_modifiers)
 
 	_apply_ship_stats()
-
-
-func _ensure_enemy_health_bar() -> void:
-	## Standard enemies already author a bar in their scene, while boss scenes
-	## share ShipController but historically omitted it. Creating only the
-	## missing instance keeps both paths identical without duplicating scenes.
-	if not is_in_group("enemy_ship") or get_node_or_null("EnemyHealthBar"):
-		return
-	var health_bar := EnemyHealthBarScene.instantiate()
-	health_bar.name = "EnemyHealthBar"
-	health_bar.position = Vector3(0.0, 6.0, 0.0)
-	add_child(health_bar)
 
 
 func _apply_recoil(is_port: bool) -> void:

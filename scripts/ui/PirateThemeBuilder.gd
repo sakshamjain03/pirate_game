@@ -75,7 +75,7 @@ static func _font_scale() -> float:
 ## touched MobileControls/WorldHUD's button row/MainMenu; 14 other screens
 ## (PauseMenu, SettingsMenu, WorldMapScreen, WardrobeScreen, IslandMenu,
 ## CaptainsLog, DeathScreen, RaidReportScreen, TutorialDialogue,
-## WhatsNewScreen, PurchaseSupportScreen, StoreScreen, EnemyHealthBar,
+## WhatsNewScreen, PurchaseSupportScreen, StoreScreen,
 ## CreditsScreen, FloatingDamage) still render at PC-tuned pixel sizes on
 ## phone. Rather than hand-tuning a bespoke PC/mobile Vector2 pair per screen
 ## (as WorldHUD.gd's HUD_BUTTON_SIZE_PC/MOBILE did — fine for 1-2 screens, not

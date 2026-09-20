@@ -20,6 +20,12 @@ signal _dummy  # ensures signals section exists
 @onready var health_right    : Label        = %HealthRightLabel
 @onready var port_label      : Label        = %PortCooldown
 @onready var stbd_label      : Label        = %StarboardCooldown
+@onready var port_alignment_label: Label    = %PortAlignment
+@onready var stbd_alignment_label: Label    = %StarboardAlignment
+@onready var port_header_label    : Label   = %PortHeader
+@onready var stbd_header_label    : Label   = %StbdHeader
+@onready var mobile_controls: Node = get_node_or_null("MobileControls")
+@onready var enemy_health_bars_layer: Control = %EnemyHealthBars
 @onready var dock_prompt     : PanelContainer = %DockPrompt
 @onready var board_prompt    : PanelContainer = %BoardPrompt
 @onready var compass_needle  : Control      = %CompassNeedle
@@ -44,6 +50,11 @@ const RewardedBonusOfferScene := preload("res://scenes/ui/RewardedBonusOffer.tsc
 ## always have a freshly rebuilt global-script-class cache (same reasoning
 ## as SettingsMenu.gd's own ChoiceDialogScript constant).
 const HudCustomizeOverlayScript := preload("res://scripts/ui/HudCustomizeOverlay.gd")
+const EnemyHealthBarWidgetScene := preload("res://scenes/ui/EnemyHealthBarWidget.tscn")
+## Presentation-only cutoff for the enemy health bar overlay — not a combat
+## balance value, so a plain constant is fine (AGENTS.md's no-hardcoded-
+## gameplay-values rule targets balance data, not UI legibility knobs).
+const ENEMY_BAR_DISPLAY_RANGE := 150.0
 @onready var top_right_panel : VBoxContainer = %TopRightPanel
 @onready var resource_bar    : PanelContainer = %ResourceBar
 @onready var cannons_container: HBoxContainer = %CannonsContainer
@@ -63,6 +74,9 @@ static func _hud_button_min_size() -> Vector2:
 @export var force_mobile_utility_menu: bool = false
 
 var _ship_controller: ShipController
+## Cached once the player ship is found — sibling of ShipCombat under the
+## ship, same lookup ShipCombat._get_solver() uses internally.
+var _firing_solver: FiringSolver
 # M11 — lazily cached; looked up once found since EnvironmentController is a
 # scene node that may not exist yet the first few frames HUD is active.
 var _environment_controller: Node = null
@@ -84,6 +98,11 @@ var _objective_label: Label
 var _objective_card: PanelContainer
 var _ability_label: Label
 var _last_reported_health: float = -1.0
+
+## Screen-space enemy health bars (item 2 of the 2026-09-21 combat-clarity
+## fix) — pooled per ship instance ID so a widget persists across frames
+## rather than being torn down and rebuilt each tick.
+var _enemy_bar_pool: Dictionary = {}
 
 func _ready() -> void:
 	# Island.gd (capture announcements) and EncounterManager (encounter/boss
@@ -116,6 +135,12 @@ func _ready() -> void:
 		get_viewport().size_changed.connect(_apply_mobile_safe_area)
 		# Auto-fire makes side-fire buttons and their cooldown readout redundant
 		# on a phone. The compact controls retain the special broadside instead.
+		# CannonsContainer itself must stay hidden on mobile — a real Galaxy A35
+		# device test previously found this exact bottom-center container
+		# burying MobileControls' Actions cluster (test_mobile_controls_layout.gd);
+		# its arc/range/alignment readout is instead mirrored onto MobileControls'
+		# own (already safe-area-checked) Actions cluster below, via
+		# _update_alignment_previews() -> MobileControls.update_alignment_caption().
 		if cannons_container:
 			cannons_container.hide()
 		if dock_prompt:
@@ -320,11 +345,14 @@ func _find_ship() -> void:
 		ship.sail_level_changed.connect(_on_sail_level_changed)
 		ship.anchor_dropped.connect(_on_anchor_dropped)
 		ship.anchor_raised.connect(_on_anchor_raised)
+		ship.ship_stats_changed.connect(_update_cannon_header_captions)
 		_on_sail_level_changed(ship.sail_level, ship.ship_stats.sail_levels if ship.ship_stats else 3)
 		if ship.combat and ship.combat.has_signal("fired"):
 			ship.combat.fired.connect(_on_cannon_fired)
 		if ship.combat and ship.combat.has_signal("arc_lock_changed"):
 			ship.combat.arc_lock_changed.connect(_on_arc_lock_changed)
+		_firing_solver = ship.get_node_or_null("FiringSolver") as FiringSolver
+		_update_cannon_header_captions()
 		var captain_ability: Node = ship.get_node_or_null("CaptainAbility")
 		if captain_ability and captain_ability.has_signal("ability_ready"):
 			captain_ability.ability_ready.connect(func(): HapticFeedbackManager.ready())
@@ -874,6 +902,114 @@ func _update_cannon_cooldown_display(side: String, total: float, start_ms: int) 
 	var pct = clamp(elapsed / total, 0.0, 1.0)
 	set_cannon_cooldown(side, pct >= 1.0, pct)
 
+## docs/navalCombat.md §5.2 — the static half of the arc/range readout;
+## rarely changes mid-fight (only via tech/upgrades), so it's refreshed on
+## ship_stats_changed rather than every frame like _update_alignment_previews().
+func _update_cannon_header_captions() -> void:
+	if not _firing_solver:
+		return
+	var caption := " · %d° / %dm" % [int(_firing_solver.get_arc_degrees()), int(_firing_solver.get_range())]
+	if port_header_label:
+		port_header_label.text = tr("PORT CANNONS") + caption
+	if stbd_header_label:
+		stbd_header_label.text = tr("STARBOARD CANNONS") + caption
+
+## docs/navalCombat.md §5.2 — alignment must be legible *before* the guns
+## fire. set_cannon_cooldown()'s "ON TARGET" text already owns the locked
+## state; this only fills the gap before a lock exists, so a side that's
+## already locked hides its own label rather than showing stale info.
+func _update_alignment_previews() -> void:
+	var port_preview := _get_alignment_preview_safe(FiringSolver.SIDE_PORT)
+	var stbd_preview := _get_alignment_preview_safe(FiringSolver.SIDE_STARBOARD)
+	var port_locked: bool = _arc_locked.get("port", false)
+	var stbd_locked: bool = _arc_locked.get("starboard", false)
+	_apply_alignment_label(port_alignment_label, port_preview, port_locked)
+	_apply_alignment_label(stbd_alignment_label, stbd_preview, stbd_locked)
+	# CannonsContainer (this readout's desktop home) must stay hidden on
+	# mobile — see the CannonsContainer.hide() comment above — so the same
+	# preview data is mirrored onto MobileControls' own Actions cluster,
+	# which already has safe-area-checked room for it.
+	if mobile_controls and mobile_controls.has_method("update_alignment_caption"):
+		mobile_controls.update_alignment_caption(port_preview, stbd_preview, port_locked, stbd_locked)
+
+func _get_alignment_preview_safe(side: String) -> Dictionary:
+	if not _firing_solver:
+		return {"found": false, "angle_off_deg": 180.0, "in_range": false, "aligned": false}
+	return _firing_solver.get_alignment_preview(side)
+
+func _apply_alignment_label(label: Label, preview: Dictionary, locked: bool) -> void:
+	if not label:
+		return
+	if locked:
+		label.visible = false
+		return
+	label.visible = true
+	if not preview.get("found", false):
+		label.text = tr("NO TARGET")
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+	elif not preview.get("in_range", false):
+		label.text = tr("OUT OF RANGE")
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+	else:
+		var angle: float = preview.get("angle_off_deg", 180.0)
+		label.text = tr("%d° TO ALIGN") % int(ceil(angle))
+		var arc: float = maxf(_firing_solver.get_arc_degrees(), 0.01) if _firing_solver else 35.0
+		var warmth: float = clampf(1.0 - angle / arc, 0.0, 1.0)
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65).lerp(Color(1.0, 0.84, 0.2), warmth))
+
+## Replaces the old per-ship Label3D (EnemyHealthBar.gd) that only appeared
+## once an enemy had taken damage and had no occlusion handling — a
+## CanvasLayer overlay draws over the 3D viewport unconditionally, and this
+## is the only way to literally reuse the player's own ProgressBar/Theme
+## styling rather than approximating it with 3D billboard text.
+func _update_enemy_health_bars() -> void:
+	if not enemy_health_bars_layer:
+		return
+	var camera := get_viewport().get_camera_3d()
+	var alive_ids: Dictionary = {}
+	for ship in get_tree().get_nodes_in_group("enemy_ship"):
+		if not (ship is Node3D) or not is_instance_valid(ship):
+			continue
+		var id := ship.get_instance_id()
+		alive_ids[id] = true
+		var widget: Control = _enemy_bar_pool.get(id)
+		if not widget:
+			widget = EnemyHealthBarWidgetScene.instantiate()
+			enemy_health_bars_layer.add_child(widget)
+			widget.size = widget.custom_minimum_size
+			widget.bind(ship)
+			_enemy_bar_pool[id] = widget
+		_position_enemy_health_bar(widget, ship, camera)
+
+	for id in _enemy_bar_pool.keys():
+		if not alive_ids.has(id):
+			var stale: Control = _enemy_bar_pool[id]
+			if is_instance_valid(stale):
+				stale.queue_free()
+			_enemy_bar_pool.erase(id)
+
+func _position_enemy_health_bar(widget: Control, ship: Node3D, camera: Camera3D) -> void:
+	# A sinking wreck keeps its ShipDamage/ShipCombat around during the sink
+	# animation (ShipController._on_died() queue_free()s it a couple seconds
+	# later) — the widget already hid itself on the `died` signal, so leave
+	# it hidden rather than re-showing it every frame until it's actually gone.
+	var dmg := ship.get_node_or_null("ShipDamage")
+	if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
+		return
+	if not camera:
+		widget.visible = false
+		return
+	var world_pos: Vector3 = ship.global_position + Vector3(0.0, 6.0, 0.0)
+	if camera.is_position_behind(world_pos):
+		widget.visible = false
+		return
+	if not _ship_controller or ship.global_position.distance_to(_ship_controller.global_position) > ENEMY_BAR_DISPLAY_RANGE:
+		widget.visible = false
+		return
+	widget.visible = true
+	var screen_pos: Vector2 = camera.unproject_position(world_pos)
+	widget.position = screen_pos - widget.size * 0.5
+
 func _on_ship_destroyed() -> void:
 	if death_screen and _ship_controller:
 		death_screen.open(_ship_controller)
@@ -887,6 +1023,8 @@ func _on_health_changed(current: float, maximum: float) -> void:
 func _process(_delta: float) -> void:
 	_update_cannon_cooldown_display("port", _port_cooldown_total, _port_cooldown_start_ms)
 	_update_cannon_cooldown_display("starboard", _stbd_cooldown_total, _stbd_cooldown_start_ms)
+	_update_alignment_previews()
+	_update_enemy_health_bars()
 	_update_special_broadside_display()
 	_update_captain_ability_display()
 	_check_objective_stall(_delta)

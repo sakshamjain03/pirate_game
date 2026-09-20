@@ -2485,3 +2485,94 @@ against `BowMarker`'s authored position, never seen rendered), the new mobile bu
 real touch screen, and gamepad LB/RB responsiveness for `set_sail`/`anchor`. `sail_level_speed`
 scaling is currently linear (`sail_level / sail_levels`), not an authored non-linear curve — a
 possible follow-up if a hull needs a different power curve than a straight ramp.
+
+## Combat clarity fix: cannonballs self-colliding, invisible health bars (2026-09-21)
+
+Player-reported: health bars unclear/invisible, no visible firing-arc/range control, and
+**fighting wasn't actually destroying ships.** The last one turned out to be a real, severe,
+previously-undiscovered defect, not a balance or perception issue — recorded here as this doc's
+established defect-table entries (D1-D73 above) would have, since no D-number is currently in
+active use past D73.
+
+**New defect: every cannonball self-destructed on its own muzzle flash, before ever reaching a
+target.** `ShipCombat._spawn_cannonball()` set `ball.global_transform = marker.global_transform`,
+but every authored `PortMarker`/`StarboardMarker`/`BowMarker`/`SternMarker` across all 3 ship
+scenes (`PlayerShip.tscn`, `EnemyShip.tscn`, `BossShip.tscn`) sits ~0.2-0.25 units *inside* that
+same ship's own hull `BoxShape3D` (the marker was placed at the model's visible muzzle, which sits
+inside the larger simplified hull collision box used for physics — e.g. `StarboardMarker1`'s local
+`x=2.05` against a hull half-width of `2.3`). A ball spawned there starts already overlapping
+`source_ship`. `Cannonball._on_body_entered()` correctly skips damage on `body == source_ship`, but
+also unconditionally `queue_free()`s the ball right there — a fix from earlier in the project's
+history (comment: "leaving the ball alive without freeing it meant it kept physically colliding
+with (and shoving) the firer for its full lifetime") that, combined with this marker geometry,
+meant **every single shot from every ship, every time, died before leaving its own hull.** No
+existing test caught this: `tests/test_ship_combat.gd` calls `take_damage()`/`apply_hit()`
+directly; `tests/test_combat_integration.gd` and `tests/test_combat_loop_end_to_end.gd` only
+asserted the `fired` signal (the shot leaving the gun) or used direct `apply_hit()`/
+`mark_destroyed()` calls — nothing exercised a real `Cannonball` RigidBody3D's own physics
+collision until this pass added it. Confirmed via a temporary diagnostic (`body_entered`'s `body`
+was `source_ship` on frame 1, every volley, both ships, 100% reproducible) before the fix, and via
+two new tests plus a live headful capture after.
+
+**Fixed.** `ShipCombat._spawn_cannonball()` now pushes the spawn point outward along the already-
+resolved firing direction (after any ammo spread rotation) by a new `CANNONBALL_SPAWN_CLEARANCE =
+1.0` before setting velocity — clear of every current hull's overlap margin plus the ball's own
+0.3 radius, with room to spare. Deliberately fixed at the spawn-offset level, not by moving marker
+geometry across three hand-authored, fragile scene files (see this doc's own D-numbered history of
+marker-position regressions). New coverage in `tests/test_combat_integration.gd`:
+`test_a_real_cannonball_collision_actually_damages_the_target` (a real ball's own flight/collision
+must reduce hull) and `test_a_real_cannonball_collision_can_kill_the_target` (...and must reach
+`ShipCombat.died` through the real collision path, not just a direct `apply_hit()` call). Live
+headful capture (`scenes/debug/CombatCaptureHarness.tscn`, temporary debug harness, same convention
+as `CaptureHarness.tscn` — delete once no longer needed) confirmed a real fight: player hull
+dropped 100→89 from actual incoming fire within the first second.
+
+**Enemy health bar replaced.** `scripts/ui/EnemyHealthBar.gd`/`scenes/ui/EnemyHealthBar.tscn` (a
+`Label3D` billboard, ASCII `■`/`□` segments, `visible = current < maximum` — invisible until the
+target had already been damaged, and prone to 3D occlusion) are deleted. Replaced by
+`scripts/ui/EnemyHealthBarWidget.gd`/`scenes/ui/EnemyHealthBarWidget.tscn`, a small themed
+`ProgressBar` + labels — visually consistent with the player's own `WorldHUD` hull bar rather than
+approximating it with text. `WorldHUD._update_enemy_health_bars()` pools one widget per
+`enemy_ship`-group member under a new full-rect `%EnemyHealthBars` `CanvasLayer` overlay,
+positioning each via `Camera3D.unproject_position()`/`is_position_behind()` every frame (hidden
+past `ENEMY_BAR_DISPLAY_RANGE = 150.0`, a presentation-only constant, or behind the camera) — a
+`CanvasLayer` draws over the 3D viewport unconditionally, which structurally removes the old
+occlusion problem rather than trading it for `no_depth_test`'s "draws through everything in front
+of it" regression. Always visible once bound, no damage-gate. `ShipController._ensure_enemy_health_bar()`
+and its `EnemyHealthBarScene` preload (the old per-boss injection path) are gone — both standard and
+boss enemies already share the `enemy_ship` group, so the group-driven overlay covers both with no
+special-casing. `tests/test_enemy_health_bar.gd` rewritten against the new widget (visible before
+damage, tracks `health_changed`, hides on `died`) rather than deleted, so the suite's test count
+didn't drop.
+
+**Firing-arc/range HUD indicator (closes the `docs/navalCombat.md` §5.2 gap this doc's own combat
+section didn't previously flag).** `FiringSolver.get_alignment_preview(side)` is a new, read-only,
+additive method — reuses `_gather_candidates()`/`are_hostile()`, never touches `_targets`/`_rescan()`
+— reporting the nearest hostile's angle-off/range/alignment on a side even when it doesn't yet pass
+the gate `_rescan()` requires. `WorldHUD.gd` shows this continuously per side (`"NO TARGET"` /
+`"OUT OF RANGE"` / `"N° TO ALIGN"`, warming toward gold as angle closes) in `CannonsContainer`,
+additive to the existing post-lock `"ON TARGET ✹"` text, plus a one-time static `"PORT CANNONS ·
+35°/85m"`-style caption. **`CannonsContainer` itself must stay hidden on mobile** — a real Galaxy
+A35 device test previously found this exact container burying `MobileControls`' Actions cluster
+(`tests/test_mobile_controls_layout.gd`) — so the same preview data is mirrored onto
+`MobileControls`' own Actions cluster instead, via a new `update_alignment_caption()` call each
+frame, landing in a new row below the existing Ability/Broadside captions (folds into
+`_measured_bottom()`'s existing cluster-stacking math automatically, per this doc's D-number
+history of hardcoded-offset drift in that exact file).
+
+**Player hull-bar contrast.** `WorldHUD.tscn`'s `HealthLeftLabel`/`HealthRightLabel` gained a black
+`font_outline_color`/`outline_size = 6` (matching the outline the old `EnemyHealthBar.tscn` and
+`WorldHUD.announce_event()` already used for this exact contrast problem) — the "HULL 100/100" text
+had near-zero contrast against the green fill at mobile scale (visible in the player's own bug
+report screenshot).
+
+**Known gaps, disclosed rather than assumed.** The mobile-specific alignment caption row was
+verified via the existing GUT mobile-layout property tests (no new overlap, no touch-target
+regression) and code review, but not against a real device screenshot — same standing caveat this
+doc already carries for other mobile-only UI in the entries above. Separately, and *not* part of
+this fix: the live capture surfaced a pre-existing, previously-invisible data quirk — an ambient
+enemy displayed `"120/100"` (current hull exceeding its own reported max). The old `Label3D` bar
+silently `clampf()`-ed this to a full 100% bar with no indication; the new widget shows the true
+numbers. Likely a difficulty/role-scaling path (see `AIProfileData.role`/`tests/test_enemy_roles.gd`
+above) boosting current hull without a matching `ShipDamage.get_effective_max_health()` term —
+undiagnosed, flagged here as a follow-up rather than guessed at.

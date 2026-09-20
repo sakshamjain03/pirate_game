@@ -27,6 +27,20 @@ func set_ammo(ammo: AmmoData) -> void:
 	current_ammo = ammo
 
 var cannonball_scene: PackedScene = preload("res://scenes/combat/Cannonball.tscn")
+## Every authored cannon marker (broadside and chaser, all 3 ship scenes) sits
+## ~0.2-0.25 units INSIDE its own ship's hull BoxShape3D, not outside it — the
+## marker was placed at the model's visible muzzle, which sits inside the
+## larger simplified hull collision box used for physics. A ball spawned
+## exactly at the marker therefore starts already overlapping its own
+## source_ship, which `Cannonball._on_body_entered()` correctly ignores for
+## damage but still queue_free()s on any touch with source_ship (added to stop
+## a ball that never separates from continuously shoving the firer for its
+## full 5s lifetime) — so every shot died on its own muzzle flash before ever
+## leaving, on every ship, every time. This pushes the true spawn point (and
+## the ball's velocity, computed just before use below) outward along the
+## already-resolved firing direction, clear of the hull, instead of moving
+## marker geometry across three fragile, hand-authored scenes.
+const CANNONBALL_SPAWN_CLEARANCE := 1.0
 var floating_damage_scene: PackedScene = preload("res://scenes/ui/FloatingDamage.tscn")
 var cannon_model_scene: PackedScene = preload("res://assets/models/cannon.glb")
 
@@ -420,6 +434,10 @@ func _spawn_cannonball(marker: Node3D, side: String) -> void:
 			var spread_rad = deg_to_rad(ammo_data.spread_degrees)
 			var angle = randf_range(-spread_rad * 0.5, spread_rad * 0.5)
 			forward = forward.rotated(Vector3.UP, angle)
+
+		# See CANNONBALL_SPAWN_CLEARANCE above — must happen after any spread
+		# rotation, so the push is along the ball's actual travel direction.
+		ball.global_position += forward * CANNONBALL_SPAWN_CLEARANCE
 
 		# Also inherit ship's velocity if possible
 		var base_vel = Vector3.ZERO

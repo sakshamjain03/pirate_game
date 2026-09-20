@@ -123,6 +123,43 @@ func test_a_real_player_ship_auto_fires_on_a_real_enemy_in_its_arc():
 		"...from the side that actually bears")
 
 
+func test_a_real_cannonball_collision_actually_damages_the_target():
+	## test_ship_combat.gd only proves take_damage() reduces hull when called
+	## directly, and the auto-fire tests above only prove the `fired` signal
+	## emits (the ball leaving the gun) — nothing proved a real Cannonball's
+	## own RigidBody3D physics collision (Cannonball._on_body_entered) ever
+	## reaches ShipDamage.apply_hit() in actual flight. Waits long enough for
+	## a real flight (~0.7 s, see FALL_TIME above) plus impact.
+	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
+	var enemy = _spawn(ENEMY_SHIP, Vector3(45, 0, 0))
+
+	var enemy_dmg = enemy.get_node("ShipDamage")
+	var hull_before: float = enemy_dmg.hull
+
+	await wait_seconds(1.5)
+
+	assert_lt(enemy_dmg.hull, hull_before,
+		"A real cannonball fired by the player must actually reduce the target's hull through its own physics collision, not just emit a `fired` signal")
+
+
+func test_a_real_cannonball_collision_can_kill_the_target():
+	## Same gap as above, one step further: a hull that reaches 0 via a real
+	## collision (not a direct take_damage()/apply_hit() call) must still
+	## trigger the ShipDamage.destroyed -> ShipCombat.died kill path.
+	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
+	var enemy = _spawn(ENEMY_SHIP, Vector3(45, 0, 0))
+
+	var enemy_combat = enemy.get_node("ShipCombat")
+	var enemy_dmg = enemy.get_node("ShipDamage")
+	enemy_dmg.hull = 5.0
+	watch_signals(enemy_combat)
+
+	await wait_seconds(1.5)
+
+	assert_signal_emitted(enemy_combat, "died",
+		"A real cannonball impact must trigger the kill path, not just reduce hull")
+
+
 func test_a_real_player_ship_does_not_auto_fire_at_a_bow_on_enemy():
 	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
 	_spawn(ENEMY_SHIP, Vector3(0, 0, -45))

@@ -14,4 +14,4 @@ cost_iron = 9000
 produces_resource = ""
 production_amount = 0
 production_interval = 0.0
-model_path = "res://assets/models/tower-complete-large.glb"
+model_path = "res://assets/models/pirate-fortress.glb"

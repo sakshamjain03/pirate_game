@@ -45,6 +45,9 @@ const DEFAULT_HAPTICS_ENABLED: bool = true
 ## Auto-fire remains the phone default; this opt-in restores the two manual
 ## broadside buttons for players who explicitly prefer direct firing.
 const DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS: bool = false
+## On-screen left/right buttons remain the phone default; this opt-in hides
+## them and steers from phone tilt instead (InputManager.get_movement_vector()).
+const DEFAULT_MOBILE_TILT_STEERING_ENABLED: bool = false
 
 ## The gameplay actions the player may rebind. Single source of truth — this
 ## list was previously duplicated verbatim in both save_settings() and
@@ -70,6 +73,7 @@ var graphics_quality: int = DEFAULT_GRAPHICS_QUALITY
 var mobile_left_handed: bool = DEFAULT_MOBILE_LEFT_HANDED
 var haptics_enabled: bool = DEFAULT_HAPTICS_ENABLED
 var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
+var mobile_tilt_steering_enabled: bool = DEFAULT_MOBILE_TILT_STEERING_ENABLED
 ## Per-control HUD layout customization (drag to move/resize on mobile).
 ## Keyed by control id (e.g. "movement", "top_bar"); each entry is
 ## {"position": Vector2, "scale_mult": float}, where "position" is a delta
@@ -184,6 +188,8 @@ func load_settings() -> void:
 	haptics_enabled = _haptics if typeof(_haptics) == TYPE_BOOL else DEFAULT_HAPTICS_ENABLED
 	var _advanced_combat = config.get_value("mobile", "advanced_combat_controls", DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS)
 	mobile_advanced_combat_controls = _advanced_combat if typeof(_advanced_combat) == TYPE_BOOL else DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
+	var _tilt_steering = config.get_value("mobile", "tilt_steering_enabled", DEFAULT_MOBILE_TILT_STEERING_ENABLED)
+	mobile_tilt_steering_enabled = _tilt_steering if typeof(_tilt_steering) == TYPE_BOOL else DEFAULT_MOBILE_TILT_STEERING_ENABLED
 	var _overrides = config.get_value("mobile", "control_overrides", {})
 	mobile_control_overrides = _overrides if typeof(_overrides) == TYPE_DICTIONARY else {}
 
@@ -214,6 +220,7 @@ func save_settings() -> void:
 	config.set_value("mobile", "left_handed", mobile_left_handed)
 	config.set_value("mobile", "haptics_enabled", haptics_enabled)
 	config.set_value("mobile", "advanced_combat_controls", mobile_advanced_combat_controls)
+	config.set_value("mobile", "tilt_steering_enabled", mobile_tilt_steering_enabled)
 	config.set_value("mobile", "control_overrides", mobile_control_overrides)
 
 	# Write input bindings under the "input" section. Only actions that actually
@@ -294,4 +301,5 @@ func _apply_defaults() -> void:
 	mobile_left_handed = DEFAULT_MOBILE_LEFT_HANDED
 	haptics_enabled = DEFAULT_HAPTICS_ENABLED
 	mobile_advanced_combat_controls = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
+	mobile_tilt_steering_enabled = DEFAULT_MOBILE_TILT_STEERING_ENABLED
 	mobile_control_overrides = {}

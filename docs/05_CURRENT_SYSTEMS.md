@@ -2459,6 +2459,26 @@ flat-white 128×128 SVGs matching the existing icon set's style, since no sail/a
 reuse. Mobile-only per the pre-existing `OS.has_feature("pc")` visibility gate; PC gets the same
 mechanic through the keybinds above.
 
+**Tilt-to-steer (2026-09-21).** New opt-in mobile setting, `SettingsManager.mobile_tilt_steering_enabled`
+(default off, "Tilt to Steer" toggle in Settings > Mobile Controls, same shape as
+`mobile_advanced_combat_controls`). When on, `MobileControls._apply_tilt_steering()` hides
+`BtnLeft`/`BtnRight` (reactively, via `SettingsManager.settings_changed`, same pattern as
+`_apply_advanced_combat_controls`) and `InputManager.get_movement_vector()` reads the phone's
+accelerometer instead of the `ship_left`/`ship_right` action strengths for the turn axis —
+everything downstream (`WorldManager` → `ShipController.set_input()` → `ShipMovement`'s yaw servo)
+is unchanged, since that axis was already an analog `-1.0..1.0` float, not a boolean. Calibration:
+`InputManager.recalibrate_tilt()` captures the current accelerometer reading as "neutral," called
+once when the setting transitions off→on (`apply_settings()`) and once every time `WorldManager`
+enters the World scene (`_ready()`), so turning is always relative to however the player is
+currently holding the phone, not an assumed dead-level orientation. The scaling/dead-zone math
+(`InputManager._tilt_delta_to_turn()`, `TILT_FULL_TURN_ACCEL`/`TILT_DEAD_ZONE_ACCEL`) is a pure
+function, unit-tested headlessly (`tests/test_input_properties.gd`); the raw sensor read
+(`_read_tilt_raw_accel()`, currently `Input.get_accelerometer().y`) is isolated to one line but
+**unverified on a real device** — this environment has no accelerometer to confirm the axis/sign
+is actually left/right roll for this project's landscape mobile layout, or that the default
+sensitivity feels right. Flip that one line (try `-accelerometer.y`, then `.x`) if tilt steering
+turns out backwards or unresponsive on device.
+
 **Known gaps, disclosed rather than assumed.** Not verifiable headlessly, per this doc's standing
 policy on visual/manual checks: the anchor prop's placement/scale relative to each hull (eyeballed
 against `BowMarker`'s authored position, never seen rendered), the new mobile button layout on a

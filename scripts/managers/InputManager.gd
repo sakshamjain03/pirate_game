@@ -33,6 +33,14 @@ var sensitivity: float = 1.0
 var dead_zone: float = 0.2
 var active_input_method: String = "keyboard" # keyboard, gamepad, touch
 
+## Tilt-to-steer (mobile). Deviation from the calibrated neutral tilt, in the
+## same m/s^2 units Input.get_accelerometer() reports, needed to reach a full
+## +-1.0 turn / to be treated as intentional rather than jitter.
+const TILT_FULL_TURN_ACCEL := 4.0
+const TILT_DEAD_ZONE_ACCEL := 0.6
+var _tilt_baseline_accel: float = 0.0
+var _tilt_steering_was_enabled: bool = false
+
 func _ready() -> void:
 	# Promoted to an autoload in M7 (D57) — rebinding is reachable from the main
 	# menu, where no World scene and so no scene-local InputManager exists.
@@ -43,6 +51,13 @@ func _ready() -> void:
 func apply_settings() -> void:
 	sensitivity = SettingsManager.input_sensitivity
 	set_dead_zone(SettingsManager.input_dead_zone)
+	# Recalibrate the instant tilt steering is switched on, so whatever angle
+	# the player is holding the phone at right now becomes "neutral" instead
+	# of forcing them to hold it dead level.
+	var tilt_enabled := bool(SettingsManager.mobile_tilt_steering_enabled)
+	if tilt_enabled and not _tilt_steering_was_enabled:
+		recalibrate_tilt()
+	_tilt_steering_was_enabled = tilt_enabled
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(ACTION_DOCK):
@@ -84,8 +99,27 @@ func get_movement_vector() -> Vector2:
 	## drives forward thrust instead; see WorldManager._process()).
 	var v = Vector2.ZERO
 	v.y = Input.get_action_strength(ACTION_SAIL_LEVEL_UP) - Input.get_action_strength(ACTION_SAIL_LEVEL_DOWN)
-	v.x = Input.get_action_strength(ACTION_SHIP_RIGHT) - Input.get_action_strength(ACTION_SHIP_LEFT)
+	if SettingsManager.mobile_tilt_steering_enabled:
+		v.x = _tilt_delta_to_turn(_read_tilt_raw_accel() - _tilt_baseline_accel)
+	else:
+		v.x = Input.get_action_strength(ACTION_SHIP_RIGHT) - Input.get_action_strength(ACTION_SHIP_LEFT)
 	return v
+
+func _read_tilt_raw_accel() -> float:
+	## Best-guess axis for this project's landscape mobile layout — raw sensor
+	## axes are tied to the device's natural (portrait) orientation, not the
+	## current screen rotation, so this is unverified until tested on a real
+	## Android device. If tilt steering is backwards or unresponsive on
+	## device, this is the one line to flip (try -accelerometer.y, then .x).
+	return Input.get_accelerometer().y
+
+func _tilt_delta_to_turn(delta_accel: float) -> float:
+	if absf(delta_accel) < TILT_DEAD_ZONE_ACCEL:
+		return 0.0
+	return clampf(delta_accel / TILT_FULL_TURN_ACCEL, -1.0, 1.0)
+
+func recalibrate_tilt() -> void:
+	_tilt_baseline_accel = _read_tilt_raw_accel()
 
 func set_sensitivity(val: float) -> void:
 	sensitivity = val

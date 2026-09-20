@@ -163,5 +163,30 @@ func test_property_25_keyboard_input_precision():
 		
 		if not passed:
 			break
-			
+
 	assert_true(passed, "Keyboard input must be precise and correspond directly to key press")
+
+# Tilt-to-steer: _tilt_delta_to_turn() is the pure scaling/clamping/dead-zone
+# logic behind phone-tilt steering — the only part of that feature testable
+# without a real accelerometer.
+func test_tilt_delta_to_turn_dead_zone():
+	assert_eq(im._tilt_delta_to_turn(0.0), 0.0, "No tilt must produce no turn")
+	assert_eq(im._tilt_delta_to_turn(0.3), 0.0, "Small jitter within the dead zone must be ignored")
+	assert_eq(im._tilt_delta_to_turn(-0.3), 0.0, "Small jitter within the dead zone must be ignored (negative)")
+
+func test_tilt_delta_to_turn_scaling():
+	assert_almost_eq(im._tilt_delta_to_turn(2.0), 0.5, 0.001, "Half of full-turn accel must yield half turn")
+	assert_almost_eq(im._tilt_delta_to_turn(-2.0), -0.5, 0.001, "Half of full-turn accel must yield half turn (negative)")
+
+func test_tilt_delta_to_turn_clamping():
+	assert_eq(im._tilt_delta_to_turn(4.0), 1.0, "Full-turn accel must yield a max +1.0 turn")
+	assert_eq(im._tilt_delta_to_turn(40.0), 1.0, "Extreme tilt must clamp to +1.0, not overshoot")
+	assert_eq(im._tilt_delta_to_turn(-40.0), -1.0, "Extreme tilt must clamp to -1.0, not overshoot")
+
+func test_recalibrate_tilt_zeroes_baseline_against_current_reading():
+	# Headless/no-sensor environments report a zero accelerometer, so the
+	# baseline this captures is 0.0 here — the point of this test is only
+	# that recalibrate_tilt() actually reads and stores _read_tilt_raw_accel(),
+	# not any particular device-reported value.
+	im.recalibrate_tilt()
+	assert_eq(im._tilt_baseline_accel, im._read_tilt_raw_accel(), "Recalibrating must zero the baseline against the current tilt reading")

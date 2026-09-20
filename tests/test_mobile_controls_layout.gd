@@ -216,3 +216,31 @@ func test_mobile_hud_keeps_only_persistent_controls_and_one_context_action():
 		"Boarding must take priority over docking when both are available.")
 	mobile_controls.set_board_available(false)
 	assert_eq(context_action.text, "Dock")
+
+
+# Property: tilt-to-steer (Settings > Mobile Controls) hides BtnLeft/BtnRight
+# while active and restores them when turned back off, reactively via the
+# same SettingsManager.settings_changed pattern _apply_advanced_combat_controls
+# already uses. Mutates the real SettingsManager autoload directly (not via
+# save_settings(), which would touch the real settings.cfg) and always
+# restores the default (off) before returning.
+func test_tilt_steering_setting_hides_and_restores_left_right_buttons():
+	_instantiate_mobile_hud_at_size(Vector2i(2340, 1080))
+	await wait_seconds(0.1)
+
+	var mobile_controls = _hud.get_node("MobileControls")
+	var btn_left: Button = mobile_controls.get_node("Movement/BtnLeft")
+	var btn_right: Button = mobile_controls.get_node("Movement/BtnRight")
+
+	assert_true(btn_left.visible, "BtnLeft must be visible by default (tilt steering off)")
+	assert_true(btn_right.visible, "BtnRight must be visible by default (tilt steering off)")
+
+	SettingsManager.mobile_tilt_steering_enabled = true
+	mobile_controls._apply_tilt_steering()
+	assert_false(btn_left.visible, "Enabling tilt steering must hide BtnLeft")
+	assert_false(btn_right.visible, "Enabling tilt steering must hide BtnRight")
+
+	SettingsManager.mobile_tilt_steering_enabled = false
+	mobile_controls._apply_tilt_steering()
+	assert_true(btn_left.visible, "Disabling tilt steering must restore BtnLeft")
+	assert_true(btn_right.visible, "Disabling tilt steering must restore BtnRight")

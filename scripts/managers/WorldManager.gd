@@ -42,6 +42,11 @@ func _ready() -> void:
 	# from the main menu, where no World scene — and so no scene-local
 	# InputManager — exists.
 	_input_manager = InputManager
+	# Re-zero tilt steering against however the player is actually holding the
+	# phone right now, at the moment gameplay starts — not just whatever angle
+	# they happened to be holding it at when they flipped the Settings toggle.
+	# A no-op read when the setting is off.
+	_input_manager.recalibrate_tilt()
 	_camera_rig = get_node_or_null("../../CameraRig")
 	if AudioManager: AudioManager.play_music("in_world")
 

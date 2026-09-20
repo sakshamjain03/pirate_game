@@ -223,3 +223,22 @@ func test_graphics_quality_round_trips():
 
 func test_graphics_quality_defaults_when_absent():
 	assert_eq(sm.graphics_quality, SettingsManagerClass.DEFAULT_GRAPHICS_QUALITY)
+
+# Tilt-to-steer opt-in: mobile_tilt_steering_enabled round-trips like every
+# other mobile boolean setting (mirrors mobile_advanced_combat_controls).
+func test_mobile_tilt_steering_enabled_round_trips():
+	for enabled in [true, false]:
+		sm.mobile_tilt_steering_enabled = enabled
+		sm.save_settings()
+
+		var sm2 = TestableSettingsManager.new()
+		sm2._settings_path = temp_cfg_path
+		sm2.audio_manager = mock_am
+		add_child(sm2)
+		sm2.load_settings()
+
+		assert_eq(sm2.mobile_tilt_steering_enabled, enabled, "mobile_tilt_steering_enabled must round-trip through save/load")
+		sm2.queue_free()
+
+func test_mobile_tilt_steering_enabled_defaults_when_absent():
+	assert_eq(sm.mobile_tilt_steering_enabled, SettingsManagerClass.DEFAULT_MOBILE_TILT_STEERING_ENABLED)

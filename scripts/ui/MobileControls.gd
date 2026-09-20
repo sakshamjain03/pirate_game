@@ -37,6 +37,8 @@ var _board_available := false
 var _context_action_name := ""
 var _advanced_buttons_wired := false
 var _sail_control: Button
+var _port_alignment_label: Label
+var _stbd_alignment_label: Label
 
 func _uses_mobile_layout() -> bool:
 	return force_mobile_layout_for_test or not OS.has_feature("pc")
@@ -76,6 +78,9 @@ func _ready() -> void:
 	# Positioning and automatic broadside are the default phone combat model.
 	# Manual side-fire is a deliberate accessibility/preference opt-in.
 	_apply_advanced_combat_controls()
+	# On-screen steering is the default; tilt-to-steer is an opt-in that hides
+	# the left/right buttons in favor of phone tilt (InputManager).
+	_apply_tilt_steering()
 	# Pause is a global utility, not a combat action. Pull it out of the lower
 	# action cluster so it is compact and consistently reachable at top-right.
 	btn_pause.reparent(self)
@@ -99,6 +104,7 @@ func _ready() -> void:
 	_setup_button(btn_special_broadside, "special_broadside")
 	if SettingsManager.has_signal("settings_changed"):
 		SettingsManager.settings_changed.connect(_apply_advanced_combat_controls)
+		SettingsManager.settings_changed.connect(_apply_tilt_steering)
 	_bind_ship_context()
 
 
@@ -188,6 +194,57 @@ func _create_action_captions() -> void:
 	## purpose legible without changing the icon buttons themselves.
 	_create_caption_label(tr("Ability"), btn_captain_ability.position.x, btn_captain_ability.size.x)
 	_create_caption_label(tr("Broadside"), btn_special_broadside.position.x, btn_special_broadside.size.x)
+	_create_alignment_status_row()
+
+
+func _create_alignment_status_row() -> void:
+	## docs/navalCombat.md §5.2 — the pre-lock firing-arc/alignment feedback
+	## WorldHUD shows on desktop via CannonsContainer. That container must
+	## stay hidden on mobile (a real device test found it burying this very
+	## cluster — see test_mobile_controls_layout.gd), so this mirrors the same
+	## data as its own row here instead of attaching it to the Ability/
+	## Broadside buttons above, which it has nothing to do with. Added below
+	## the existing captions so _measured_bottom() folds its height into the
+	## cluster-stacking math the rest of this file already relies on.
+	var row_y: float = btn_captain_ability.position.y + btn_captain_ability.size.y + 4.0 + 28.0 + 6.0
+	_port_alignment_label = Label.new()
+	_port_alignment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_port_alignment_label.position = Vector2(btn_captain_ability.position.x, row_y)
+	_port_alignment_label.size = Vector2(btn_captain_ability.size.x, 24.0)
+	_port_alignment_label.add_theme_font_size_override("font_size", 13)
+	_port_alignment_label.text = tr("PORT: NO TARGET")
+	$Actions.add_child(_port_alignment_label)
+
+	_stbd_alignment_label = Label.new()
+	_stbd_alignment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_stbd_alignment_label.position = Vector2(btn_special_broadside.position.x, row_y)
+	_stbd_alignment_label.size = Vector2(btn_special_broadside.size.x, 24.0)
+	_stbd_alignment_label.add_theme_font_size_override("font_size", 13)
+	_stbd_alignment_label.text = tr("STARBOARD: NO TARGET")
+	$Actions.add_child(_stbd_alignment_label)
+
+
+func update_alignment_caption(port_preview: Dictionary, stbd_preview: Dictionary, port_locked: bool, stbd_locked: bool) -> void:
+	_apply_alignment_caption(_port_alignment_label, tr("PORT"), port_preview, port_locked)
+	_apply_alignment_caption(_stbd_alignment_label, tr("STARBOARD"), stbd_preview, stbd_locked)
+
+
+func _apply_alignment_caption(label: Label, side_name: String, preview: Dictionary, locked: bool) -> void:
+	if not label:
+		return
+	if locked:
+		label.text = "%s: ON TARGET" % side_name
+		label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.25))
+	elif not preview.get("found", false):
+		label.text = "%s: NO TARGET" % side_name
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+	elif not preview.get("in_range", false):
+		label.text = "%s: OUT OF RANGE" % side_name
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+	else:
+		var angle: float = preview.get("angle_off_deg", 180.0)
+		label.text = "%s: %d°" % [side_name, int(ceil(angle))]
+		label.add_theme_color_override("font_color", Color(0.95, 0.75, 0.25))
 
 
 func _create_caption_label(caption: String, x: float, width: float) -> void:
@@ -208,6 +265,15 @@ func _apply_advanced_combat_controls() -> void:
 		_setup_button(btn_fire_port, "fire_port")
 		_setup_button(btn_fire_star, "fire_starboard")
 		_advanced_buttons_wired = true
+
+
+func _apply_tilt_steering() -> void:
+	## Tilt-to-steer opt-in (Settings > Mobile Controls) hides the on-screen
+	## left/right buttons in favor of phone tilt — InputManager.get_movement_vector()
+	## reads the accelerometer instead of these actions' strength while it's on.
+	var enabled := bool(SettingsManager.mobile_tilt_steering_enabled)
+	btn_left.visible = not enabled
+	btn_right.visible = not enabled
 
 
 func _create_context_action() -> void:

@@ -367,6 +367,13 @@ func _add_mobile_controls(card: VBoxContainer) -> void:
 		settings_manager.mobile_advanced_combat_controls = enabled
 		settings_manager.save_settings())
 	card.add_child(advanced_fire)
+	var tilt_steer := CheckButton.new()
+	tilt_steer.text = tr("Tilt to Steer")
+	tilt_steer.button_pressed = settings_manager.mobile_tilt_steering_enabled
+	tilt_steer.toggled.connect(func(enabled: bool):
+		settings_manager.mobile_tilt_steering_enabled = enabled
+		settings_manager.save_settings())
+	card.add_child(tilt_steer)
 
 	# Only meaningful with a live HUD to edit — Settings is always its own
 	# scene (never an overlay on World.tscn), so "would going back return to

@@ -14,4 +14,4 @@ cost_gold = 75
 cost_wood = 150
 produces_resource = "gold"
 production_amount = 9
-model_path = "res://assets/models/castle-door.glb"
+model_path = "res://assets/models/tavern.glb"

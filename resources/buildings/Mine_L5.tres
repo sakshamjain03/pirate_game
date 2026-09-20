@@ -13,4 +13,4 @@ cost_wood = 360
 produces_resource = "iron"
 production_amount = 18
 production_interval = 15.0
-model_path = "res://assets/models/tower-base.glb"
+model_path = "res://assets/models/iron-mine.glb"

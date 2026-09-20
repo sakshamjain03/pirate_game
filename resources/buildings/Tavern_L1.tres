@@ -11,4 +11,4 @@ description = "Boosts crew morale, generating extra Gold."
 next_upgrade = ExtResource("1_8l23r")
 cost_wood = 100
 produces_resource = "gold"
-model_path = "res://assets/models/castle-door.glb"
+model_path = "res://assets/models/tavern.glb"

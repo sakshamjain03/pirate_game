@@ -22,4 +22,4 @@ cost_iron = 80
 produces_resource = ""
 production_amount = 0
 production_interval = 0.0
-model_path = "res://assets/models/tower-complete-small.glb"
+model_path = "res://assets/models/dockside-warehouse.glb"

@@ -52,8 +52,9 @@ const DEFAULT_MOBILE_TILT_STEERING_ENABLED: bool = false
 ## as left/right roll — device/orientation-dependent and unverifiable from
 ## this environment (no accelerometer here), so it's a player-facing escape
 ## hatch rather than a second hardcoded guess: 0=y, 1=-y, 2=x, 3=-x (see
-## InputManager.TiltAxis).
-const DEFAULT_MOBILE_TILT_AXIS: int = 0
+## InputManager.TiltAxis). 1 (-y) confirmed correct on a real device
+## 2026-09-24 — plain accelerometer.y (0) turned the ship the wrong way.
+const DEFAULT_MOBILE_TILT_AXIS: int = 1
 ## Player-selectable body/UI font (2026-09-24), read by PirateThemeBuilder.build().
 ## 0: Default (Cinzel — the readable choice dense HUD text needed), 1: Pirate
 ## (PirataOne, the original blackletter-style face), 2: Times New Roman (an

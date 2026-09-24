@@ -379,10 +379,10 @@ func _add_mobile_controls(card: VBoxContainer) -> void:
 	# guess, the player picks it directly. Only meaningful (and only shown)
 	# while tilt steering itself is on.
 	var tilt_axis := OptionButton.new()
-	tilt_axis.add_item(tr("Default"), 0)
-	tilt_axis.add_item(tr("Inverted"), 1)
-	tilt_axis.add_item(tr("Alt Axis"), 2)
-	tilt_axis.add_item(tr("Alt Axis (Inverted)"), 3)
+	tilt_axis.add_item(tr("Y Axis"), 0)
+	tilt_axis.add_item(tr("Y Axis (Inverted)"), 1)
+	tilt_axis.add_item(tr("X Axis"), 2)
+	tilt_axis.add_item(tr("X Axis (Inverted)"), 3)
 	tilt_axis.select(clampi(settings_manager.mobile_tilt_axis, 0, 3))
 	tilt_axis.tooltip_text = tr("Try the other options if tilt steering feels backwards, or doesn't respond in one direction.")
 	tilt_axis.visible = settings_manager.mobile_tilt_steering_enabled

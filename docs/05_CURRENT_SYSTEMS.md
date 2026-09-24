@@ -2522,14 +2522,16 @@ axis selection (`InputManager._select_tilt_axis()`) are both pure functions, uni
 (`tests/test_input_properties.gd`); only the actual hardware read
 (`_read_tilt_raw_accel()` → `Input.get_accelerometer()`) is untestable here. Which raw component is
 actually left/right roll is device/orientation-dependent — a phone's accelerometer reports in its
-natural (portrait) frame regardless of this project's locked landscape rotation — and **unverified
-on a real device**: this environment has no accelerometer to confirm it, and a user report
-(2026-09-24) found the original hardcoded `accelerometer.y` guess turned right but never left, a
-symptom consistent with the wrong raw component being read for this project's actual orientation.
-Rather than swap in a second unverified guess, the axis is now `SettingsManager.mobile_tilt_axis`
-(0=y, 1=-y, 2=x, 3=-x — the same four candidates the old code comment listed), with a "Tilt Axis"
-`OptionButton` in Settings (visible only while tilt steering is on) so the player can correct it
-on-device in a few taps, no rebuild required, if the default still isn't right for their phone.
+natural (portrait) frame regardless of this project's locked landscape rotation — so rather than
+swap in a second unverified guess, the axis is `SettingsManager.mobile_tilt_axis` (0=y, 1=-y, 2=x,
+3=-x, `InputManager.TiltAxis`), with a "Tilt Axis" `OptionButton` in Settings (visible only while
+tilt steering is on) so the player can correct it on-device in a few taps, no rebuild required.
+Real-device testing (2026-09-24) confirmed two things in sequence: the original hardcoded
+`accelerometer.y` (axis 0) turned right but never left — a symptom of the action-routing bug fixed
+the same day, not the axis itself — and once that was fixed, axis 0 turned out to be a clean
+left/right *reversal* (tilt left → ship turns right), corrected by switching the default to axis 1
+(`-accelerometer.y`), confirmed working both directions on-device. `DEFAULT_MOBILE_TILT_AXIS` is
+now `1`.
 
 **Known gaps, disclosed rather than assumed.** Not verifiable headlessly, per this doc's standing
 policy on visual/manual checks: the anchor prop's placement/scale relative to each hull (eyeballed

@@ -290,6 +290,7 @@ func _populate_controls() -> void:
 	_add_section_header(controls_vbox, tr("Display"))
 	var display_card := _add_section_card(controls_vbox)
 	_add_graphics_quality_control(display_card)
+	_add_ui_font_control(display_card)
 
 	_add_section_header(controls_vbox, tr("Key Bindings"))
 	var bindings_card := _add_section_card(controls_vbox)
@@ -406,6 +407,33 @@ func _add_graphics_quality_control(card: VBoxContainer) -> void:
 	option.item_selected.connect(func(index: int):
 		settings_manager.graphics_quality = index
 		settings_manager.save_settings())
+	hbox.add_child(option)
+
+	card.add_child(hbox)
+
+
+func _add_ui_font_control(card: VBoxContainer) -> void:
+	## 2026-09-24 — player-selectable body/UI font. Default (Cinzel) is what
+	## PirateThemeBuilder.build() now uses project-wide after PirataOne was
+	## found illegible for dense HUD numeric text at small sizes; kept here as
+	## opt-in choices for players who want the original pirate blackletter
+	## look, or their own OS Times New Roman. See PirateThemeBuilder._load_body_font().
+	var hbox := HBoxContainer.new()
+	var label := _make_row_label(tr("UI Font"))
+	label.custom_minimum_size.x = 200
+	hbox.add_child(label)
+
+	var option := OptionButton.new()
+	option.add_item(tr("Default"), 0)
+	option.add_item(tr("Pirate"), 1)
+	option.add_item(tr("Times New Roman"), 2)
+	option.select(settings_manager.ui_font)
+	option.item_selected.connect(func(index: int):
+		settings_manager.ui_font = index
+		settings_manager.save_settings()
+		# Immediate preview on this same screen, not just on next screen load —
+		# the whole point of this control is to let the player see the choice.
+		root_control.theme = PirateThemeBuilder.build())
 	hbox.add_child(option)
 
 	card.add_child(hbox)

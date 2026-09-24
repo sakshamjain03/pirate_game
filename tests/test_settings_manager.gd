@@ -242,3 +242,21 @@ func test_mobile_tilt_steering_enabled_round_trips():
 
 func test_mobile_tilt_steering_enabled_defaults_when_absent():
 	assert_eq(sm.mobile_tilt_steering_enabled, SettingsManagerClass.DEFAULT_MOBILE_TILT_STEERING_ENABLED)
+
+# Player-selectable UI font (2026-09-24): ui_font round-trips like graphics_quality.
+func test_ui_font_round_trips():
+	for choice in [0, 1, 2]:
+		sm.ui_font = choice
+		sm.save_settings()
+
+		var sm2 = TestableSettingsManager.new()
+		sm2._settings_path = temp_cfg_path
+		sm2.audio_manager = mock_am
+		add_child(sm2)
+		sm2.load_settings()
+
+		assert_eq(sm2.ui_font, choice, "ui_font must round-trip through save/load")
+		sm2.queue_free()
+
+func test_ui_font_defaults_when_absent():
+	assert_eq(sm.ui_font, SettingsManagerClass.DEFAULT_UI_FONT)

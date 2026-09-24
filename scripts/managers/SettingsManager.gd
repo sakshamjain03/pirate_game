@@ -48,6 +48,11 @@ const DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS: bool = false
 ## On-screen left/right buttons remain the phone default; this opt-in hides
 ## them and steers from phone tilt instead (InputManager.get_movement_vector()).
 const DEFAULT_MOBILE_TILT_STEERING_ENABLED: bool = false
+## Player-selectable body/UI font (2026-09-24), read by PirateThemeBuilder.build().
+## 0: Default (Cinzel — the readable choice dense HUD text needed), 1: Pirate
+## (PirataOne, the original blackletter-style face), 2: Times New Roman (an
+## OS-resolved SystemFont, not a bundled asset).
+const DEFAULT_UI_FONT: int = 0
 
 ## The gameplay actions the player may rebind. Single source of truth — this
 ## list was previously duplicated verbatim in both save_settings() and
@@ -74,6 +79,7 @@ var mobile_left_handed: bool = DEFAULT_MOBILE_LEFT_HANDED
 var haptics_enabled: bool = DEFAULT_HAPTICS_ENABLED
 var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 var mobile_tilt_steering_enabled: bool = DEFAULT_MOBILE_TILT_STEERING_ENABLED
+var ui_font: int = DEFAULT_UI_FONT
 ## Per-control HUD layout customization (drag to move/resize on mobile).
 ## Keyed by control id (e.g. "movement", "top_bar"); each entry is
 ## {"position": Vector2, "scale_mult": float}, where "position" is a delta
@@ -192,6 +198,8 @@ func load_settings() -> void:
 	mobile_tilt_steering_enabled = _tilt_steering if typeof(_tilt_steering) == TYPE_BOOL else DEFAULT_MOBILE_TILT_STEERING_ENABLED
 	var _overrides = config.get_value("mobile", "control_overrides", {})
 	mobile_control_overrides = _overrides if typeof(_overrides) == TYPE_DICTIONARY else {}
+	var _ui_font = config.get_value("display", "ui_font", DEFAULT_UI_FONT)
+	ui_font = _ui_font if typeof(_ui_font) == TYPE_INT else DEFAULT_UI_FONT
 
 	if apply_input_bindings_on_load:
 		load_input_bindings(config)
@@ -214,6 +222,7 @@ func save_settings() -> void:
 	config.set_value("display", "resolution", resolution)
 	config.set_value("display", "vsync", vsync)
 	config.set_value("display", "quality", graphics_quality)
+	config.set_value("display", "ui_font", ui_font)
 
 	config.set_value("input", "sensitivity", input_sensitivity)
 	config.set_value("input", "dead_zone", input_dead_zone)
@@ -303,3 +312,4 @@ func _apply_defaults() -> void:
 	mobile_advanced_combat_controls = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 	mobile_tilt_steering_enabled = DEFAULT_MOBILE_TILT_STEERING_ENABLED
 	mobile_control_overrides = {}
+	ui_font = DEFAULT_UI_FONT

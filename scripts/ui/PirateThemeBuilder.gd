@@ -138,16 +138,25 @@ static func build() -> Theme:
 	var theme := Theme.new()
 	var scale := _font_scale()
 
-	var pirata_font  = _load_font(FONT_PIRATA,   14)
 	var cinzel_font  = _load_font(FONT_CINZEL,    14)
 	var cinzel_bold  = _load_font(FONT_CINZEL_B,  18)
 
-	# --- Default font ---
-	theme.default_font      = pirata_font
+	# --- Body font (Label/ProgressBar/PopupMenu/LineEdit/default) ---
+	# Cinzel is the default, not PirataOne — PirataOne's blackletter-style
+	# swashes read fine as a large decorative flourish but are genuinely
+	# illegible for dense numeric readouts (HUD hull/HP text) at small/mobile
+	# sizes (player feedback, 2026-09-21). Player-selectable in Settings >
+	# Display > UI Font (SettingsManager.ui_font) for anyone who prefers the
+	# fully thematic look, or their own OS Times New Roman — see
+	# _load_body_font()'s header for that mapping. Buttons/OptionButton/
+	# CheckButton/TabContainer stay on Cinzel regardless of this choice; they
+	# were never the legibility complaint this setting exists for.
+	var body_font := _load_body_font(cinzel_font)
+	theme.default_font      = body_font
 	theme.default_font_size = roundi(15 * scale)
 
 	# --- Labels ---
-	theme.set_font("font",      "Label", pirata_font)
+	theme.set_font("font",      "Label", body_font)
 	theme.set_font_size("font_size", "Label", roundi(15 * scale))
 	theme.set_color("font_color", "Label", COLOR_TEXT_LIGHT)
 	theme.set_color("font_shadow_color", "Label", COLOR_SHADOW_DARK)
@@ -268,7 +277,7 @@ static func build() -> Theme:
 	theme.set_color("font_accelerator_color", "PopupMenu", COLOR_GOLD)
 	var popup_hover_style := _make_panel_stylebox(Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.18), COLOR_GOLD, 1.0, 6.0)
 	theme.set_stylebox("hover", "PopupMenu", popup_hover_style)
-	theme.set_font("font", "PopupMenu", pirata_font)
+	theme.set_font("font", "PopupMenu", body_font)
 	theme.set_font_size("font_size", "PopupMenu", roundi(14 * scale))
 
 	# --- LineEdit (Email/Password fields) ---
@@ -277,7 +286,7 @@ static func build() -> Theme:
 	theme.set_stylebox("normal", "LineEdit", line_edit_style)
 	theme.set_stylebox("focus",  "LineEdit", line_edit_focus)
 	theme.set_stylebox("read_only", "LineEdit", line_edit_style)
-	theme.set_font("font",      "LineEdit", pirata_font)
+	theme.set_font("font",      "LineEdit", body_font)
 	theme.set_font_size("font_size", "LineEdit", roundi(15 * scale))
 	theme.set_color("font_color",          "LineEdit", COLOR_TEXT_LIGHT)
 	theme.set_color("font_placeholder_color", "LineEdit", Color(COLOR_TEXT_LIGHT.r, COLOR_TEXT_LIGHT.g, COLOR_TEXT_LIGHT.b, 0.45))
@@ -338,7 +347,7 @@ static func build() -> Theme:
 	pb_fill.anti_aliasing = true
 	theme.set_stylebox("background", "ProgressBar", pb_bg)
 	theme.set_stylebox("fill",       "ProgressBar", pb_fill)
-	theme.set_font("font",      "ProgressBar", pirata_font)
+	theme.set_font("font",      "ProgressBar", body_font)
 	theme.set_font_size("font_size", "ProgressBar", roundi(12 * scale))
 	theme.set_color("font_color", "ProgressBar", COLOR_TEXT_LIGHT)
 
@@ -351,6 +360,27 @@ static func _load_font(path: String, _size: int) -> Font:
 		return res as Font
 	push_warning("PirateThemeBuilder: Could not load font: " + path)
 	return null
+
+
+## Settings > Display > UI Font (SettingsManager.ui_font — 0: Default/Cinzel,
+## 1: Pirate/PirataOne, 2: Times New Roman). Default stays `cinzel_font`
+## (already loaded by the caller, passed in rather than reloaded here); the
+## other two are opt-in for players who want the fully thematic blackletter
+## look, or their own OS-installed serif. Times New Roman is never bundled as
+## an asset (unlike Cinzel/PirataOne) — SystemFont resolves it from the OS at
+## runtime, with plain-serif fallbacks for platforms (most Android devices)
+## that don't ship it, so an unavailable choice degrades gracefully instead
+## of erroring.
+static func _load_body_font(cinzel_font: Font) -> Font:
+	match SettingsManager.ui_font:
+		1:
+			return _load_font(FONT_PIRATA, 14)
+		2:
+			var sys_font := SystemFont.new()
+			sys_font.font_names = PackedStringArray(["Times New Roman", "Liberation Serif", "Noto Serif"])
+			return sys_font
+		_:
+			return cinzel_font
 
 
 ## Sourced 9-slice button art (192x64, see header note) wrapped as a

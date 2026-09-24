@@ -190,3 +190,30 @@ func test_recalibrate_tilt_zeroes_baseline_against_current_reading():
 	# not any particular device-reported value.
 	im.recalibrate_tilt()
 	assert_eq(im._tilt_baseline_accel, im._read_tilt_raw_accel(), "Recalibrating must zero the baseline against the current tilt reading")
+
+# Tilt now drives ship_left/ship_right through the same action-strength
+# pipeline the on-screen nav buttons and a gamepad stick already use
+# (_apply_turn_to_actions()), instead of a separate v.x branch — single
+# source of truth for "turn" regardless of input method.
+func test_apply_turn_to_actions_drives_ship_left_right():
+	im._apply_turn_to_actions(0.7)
+	assert_almost_eq(Input.get_action_strength("ship_right"), 0.7, 0.001, "Positive turn must drive ship_right")
+	assert_eq(Input.get_action_strength("ship_left"), 0.0, "Positive turn must not also hold ship_left")
+
+	im._apply_turn_to_actions(-0.4)
+	assert_almost_eq(Input.get_action_strength("ship_left"), 0.4, 0.001, "Negative turn must drive ship_left")
+	assert_eq(Input.get_action_strength("ship_right"), 0.0, "Negative turn must release ship_right")
+
+	im._apply_turn_to_actions(0.0)
+	assert_eq(Input.get_action_strength("ship_left"), 0.0, "Zero turn must release ship_left")
+	assert_eq(Input.get_action_strength("ship_right"), 0.0, "Zero turn must release ship_right")
+
+# Axis selection: which raw accelerometer component counts as left/right
+# roll is device/orientation-dependent (SettingsManager.mobile_tilt_axis) —
+# this is the pure mapping, independent of the actual hardware read.
+func test_select_tilt_axis_all_settings():
+	var raw := Vector3(1.0, 2.0, 3.0)
+	assert_eq(im._select_tilt_axis(raw, 0), 2.0, "Default (0) must read .y")
+	assert_eq(im._select_tilt_axis(raw, 1), -2.0, "Inverted (1) must read -.y")
+	assert_eq(im._select_tilt_axis(raw, 2), 1.0, "Alt axis (2) must read .x")
+	assert_eq(im._select_tilt_axis(raw, 3), -1.0, "Alt axis inverted (3) must read -.x")

@@ -371,10 +371,30 @@ func _add_mobile_controls(card: VBoxContainer) -> void:
 	var tilt_steer := CheckButton.new()
 	tilt_steer.text = tr("Tilt to Steer")
 	tilt_steer.button_pressed = settings_manager.mobile_tilt_steering_enabled
+	card.add_child(tilt_steer)
+
+	# Which raw accelerometer component counts as left/right roll is
+	# device/orientation-dependent and can't be verified from this
+	# environment (no accelerometer here) — so instead of a second hardcoded
+	# guess, the player picks it directly. Only meaningful (and only shown)
+	# while tilt steering itself is on.
+	var tilt_axis := OptionButton.new()
+	tilt_axis.add_item(tr("Default"), 0)
+	tilt_axis.add_item(tr("Inverted"), 1)
+	tilt_axis.add_item(tr("Alt Axis"), 2)
+	tilt_axis.add_item(tr("Alt Axis (Inverted)"), 3)
+	tilt_axis.select(clampi(settings_manager.mobile_tilt_axis, 0, 3))
+	tilt_axis.tooltip_text = tr("Try the other options if tilt steering feels backwards, or doesn't respond in one direction.")
+	tilt_axis.visible = settings_manager.mobile_tilt_steering_enabled
+	tilt_axis.item_selected.connect(func(index: int):
+		settings_manager.mobile_tilt_axis = index
+		settings_manager.save_settings())
+	card.add_child(tilt_axis)
+
 	tilt_steer.toggled.connect(func(enabled: bool):
 		settings_manager.mobile_tilt_steering_enabled = enabled
-		settings_manager.save_settings())
-	card.add_child(tilt_steer)
+		settings_manager.save_settings()
+		tilt_axis.visible = enabled)
 
 	# Only meaningful with a live HUD to edit — Settings is always its own
 	# scene (never an overlay on World.tscn), so "would going back return to

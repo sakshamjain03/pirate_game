@@ -2501,25 +2501,35 @@ flat-white 128×128 SVGs matching the existing icon set's style, since no sail/a
 reuse. Mobile-only per the pre-existing `OS.has_feature("pc")` visibility gate; PC gets the same
 mechanic through the keybinds above.
 
-**Tilt-to-steer (2026-09-21).** New opt-in mobile setting, `SettingsManager.mobile_tilt_steering_enabled`
-(default off, "Tilt to Steer" toggle in Settings > Mobile Controls, same shape as
-`mobile_advanced_combat_controls`). When on, `MobileControls._apply_tilt_steering()` hides
-`BtnLeft`/`BtnRight` (reactively, via `SettingsManager.settings_changed`, same pattern as
-`_apply_advanced_combat_controls`) and `InputManager.get_movement_vector()` reads the phone's
-accelerometer instead of the `ship_left`/`ship_right` action strengths for the turn axis —
-everything downstream (`WorldManager` → `ShipController.set_input()` → `ShipMovement`'s yaw servo)
-is unchanged, since that axis was already an analog `-1.0..1.0` float, not a boolean. Calibration:
+**Tilt-to-steer (2026-09-21, action-routed + player-correctable axis 2026-09-24).** Opt-in mobile
+setting, `SettingsManager.mobile_tilt_steering_enabled` (default off, "Tilt to Steer" toggle in
+Settings > Mobile Controls, same shape as `mobile_advanced_combat_controls`). When on,
+`MobileControls._apply_tilt_steering()` hides `BtnLeft`/`BtnRight` (reactively, via
+`SettingsManager.settings_changed`, same pattern as `_apply_advanced_combat_controls`).
+Turning no longer has two parallel code paths: `InputManager.get_movement_vector()` always reads
+`v.x` as `ship_right` strength minus `ship_left` strength, exactly like the on-screen buttons and a
+gamepad stick (`project.godot` already binds that pair to joypad axis 0 as an analog signal).
+While tilt steering is on, `_apply_turn_to_actions()` pushes the computed tilt turn onto those same
+two actions via `Input.action_press`/`action_release` every frame, before `v.x` is read — tilt is
+built on top of the shared button/action pipeline rather than bypassing it, and toggling tilt off
+mid-tilt releases both actions so the ship can't get stuck turning. Calibration:
 `InputManager.recalibrate_tilt()` captures the current accelerometer reading as "neutral," called
 once when the setting transitions off→on (`apply_settings()`) and once every time `WorldManager`
 enters the World scene (`_ready()`), so turning is always relative to however the player is
 currently holding the phone, not an assumed dead-level orientation. The scaling/dead-zone math
-(`InputManager._tilt_delta_to_turn()`, `TILT_FULL_TURN_ACCEL`/`TILT_DEAD_ZONE_ACCEL`) is a pure
-function, unit-tested headlessly (`tests/test_input_properties.gd`); the raw sensor read
-(`_read_tilt_raw_accel()`, currently `Input.get_accelerometer().y`) is isolated to one line but
-**unverified on a real device** — this environment has no accelerometer to confirm the axis/sign
-is actually left/right roll for this project's landscape mobile layout, or that the default
-sensitivity feels right. Flip that one line (try `-accelerometer.y`, then `.x`) if tilt steering
-turns out backwards or unresponsive on device.
+(`InputManager._tilt_delta_to_turn()`, `TILT_FULL_TURN_ACCEL`/`TILT_DEAD_ZONE_ACCEL`) and the raw
+axis selection (`InputManager._select_tilt_axis()`) are both pure functions, unit-tested headlessly
+(`tests/test_input_properties.gd`); only the actual hardware read
+(`_read_tilt_raw_accel()` → `Input.get_accelerometer()`) is untestable here. Which raw component is
+actually left/right roll is device/orientation-dependent — a phone's accelerometer reports in its
+natural (portrait) frame regardless of this project's locked landscape rotation — and **unverified
+on a real device**: this environment has no accelerometer to confirm it, and a user report
+(2026-09-24) found the original hardcoded `accelerometer.y` guess turned right but never left, a
+symptom consistent with the wrong raw component being read for this project's actual orientation.
+Rather than swap in a second unverified guess, the axis is now `SettingsManager.mobile_tilt_axis`
+(0=y, 1=-y, 2=x, 3=-x — the same four candidates the old code comment listed), with a "Tilt Axis"
+`OptionButton` in Settings (visible only while tilt steering is on) so the player can correct it
+on-device in a few taps, no rebuild required, if the default still isn't right for their phone.
 
 **Known gaps, disclosed rather than assumed.** Not verifiable headlessly, per this doc's standing
 policy on visual/manual checks: the anchor prop's placement/scale relative to each hull (eyeballed

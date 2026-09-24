@@ -48,6 +48,12 @@ const DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS: bool = false
 ## On-screen left/right buttons remain the phone default; this opt-in hides
 ## them and steers from phone tilt instead (InputManager.get_movement_vector()).
 const DEFAULT_MOBILE_TILT_STEERING_ENABLED: bool = false
+## Which raw accelerometer component InputManager._select_tilt_axis() reads
+## as left/right roll — device/orientation-dependent and unverifiable from
+## this environment (no accelerometer here), so it's a player-facing escape
+## hatch rather than a second hardcoded guess: 0=y, 1=-y, 2=x, 3=-x (see
+## InputManager.TiltAxis).
+const DEFAULT_MOBILE_TILT_AXIS: int = 0
 ## Player-selectable body/UI font (2026-09-24), read by PirateThemeBuilder.build().
 ## 0: Default (Cinzel — the readable choice dense HUD text needed), 1: Pirate
 ## (PirataOne, the original blackletter-style face), 2: Times New Roman (an
@@ -79,6 +85,7 @@ var mobile_left_handed: bool = DEFAULT_MOBILE_LEFT_HANDED
 var haptics_enabled: bool = DEFAULT_HAPTICS_ENABLED
 var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 var mobile_tilt_steering_enabled: bool = DEFAULT_MOBILE_TILT_STEERING_ENABLED
+var mobile_tilt_axis: int = DEFAULT_MOBILE_TILT_AXIS
 var ui_font: int = DEFAULT_UI_FONT
 ## Per-control HUD layout customization (drag to move/resize on mobile).
 ## Keyed by control id (e.g. "movement", "top_bar"); each entry is
@@ -196,6 +203,8 @@ func load_settings() -> void:
 	mobile_advanced_combat_controls = _advanced_combat if typeof(_advanced_combat) == TYPE_BOOL else DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 	var _tilt_steering = config.get_value("mobile", "tilt_steering_enabled", DEFAULT_MOBILE_TILT_STEERING_ENABLED)
 	mobile_tilt_steering_enabled = _tilt_steering if typeof(_tilt_steering) == TYPE_BOOL else DEFAULT_MOBILE_TILT_STEERING_ENABLED
+	var _tilt_axis = config.get_value("mobile", "tilt_axis", DEFAULT_MOBILE_TILT_AXIS)
+	mobile_tilt_axis = _tilt_axis if typeof(_tilt_axis) == TYPE_INT else DEFAULT_MOBILE_TILT_AXIS
 	var _overrides = config.get_value("mobile", "control_overrides", {})
 	mobile_control_overrides = _overrides if typeof(_overrides) == TYPE_DICTIONARY else {}
 	var _ui_font = config.get_value("display", "ui_font", DEFAULT_UI_FONT)
@@ -230,6 +239,7 @@ func save_settings() -> void:
 	config.set_value("mobile", "haptics_enabled", haptics_enabled)
 	config.set_value("mobile", "advanced_combat_controls", mobile_advanced_combat_controls)
 	config.set_value("mobile", "tilt_steering_enabled", mobile_tilt_steering_enabled)
+	config.set_value("mobile", "tilt_axis", mobile_tilt_axis)
 	config.set_value("mobile", "control_overrides", mobile_control_overrides)
 
 	# Write input bindings under the "input" section. Only actions that actually
@@ -311,5 +321,6 @@ func _apply_defaults() -> void:
 	haptics_enabled = DEFAULT_HAPTICS_ENABLED
 	mobile_advanced_combat_controls = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTROLS
 	mobile_tilt_steering_enabled = DEFAULT_MOBILE_TILT_STEERING_ENABLED
+	mobile_tilt_axis = DEFAULT_MOBILE_TILT_AXIS
 	mobile_control_overrides = {}
 	ui_font = DEFAULT_UI_FONT

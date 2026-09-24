@@ -41,6 +41,13 @@ const TILT_DEAD_ZONE_ACCEL := 0.6
 var _tilt_baseline_accel: float = 0.0
 var _tilt_steering_was_enabled: bool = false
 
+## Which raw accelerometer component reads as "tilt left/right" — see
+## _select_tilt_axis(). Device/orientation-dependent and can't be verified
+## from this environment (no accelerometer here), so it's a player-facing
+## Settings choice (SettingsManager.mobile_tilt_axis) rather than a second
+## hardcoded guess: 0=y, 1=-y, 2=x, 3=-x.
+enum TiltAxis { POS_Y, NEG_Y, POS_X, NEG_X }
+
 func _ready() -> void:
 	# Promoted to an autoload in M7 (D57) — rebinding is reachable from the main
 	# menu, where no World scene and so no scene-local InputManager exists.
@@ -57,6 +64,10 @@ func apply_settings() -> void:
 	var tilt_enabled := bool(SettingsManager.mobile_tilt_steering_enabled)
 	if tilt_enabled and not _tilt_steering_was_enabled:
 		recalibrate_tilt()
+	elif not tilt_enabled and _tilt_steering_was_enabled:
+		# Release both turn actions so switching tilt off mid-tilt can't leave
+		# the ship stuck turning from a strength tilt last pushed into them.
+		_apply_turn_to_actions(0.0)
 	_tilt_steering_was_enabled = tilt_enabled
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -100,18 +111,46 @@ func get_movement_vector() -> Vector2:
 	var v = Vector2.ZERO
 	v.y = Input.get_action_strength(ACTION_SAIL_LEVEL_UP) - Input.get_action_strength(ACTION_SAIL_LEVEL_DOWN)
 	if SettingsManager.mobile_tilt_steering_enabled:
-		v.x = _tilt_delta_to_turn(_read_tilt_raw_accel() - _tilt_baseline_accel)
-	else:
-		v.x = Input.get_action_strength(ACTION_SHIP_RIGHT) - Input.get_action_strength(ACTION_SHIP_LEFT)
+		# Tilt drives the same ship_left/ship_right actions the on-screen nav
+		# buttons and a gamepad stick already drive (see project.godot: that
+		# pair is already bound to joypad axis 0 as an analog -1..1 signal) —
+		# a single source of truth for "turn" instead of a parallel path.
+		var turn := _tilt_delta_to_turn(_read_tilt_raw_accel() - _tilt_baseline_accel)
+		_apply_turn_to_actions(turn)
+	v.x = Input.get_action_strength(ACTION_SHIP_RIGHT) - Input.get_action_strength(ACTION_SHIP_LEFT)
 	return v
 
+## Pushes an analog turn value onto ship_left/ship_right exactly like a
+## button press or a joypad axis would, so every downstream consumer
+## (WorldManager -> ShipController -> ShipMovement) reads turning through one
+## code path regardless of input method.
+func _apply_turn_to_actions(turn: float) -> void:
+	if turn > 0.0:
+		Input.action_press(ACTION_SHIP_RIGHT, turn)
+		Input.action_release(ACTION_SHIP_LEFT)
+	elif turn < 0.0:
+		Input.action_press(ACTION_SHIP_LEFT, -turn)
+		Input.action_release(ACTION_SHIP_RIGHT)
+	else:
+		Input.action_release(ACTION_SHIP_LEFT)
+		Input.action_release(ACTION_SHIP_RIGHT)
+
 func _read_tilt_raw_accel() -> float:
-	## Best-guess axis for this project's landscape mobile layout — raw sensor
-	## axes are tied to the device's natural (portrait) orientation, not the
-	## current screen rotation, so this is unverified until tested on a real
-	## Android device. If tilt steering is backwards or unresponsive on
-	## device, this is the one line to flip (try -accelerometer.y, then .x).
-	return Input.get_accelerometer().y
+	return _select_tilt_axis(Input.get_accelerometer(), int(SettingsManager.mobile_tilt_axis))
+
+## Pure (no hardware call) so it's headlessly unit-testable, same reasoning as
+## _tilt_delta_to_turn(): a phone's raw accelerometer is reported in the
+## device's natural (portrait) frame regardless of this project's locked
+## landscape rotation, so which component is actually left/right roll is
+## device/orientation-dependent and can't be confirmed without a real device
+## — hence a player-facing setting (SettingsManager.mobile_tilt_axis) rather
+## than a second hardcoded guess.
+func _select_tilt_axis(raw: Vector3, axis_setting: int) -> float:
+	match axis_setting:
+		TiltAxis.NEG_Y: return -raw.y
+		TiltAxis.POS_X: return raw.x
+		TiltAxis.NEG_X: return -raw.x
+		_: return raw.y
 
 func _tilt_delta_to_turn(delta_accel: float) -> float:
 	if absf(delta_accel) < TILT_DEAD_ZONE_ACCEL:

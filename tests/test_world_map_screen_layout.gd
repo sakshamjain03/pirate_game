@@ -27,7 +27,7 @@ func _instantiate() -> void:
 
 func test_panel_and_map_display_are_wired_and_sized_on_pc():
 	_instantiate()
-	assert_eq(_screen.panel.custom_minimum_size, Vector2(560, 720),
+	assert_eq(_screen.panel.custom_minimum_size, Vector2(560, 750),
 		"PC panel size must be untouched by the mobile pass (grown to fit the InfoPanel)")
 	assert_eq(_screen.map_display.custom_minimum_size, Vector2(500, 500),
 		"PC map display size must be untouched by the mobile pass")

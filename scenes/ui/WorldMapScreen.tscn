@@ -42,7 +42,7 @@ grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="CenterContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(560, 720)
+custom_minimum_size = Vector2(560, 750)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_MapBg")
 
@@ -75,12 +75,12 @@ size_flags_vertical = 3
 
 [node name="InfoPanel" type="RichTextLabel" parent="CenterContainer/Panel/Margin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
+custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 bbcode_enabled = true
 text = "Tap an island for its dossier."
-fit_content = true
-scroll_active = false
+fit_content = false
+scroll_active = true
 
 [node name="ButtonRow" type="HBoxContainer" parent="CenterContainer/Panel/Margin/VBox"]
 layout_mode = 2

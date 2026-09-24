@@ -57,7 +57,7 @@ func _apply_mobile_sizing() -> void:
 	# flat multiple of a small PC box) rather than capping it at its own
 	# separately-scaled minimum, which previously left a large blank
 	# region inside a still-too-small panel.
-	map_display.custom_minimum_size = panel.custom_minimum_size - Vector2(64.0, 240.0)
+	map_display.custom_minimum_size = panel.custom_minimum_size - Vector2(64.0, 270.0)
 	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 	for btn in [view_log_button, close_button]:
 		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(140, 48))
@@ -157,8 +157,14 @@ func _on_map_display_draw() -> void:
 			continue
 		var radius: float = (r.display_ring_radius / _world_radius) * display_radius
 		map_display.draw_arc(center, radius, 0.0, TAU, 64, PirateThemeBuilder.COLOR_GOLD, 2.0, true)
-		var bearing_rad: float = deg_to_rad(float(r.tier - 1) * 72.0)
-		var label_pos := center + Vector2(sin(bearing_rad), -cos(bearing_rad)) * radius
+		# Bearing offset by 200 deg (not a bare tier*72) and pushed 10% past the
+		# ring line — a plain tier-indexed stagger put "Beginner Waters" and
+		# "Contested Waters" right on top of Skull Cove/Tortuga's own markers,
+		# since this world's actual geography clusters north/north-east
+		# (docs/11_WORLD_MAP.md §4c); this offset was chosen by checking against
+		# that real layout, not a blind formula.
+		var bearing_rad: float = deg_to_rad(fmod(float(r.tier - 1) * 72.0 + 200.0, 360.0))
+		var label_pos := center + Vector2(sin(bearing_rad), -cos(bearing_rad)) * radius * 1.08
 		map_display.draw_string(ThemeDB.fallback_font, label_pos, r.display_name,
 			HORIZONTAL_ALIGNMENT_CENTER, -1, 12, PirateThemeBuilder.COLOR_GOLD)
 

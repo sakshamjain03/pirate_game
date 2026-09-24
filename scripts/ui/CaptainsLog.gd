@@ -98,6 +98,7 @@ func _add_objective_row(objective: ObjectiveData) -> void:
 	var done := CampaignManager._completed_objective_ids.has(objective.objective_id)
 	var mark := "✓" if done else "%d/%d" % [current, objective.target_count]
 	label.text = "%s — %s" % [objective.description, mark]
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 16)
 	if done:
 		label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))

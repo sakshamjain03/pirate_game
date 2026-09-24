@@ -397,8 +397,15 @@ static func _make_texture_button_stylebox(texture_path: String) -> StyleBoxTextu
 	sb.texture_margin_right  = 18
 	sb.texture_margin_top    = 18
 	sb.texture_margin_bottom = 18
-	sb.content_margin_left   = 16.0
-	sb.content_margin_right  = 16.0
+	# content_margin must clear texture_margin's unstretched corner region (the
+	# decorative rivet dots), not just sit close to it — a content margin
+	# smaller than the texture margin (16 vs. 18, previously) let wide text
+	# render underneath the corner art. Never visible with PirataOne's
+	# narrower glyphs; Cinzel's wider ones reached it on longer labels (e.g.
+	# the rebind screen's "Unbound"), rendering the last letter fused into
+	# the corner dot (2026-09-24 font-overflow audit).
+	sb.content_margin_left   = 22.0
+	sb.content_margin_right  = 22.0
 	sb.content_margin_top    = 8.0
 	sb.content_margin_bottom = 8.0
 	return sb

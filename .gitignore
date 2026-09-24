@@ -43,3 +43,6 @@ Thumbs.db
 
 # Local Android export output
 /builds/
+
+# M22 per-phase screen-sweep captures (only screenshots/m22/before/ is committed as the reference)
+/screenshots/m22/phase*/

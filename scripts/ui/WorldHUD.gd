@@ -190,26 +190,19 @@ func _apply_mobile_safe_area() -> void:
 		# The resource/notoriety cluster was authored at desktop reading size.
 		# Scale it as one compact unit so the icon, amount, and panel spacing keep
 		# their relationship instead of producing a row of tiny phone text.
+		# Width is capped to a safe budget of the screen (independent of the
+		# fixed 1.45 above) — Pause now lives on the opposite side of the top
+		# edge (device-test feedback 2026-09-21), and on a narrow/tall aspect
+		# the uncapped panel grows wide enough to reach clear across and
+		# overlap it (test-caught 2026-09-21).
+		var panel_scale := minf(hud_scale, (safe.size.x * 0.62) / top_right_panel.size.x)
 		var base_position := Vector2(
-			safe.end.x - top_right_panel.size.x * hud_scale - 12.0,
+			safe.end.x - top_right_panel.size.x * panel_scale - 12.0,
 			safe.position.y + 12.0)
 		var result := MobileLayoutManager.apply_control_override(
-			"top_right_panel", base_position, hud_scale, get_viewport(), top_right_panel.size)
+			"top_right_panel", base_position, panel_scale, get_viewport(), top_right_panel.size)
 		top_right_panel.position = result.position
 		top_right_panel.scale = Vector2.ONE * float(result.scale)
-		# MobileControls.btn_pause placed itself using a starting guess (its
-		# own MobileLayoutManager.mobile_scale(), floor 0.55) that has no
-		# relationship to this panel's own fixed hud_scale = 1.45 above — on a
-		# real device where the two diverge, the panel (taller than guessed)
-		# covered all but btn_pause's bottom sliver, making it nearly
-		# untappable. Nudged down here, right after this panel's real bottom
-		# edge is known, rather than guessed a second time.
-		var mobile_controls_for_pause := get_node_or_null("MobileControls")
-		var pause_btn_to_nudge: Control = mobile_controls_for_pause.btn_pause \
-			if mobile_controls_for_pause and "btn_pause" in mobile_controls_for_pause else null
-		if pause_btn_to_nudge:
-			var min_pause_y := top_right_panel.get_global_rect().end.y + 12.0
-			pause_btn_to_nudge.position.y = maxf(pause_btn_to_nudge.position.y, min_pause_y)
 	if _economy_label:
 		# _economy_label ("Next Production: Xs") kept its desktop-authored
 		# PRESET_CENTER_TOP + a fixed +20 offset on mobile too — on a phone-width
@@ -231,22 +224,27 @@ func _apply_mobile_safe_area() -> void:
 		health_container.position = Vector2(safe.position.x + 12.0, top_bar_bottom + 10.0)
 		if health_right:
 			health_right.hide()
+		# Pause moved to the left side, under the health bar, per device-test
+		# feedback 2026-09-21 — it previously sat on the right under
+		# top_right_panel, close enough to the Captain button below it (also
+		# right-anchored) to feel cramped/overlapping on some devices. Measured
+		# off health_container's own real bottom edge, not a second guessed
+		# offset (same reasoning as the old top_right_panel-relative nudge).
+		var mobile_controls_for_pause := get_node_or_null("MobileControls")
+		var pause_btn_to_nudge: Control = mobile_controls_for_pause.btn_pause \
+			if mobile_controls_for_pause and "btn_pause" in mobile_controls_for_pause else null
+		if pause_btn_to_nudge:
+			pause_btn_to_nudge.position = Vector2(
+				health_container.position.x, health_container.get_global_rect().end.y + 12.0)
 	if mobile_utility_menu_button:
 		var button_size := mobile_utility_menu_button.size
-		# Stacked directly below MobileControls' Pause button (measured, not a
-		# second hardcoded offset — see CLAUDE.md's "two independently
-		# hardcoded pixel offsets" failure mode, already hit once by this same
-		# HUD's health bar). Previously floated at a fixed 48% of screen
-		# height with no visual relationship to anything else, reading as
-		# randomly placed (device-test feedback 2026-09-20); grouping it under
-		# Pause forms one clear top-right utility corner instead.
-		var mobile_controls := get_node_or_null("MobileControls")
-		var pause_btn: Control = mobile_controls.btn_pause if mobile_controls and "btn_pause" in mobile_controls else null
-		var top_y: float
-		if pause_btn:
-			top_y = pause_btn.position.y + pause_btn.size.y + 16.0
-		else:
-			top_y = safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5
+		# Sits directly below top_right_panel by that panel's own measured
+		# bottom edge (same technique as the old Pause-relative nudge this
+		# replaces) now that Pause has moved to the opposite side — this reads
+		# as slightly higher than before, since it no longer waits for Pause's
+		# extra gap underneath it too.
+		var top_y := (top_right_panel.get_global_rect().end.y + 12.0) if top_right_panel \
+			else safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5
 		mobile_utility_menu_button.position = Vector2(safe.end.x - button_size.x - 16.0, top_y)
 	if mobile_utility_drawer:
 		var drawer_width := minf(420.0, safe.size.x - 32.0)

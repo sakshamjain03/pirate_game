@@ -164,10 +164,10 @@ func _apply_mobile_layout() -> void:
 	movement.scale = Vector2.ONE * float(movement_result.scale)
 	combat.position = combat_result.position
 	combat.scale = Vector2.ONE * float(combat_result.scale)
-	# This is a starting position only, nudged down by WorldHUD._apply_mobile_safe_area()
-	# right after it lays out top_right_panel (see the comment there) — that
-	# function, not this one, knows that panel's real on-screen bottom edge for
-	# the current device, since it positions the panel itself.
+	# This is a starting position only — WorldHUD._apply_mobile_safe_area()
+	# relocates it (currently: left side, under the health bar) right after it
+	# lays out the panels this depends on, since that function, not this one,
+	# knows their real on-screen bottom edges for the current device.
 	btn_pause.position = Vector2(safe.end.x - 108.0 * scale - 16.0, safe.position.y + 150.0 * scale)
 	btn_pause.size = Vector2(108.0 * scale, 72.0 * scale)
 

@@ -13,3 +13,5 @@ docking_speed_limit = 5.0
 world_position = Vector2(-850, 100)
 region_id = "ancient_ocean"
 terrain_theme = 1
+codex_summary = "The wreck site of the Wandering Widow, Solomon Vane's ship, lost forty years before the campaign begins. No production, no capture — a discovery site, not a garrison. Chapter 6 in its entirety."
+real_world_echo = ""

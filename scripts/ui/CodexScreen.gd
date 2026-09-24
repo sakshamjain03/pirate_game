@@ -85,6 +85,20 @@ func _refresh() -> void:
 			chapter_count += 1
 	if chapter_count == 0:
 		_add_entry(tr("No completed chapters yet"), tr("Your campaign summaries will appear here."))
+	_add_section(tr("Islands"))
+	var discovered_islands := _load_discovered_islands()
+	if discovered_islands.is_empty():
+		_add_entry(tr("No islands charted yet"), tr("Islands you've discovered will appear here, with their dossier and bearing."))
+	else:
+		for isl in discovered_islands:
+			var region: RegionData = EmpireManager.get_region_for_island(isl.island_id) if EmpireManager else null
+			var heading := isl.island_name
+			if region:
+				heading += " — %s (tier %d)" % [region.display_name, region.tier]
+			var body := isl.codex_summary
+			if not isl.real_world_echo.is_empty():
+				body += ("\n" if not body.is_empty() else "") + isl.real_world_echo
+			_add_entry(heading, body)
 	_add_section(tr("Captains"))
 	for captain in _load_captains():
 		if _captain_is_encountered(captain):
@@ -125,6 +139,20 @@ func _add_entry(title_text: String, body_text: String) -> void:
 func _captain_is_encountered(captain: CaptainData) -> bool:
 	return captain in FleetManager.owned_captains or captain.unlock_chapter_id.is_empty() \
 		or CampaignManager.is_chapter_completed(captain.unlock_chapter_id)
+
+
+## Reuses the same "islands" group + IslandData.discovered gate
+## WorldMapScreen's fog-of-war already establishes, rather than a second
+## discovery-tracking path — an island the map won't show shouldn't have a
+## dossier in the Codex either.
+func _load_discovered_islands() -> Array[IslandData]:
+	var result: Array[IslandData] = []
+	for island_node in get_tree().get_nodes_in_group("islands"):
+		var data = island_node.get("island_data")
+		if data and data.discovered:
+			result.append(data)
+	result.sort_custom(func(a, b): return a.island_name < b.island_name)
+	return result
 
 
 func _load_captains() -> Array[CaptainData]:

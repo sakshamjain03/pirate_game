@@ -45,3 +45,12 @@ func is_owned_by_player() -> bool:
 ## tropical island regardless of its name and lore.
 enum TerrainTheme { TROPICAL, VOLCANIC, FROZEN, DROWNED_RUIN, FORTIFIED, CALDERA }
 @export var terrain_theme: TerrainTheme = TerrainTheme.TROPICAL
+
+@export_group("Lore")
+## One-line dossier — what it gives, what it costs, what story it carries
+## (docs/11_WORLD_MAP.md §6). Read by WorldMapScreen's tap-to-inspect panel
+## and CodexScreen's Islands section; empty is valid for undossiered filler.
+@export_multiline var codex_summary: String = ""
+## The real Golden Age of Piracy geography this island's bearing echoes
+## (docs/11_WORLD_MAP.md §4c/§6). Empty when there is no real-world anchor.
+@export var real_world_echo: String = ""

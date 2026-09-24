@@ -11,3 +11,5 @@ has_dock = true
 docking_speed_limit = 5.0
 world_position = Vector2(200, 120)
 region_id = "beginner_waters"
+codex_summary = "A low sandbar thick with pelican rookeries; fishermen from Tortuga work it. A second Beginner-ring resource stop, no chapter hook yet."
+real_world_echo = "A flavor stop along Jamaica's coastal shallows"

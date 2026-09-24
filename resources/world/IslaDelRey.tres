@@ -14,3 +14,5 @@ has_dock = true
 docking_speed_limit = 5.0
 world_position = Vector2(-620, -180)
 region_id = "imperial_waters"
+codex_summary = "A walled Spanish garrison island guarding the approach to Cartagena. A third Imperial-ring target alongside Mount Brimstone and Cartagena Outpost — no chapter hook yet."
+real_world_echo = ""

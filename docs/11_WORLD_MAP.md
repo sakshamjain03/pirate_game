@@ -350,5 +350,8 @@ A reef permanently wrapped in fog, held by the Ghost Fleet.
 4. Set `terrain_theme` (TROPICAL/VOLCANIC/FROZEN) — this re-tints the shared terrain
    (`KenneyMaterialApplier.override_material_path()`, fixed in D24).
 5. If it is capturable, confirm `owner_faction` points at a real `FactionData`.
-6. Add a dossier entry to §6 of this document.
+6. Add a dossier entry to §6 of this document, and set the matching
+   `IslandData.codex_summary`/`real_world_echo` on the `.tres` — `WorldMapScreen`'s tap-to-inspect
+   panel and `CodexScreen`'s Islands section both read these directly (added 2026-09-24), so an
+   island without them shows a blank dossier once discovered.
 7. Run the GUT suite. A new island must not change the test count.

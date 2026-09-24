@@ -13,3 +13,5 @@ docking_speed_limit = 5.0
 colonize_cost_gold = 100
 world_position = Vector2(0, 0)
 region_id = "beginner_waters"
+codex_summary = "Drowned in the quake, half of it still underwater. Pirate-friendly and undefended — claimed through the ordinary Colonize flow rather than owned from the start. Gives every build slot the player owns, once claimed."
+real_world_echo = "Real-world echo: Jamaica"

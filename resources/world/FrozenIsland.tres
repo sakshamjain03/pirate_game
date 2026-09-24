@@ -10,3 +10,5 @@ island_type = 3
 terrain_theme = 2
 world_position = Vector2(280, -340)
 region_id = "contested_waters"
+codex_summary = "Not truly frozen — a cold-current reef with wrecks locked in rime. HMS Intransigent's deep anchorage; on capture, the Navy loses its forward base. Chapter 4's boss arena."
+real_world_echo = "Groups with Skull Cove as the lawless north"

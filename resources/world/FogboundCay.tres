@@ -15,3 +15,5 @@ docking_speed_limit = 5.0
 world_position = Vector2(0, -1100)
 region_id = "ghost_reaches"
 terrain_theme = 2
+codex_summary = "A reef permanently wrapped in fog, held by the Ghost Fleet. On capture, the deepest-water resource yield in the game — and the hardest ambient combat before it."
+real_world_echo = ""

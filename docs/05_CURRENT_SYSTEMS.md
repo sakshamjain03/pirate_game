@@ -1024,6 +1024,20 @@ position/heading triangle reusing the same ship `global_position`/`global_rotati
 `WorldHUD`'s compass needle already reads, and a "View Log" button opening the existing
 `CaptainsLog` rather than duplicating its objective list. Opened via a `WorldHUD` "Map" button
 built with the exact same dynamic-positioning pattern as `_create_captains_log_button()` (a fourth
+
+**Follow-up (2026-09-24):** the screen gained real navigation utility beyond plotting position —
+a fixed N/E/S/W compass rose (screen-space only; the projection is a static top-down world view,
+not player-relative, so it never needs to rotate), each region ring labelled with its
+`display_name`/tier at a tier-staggered bearing so labels don't stack, and tap-to-inspect: clicking
+a discovered island's marker selects it (a highlight ring around the marker) and fills a new
+`InfoPanel` (`RichTextLabel`, between `MapDisplay` and the button row) with its name, region/tier,
+distance from home, and two new `IslandData` fields — `codex_summary` (the one-line dossier from
+`docs/11_WORLD_MAP.md` §6) and `real_world_echo` (its Golden-Age-of-Piracy geography anchor).
+Tapping open water deselects. PC panel grew `560x640` → `560x720` to fit the info panel; mobile
+sizing's map-display subtraction grew from `Vector2(64,160)` to `Vector2(64,240)` to match. New
+tests in `test_world_map_screen_layout.gd` cover the default prompt, select, and deselect paths —
+the compass/ring-label drawing itself is `Control._draw()` geometry, same as the pre-existing
+rings/markers, and shares their "needs a visual capture, not verifiable via GUT alone" limitation.
 child of `TopRightPanel`, container-positioned).
 
 ### Requirement 4 — Discovery / fog of war
@@ -1501,6 +1515,13 @@ this" tracking: completed chapters via `CampaignManager.is_chapter_completed()` 
 `IslandMenu`'s Tavern already used, factions derived from the encountered-captain roster's
 `allegiance_faction_id`. Needs a visual capture at checkpoint to confirm on-screen legibility (not
 verifiable headlessly).
+
+**Follow-up (2026-09-24):** gained an "Islands" section, inserted before Captains, listing every
+discovered island (reusing the same `"islands"` group + `IslandData.discovered` gate
+`WorldMapScreen`'s fog-of-war already established — an island the map won't show shouldn't have a
+Codex dossier either) with its region/tier (`EmpireManager.get_region_for_island()`) and the same
+`codex_summary`/`real_world_echo` fields `WorldMapScreen`'s new info panel reads. No new discovery
+tracking added; both screens now read the one `IslandData.discovered` flag.
 
 ### Requirement 8 — Push notifications
 

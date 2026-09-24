@@ -12,3 +12,5 @@ has_dock = true
 docking_speed_limit = 5.0
 world_position = Vector2(60, -430)
 region_id = "contested_waters"
+codex_summary = "A drowned volcanic caldera with one entrance. Morrow's seat — on capture, the best rum production in the game, and the Pirate Clans stop raiding. The whole of Chapter 2."
+real_world_echo = "The Bahamas — the era's biggest lawless pirate haven"

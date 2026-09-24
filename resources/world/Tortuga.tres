@@ -11,3 +11,5 @@ has_dock = true
 docking_speed_limit = 5.0
 world_position = Vector2(170, -140)
 region_id = "beginner_waters"
+codex_summary = "The pirate port that didn't sink, and is quietly smug about it. Merchant Guild trade at better rates, the Tavern where the first hires happen, and rumours that point toward Morrow."
+real_world_echo = "Real Tortuga sits north-east of Jamaica"

@@ -12,3 +12,5 @@ terrain_theme = 4
 owner_faction = ExtResource("1_fac")
 world_position = Vector2(120, 630)
 region_id = "imperial_waters"
+codex_summary = "The fortified staging port for the treasure fleet crossing. On capture, the largest single loot payout in the game and a second buildable island. Chapter 5's finale."
+real_world_echo = "Real Cartagena sits due south of Jamaica"

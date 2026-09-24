@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<!-- saved from url=(0092)https://7351928a-2ecc-49ee-94f5-149d9815a436.frame.claudeusercontent.com/_f/1790242858-681b/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"v":1,"cred":"cookie","capabilities":{"artifact":"artifact.Kiow93e4.js","assets":"assets.DOAjpBS9.js","comments":"comments.DrhK3r8W.js","db":"db.zFlAA4qL.js","downloads":"downloads.axDW2QAi.js","embed":"embed.DcZf-TSv.js","endpoints":"endpoints.BPfoKaE1.js","files":"files.IkpCjcgM.js","mcp":"mcp.C8qKIFvQ.js","network":"network.B5UA9Su4.js","permissions":"permissions.DWFFeHI0.js","room":"room.DRL7voHn.js","sample":"sample.C7KQQdQj.js","self":"artifact.Kiow93e4.js","user":"user.CB0zJsP2.js"},"transforms":"_transforms.CkRgqq9F.js","comments":"_comments.DUaNQZcg.js","translate":"_translate.DqxC5ek1.js","ldx":"_ldx.BzT912gi.js"}                                </script><script>(function(){"use strict";function lr(t){return t==="cookie"||t==="query"?t:void 0}var Gn=3e5;function cr(t,e){try{const r=t("navigation")[0],n=[r.responseStart,r.redirectEnd-r.redirectStart,r.domContentLoadedEventStart,e(),r.connectEnd-r.domainLookupStart,r.responseStart-r.requestStart];r.requestStart>0||(n.length=4);for(let a=0;a<n.length;a++)if(n[a]>=0&&n[a]<=3e5)n[a]=n[a]|0;else{if(a<4)return;n.length=4}return n}catch{return}}var ur=["light","dark","system"],fr=/^[A-Za-z0-9_-]{1,64}$/,Rt=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,dr=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function hr(t){const e=t.toLowerCase();return e.startsWith("data-")||e.startsWith("aria-")||dr.has(e)}var Tt="data-ldx-props";function pr(t,e){if(e.toLowerCase()===Tt)return!0;const r=t.getAttribute(Tt);if(r===null)return!1;try{const n=JSON.parse(r);if(n===null||typeof n!="object"||Array.isArray(n))return!0;const a=e.toLowerCase();return Object.keys(n).some(s=>s.toLowerCase()===a)}catch{return!0}}var zn="http://www.w3.org/1999/xhtml",mr="http://www.w3.org/2000/svg",vr=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),_r=new Set(["script","style"]);function yr(t){const e=t.localName.toLowerCase();return t.namespaceURI==="http://www.w3.org/1999/xhtml"?!vr.has(e):t.namespaceURI===mr?!_r.has(e):!1}function Ze(t,e){return t===e||(t===160||t===32)&&(e===160||e===32)}function gr(t,e){const r=t.length,n=e.length;let a=0;for(;a<r&&a<n&&Ze(t.charCodeAt(a),e.charCodeAt(a));)a++;let s=0;for(;s<r-a&&s<n-a&&Ze(t.charCodeAt(r-1-s),e.charCodeAt(n-1-s));)s++;return{p:a,s}}function wr(t,e){const r=t.firstChild;if(t.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){t.textContent=e;return}const n=r.data,a=n.length,s=e.length,{p:c,s:d}=gr(n,e);c===a&&d===0&&a===s||r.replaceData(c,a-c-d,e.slice(c,s-d));const L=r.data,E=t.ownerDocument.getSelection?.()??null,w=E!==null&&E.rangeCount>0&&(E.anchorNode===r||E.focusNode===r)?{anchor:E.anchorNode,anchorOffset:E.anchorOffset,focus:E.focusNode,focusOffset:E.focusOffset}:null;let m=-1,k=-1;for(let h=0;h<L.length&&h<e.length;h++){const p=L.charCodeAt(h),x=e.charCodeAt(h);p!==x&&Ze(p,x)&&(m<0&&(m=h),k=h)}const O=m>=0;if(O&&r.replaceData(m,k-m+1,e.slice(m,k+1)),O&&w!==null&&w.anchor!==null&&w.focus!==null)try{E.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var br=new Set(["html","head","body","frameset"]);function Er(t){return t.namespaceURI==="http://www.w3.org/1999/xhtml"&&br.has(t.localName)}function Sr(t){if(t===null||typeof t!="object")return!1;const e=t;if(typeof e.target!="string"||!fr.test(e.target)||e.text!==void 0&&typeof e.text!="string")return!1;if(e.attrsSet!==void 0){if(e.attrsSet===null||typeof e.attrsSet!="object")return!1;for(const[r,n]of Object.entries(e.attrsSet))if(!Rt.test(r)||typeof n!="string")return!1}if(e.attrsRemoved!==void 0){if(!Array.isArray(e.attrsRemoved))return!1;for(const r of e.attrsRemoved)if(typeof r!="string"||!Rt.test(r))return!1}return!0}function Ar(t,e){if(t===null||typeof t!="object")return!1;const{seq:r,elements:n}=t;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let a=0;a<n.length;a++)if(!e(n[a]))return!1;return!0}function kr(t){return t===null||typeof t!="object"?!1:Ar(t.__frame_patch,Sr)}function Rr(t){if(t===null||typeof t!="object")return!1;const e=t.__frame_init;return e!==null&&typeof e=="object"}function Tr(t){return t!==null&&typeof t=="object"&&t.__frame_size_poke===!0}function Lr(t){if(t===null||typeof t!="object")return!1;const e=t.__frame_host_visible;return e!==null&&typeof e=="object"&&typeof e.visible=="boolean"}function Or(t){if(t===null||typeof t!="object")return!1;const e=t.__frame_theme;if(e===null||typeof e!="object")return!1;const r=e.theme;return typeof r=="string"&&ur.includes(r)}var Pr=["ok","empty","snapshot_error","snapshot_timeout","unclonable","oversize","unavailable","restore_error","withheld"],Mr=["TypeError","RangeError","ReferenceError","SyntaxError","DataCloneError","QuotaExceededError","AbortError","TimeoutError","SecurityError","Error","other"];function Nr(t){return typeof t=="string"&&Mr.includes(t)?t:"other"}var Cr=Object.freeze({until:null,now:!1}),jr="__claude_hot",Fr="__claude_hot_in",Ir=/^__claude_hot(?:_in)?(?::|$)/,Lt=/^[0-9a-z]{1,32}$/,Qe=t=>t===void 0?jr:"__claude_hot:"+t,Ae=t=>t===void 0?Fr:"__claude_hot_in:"+t;function xr(t,e){const r=[];for(let n=0;n<t.length;n++){const a=t.key(n);a!==null&&a!==e&&Ir.test(a)&&r.push(a)}for(const n of r)t.removeItem(n)}function Dr(t){let e=null;try{e=B(JSON.parse(t)?.hot)}catch{return null}return e===null||typeof e.k!="string"||!Lt.test(e.k)?null:ue(e.g)?{k:e.k,g:e.g}:{k:e.k}}var $n=262144,Hr=3e3,qr=5e3,Ot=/^[a-z0-9._:-]{1,64}$/,Br=["none","hot-restart","hard-reload"],Ur=["asset","doc","added","removed"],Kr=1500,Gr=/^[0-9a-f]{64}$/;function B(t){return t!==null&&typeof t=="object"?t:null}function ue(t){return typeof t=="number"&&Number.isInteger(t)&&t>=0&&t<2**31}function Pt(t){return t===void 0||typeof t=="number"&&Number.isFinite(t)}function zr(t){return t===void 0||typeof t=="string"&&Ot.test(t)}function Mt(t){const e=B(t);return e!==null&&(e.until===null||typeof e.until=="number"&&Number.isFinite(e.until))&&typeof e.now=="boolean"}function et(t){const e=B(t);return e!==null&&typeof e.ver=="string"&&e.ver.length<=128&&Pt(e.seq)&&typeof e.handoff=="string"&&Pr.includes(e.handoff)&&zr(e.note)}function Nt(t){const e=B(t);return e!==null&&ue(e.gen)&&(e.phase==="final"||e.phase==="pending")&&(e.from===null||et(e.from))}function $r(t){const e=B(t);return e!==null&&e.kv===1&&ue(e.gen)&&et(e.from)&&Object.hasOwn(e,"data")}function Wr(t){const e=B(t);return e!==null&&e.__frame_hot_snapshot===!0&&ue(e.gen)&&typeof e.timeoutMs=="number"&&e.timeoutMs>=0&&e.timeoutMs<=6e4&&(e.handoff===void 0||typeof e.handoff=="boolean")&&(e.deadline===void 0||Mt(e.deadline))&&Pt(e.seq)&&(e.note===void 0||typeof e.note=="string")&&(e.key===void 0||typeof e.key=="string")}function Vr(t){const e=B(t);return e!==null&&e.__frame_hot_start===!0&&ue(e.gen)&&et(e.from)}function Xr(t){return typeof t=="string"&&t.length>=1&&t.length<=128}function Ct(t){return B(t)!==null&&!Array.isArray(t)}function Yr(t){const e=B(t);return e!==null&&e.__frame_cap_grant===!0&&typeof e.cap=="string"&&Xr(e.ver)&&(e.grant===void 0||Ct(e.grant))&&(e.budgets===void 0||Ct(e.budgets)&&Object.values(e.budgets).every(Number.isFinite))&&(e.brokerGen===void 0||ue(e.brokerGen))}function Jr(t){const e=B(t);return e!==null&&e.__frame_cap_rewired===!0&&(e.caps===void 0||Array.isArray(e.caps)&&e.caps.every(r=>typeof r=="string"))&&(e.brokerGen===void 0||ue(e.brokerGen))}function jt(t){const e=B(t);return e!==null&&typeof e.ver=="string"&&e.ver.length<=128&&Number.isFinite(e.seq)}function Ft(t){if(t==null||typeof t=="string")return!0;const e=B(t);return e!==null&&typeof e.doc=="string"&&typeof e.profile=="string"}function Zr(t){const e=B(t);return e!==null&&typeof e.path=="string"&&Ur.includes(e.kind)&&Ft(e.from)&&Ft(e.to)}function Qr(t){return t===null?null:Object.freeze(t.filter(Zr))}function en(t){const e=B(t);return e!==null&&e.__frame_hot_update===!0&&Number.isFinite(e.id)&&jt(e.from)&&jt(e.to)&&(e.changed===null||Array.isArray(e.changed))&&Br.includes(e.required)&&Mt(e.deadline)&&typeof e.verdictTimeoutMs=="number"&&e.verdictTimeoutMs>=0&&e.verdictTimeoutMs<=6e4&&(e.preflight===void 0||typeof e.preflight=="string"&&Gr.test(e.preflight))}var fe=/^[\w.-]+\.js$/;function tn(t,e,r){return r?"inert":typeof e=="string"&&fe.test(e)?t?[e]:"inert":t?"inert":"framed"}var It=Object.freeze({[Symbol("claude.hot.restart")]:!0});function xt(t,e){let r;try{r=t??sessionStorage}catch{return null}const n=Qe(e?.k),a=Ae(e?.k);let s=null;try{s=r.getItem(n)}catch{}try{r.removeItem(n)}catch{}try{xr(r,a)}catch{}let c=null;if(s!==null&&!(e!==null&&e.g===void 0))try{const d=JSON.parse(s);$r(d)&&(e===null||d.gen===e.g)&&(c=d)}catch{}if(c===null)try{r.removeItem(a)}catch{}return c}function Dt(){const t=/^\/_f\/([^/]{1,128})\//.exec(location.pathname);return t?t[1]:""}var rn=/^[^/\\?#]{1,128}$/,Ht=t=>rn.test(t)&&t!=="."&&t!=="..";function qt(t,e,r){const n=new URL(t),a="/_f/"+e+"/";if(!e||!n.pathname.startsWith(a)||!Ht(r))return null;const s=n.search.slice(1).split("&").filter(c=>!/^__frame_t(?:=|$)/.test(c)).join("&");return n.origin+"/_f/"+r+"/"+n.pathname.slice(a.length)+(s?"?"+s:"")+n.hash}var De="{}";function ke(t){if(!t)return null;const e={ver:t.ver,handoff:t.handoff};return t.seq!==void 0&&(e.seq=t.seq),t.note!==void 0&&(e.note=t.note),e}function Bt(t,e){return t!==null&&t.note===void 0&&e?.note!==void 0?{...t,note:e.note}:t}function Ut(t){const e=t?.k;return e!==null&&typeof e=="object"?e:void 0}function nn(t,e,r,n=null){const a=setTimeout,s=clearTimeout,c=queueMicrotask,d=performance.now.bind(performance),L=new TextEncoder;let E=null,w=null;try{E=history,w=E.replaceState.bind(E)}catch{}const m=(...o)=>{try{console.warn(...o)}catch{}};let k=Dt(),O=null;try{O=sessionStorage}catch{}const h={storage:O,fetch:typeof fetch=="function"?fetch.bind(globalThis):null,entry:location.origin+location.pathname+location.search,ver:k,key:n?.k};let p=n?.k;const x=typeof requestAnimationFrame=="function"?requestAnimationFrame:o=>a(()=>o(d()),16);let y=e?.data??{},F=ke(e?.from),P=e?.gen??0,D=e!==null,$=!1,Q=!1,X=null,Oe=!1;const Pe=new AbortController;let Me=null,H=null,ve=null,Ke=!1,le=()=>{};const l=new Promise(o=>{le=o});let b=!1,g=!1,C=!1,N,j=null,W=!1,re=!1,Y=!1,Ne=!1,ee=!1,_e=!1;const Ce=o=>{for(const u of[Qe(o),Ae(o)])try{O?.removeItem(u)}catch{}},K=(o,u)=>{try{u!==null&&r.post(o,u)}catch{}},je=()=>ee||=Y&&(H===null||Ne),q=()=>{const o={__frame_hot:!0,ready:H!==null,accept:ve!==null,demand:!0};_e=!ee,_e&&(o.booting=!0),b&&(o.readData=!0),C&&(o.threw=!0),j?.assess&&(o.preflight=!0),K(o,X)};let Fe=!1,Ie=!1,ce=!1,Ge=!1;const ze=()=>{Fe||!Oe||ce||(Fe=!0,K({__frame_reveal_hold:!0},"*"))},ne=()=>new Promise(o=>{let u,f=0;const S=I=>{if(u===void 0)u=I;else if(I!==u||++f>=8){o();return}try{x(S)}catch{o()}};try{x(S)}catch{o()}}),ye=()=>{ce=!0,K({__frame_reveal_ready:!0},"*")},ge=o=>{Ie||(Ie=!0,o.then(u=>{if(u===!1)return;let f=null;try{f=j?.settle?.()??null}catch{}return(f===null?ne():new Promise(S=>{a(S,50),Promise.resolve(f).then(S,S)}).then(ne)).then(ye)}))},$e=()=>{if(Ge||!ce)return;Ge=!0;const o=()=>{try{j?.afterReveal?.()}catch{}};o(),ne().then(()=>{o(),ye()})},i=(o=!1)=>{if(Ke||H===null||!D||!Q)return;Ke=!0;const u=H,f=y;c(()=>{let S;try{S=u(f)}catch(U){throw le(!1),U}let I=!1;try{I=typeof S?.then=="function"}catch{}if(!I){le(!0);return}Promise.resolve(S).then(()=>le(!0),U=>{le(!1),c(()=>{throw U})})}),ge(o?l:r.dcl.then(()=>l))},v=o=>typeof o=="string"&&Ot.test(o)?o:void 0,_=o=>{const u={__frame_hot_restart:!0},f=v(o?.note);f!==void 0&&(u.note=f),o?.required==="hard-reload"&&(u.required="hard-reload"),K(u,X)},R=Object.freeze({get data(){return Q||(g=!0),!D&&!b&&(b=!0,Q&&q()),y},get from(){return F},get gen(){return P},signal:Pe.signal,snapshot(o){typeof o=="function"&&(Me=o)},ready(o){typeof o!="function"||H!==null||(H=o,ze(),q(),$&&K({__frame_hot_ready:!0,gen:P},X),i())},accept(o){typeof o=="function"&&(ve=o,q())},restart(o){const u={note:o?.note,required:o?.required};if(Q){_(u);return}const f=N;N={note:v(f?.note)??u.note,required:f?.required==="hard-reload"||u.required==="hard-reload"?"hard-reload":void 0}}});let G=null,J=()=>{};const he=new Promise(o=>{J=o});let xn=null;const rr=()=>xn??=r.dcl.then(()=>{let o=!1;try{o=G!==null&&G.expect()}catch{}if(!o)return;const u=G.maxMs;return new Promise(f=>{he.then(f),a(f,u)})}),nr=()=>{if(!W||re||j===null)return;re=!0;const o=j;rr().then(()=>{try{ce||o.afterStart(Ut(e),!1)}catch{}})},or=o=>{e!==null&&g&&(b=!0),y={},F=null,P=0;try{O?.removeItem(Ae(n?.k))}catch{}e!==null&&!o&&ge(r.dcl.then(()=>H!==null?l:void 0))},Dn=()=>{W=!0,ge(rr().then(()=>H!==null?l:void 0)),nr()};try{addEventListener("error",()=>{C||H!==null||(C=!0,q())})}catch{}const ar=()=>{a(()=>{!ee&&je()&&_e&&q()},0)};try{Y=document.readyState==="complete",Y||addEventListener("load",()=>{Y=!0,ar()},{once:!0})}catch{Y=!0}je(),l.then(()=>{Ne=!0,ar()});let pe=-1,vt,_t,xe=!0,yt=!1,gt,We=null;const wt=o=>{const u=We===null;We=xe&&o[0]!=="withheld"?o:["withheld",o[1],De];let f=o[0];if(xe&&f!=="withheld"){const I={ver:k,handoff:f};vt!==void 0&&(I.seq=vt),_t!==void 0&&(I.note=_t);try{if(O===null)throw new Error("no storage");O.setItem(Qe(p),'{"kv":1,"gen":'+pe+',"from":'+JSON.stringify(I)+(gt!==void 0?',"k":'+JSON.stringify(gt):"")+',"data":'+(f==="ok"?o[2]:De)+"}")}catch{f="unavailable"}}else{f="withheld",Ce(p);try{j?.release?.()}catch{}}const S={__frame_hot_snapshotted:!0,gen:pe,handoff:f,bytes:o[1]};o[3]!==void 0&&(S.errName=o[3]),K(S,X),u&&(f==="snapshot_error"||f==="unclonable"||f==="oversize")&&m("claude.hot: snapshot",f,o[3])},we=o=>{try{return Nr(o?.name)}catch{return"other"}},be=(o,u,f=0)=>wt(u===void 0?[o,f,De]:[o,f,De,we(u)]),Hn=o=>{if(o.gen<=pe)return;const u=pe>=0;if(pe=o.gen,vt=o.seq,_t=v(o.note),typeof o.key=="string"&&Lt.test(o.key)&&o.key!==p&&(Ce(p),p=o.key),xe&&=o.handoff!==!1,u){We!==null?wt(We):yt&&K({__frame_hot_held:!0,gen:pe},X);return}Pe.abort();const f=Object.freeze({handoff:xe,timeoutMs:o.timeoutMs,deadline:o.deadline??Cr}),S=Me,I=()=>{if(xe)try{gt=j?.capture()}catch{}if(S===null){be("empty");return}let T=!1;const z=a(()=>{T||(T=!0,be("snapshot_timeout"))},Math.max(0,f.timeoutMs));Promise.resolve().then(()=>S(f)).then(Ee=>{if(T)return;T=!0,s(z);let oe;try{oe=JSON.stringify(Ee)}catch(bt){be("unclonable",bt);return}if(typeof oe!="string"){be("unclonable");return}let ae=oe.length;try{ae=L.encode(oe).length}catch{}if(ae>262144){be("oversize",void 0,ae);return}wt(["ok",ae,oe])},Ee=>{T||(T=!0,s(z),be("snapshot_error",Ee))})};let U=null;try{U=j?.holdForIme()??null}catch{}if(U===null)I();else{yt=!0,K({__frame_hot_held:!0,gen:pe},X);const T=()=>{yt=!1,I()};U.then(T,T)}},qn=o=>{if(!$||D||H===null||o.gen!==P)return;let u=null;try{u=xt(O,n&&{k:n.k,g:o.gen})}catch{}if(u!==null&&u.gen!==o.gen){u=null;try{O?.removeItem(Ae(n?.k))}catch{}}y=u?.data??{},F=Bt(ke(u?.from??o.from),ke(o.from)),u!==null&&(P=u.gen),D=!0,$=!1;const f=Ut(u);l.then(S=>{try{S&&j?.afterStart(f,!0)}catch{}}),i(!0)};let Ve=0;const Bn=o=>{const u=ve;if(u===null||o.id<=Ve)return;Ve=o.id;const f=j?.assess;if(o.preflight===void 0||f===void 0){sr(o,u);return}let S=!1;const I=z=>{S||(S=!0,s(T),o.id===Ve&&sr(o,u,z))},U=()=>I(f.timeout(o)),T=a(U,Kr+100);f.run(o,window).then(I,U)},sr=(o,u,f)=>{let S,I=!1,U=!1,T,z,Ee=null;const oe=A=>{if(U)return!1;if(T!==void 0&&T!==A)return m(`claude.hot: u.${A}() ignored - u.${T}() was called first`),!1;const te=T===void 0;return T=A,te},ae=A=>{T="restart",m(`claude.hot: ${A} - restarting`)},bt=()=>{if(!oe("adopt")||o.id!==Ve)return;const A=o.to.ver;if(Xe.required!=="none"){ae(`u.adopt() needs required 'none', it is '${Xe.required}'`);return}if(!Ht(A)){ae("u.adopt() cannot address this version");return}if(!k||A===k)return;const te=k,Z=h.entry;let Ye="",St,Se=null,Je;try{Ye=location.href,St=E.state,Se=qt(Ye,te,A),Se!==null&&(w(St,"",Se),location.pathname.startsWith("/_f/"+A+"/")?Se=location.href:Je="navigate event canceled")}catch(kt){Je=we(kt)}if(Je!==void 0){z="adopt_failed",ae(`adopt_failed ${Je}; URL not changed`);return}Se===null?(z="adopt_skipped",m(`claude.hot: adopt_skipped - page already left /_f/${te}/; URL not changed, update still applied`)):z="adopted",k=h.ver=A;try{h.entry=qt(Z,te,A)??Z}catch{}const At=Se;Ee=()=>{if(k===A){if(At!==null)try{if(location.href!==At)m("claude.hot: adopt_revert_skipped - update not applied; URL left where the page navigated");else{if(w(St,"",Ye),location.href!==Ye){m("claude.hot: adopt_revert_failed navigate event canceled - URL still at the new version");return}z="adopt_reverted",m("claude.hot: adopt_reverted - adopt() was called but the handler threw; URL restored")}}catch(kt){m(`claude.hot: adopt_revert_failed ${we(kt)} - URL still at the new version`);return}k=h.ver=te,h.entry=Z,At===null&&(z=void 0)}}},Xe=Object.freeze({from:{ver:o.from.ver,seq:o.from.seq},to:{ver:o.to.ver,seq:o.to.seq},changed:Qr(o.changed),required:o.required,deadline:o.deadline,adopt:bt,defer(){return oe("defer")&&Xe.deadline.now&&ae("u.defer() past the deadline"),It},restart(A){return oe("restart"),T==="restart"&&!U&&(S??=v(A?.note),I||=A?.required==="hard-reload"),It},...f?.update}),Un=(A,te)=>{U=!0,A==="threw"?(Ee?.(),S??=we(te).toLowerCase()):T===void 0&&m(A==="timeout"?"claude.hot: accept handler did not answer in time - restarting":"claude.hot: accept handler settled without defer/restart/adopt - restarting");const Z={__frame_hot_verdict:!0,id:o.id};Z.verdict=A==="threw"||T===void 0||T==="restart"?"restart":T==="adopt"?"applied":"deferred",Z.verdict==="restart"&&(I&&(Z.required="hard-reload"),S!==void 0&&(Z.note=S)),z!==void 0&&(Z.verdict==="applied"||z!=="adopted")&&(Z.adopt=z),K(Object.assign(Z,f?.verdict),X)};let ir=!1;const Et=(A,te)=>ir?!1:(ir=!0,s(Kn),Un(A,te),!0),Kn=a(()=>Et("timeout"),o.verdictTimeoutMs);Promise.resolve().then(()=>u(Xe)).then(()=>Et("settled"),A=>{!Et("threw",A)&&T==="adopt"&&_({note:we(A).toLowerCase()}),m("claude.hot: accept",we(A))})};try{t.hot===void 0&&Object.defineProperty(t,"hot",{value:R,writable:!1,configurable:!1,enumerable:!1})}catch{}return{hot:R,boot:h,afterConnect(){Oe=!0,(e!==null||H!==null)&&ze()},onInit(o,u){X=u,Q=!0;const f=Nt(o)?o:null;f?.phase==="final"&&e!==null&&e.gen===f.gen?(D=!0,F=Bt(F,ke(f.from)),Dn()):($=f?.phase==="pending",or($),D=!$,P=f?.gen??0,F=ke(f?.from)),q(),_e&&a(()=>{ee||(ee=!0,q())},qr),$&&H!==null&&K({__frame_hot_ready:!0,gen:P},u),N!==void 0&&(_(N),N=void 0),i()},onNoInit(){Q=!0,or(!1),D=!0,i()},onShell(o){return o?.__frame_revealed===!0?($e(),!1):Wr(o)?(Hn(o),!0):Vr(o)?(qn(o),!0):en(o)?(Bn(o),!0):!1},attachExtras(o){j=o,nr(),o.assess&&q()},inSlot:()=>Ae(p),hydration(o,u){G??={expect:o,maxMs:u}},hydrated(){J()},carried(){return D?y:{}},presented:()=>ce}}var Wn="frame_ldx_runtime",on="frame_ldx_build",Vn="script#an-form",an=256;function Kt(t,e,r){for(const n of t)r(n)&&t.delete(n);t.size>=an&&!t.has(e)&&t.delete(t.values().next().value),t.add(e)}function tt(t,e,r){try{const n=t[e];if(typeof n!="function")return;t[e]=function(...a){const s=n.apply(this,a);try{r(this)}catch{}return s}}catch{}}var rt;function sn(){if(rt)return rt;const t={media:new Set,contexts:new Set,onStart:null,onPause:null};rt=t;const e=window.HTMLMediaElement?.prototype;e&&(tt(e,"play",a=>{Kt(t.media,a,s=>s.paused),t.onStart?.(a)}),tt(e,"pause",a=>t.onPause?.(a)));const r=window.AudioContext,n=window.AudioNode?.prototype;return r&&n&&tt(n,"connect",a=>{const s=a.context;s instanceof r&&(Kt(t.contexts,s,c=>c.state==="closed"),t.onStart?.(s))}),t}function ln(t){let e=window;for(let r=0;e.parent&&e.parent!==e&&r<8;r++)if(e=e.parent,t(e))return!0;return!1}function cn(){let t=null;const e=()=>t??parent,r=n=>t?n===t:ln(a=>a===n);return{post(n,a){if(t){e().postMessage(n,a);return}let s=parent;for(let c=0;c<8&&(s.postMessage(n,a),!(!s.parent||s.parent===s));c++)s=s.parent},on(n){const a=s=>{const c=s.source;r(c)&&n(s.data,s.origin,s.isTrusted,()=>{t??=c})};return addEventListener("message",a),()=>removeEventListener("message",a)},port:n=>({post(a,s){if(s?.activation){e().postMessage(a,{targetOrigin:n,includeUserActivation:!0});return}if(s?.transfer){e().postMessage(a,n,s.transfer);return}e().postMessage(a,n)},on(a,s){const c=d=>{r(d.source)&&d.origin===n&&a(d.data,d)};return addEventListener("message",c,s),()=>removeEventListener("message",c,s)}})}}function un(){const t={post:()=>{},on:()=>()=>{}};return{...t,port:()=>t}}var fn=500,dn=2e4,hn="data-token-reads",pn="data-frame-refused-watch",mn="data-frame-unsupported",vn=/(?:^|\s)stylesheet(?:\s|$)/i;function _n(t,e){let r="";if(t instanceof HTMLScriptElement?r=t.src:t instanceof HTMLLinkElement&&vn.test(t.rel)&&(r=t.href),!r)return null;try{const n=new URL(r);return n.origin===location.origin&&n.pathname.startsWith(e)?n.origin+n.pathname:null}catch{return null}}function yn(t,e,r){if(!t||e!=="query")return;const n="/_f/"+t+"/";document.documentElement.setAttribute(pn,"");const a=location.href,s=fetch,c=setTimeout,d={method:"HEAD",cache:"no-store",credentials:"same-origin"},L=h=>h.ok||h.status===304;let E=!1,w=!1;const m=()=>removeEventListener("error",O,!0),k=async h=>{const p=await s(h,d);if(L(p))w=!0;else if(p.status===403){const x=await s(a,d);if(L(x)){const y=(await s(h,d)).status;y===403?(w=!0,document.documentElement.setAttribute(mn,""),r()):y<500&&(w=!0)}else x.status>=400&&x.status<500&&(w=!0)}},O=h=>{if(w||E)return;if(document.documentElement.hasAttribute(hn)){w=!0,m();return}const p=_n(h.target,n);p&&(E=!0,c(()=>{k(p).catch(()=>{}).finally(()=>{E=!1,w&&m()})},fn))};addEventListener("error",O,!0),addEventListener("load",m,{once:!0}),c(m,dn)}var nt="__frame_scroll",gn=150,wn=310,bn=160,En=3e4;function Sn(){let t=0,e=!1,r=!1,n=!1,a=0,s=null;const c=y=>{try{sessionStorage.setItem(nt,JSON.stringify({y}))}catch{}},d=()=>{if(clearTimeout(t),s===null)return;const y=s;s=null,c(y)},L=()=>{if(e){e=!1;return}r=!0,s=scrollY,clearTimeout(t),t=setTimeout(d,gn)};try{addEventListener("scroll",L,{passive:!0}),addEventListener("pagehide",d)}catch{}const E=()=>{let y;try{y=sessionStorage.getItem(nt)}catch{return null}if(y===null)return null;let F;try{F=JSON.parse(y)}catch{F=null}const P=F?.y;if(!(typeof P=="number"&&Number.isFinite(P)&&P>=0)){try{sessionStorage.removeItem(nt)}catch{}return null}return P};let w=!1;const m=y=>{try{const F=scrollY;scrollTo({top:y,left:0,behavior:"instant"}),a=y,n=!0,clearTimeout(t),s=null,c(y);const P=scrollY;P!==F&&(e=!0),P!==y&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===P){const D=E();m(D!==null?D:a)}}catch{}},{once:!0}))}catch{}},k=()=>{try{return!!location.hash}catch{return!0}};let O=!1;const h=()=>{try{if(O||innerWidth>wn||innerHeight>bn)return;O=!0;const y=Date.now(),F=()=>{try{removeEventListener("resize",F)}catch{}if(Date.now()-y>En||r||k())return;const P=E();m(P!==null?P:a)};addEventListener("resize",F)}catch{}};let p=!1,x=!1;return{restore(){if(p||(p=!0,k()))return;const y=E();y!==null&&(m(y),h())},promoted(){if(x||(x=!0,k()))return;const y=E();y!==null?(m(y),h()):n&&m(a)}}}function An(t,e,r,n){let a=null;try{a=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:L=>L})??null}catch{}const s=window.Worker,c=s?.prototype,d=Object.freeze({Worker:s,workerOn:c?.addEventListener,workerPost:c?.postMessage,workerTerminate:c?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,now:Date.now,policy:a,origins:e});r(t).then(L=>L?.bootTopLevel?L.bootTopLevel(d,n):n.settle()).catch(()=>n.settle())}var Xn="modulepreload",Yn=function(t){return"/"+t},Jn={},kn=function(e,r,n){let a=Promise.resolve();function s(c){const d=new Event("vite:preloadError",{cancelable:!0});if(d.payload=c,window.dispatchEvent(d),!d.defaultPrevented)throw c}return a.then(c=>{for(const d of c||[])d.status==="rejected"&&s(d.reason);return e().catch(s)})},Rn=window===top,Gt=Object.getOwnPropertyDescriptor(window,"claude"),He=tn(Rn,window.__FRAME_PREAMBLE?.topLevel,Gt?.writable===!1),ot=typeof He=="object"&&He[0],M=ot?un():cn();(function(){const t=Object.defineProperty,e=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let a=0;a<r.length;a++){const s=r[a];try{t(e,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete e[s]}catch{}try{t(e,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof e[s]=="function"&&n++}if(n&&He==="framed")try{M.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var zt=1e4,Tn=2e3,at=2e3,st=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function $t(t){for(const e of st)if(e.endsWith(":*"))try{const r=new URL(t);if(`${r.protocol}//${r.hostname}:*`===e)return!0}catch{}else if(t===e)return!0;return!1}var Re=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),Te=window.__FRAME_PREAMBLE?.transforms,it=window.__FRAME_PREAMBLE?.comments,lt=window.__FRAME_PREAMBLE?.translate,de=window.__FRAME_PREAMBLE?.ldx,ct=lr(window.__FRAME_PREAMBLE?.cred);function Wt(t){return kn(()=>import("/_runtime/"+t),void 0)}var Le=new Set,Vt=setTimeout,Ln=fetch,On=AbortController,Pn=800+800*Math.random(),Mn=3e3,qe=null,Xt=new Map;function Nn(t,e){let r=Xt.get(t);return r||Xt.set(t,r=Cn(t,e)),r}function Cn(t,e){if(qe?.has(t))return Promise.resolve("csp");if(navigator.onLine===!1)return Promise.resolve("offline");const r=new On;let n=!1;return Vt(()=>{n=!0,r.abort()},Mn),Ln("/_runtime/"+t,{signal:r.signal}).then(a=>(r.abort(),a.ok?/javascript/i.test(a.headers.get("content-type")??"")?e instanceof Error&&/:\d+:\d+\)?$/m.test(e.stack??"")?"eval":"served":"mime":"http"),()=>n?"timeout":qe?.has(t)?"csp":"net")}function se(t){if(!qe){const e=qe=new Set;try{document.addEventListener("securitypolicyviolation",r=>{const n=/\/_runtime\/([^/?#]+)/.exec(r.blockedURI);n&&r.disposition!=="report"&&e.add(n[1])})}catch{}}return Wt(t).catch(()=>new Promise(e=>Vt(e,Pn)).then(()=>Wt(t+"?r=1")).then(e=>(e!==void 0&&Le.add(t),e)))}function Yt(t,e,r){return{contract:t.contract,changes:new Set(t.changes??[]),flags:new Set(t.flags??[]),capabilities:t.capabilities??{},capBudgets:t.capBudgets??{},brokerGen:t.brokerGen,transforms:new Map,shellOrigin:e,shell:r,mount:mt,hooks:Be,pipe:()=>({wrap:(n,a)=>(...s)=>{try{return a(...s)}catch(c){return Promise.reject(c)}}})}}var me=null,V=null;function Jt(t,e,r){try{Object.defineProperty(t,e,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(t,e,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var ut=!1,Be={editBefore:null,edit:null};function jn(t,e,r=!1){const n=[];let a;if(r)try{Be.editBefore?.(t)}catch{}for(const s of t.elements){const c=document.querySelector(`[data-id="${s.target}"]`);if(!c){a=s.target;break}if([...Object.keys(s.attrsSet??{}),...s.attrsRemoved??[]].some(d=>!hr(d)||pr(c,d))){a=s.target;break}if(s.text!==void 0&&(!yr(c)||Er(c))){a=s.target;break}for(const[d,L]of Object.entries(s.attrsSet??{}))if(!Qt(c,d)){try{c.setAttribute(d,L)}catch{}Zt(c,d,L)}for(const d of s.attrsRemoved??[])Qt(c,d)||(c.removeAttribute(d),Zt(c,d,null));typeof s.text=="string"&&wr(c,s.text),n.push(s.target)}if(r)try{Be.edit?.(t.seq,n,a)}catch{}if(a!==void 0){M.post({__frame_patch_miss:{seq:t.seq}},e);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:t.seq,targets:n}}))}catch{}}function Zt(t,e,r){if(!(t instanceof HTMLInputElement))return;const n=e.toLowerCase();n==="checked"?t.checked=r!==null:n==="value"&&t.type!=="file"&&(t.value=r??"")}function Qt(t,e){const r=e.toLowerCase(),n=t;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${t.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function er(t){const e=document.documentElement;t==="light"||t==="dark"?(e.dataset.theme=t,e.style.colorScheme=t,ut=!0):ut&&(delete e.dataset.theme,e.style.colorScheme="",ut=!1)}var ie=new Map,ft=null;function dt(){let t;const e={u:new Promise(r=>{t=r}),r:r=>{e.done=!0,t(r)},done:!1,nulled:!1};return e}function Ue(t,e){t.nulled=!0,t.ver=e,t.r(null)}function ht(t,e){for(const[r,n]of ie)n.done||(e&&n.asked?e(r,n):Ue(n,t))}function Fn(){for(const t of ie.values())if(t.asked&&!t.done)return!0;return!1}var In=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),pt=!1,mt=(t,e)=>{let r=ie.get(t);if(r?.nulled&&pt)r=dt(),ie.set(t,r);else if(!r||r.done){r?.nulled&&V&&M.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:t,phase:"install"}},V);return}const n=typeof e=="function"?Object.setPrototypeOf(e,In):Object.assign(Object.create(null),e);typeof n.then=="function"&&delete n.then,r.want=void 0,r.r(Object.freeze(n))};function tr(){const t=Gt?.value??{};Jt(window,"claude",t);for(const e of Object.keys(Re)){if(t[e]!==void 0){Jt(t,e,t[e]);continue}ie.set(e,dt())}if(t.use===void 0){const e=r=>{if(typeof r!="string"||!Object.hasOwn(Re,r))return Promise.resolve(null);let n=ie.get(r);return n?(ft&&(n.nulled||n.want!==void 0)&&(n=ft(r,n)),n.asked=!0,n.u):Promise.resolve(t[r]??null)};try{Object.defineProperty(t,"use",{value:e,writable:!0,configurable:!0,enumerable:!1})}catch{}}return t}if(He==="framed"){let t;const e=Te&&fe.test(Te)?se(Te).catch(l=>{t={f:Te,e:l}}):Promise.resolve(void 0),r=l=>{if(l.type==="auxclick"&&l.button!==1)return;const b=l.target,g=b&&b.closest?b.closest("a[href],area[href]"):null;if(!g)return;const C=g.getAttribute("href");if(!C)return;let N;try{N=new URL(C,document.baseURI)}catch{return}if((N.protocol==="http:"||N.protocol==="https:")&&N.origin!==location.origin){l.preventDefault();const j=(g.getAttribute("target")??"").toLowerCase(),W=l.type==="auxclick"||l.metaKey||l.ctrlKey||l.shiftKey||l.altKey||!["","_self","_top","_parent"].includes(j);M.post({__frame_nav:!0,url:N.href,newTab:W},"*")}};addEventListener("click",r,!0),addEventListener("auxclick",r,!0);const n={},a=l=>{l.isTrusted&&(n.pointer=!0)},s=l=>{l.isTrusted&&(n.click=!0)};addEventListener("pointermove",a,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0});const c={cb:null};addEventListener("keydown",l=>c.cb?.(l),!0);const d={cb:null};addEventListener("keydown",l=>d.cb?.(l));const L=sn();e.then(l=>l?.installEscapeForward?.(c,b=>{V&&M.post(b,V)})),e.then(l=>{try{l?.installFocusKeep?.()}catch{}}),e.then(l=>{if(!l?.wireNav)return;const b=M.port("*");l.wireNav(b),removeEventListener("click",r,!0),removeEventListener("auxclick",r,!0),removeEventListener("pointermove",a,!0),removeEventListener("click",s,!0),l.wireEngagement?.(n,b,L)});let E=null;try{E=Sn()}catch{}const w=document.readyState==="loading"?new Promise(l=>document.addEventListener("DOMContentLoaded",()=>l(),{once:!0})):Promise.resolve();let m=null,k=null;try{k=Dr(window.name),m=xt(null,k)}catch{}const O=tr();let h=null;try{h=nn(O,m,{post:(l,b)=>M.post(l,b),dcl:w},k)}catch{}e.then(l=>{try{h&&l?.installHotExtras?.(h)}catch{}});let p=null;const x=()=>Array.isArray(p?.flags)&&p.flags.includes("frame_ldx_runtime")&&!!de&&fe.test(de)&&document.querySelector("script#an-form")!==null;try{h?.hydration(x,Hr)}catch{}let y=null,F=0;const P=M.on((l,b,g,C)=>{$t(b)&&Rr(l)&&(C(),p=l.__frame_init,V=b,P(),clearTimeout(F),y?.())});if(ct)for(const l of st)try{l.endsWith(":*")||M.post({__frame_cred:ct},l)}catch{}M.post({__frame_connect:!0},"*");try{h?.afterConnect()}catch{}const D=setTimeout,$=clearTimeout;let Q=()=>NaN,X=()=>[];try{Q=performance.now.bind(performance),X=performance.getEntriesByType.bind(performance)}catch{}let Oe=0;const Pe=()=>{try{M.post({__frame_alive:!0},"*")}catch{}Oe=D(Pe,Tn)},Me=()=>$(Oe);Pe(),addEventListener("load",Me,{once:!0});const H=new Promise(l=>{y=l,F=setTimeout(()=>{P(),l()},zt)}),ve=new WeakSet;addEventListener("error",l=>{l.target&&ve.add(l.target)},!0);try{yn(Dt(),ct,()=>{e.then(l=>{try{l?.drawRefusedNotice?.()}catch{}})})}catch{}const Ke=()=>{let l=[];try{l=[...document.querySelectorAll("link[rel~=stylesheet]:not([rel~=alternate])")].filter(g=>!g.sheet&&!g.disabled&&!ve.has(g)&&g.getAttribute("href")&&URL.canParse(g.href)&&(!g.media||matchMedia(g.media).matches))}catch{}let b=l.length;return b===0?Promise.resolve():new Promise(g=>{try{const C=at-Q(),N=D(g,C>0?C<at?C:at:0),j=()=>{--b===0&&($(N),g())};for(const W of l)W.addEventListener("load",j,{once:!0}),W.addEventListener("error",j,{once:!0})}catch{g()}})};w.then(()=>{try{E?.restore()}catch{}}),Promise.all([H,w,e]).then(([,,l])=>{if(p?.hostOverlays!==!0||!V)return;let b=!1;try{b=l?.declaresCover?.()===!0}catch{}M.post({__frame_layout:{cover:b}},V)});const le={cb:null};M.on((l,b)=>{if($t(b)&&Tr(l)){try{E?.promoted()}catch{}le.cb?.()}}),H.then(async()=>{if(!p||!V){ht();try{h?.onNoInit()}catch{}return}if(er(p.theme),p.hostVisible===!1&&e.then(i=>i?.applyHostVisible?.(!1,L)),p.hostKeys!==void 0){const i=V,v=p.hostKeys;e.then(_=>_?.installHostKeyForward?.(d,v,R=>M.post(R,i)))}try{h?.onInit(p.hot,V)}catch{}let l;const b=()=>{try{!l&&de&&x()&&(l=se(de),l.then(i=>i?.prefetch?.()).catch(()=>{}))}catch{}};b(),w.then(b);const g=V,C=M.port(g),N=(i,v)=>M.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:i,phase:v}},g),j=(i,v,_)=>{new Promise(R=>R(Nn(v,_))).then(R=>N(i,R),()=>N(i))},W=i=>M.post({__frame_cap_recovered:{cap:i}},g);let re=p.brokerGen;const Y=()=>h?.boot.ver??"",Ne=Y(),ee=(i,v)=>{const _=Y();$(v.t),v.want=_,v.t=D(()=>{v.done||Ue(v,_)},zt),M.post({__frame_cap_want:!0,cap:i,ver:_},g)},_e=(i,v)=>{const _=ie.get(i.cap),R=Re[i.cap];if(!v||!_||_.done||_.want!==i.ver||!fe.test(R))return;if($(_.t),_.want=void 0,re=i.brokerGen??re,i.ver!==Y()){ee(i.cap,_);return}if(!i.grant||i.cap==="network"){Ue(_,i.ver);return}const G=me,J=me={...G,capabilities:{...G.capabilities,[i.cap]:i.grant},capBudgets:{...G.capBudgets,[i.cap]:{...G.capBudgets[i.cap],...i.budgets}}};se(R).then(he=>{Le.has(R)&&W(i.cap),J.brokerGen=re,pt=!0;try{he?.install?.(J)}catch{N(i.cap,"install")}finally{pt=!1}},he=>j(i.cap,R,he)).then(()=>{_.done||Ue(_,i.ver)})};let Ce=!1,K=!1;M.on((i,v,_)=>{if(v!==g)return;try{if(h?.onShell(i))return}catch{}if(Or(i)&&er(i.__frame_theme.theme),Yr(i)&&_e(i,_),_&&Jr(i)&&(re=i.brokerGen??re),Lr(i)){const J=i.__frame_host_visible.visible;e.then(he=>he?.applyHostVisible?.(J,L))}kr(i)&&jn(i.__frame_patch,g,_);const R=i?.__fc_mode;R&&typeof R=="object"&&!Ce&&it&&fe.test(it)&&(Ce=!0,se(it).then(J=>J.install?.(g,R.on===!0,C)).catch(()=>{}));const G=i?.__ft_cmd;G&&typeof G=="object"&&!K&&lt&&fe.test(lt)&&(K=!0,se(lt).then(J=>J.install?.(g,G,C)).catch(()=>{}))});const je=Object.keys(p.capabilities??{}).filter(i=>Object.hasOwn(Re,i)).map(i=>[i,Re[i]]).filter(i=>typeof i[1]=="string"&&fe.test(i[1])),q=g;let Fe=()=>{};const Ie=new Promise(i=>{Fe=i}),ce=m!==null||Nt(p.hot)||p.hostVisible===!1||p.hostOverlays===!0,Ge=w.then(()=>ce?Ie:new Promise(i=>D(i,0))).then(Ke).then(()=>{let i=!0;try{i=ce||Fn()}catch{}return i?Ie:void 0}).then(()=>{Me();const i=cr(X,Q);M.post(i?{__frame_ready:!0,nav:i}:{__frame_ready:!0},q),e.then(v=>{v?.installSizeReporter?.(q,le,C),v?.installPaintReporter?.(C)})}),ze=await Promise.allSettled(je.map(([,i])=>se(i))),ne=await e;if(ne?.buildBoot||(t?j("_transforms",t.f,t.e):N("_transforms")),ne?.buildBoot)try{me=ne.buildBoot(p,ne.TRANSFORMS??{},{shellOrigin:q,mount:mt,hooks:Be,shell:C},i=>M.post({__frame_cap_telemetry:i},q))}catch{N("_transforms","install"),me=Yt(p,q,C)}else me=Yt(p,q,C);ne?.buildBoot&&Le.has(Te??"")&&W("_transforms");const ye=me;ye.brokerGen=re,ze.forEach((i,v)=>{const[_,R]=je[v];if(i.status!=="fulfilled"){j(_,R,i.reason);return}Le.has(R)&&W(_);try{i.value?.install?.(ye)}catch{N(_,"install")}});const ge=p.capWants===!0;ge&&(ft=(i,v)=>{const _=Y();if(!_)return v;if(!v.nulled)return v.want!==_&&ee(i,v),v;if(_===v.ver)return v;const R=dt();return ie.set(i,R),ee(i,R),R}),ht(Ne,ge&&Y()!==Ne?ee:void 0),Fe(),await Ge;let $e=!1;try{$e=x()}catch{}de&&$e?(l??se(de)).then(i=>i?.boot?.({shellOrigin:g,build:ye.flags.has(on),hot:h?.hot??null,carried:h?.carried(),presented:()=>h?.presented()??!0})).catch(()=>!1).then(i=>{h?.hydrated(),i!==!0?N("_ldx"):Le.has(de)&&W("_ldx")}):h?.hydrated()})}else ot&&(tr(),An(ot,st,se,{settle:ht,mount:mt}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body data-new-gr-c-s-check-loaded="14.1330.0" data-gr-ext-installed="">
+<title>Caribbean World Chart</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+  :root{
+    --bg:#e9dbb8;
+    --bg-deep:#dfcda0;
+    --water:#cdd9c8;
+    --water-deep:#b9c9bd;
+    --ink:#3a2a18;
+    --ink-soft:#6b5436;
+    --ink-faint:#8d7a55;
+    --accent:#8a2f22;
+    --paper-card:rgba(250,243,222,0.94);
+    --paper-card-border:#b79c68;
+    --tier1:#3f6b4c;
+    --tier2:#a9791f;
+    --tier3:#8f3129;
+    --tier4:#5a4a86;
+    --tier5:#3f6580;
+    --shadow:rgba(58,42,24,0.25);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161310;
+      --bg-deep:#0f0d0b;
+      --water:#111b22;
+      --water-deep:#0a1218;
+      --ink:#e9d9ae;
+      --ink-soft:#c2ab7c;
+      --ink-faint:#8a7a58;
+      --accent:#e08a5c;
+      --paper-card:rgba(24,20,16,0.94);
+      --paper-card-border:#5a4a30;
+      --tier1:#5c9c72;
+      --tier2:#d1a03f;
+      --tier3:#c25a4f;
+      --tier4:#8a78c4;
+      --tier5:#5f93b4;
+      --shadow:rgba(0,0,0,0.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161310;
+    --bg-deep:#0f0d0b;
+    --water:#111b22;
+    --water-deep:#0a1218;
+    --ink:#e9d9ae;
+    --ink-soft:#c2ab7c;
+    --ink-faint:#8a7a58;
+    --accent:#e08a5c;
+    --paper-card:rgba(24,20,16,0.94);
+    --paper-card-border:#5a4a30;
+    --tier1:#5c9c72;
+    --tier2:#d1a03f;
+    --tier3:#c25a4f;
+    --tier4:#8a78c4;
+    --tier5:#5f93b4;
+    --shadow:rgba(0,0,0,0.45);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg-deep);
+    color:var(--ink);
+    font-family:'Crimson Text', Georgia, serif;
+    margin:0;
+    padding-inline:16px;
+    padding-block:18px;
+    min-height:100%;
+  }
+  h1,h2,h3{font-family:'Pirata One', 'Crimson Text', serif; font-weight:400; letter-spacing:.02em;}
+
+  .page{max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:14px;}
+
+  header.top{
+    display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:10px 20px;
+    border-bottom:2px solid var(--paper-card-border);
+    padding-bottom:10px;
+  }
+  header.top h1{font-size:clamp(28px,4.5vw,40px); margin:0; color:var(--ink); text-wrap:balance;}
+  header.top .sub{font-style:italic; color:var(--ink-soft); font-size:15px; max-width:46ch;}
+
+  .controls{
+    display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center;
+    background:var(--paper-card); border:1px solid var(--paper-card-border); border-radius:6px;
+    padding:9px 14px; font-size:14px;
+  }
+  .controls label{display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;}
+  .controls input[type="checkbox"]{accent-color:var(--accent); width:15px; height:15px; cursor:pointer;}
+
+  .layout{display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;}
+  .map-wrap{
+    flex:1 1 560px; min-width:280px;
+    background:radial-gradient(ellipse at 30% 20%, var(--water) 0%, var(--water-deep) 78%);
+    border:3px solid var(--paper-card-border);
+    border-radius:8px;
+    box-shadow:0 6px 22px var(--shadow);
+    overflow:hidden;
+    position:relative;
+  }
+  .map-wrap svg{display:block; width:100%; height:auto;}
+
+  .island-marker{cursor:pointer;}
+  .island-marker circle.hit{fill:transparent;}
+  .island-marker:hover .halo, .island-marker.active .halo{opacity:1;}
+  .halo{opacity:0; transition:opacity .15s ease;}
+  .island-label{font-family:'Crimson Text', serif; font-weight:700; pointer-events:none;}
+  .island-caption{font-family:'Crimson Text', serif; font-style:italic; pointer-events:none;}
+
+  aside.panel{
+    flex:0 1 320px; min-width:250px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .card{
+    background:var(--paper-card); border:1px solid var(--paper-card-border); border-radius:8px;
+    padding:14px 16px; box-shadow:0 2px 10px var(--shadow);
+  }
+  .card h2{font-size:20px; margin:0 0 8px;}
+  .card h3{font-size:17px; margin:0 0 4px; color:var(--accent);}
+
+  .dossier .meta-row{display:flex; flex-wrap:wrap; gap:6px 10px; font-size:13px; color:var(--ink-soft); margin-bottom:8px;}
+  .dossier .meta-row span{background:rgba(0,0,0,0.06); padding:2px 8px; border-radius:999px; border:1px solid var(--paper-card-border);}
+  .dossier p{margin:0; font-size:15.5px; line-height:1.5;}
+  .dossier .echo{font-style:italic; color:var(--ink-faint); font-size:13.5px; margin-top:8px;}
+  .dossier .empty{color:var(--ink-faint); font-style:italic; font-size:14.5px;}
+
+  .legend-grid{display:grid; grid-template-columns:1fr; gap:6px; font-size:14px;}
+  .legend-row{display:flex; align-items:center; gap:9px;}
+  .swatch{width:14px; height:14px; border-radius:50%; flex:0 0 auto; border:1px solid rgba(0,0,0,.25);}
+  .legend-row .name{font-weight:600;}
+  .legend-row .band{color:var(--ink-faint); font-size:12.5px; margin-left:auto; font-variant-numeric:tabular-nums;}
+
+  .icon-key{display:flex; flex-wrap:wrap; gap:10px 16px; font-size:13.5px; margin-top:10px; border-top:1px dashed var(--paper-card-border); padding-top:10px;}
+  .icon-key .item{display:flex; align-items:center; gap:6px;}
+  .icon-key svg{width:18px; height:18px; overflow:visible;}
+
+  footer.note{font-size:12.5px; color:var(--ink-faint); text-align:center; padding:6px 0 2px;}
+  footer.note a{color:inherit;}
+
+  @media (max-width:760px){
+    .layout{flex-direction:column;}
+    aside.panel{flex-basis:auto; width:100%;}
+  }
+</style>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>The Caribbean, as the Empire Charts It</h1>
+      <div class="sub">Eleven islands, five regions, two empires — plotted at their authored coordinates from <code>docs/11_WORLD_MAP.md</code>.</div>
+    </div>
+    <div class="controls">
+      <label><input type="checkbox" id="toggle-rings" checked=""> Region rings</label>
+      <label><input type="checkbox" id="toggle-labels" checked=""> Island names</label>
+      <label><input type="checkbox" id="toggle-mainland"> Planned Spanish mainland</label>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="map-wrap">
+      <svg id="chart" viewBox="-1400 -1400 2800 2800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Map of the Pirate Empire's Caribbean, showing eleven islands across five regions">
+      <g id="layer-rings"><path d="M 275,0 A 275,275 0 1 0 -275,0 A 275,275 0 1 0 275,0 Z M 150,0 A 150,150 0 1 1 -150,0 A 150,150 0 1 1 150,0 Z" fill="var(--tier1)" fill-opacity="0.16" fill-rule="evenodd"></path><circle cx="0" cy="0" r="150" fill="none" stroke="var(--tier1)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><circle cx="0" cy="0" r="275" fill="none" stroke="var(--tier1)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><text x="150.26019100214134" y="-150.26019100214137" fill="var(--tier1)" font-family="'Pirata One', serif" font-size="40" text-anchor="middle" opacity="0.85">Beginner Waters</text><path d="M 450,0 A 450,450 0 1 0 -450,0 A 450,450 0 1 0 450,0 Z M 350,0 A 350,350 0 1 1 -350,0 A 350,350 0 1 1 350,0 Z" fill="var(--tier2)" fill-opacity="0.16" fill-rule="evenodd"></path><circle cx="0" cy="0" r="350" fill="none" stroke="var(--tier2)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><circle cx="0" cy="0" r="450" fill="none" stroke="var(--tier2)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><text x="0" y="-400" fill="var(--tier2)" font-family="'Pirata One', serif" font-size="40" text-anchor="middle" opacity="0.85">Contested Waters</text><path d="M 675,0 A 675,675 0 1 0 -675,0 A 675,675 0 1 0 675,0 Z M 550,0 A 550,550 0 1 1 -550,0 A 550,550 0 1 1 550,0 Z" fill="var(--tier3)" fill-opacity="0.16" fill-rule="evenodd"></path><circle cx="0" cy="0" r="550" fill="none" stroke="var(--tier3)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><circle cx="0" cy="0" r="675" fill="none" stroke="var(--tier3)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><text x="158.52666512529413" y="591.6295686020543" fill="var(--tier3)" font-family="'Pirata One', serif" font-size="40" text-anchor="middle" opacity="0.85">Imperial Waters</text><path d="M 900,0 A 900,900 0 1 0 -900,0 A 900,900 0 1 0 900,0 Z M 775,0 A 775,775 0 1 1 -775,0 A 775,775 0 1 1 775,0 Z" fill="var(--tier4)" fill-opacity="0.16" fill-rule="evenodd"></path><circle cx="0" cy="0" r="775" fill="none" stroke="var(--tier4)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><circle cx="0" cy="0" r="900" fill="none" stroke="var(--tier4)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><text x="-837.5" y="1.5384625414288624e-13" fill="var(--tier4)" font-family="'Pirata One', serif" font-size="40" text-anchor="middle" opacity="0.85">The Ancient Ocean</text><path d="M 1150,0 A 1150,1150 0 1 0 -1150,0 A 1150,1150 0 1 0 1150,0 Z M 1000,0 A 1000,1000 0 1 1 -1000,0 A 1000,1000 0 1 1 1000,0 Z" fill="var(--tier5)" fill-opacity="0.16" fill-rule="evenodd"></path><circle cx="0" cy="0" r="1000" fill="none" stroke="var(--tier5)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><circle cx="0" cy="0" r="1150" fill="none" stroke="var(--tier5)" stroke-width="2.5" stroke-dasharray="3 9" opacity="0.75"></circle><text x="0" y="-1075" fill="var(--tier5)" font-family="'Pirata One', serif" font-size="40" text-anchor="middle" opacity="0.85">The Ghost Reaches</text></g><g id="layer-mainland" style="display: none;"><path d="M 565.2149105594045,395.7677410822216 A 690,690 0 0 1 -565.2149105594042,395.767741082222 L -1122.2383006759185,785.7997178009335 A 1370,1370 0 0 0 1122.2383006759192,785.7997178009327 Z" fill="var(--tier3)" fill-opacity="0.14" stroke="var(--tier3)" stroke-width="3" stroke-dasharray="10 8" opacity="0.8"></path><text x="1.2613862031217738e-13" y="1014" fill="var(--tier3)" font-family="'Pirata One', serif" font-size="42" text-anchor="middle">Spanish Mainland</text><text x="1.2613862031217738e-13" y="1060" fill="var(--tier3)" font-family="'Crimson Text', serif" font-style="italic" font-size="30" text-anchor="middle">planned — not yet built (docs/21 §5)</text></g><g id="layer-compass-lines"><line x1="-1400" y1="0" x2="1400" y2="0" stroke="var(--ink-faint)" stroke-width="2" stroke-dasharray="2 10" opacity="0.5"></line><line x1="0" y1="-1400" x2="0" y2="1400" stroke="var(--ink-faint)" stroke-width="2" stroke-dasharray="2 10" opacity="0.5"></line></g><g id="layer-bound"><rect x="-1400" y="-1400" width="2800" height="2800" fill="none" stroke="var(--ink-soft)" stroke-width="5" stroke-dasharray="4 18" opacity="0.7"></rect><text x="-1376" y="-1348" fill="var(--ink-soft)" font-family="'Crimson Text', serif" font-style="italic" font-size="34">“The charts end here…” — world bound, ±1400u</text></g><g id="layer-rose"><g><circle cx="1160" cy="-1160" r="150" fill="var(--paper-card)" stroke="var(--ink-soft)" stroke-width="3"></circle><circle cx="1160" cy="-1160" r="93" fill="none" stroke="var(--ink-faint)" stroke-width="1.5"></circle><line x1="1160" y1="-1190" x2="1160" y2="-1289" stroke="var(--ink)" stroke-width="3"></line><line x1="1190" y1="-1160" x2="1289" y2="-1160" stroke="var(--ink)" stroke-width="3"></line><line x1="1160" y1="-1130" x2="1160" y2="-1031" stroke="var(--ink)" stroke-width="3"></line><line x1="1130" y1="-1160" x2="1031" y2="-1160" stroke="var(--ink)" stroke-width="3"></line><line x1="1181.2132034355964" y1="-1181.2132034355964" x2="1218.3363094478902" y2="-1218.3363094478902" stroke="var(--ink-faint)" stroke-width="1.5"></line><line x1="1181.2132034355964" y1="-1138.7867965644036" x2="1218.3363094478902" y2="-1101.6636905521098" stroke="var(--ink-faint)" stroke-width="1.5"></line><line x1="1138.7867965644036" y1="-1138.7867965644036" x2="1101.6636905521098" y2="-1101.6636905521098" stroke="var(--ink-faint)" stroke-width="1.5"></line><line x1="1138.7867965644036" y1="-1181.2132034355964" x2="1101.6636905521098" y2="-1218.3363094478902" stroke="var(--ink-faint)" stroke-width="1.5"></line><text x="1160" y="-1324" text-anchor="middle" fill="var(--ink)" font-family="'Pirata One', serif" font-size="38">N</text><text x="1337" y="-1147" text-anchor="middle" fill="var(--ink)" font-family="'Pirata One', serif" font-size="38">E</text><text x="1160" y="-970" text-anchor="middle" fill="var(--ink)" font-family="'Pirata One', serif" font-size="38">S</text><text x="983" y="-1147" text-anchor="middle" fill="var(--ink)" font-family="'Pirata One', serif" font-size="38">W</text></g></g><g id="layer-islands"><g class="island-marker" data-id="port_royal" tabindex="0"><circle class="halo" cx="0" cy="0" r="62" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="0" cy="0" r="46" fill="var(--accent)" stroke="var(--ink)" stroke-width="2.5"></circle><polygon points="0.0,-28.5 7.0,-9.7 27.1,-8.8 11.4,3.7 16.8,23.1 0.0,12.0 -16.8,23.1 -11.4,3.7 -27.1,-8.8 -7.0,-9.7" fill="var(--bg)" opacity="0.9"></polygon><circle class="hit" cx="0" cy="0" r="76"></circle><title>Port Royal — Beginner Waters</title></g><g class="island-marker" data-id="tortuga" tabindex="0"><circle class="halo" cx="170" cy="-140" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="170" cy="-140" r="32" fill="var(--tier1)" stroke="var(--ink)" stroke-width="2.5"></circle><circle class="hit" cx="170" cy="-140" r="62"></circle><title>Tortuga — Beginner Waters</title></g><g class="island-marker" data-id="pelican_cay" tabindex="0"><circle class="halo" cx="200" cy="120" r="46" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="200" cy="120" r="30" fill="var(--ink-soft)" fill-opacity="0.32" stroke="var(--ink)" stroke-width="2.5" stroke-dasharray="4 5"></circle><circle class="hit" cx="200" cy="120" r="60"></circle><title>Pelican Cay — Beginner Waters</title></g><g class="island-marker" data-id="skull_cove" tabindex="0"><circle class="halo" cx="60" cy="-430" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="60" cy="-430" r="32" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><line x1="45.6" y1="-444.4" x2="74.4" y2="-415.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><line x1="74.4" y1="-444.4" x2="45.6" y2="-415.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><circle class="hit" cx="60" cy="-430" r="62"></circle><title>Skull Cove — Contested Waters</title></g><g class="island-marker" data-id="frozen_island" tabindex="0"><circle class="halo" cx="280" cy="-340" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="280" cy="-340" r="32" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><line x1="265.6" y1="-354.4" x2="294.4" y2="-325.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><line x1="294.4" y1="-354.4" x2="265.6" y2="-325.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><circle class="hit" cx="280" cy="-340" r="62"></circle><title>Frostbite Reef — Contested Waters</title></g><g class="island-marker" data-id="blackwater_shoal" tabindex="0"><circle class="halo" cx="-50" cy="-430" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="-50" cy="-430" r="32" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><line x1="-64.4" y1="-444.4" x2="-35.6" y2="-415.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><line x1="-35.6" y1="-444.4" x2="-64.4" y2="-415.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><circle class="hit" cx="-50" cy="-430" r="62"></circle><title>Blackwater Shoal — Contested Waters</title></g><g class="island-marker" data-id="volcano_island" tabindex="0"><circle class="halo" cx="480" cy="380" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="480" cy="380" r="32" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><line x1="465.6" y1="365.6" x2="494.4" y2="394.4" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><line x1="494.4" y1="365.6" x2="465.6" y2="394.4" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><circle class="hit" cx="480" cy="380" r="62"></circle><title>Mount Brimstone — Imperial Waters</title></g><g class="island-marker" data-id="cartagena_outpost" tabindex="0"><circle class="halo" cx="120" cy="630" r="60" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="120" cy="630" r="44" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><polygon points="120.0,602.7 126.7,620.7 145.9,621.6 130.9,633.5 136.0,652.1 120.0,641.4 104.0,652.1 109.1,633.5 94.1,621.6 113.3,620.7" fill="var(--bg)" opacity="0.9"></polygon><circle class="hit" cx="120" cy="630" r="74"></circle><title>Cartagena Outpost — Imperial Waters</title></g><g class="island-marker" data-id="isla_del_rey" tabindex="0"><circle class="halo" cx="-620" cy="-180" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="-620" cy="-180" r="32" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><line x1="-634.4" y1="-194.4" x2="-605.6" y2="-165.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><line x1="-605.6" y1="-194.4" x2="-634.4" y2="-165.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><circle class="hit" cx="-620" cy="-180" r="62"></circle><title>Isla del Rey — Imperial Waters</title></g><g class="island-marker" data-id="widows_reach" tabindex="0"><circle cx="-850" cy="100" r="56" fill="none" stroke="var(--tier4)" stroke-width="2" stroke-dasharray="3 6" opacity="0.6"></circle><circle class="halo" cx="-850" cy="100" r="50" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="-850" cy="100" r="34" fill="var(--tier4)" stroke="var(--ink)" stroke-width="2.5"></circle><circle class="hit" cx="-850" cy="100" r="64"></circle><title>Widow's Reach — The Ancient Ocean</title></g><g class="island-marker" data-id="fogbound_cay" tabindex="0"><circle class="halo" cx="0" cy="-1100" r="48" fill="none" stroke="var(--accent)" stroke-width="4"></circle><circle cx="0" cy="-1100" r="32" fill="var(--tier3)" stroke="var(--ink)" stroke-width="2.5"></circle><line x1="-14.4" y1="-1114.4" x2="14.4" y2="-1085.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><line x1="14.4" y1="-1114.4" x2="-14.4" y2="-1085.6" stroke="var(--bg)" stroke-width="4" stroke-linecap="round"></line><circle class="hit" cx="0" cy="-1100" r="62"></circle><title>Fogbound Cay — The Ghost Reaches</title></g></g><g id="layer-labels"><g class="label-group" data-id="port_royal"><text class="island-label" x="60" y="78" text-anchor="start" fill="var(--ink)" font-size="42">Port Royal</text><text class="island-caption" x="60" y="112" text-anchor="start" fill="var(--ink-soft)" font-size="30">Beginner Waters · tier 1</text></g><g class="label-group" data-id="tortuga"><text class="island-label" x="232" y="-134" text-anchor="start" fill="var(--ink)" font-size="42">Tortuga</text><text class="island-caption" x="232" y="-100" text-anchor="start" fill="var(--ink-soft)" font-size="30">Beginner Waters · tier 1</text></g><g class="label-group" data-id="pelican_cay"><text class="island-label" x="262" y="126" text-anchor="start" fill="var(--ink)" font-size="42">Pelican Cay</text><text class="island-caption" x="262" y="160" text-anchor="start" fill="var(--ink-soft)" font-size="30">Beginner Waters · tier 1</text></g><g class="label-group" data-id="skull_cove"><text class="island-label" x="122" y="-424" text-anchor="start" fill="var(--ink)" font-size="42">Skull Cove</text><text class="island-caption" x="122" y="-390" text-anchor="start" fill="var(--ink-soft)" font-size="30">Contested Waters · tier 2</text></g><g class="label-group" data-id="frozen_island"><text class="island-label" x="342" y="-334" text-anchor="start" fill="var(--ink)" font-size="42">Frostbite Reef</text><text class="island-caption" x="342" y="-300" text-anchor="start" fill="var(--ink-soft)" font-size="30">Contested Waters · tier 2</text></g><g class="label-group" data-id="blackwater_shoal"><text class="island-label" x="-112" y="-424" text-anchor="end" fill="var(--ink)" font-size="42">Blackwater Shoal</text><text class="island-caption" x="-112" y="-390" text-anchor="end" fill="var(--ink-soft)" font-size="30">Contested Waters · tier 2</text></g><g class="label-group" data-id="volcano_island"><text class="island-label" x="542" y="386" text-anchor="start" fill="var(--ink)" font-size="42">Mount Brimstone</text><text class="island-caption" x="542" y="420" text-anchor="start" fill="var(--ink-soft)" font-size="30">Imperial Waters · tier 3</text></g><g class="label-group" data-id="cartagena_outpost"><text class="island-label" x="182" y="636" text-anchor="start" fill="var(--ink)" font-size="42">Cartagena Outpost</text><text class="island-caption" x="182" y="670" text-anchor="start" fill="var(--ink-soft)" font-size="30">Imperial Waters · tier 3</text></g><g class="label-group" data-id="isla_del_rey"><text class="island-label" x="-682" y="-174" text-anchor="end" fill="var(--ink)" font-size="42">Isla del Rey</text><text class="island-caption" x="-682" y="-140" text-anchor="end" fill="var(--ink-soft)" font-size="30">Imperial Waters · tier 3</text></g><g class="label-group" data-id="widows_reach"><text class="island-label" x="-912" y="106" text-anchor="end" fill="var(--ink)" font-size="42">Widow's Reach</text><text class="island-caption" x="-912" y="140" text-anchor="end" fill="var(--ink-soft)" font-size="30">The Ancient Ocean · tier 4</text></g><g class="label-group" data-id="fogbound_cay"><text class="island-label" x="0" y="-1160" text-anchor="middle" fill="var(--ink)" font-size="42">Fogbound Cay</text><text class="island-caption" x="0" y="-1126" text-anchor="middle" fill="var(--ink-soft)" font-size="30">The Ghost Reaches · tier 5</text></g></g></svg>
+    </div>
+
+    <aside class="panel">
+      <div class="card dossier" id="dossier">
+        <h2>Ship's Log</h2>
+        <p class="empty">Touch an island to read its dossier — what it gives, what it costs, what story it carries.</p>
+      </div>
+
+      <div class="card">
+        <h2>Regions, home outward</h2>
+        <div class="legend-grid" id="legend"><div class="legend-row"><span class="swatch" style="background:var(--tier1)"></span><span class="name">Beginner Waters</span><span class="band">150–275u · Pirate Clans</span></div><div class="legend-row"><span class="swatch" style="background:var(--tier2)"></span><span class="name">Contested Waters</span><span class="band">350–450u · Royal Navy</span></div><div class="legend-row"><span class="swatch" style="background:var(--tier3)"></span><span class="name">Imperial Waters</span><span class="band">550–675u · Spanish Empire</span></div><div class="legend-row"><span class="swatch" style="background:var(--tier4)"></span><span class="name">The Ancient Ocean</span><span class="band">775–900u · Pirate Clans (Vane)</span></div><div class="legend-row"><span class="swatch" style="background:var(--tier5)"></span><span class="name">The Ghost Reaches</span><span class="band">1000–1150u · The Ghost Fleet</span></div></div>
+        <div class="icon-key">
+          <div class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="var(--ink-soft)" fill-opacity="0.35" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 2"></circle></svg> Neutral</div>
+          <div class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="var(--tier1)" stroke="var(--ink)" stroke-width="1.5"></circle></svg> Friendly</div>
+          <div class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="var(--tier3)" stroke="var(--ink)" stroke-width="1.5"></circle><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="1.6"></path></svg> Enemy</div>
+          <div class="item"><svg viewBox="0 0 24 24"><path d="M12 2l2.6 7.2H22l-6 4.6 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.6h7.4z" fill="var(--accent)" stroke="var(--ink)" stroke-width="1"></path></svg> Capital / home</div>
+          <div class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="var(--tier4)" stroke-width="1.4" stroke-dasharray="2 2"></circle><circle cx="12" cy="12" r="4.5" fill="var(--tier4)"></circle></svg> Legendary</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="note">World bounded to a ±1400u square (<code>WorldBoundsData.tres</code>) — headroom past the Ghost Reaches' 1150u ring. Source: <code>docs/11_WORLD_MAP.md</code> &amp; <code>docs/21_WORLD_SCALE_AND_MAINLANDS.md</code>.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var WORLD_BOUND = 1400;
+
+  var REGIONS = {
+    beginner:  {name:"Beginner Waters",   tier:1, band:[150,275],  faction:"Pirate Clans",        color:"var(--tier1)", bearing:"the centre — home"},
+    contested: {name:"Contested Waters",  tier:2, band:[350,450],  faction:"Royal Navy",           color:"var(--tier2)", bearing:"north"},
+    imperial:  {name:"Imperial Waters",   tier:3, band:[550,675],  faction:"Spanish Empire",       color:"var(--tier3)", bearing:"south / south-east"},
+    ancient:   {name:"The Ancient Ocean", tier:4, band:[775,900],  faction:"Pirate Clans (Vane)",   color:"var(--tier4)", bearing:"due west"},
+    ghost:     {name:"The Ghost Reaches", tier:5, band:[1000,1150],faction:"The Ghost Fleet",       color:"var(--tier5)", bearing:"due north"}
+  };
+
+  var ISLANDS = [
+    {id:"port_royal", name:"Port Royal", x:0, z:0, region:"beginner", type:"home",
+      echo:"Real-world echo: Jamaica", labelSide:"se",
+      blurb:"Drowned in the quake, half of it still underwater. Pirate-friendly and undefended, but not owned at game start — the player claims it through the ordinary Colonize flow. Home, once claimed."},
+    {id:"tortuga", name:"Tortuga", x:170, z:-140, region:"beginner", type:"friendly",
+      echo:"Real Tortuga sits NE of Jamaica", labelSide:"e",
+      blurb:"The pirate port that didn't sink, and is quietly smug about it. Merchant Guild trade, the Tavern where the first hires happen, and the rumours that point toward Morrow."},
+    {id:"pelican_cay", name:"Pelican Cay", x:200, z:120, region:"beginner", type:"neutral",
+      echo:"Flavor stop along Jamaica's coastal shallows", labelSide:"e",
+      blurb:"A low sandbar thick with pelican rookeries; fishermen from Tortuga work it. A second Beginner-ring resource stop, no chapter hook yet."},
+    {id:"skull_cove", name:"Skull Cove", x:60, z:-430, region:"contested", type:"enemy",
+      echo:"The Bahamas — the era's biggest lawless pirate haven", labelSide:"e",
+      blurb:"A drowned volcanic caldera with one entrance. Morrow's seat, and the target of Chapter 2's first island capture the player chooses."},
+    {id:"frozen_island", name:"Frostbite Reef", x:280, z:-340, region:"contested", type:"enemy",
+      echo:"Groups with Skull Cove as the lawless north", labelSide:"e",
+      blurb:"Not truly frozen — a cold-current reef with wrecks locked in rime. HMS Intransigent's deep anchorage; Chapter 4's boss arena."},
+    {id:"blackwater_shoal", name:"Blackwater Shoal", x:-50, z:-430, region:"contested", type:"enemy",
+      echo:"Region-filling target, no chapter hook yet", labelSide:"w",
+      blurb:"A Navy resupply waystation on a reef too shallow for their larger hulls. A third Contested target alongside Skull Cove and Frostbite Reef."},
+    {id:"volcano_island", name:"Mount Brimstone", x:480, z:380, region:"imperial", type:"enemy",
+      echo:"Real volcanic islands of the Lesser Antilles sit SE", labelSide:"e",
+      blurb:"An active volcano where Spain mines sulphur and iron with convict labour. Chapter 5's first objective — cut the fleet's supply before you rob it."},
+    {id:"cartagena_outpost", name:"Cartagena Outpost", x:120, z:630, region:"imperial", type:"capital",
+      echo:"Real Cartagena sits due south of Jamaica", labelSide:"e",
+      blurb:"The fortified staging port for the treasure fleet crossing. Chapter 5's finale — the largest single loot payout in the game, and a second buildable island."},
+    {id:"isla_del_rey", name:"Isla del Rey", x:-620, z:-180, region:"imperial", type:"enemy",
+      echo:"Region-filling target, no chapter hook yet", labelSide:"w",
+      blurb:"A walled Spanish garrison guarding the sea approach to Cartagena. A third Imperial target alongside Mount Brimstone and Cartagena Outpost."},
+    {id:"widows_reach", name:"Widow's Reach", x:-850, z:100, region:"ancient", type:"legendary",
+      echo:"A discovery site, not a garrison — carries no owner faction", labelSide:"w",
+      blurb:"The wreck of the Wandering Widow, Solomon Vane's ship, lost forty years before the campaign begins. Chapter 6 in its entirety."},
+    {id:"fogbound_cay", name:"Fogbound Cay", x:0, z:-1100, region:"ghost", type:"enemy",
+      echo:"The Ghost Fleet's tone-rule boundary, not a story beat", labelSide:"n",
+      blurb:"A reef permanently wrapped in fog, held by the Ghost Fleet. The deepest-water resource yield in the game, and the hardest ambient combat."}
+  ];
+
+  var ISLAND_TYPE_LABEL = {home:"Home / Capital", friendly:"Friendly", neutral:"Neutral", enemy:"Enemy", capital:"Capital", legendary:"Legendary"};
+
+  var svg = document.getElementById("chart");
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function bearingPoint(deg, r){
+    var t = deg * Math.PI / 180;
+    return {x: r * Math.sin(t), z: -r * Math.cos(t)};
+  }
+
+  var layerRings = el("g", {id:"layer-rings"});
+  var layerMainland = el("g", {id:"layer-mainland"});
+  var layerCompassLines = el("g", {id:"layer-compass-lines"});
+  var layerBound = el("g", {id:"layer-bound"});
+  var layerIslands = el("g", {id:"layer-islands"});
+  var layerLabels = el("g", {id:"layer-labels"});
+  var layerRose = el("g", {id:"layer-rose"});
+
+  // --- crosshair + world bound -------------------------------------------------
+  [ [ -WORLD_BOUND,0,WORLD_BOUND,0 ], [0,-WORLD_BOUND,0,WORLD_BOUND] ].forEach(function(c){
+    layerCompassLines.appendChild(el("line", {x1:c[0],y1:c[1],x2:c[2],y2:c[3],
+      stroke:"var(--ink-faint)","stroke-width":2,"stroke-dasharray":"2 10", opacity:.5}));
+  });
+  layerBound.appendChild(el("rect", {
+    x:-WORLD_BOUND, y:-WORLD_BOUND, width:WORLD_BOUND*2, height:WORLD_BOUND*2,
+    fill:"none", stroke:"var(--ink-soft)", "stroke-width":5, "stroke-dasharray":"4 18", opacity:.7
+  }));
+  var boundLabel = el("text", {x:-WORLD_BOUND+24, y:-WORLD_BOUND+52, fill:"var(--ink-soft)",
+    "font-family":"'Crimson Text', serif", "font-style":"italic", "font-size":34});
+  boundLabel.textContent = "“The charts end here…” — world bound, ±1400u";
+  layerBound.appendChild(boundLabel);
+
+  // --- region ring bands (annulus per tier) -----------------------------------
+  Object.keys(REGIONS).forEach(function(key){
+    var r = REGIONS[key];
+    var inner = r.band[0], outer = r.band[1];
+    var d = "M "+outer+",0 A "+outer+","+outer+" 0 1 0 "+(-outer)+",0 A "+outer+","+outer+" 0 1 0 "+outer+",0 Z " +
+            "M "+inner+",0 A "+inner+","+inner+" 0 1 1 "+(-inner)+",0 A "+inner+","+inner+" 0 1 1 "+inner+",0 Z";
+    layerRings.appendChild(el("path", {d:d, fill:r.color, "fill-opacity":.16, "fill-rule":"evenodd"}));
+    layerRings.appendChild(el("circle", {cx:0, cy:0, r:inner, fill:"none", stroke:r.color, "stroke-width":2.5, "stroke-dasharray":"3 9", opacity:.75}));
+    layerRings.appendChild(el("circle", {cx:0, cy:0, r:outer, fill:"none", stroke:r.color, "stroke-width":2.5, "stroke-dasharray":"3 9", opacity:.75}));
+    var lp = bearingPoint(key==="beginner"?45:(key==="contested"?0:(key==="imperial"?165:(key==="ancient"?270:0))), (inner+outer)/2);
+    var rt = el("text", {x:lp.x, y:lp.z, fill:r.color, "font-family":"'Pirata One', serif", "font-size":40,
+      "text-anchor":"middle", opacity:.85});
+    rt.textContent = r.name;
+    layerRings.appendChild(rt);
+  });
+
+  // --- planned Spanish mainland (docs/21 §5) — hidden by default --------------
+  (function(){
+    var a1 = 125, a2 = 235, rIn = 690, rOut = 1370;
+    var p1 = bearingPoint(a1, rIn), p2 = bearingPoint(a2, rIn), p3 = bearingPoint(a2, rOut), p4 = bearingPoint(a1, rOut);
+    var d = "M "+p1.x+","+p1.z+" A "+rIn+","+rIn+" 0 0 1 "+p2.x+","+p2.z+
+            " L "+p3.x+","+p3.z+" A "+rOut+","+rOut+" 0 0 0 "+p4.x+","+p4.z+" Z";
+    layerMainland.appendChild(el("path", {d:d, fill:"var(--tier3)", "fill-opacity":.14,
+      stroke:"var(--tier3)", "stroke-width":3, "stroke-dasharray":"10 8", opacity:.8}));
+    var mid = bearingPoint((a1+a2)/2, (rIn+rOut)/2);
+    var t1 = el("text", {x:mid.x, y:mid.z-16, fill:"var(--tier3)", "font-family":"'Pirata One', serif",
+      "font-size":42, "text-anchor":"middle"});
+    t1.textContent = "Spanish Mainland";
+    var t2 = el("text", {x:mid.x, y:mid.z+30, fill:"var(--tier3)", "font-family":"'Crimson Text', serif",
+      "font-style":"italic", "font-size":30, "text-anchor":"middle"});
+    t2.textContent = "planned — not yet built (docs/21 §5)";
+    layerMainland.appendChild(t1);
+    layerMainland.appendChild(t2);
+  })();
+
+  // --- compass rose, drawn in-world at a fixed corner --------------------------
+  (function(){
+    var cx = 1160, cy = -1160, r = 150;
+    var g = el("g", {});
+    g.appendChild(el("circle", {cx:cx, cy:cy, r:r, fill:"var(--paper-card)", stroke:"var(--ink-soft)", "stroke-width":3}));
+    g.appendChild(el("circle", {cx:cx, cy:cy, r:r*0.62, fill:"none", stroke:"var(--ink-faint)", "stroke-width":1.5}));
+    [0,90,180,270].forEach(function(deg){
+      var p = bearingPoint(deg, r*0.86);
+      var q = bearingPoint(deg, r*0.2);
+      g.appendChild(el("line", {x1:cx+q.x, y1:cy+q.z, x2:cx+p.x, y2:cy+p.z, stroke:"var(--ink)", "stroke-width":3}));
+    });
+    [45,135,225,315].forEach(function(deg){
+      var p = bearingPoint(deg, r*0.55);
+      var q = bearingPoint(deg, r*0.2);
+      g.appendChild(el("line", {x1:cx+q.x, y1:cy+q.z, x2:cx+p.x, y2:cy+p.z, stroke:"var(--ink-faint)", "stroke-width":1.5}));
+    });
+    var labels = {N:0, E:90, S:180, W:270};
+    Object.keys(labels).forEach(function(k){
+      var p = bearingPoint(labels[k], r*1.18);
+      var t = el("text", {x:cx+p.x, y:cy+p.z+13, "text-anchor":"middle", fill:"var(--ink)",
+        "font-family":"'Pirata One', serif", "font-size":38});
+      t.textContent = k;
+      g.appendChild(t);
+    });
+    layerRose.appendChild(g);
+  })();
+
+  // --- island markers -----------------------------------------------------------
+  var LABEL_OFFSETS = {
+    e:  {dx: 62, dy: 6,  anchor:"start"},
+    w:  {dx:-62, dy: 6,  anchor:"end"},
+    n:  {dx: 0,  dy:-60, anchor:"middle"},
+    s:  {dx: 0,  dy: 78, anchor:"middle"},
+    se: {dx: 60, dy: 78, anchor:"start"}
+  };
+
+  var dossierEl = document.getElementById("dossier");
+  var activeMarker = null;
+
+  function typeVisual(type){
+    switch(type){
+      case "home":      return {r:46, fill:"var(--accent)", icon:"star"};
+      case "capital":   return {r:44, fill:"var(--tier3)",  icon:"star"};
+      case "friendly":  return {r:32, fill:"var(--tier1)",  icon:"none"};
+      case "neutral":   return {r:30, fill:"var(--ink-soft)", icon:"dashed"};
+      case "legendary": return {r:34, fill:"var(--tier4)",  icon:"aura"};
+      default:          return {r:32, fill:"var(--tier3)",  icon:"cross"};
+    }
+  }
+
+  ISLANDS.forEach(function(isl){
+    var region = REGIONS[isl.region];
+    var vis = typeVisual(isl.type);
+    var g = el("g", {class:"island-marker", "data-id":isl.id, tabindex:"0"});
+
+    if (vis.icon === "aura"){
+      g.appendChild(el("circle", {cx:isl.x, cy:isl.z, r:vis.r+22, fill:"none", stroke:vis.fill, "stroke-width":2, "stroke-dasharray":"3 6", opacity:.6}));
+    }
+    g.appendChild(el("circle", {class:"halo", cx:isl.x, cy:isl.z, r:vis.r+16, fill:"none", stroke:"var(--accent)", "stroke-width":4}));
+
+    if (vis.icon === "dashed"){
+      g.appendChild(el("circle", {cx:isl.x, cy:isl.z, r:vis.r, fill:vis.fill, "fill-opacity":.32, stroke:"var(--ink)", "stroke-width":2.5, "stroke-dasharray":"4 5"}));
+    } else if (vis.icon === "star"){
+      g.appendChild(el("circle", {cx:isl.x, cy:isl.z, r:vis.r, fill:vis.fill, stroke:"var(--ink)", "stroke-width":2.5}));
+      var starPts = [];
+      for (var i=0;i<10;i++){
+        var ang = -90 + i*36, rad = i%2===0 ? vis.r*0.62 : vis.r*0.26;
+        var t = ang*Math.PI/180;
+        starPts.push((isl.x+rad*Math.cos(t)).toFixed(1)+","+(isl.z+rad*Math.sin(t)).toFixed(1));
+      }
+      g.appendChild(el("polygon", {points:starPts.join(" "), fill:"var(--bg)", opacity:.9}));
+    } else {
+      g.appendChild(el("circle", {cx:isl.x, cy:isl.z, r:vis.r, fill:vis.fill, stroke:"var(--ink)", "stroke-width":2.5}));
+      if (vis.icon === "cross"){
+        var o = vis.r*0.45;
+        g.appendChild(el("line", {x1:isl.x-o, y1:isl.z-o, x2:isl.x+o, y2:isl.z+o, stroke:"var(--bg)", "stroke-width":4, "stroke-linecap":"round"}));
+        g.appendChild(el("line", {x1:isl.x+o, y1:isl.z-o, x2:isl.x-o, y2:isl.z+o, stroke:"var(--bg)", "stroke-width":4, "stroke-linecap":"round"}));
+      }
+    }
+
+    g.appendChild(el("circle", {class:"hit", cx:isl.x, cy:isl.z, r:vis.r+30}));
+
+    var titleEl = el("title", {});
+    titleEl.textContent = isl.name + " — " + region.name;
+    g.appendChild(titleEl);
+
+    layerIslands.appendChild(g);
+
+    var off = LABEL_OFFSETS[isl.labelSide] || LABEL_OFFSETS.e;
+    var lg = el("g", {class:"label-group", "data-id":isl.id});
+    var nameEl = el("text", {class:"island-label", x:isl.x+off.dx, y:isl.z+off.dy,
+      "text-anchor":off.anchor, fill:"var(--ink)", "font-size":42});
+    nameEl.textContent = isl.name;
+    var capEl = el("text", {class:"island-caption", x:isl.x+off.dx, y:isl.z+off.dy+34,
+      "text-anchor":off.anchor, fill:"var(--ink-soft)", "font-size":30});
+    capEl.textContent = region.name + " · tier " + region.tier;
+    lg.appendChild(nameEl);
+    lg.appendChild(capEl);
+    layerLabels.appendChild(lg);
+
+    function activate(){
+      if (activeMarker) activeMarker.classList.remove("active");
+      g.classList.add("active");
+      activeMarker = g;
+      renderDossier(isl, region);
+    }
+    g.addEventListener("click", activate);
+    g.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); activate(); } });
+  });
+
+  function renderDossier(isl, region){
+    var dist = Math.round(Math.hypot(isl.x, isl.z));
+    dossierEl.innerHTML =
+      '<h2>' + isl.name + '</h2>' +
+      '<div class="meta-row">' +
+        '<span>' + region.name + '</span>' +
+        '<span>' + ISLAND_TYPE_LABEL[isl.type] + '</span>' +
+        '<span>' + (dist === 0 ? "home port" : dist + "u from home") + '</span>' +
+      '</div>' +
+      '<p>' + isl.blurb + '</p>' +
+      '<div class="echo">' + isl.echo + '</div>';
+  }
+
+  // --- legend --------------------------------------------------------------------
+  var legendEl = document.getElementById("legend");
+  Object.keys(REGIONS).forEach(function(key){
+    var r = REGIONS[key];
+    var row = document.createElement("div");
+    row.className = "legend-row";
+    row.innerHTML = '<span class="swatch" style="background:'+r.color+'"></span>' +
+      '<span class="name">'+r.name+'</span>' +
+      '<span class="band">'+r.band[0]+'–'+r.band[1]+'u · '+r.faction+'</span>';
+    legendEl.appendChild(row);
+  });
+
+  // --- assemble & toggles ----------------------------------------------------------
+  [layerRings, layerMainland, layerCompassLines, layerBound, layerRose, layerIslands, layerLabels].forEach(function(l){
+    svg.appendChild(l);
+  });
+  layerMainland.style.display = "none";
+
+  document.getElementById("toggle-rings").addEventListener("change", function(e){
+    layerRings.style.display = e.target.checked ? "" : "none";
+  });
+  document.getElementById("toggle-labels").addEventListener("change", function(e){
+    layerLabels.style.display = e.target.checked ? "" : "none";
+  });
+  document.getElementById("toggle-mainland").addEventListener("change", function(e){
+    layerMainland.style.display = e.target.checked ? "" : "none";
+  });
+})();
+</script>
+
+</body></html>

@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/patch-sand-foliage.glb"         id="1_sand"]
 [ext_resource type="PackedScene" path="res://assets/models/patch-grass-foliage.glb"         id="2_grass"]
@@ -15,6 +15,16 @@
 [ext_resource type="Script"      path="res://scripts/components/KenneyMaterialApplier.gd"   id="13_mat"]
 
 [ext_resource type="Script"      path="res://scripts/world/Island.gd"                       id="14_isl"]
+
+; Task 3 (docs/21_WORLD_SCALE_AND_MAINLANDS.md §3 v1) — additional filler decor
+; asset kinds, no new art needed (all already vendored in assets/models/).
+[ext_resource type="PackedScene" path="res://assets/models/palm-bend.glb"                   id="15_palmbend"]
+[ext_resource type="PackedScene" path="res://assets/models/palm-straight.glb"                id="16_palmstraight"]
+[ext_resource type="PackedScene" path="res://assets/models/rocks-a.glb"                     id="17_rocka"]
+[ext_resource type="PackedScene" path="res://assets/models/rocks-b.glb"                     id="18_rockb"]
+[ext_resource type="PackedScene" path="res://assets/models/rocks-c.glb"                     id="19_rockc"]
+[ext_resource type="PackedScene" path="res://assets/models/grass.glb"                       id="20_grasstuft"]
+[ext_resource type="PackedScene" path="res://assets/models/grass-plant.glb"                 id="21_grassplant"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_1"]
 radius = 38.0
@@ -412,6 +422,82 @@ transform = Transform3D(2.5, 0, 1.2, 0, 3.0, 0, -1.2, 0, 2.5, 22, 3.3, -16)
 script = ExtResource("13_mat")
 material_path = "res://resources/materials/leaves.tres"
 
+; Palm4-7 + GrassTuft1-6: more filler decor, v1 (docs/21_WORLD_SCALE_AND_MAINLANDS.md
+; §3/§9 task 3) — same shared-across-all-islands pattern as the original decor,
+; new asset kinds already in the Kenney kit (palm-bend/straight, no new art),
+; filling the still-sparse quadrants the task-2 reposition pass left open.
+; Every position checked against the Sand1-24 tile squares, same as task 2.
+
+[node name="Palm4" parent="Foliage" instance=ExtResource("15_palmbend")]
+transform = Transform3D(3.2, 0, 0, 0, 3.2, 0, 0, 0, 3.2, -22, 3.3, 22)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm4"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="Palm5" parent="Foliage" instance=ExtResource("16_palmstraight")]
+transform = Transform3D(3.0, 0, 0, 0, 3.0, 0, 0, 0, 3.0, -14, 3.3, -6)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm5"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="Palm6" parent="Foliage" instance=ExtResource("15_palmbend")]
+transform = Transform3D(3.2, 0, 0, 0, 3.2, 0, 0, 0, 3.2, 2, 3.3, 26)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm6"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="Palm7" parent="Foliage" instance=ExtResource("16_palmstraight")]
+transform = Transform3D(3.0, 0, 0, 0, 3.0, 0, 0, 0, 3.0, 24, 3.3, 2)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/Palm7"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/leaves.tres"
+
+[node name="GrassTuft1" parent="Foliage" instance=ExtResource("20_grasstuft")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -2, 1.0, -16)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/GrassTuft1"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="GrassTuft2" parent="Foliage" instance=ExtResource("21_grassplant")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 14, 1.0, -4)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/GrassTuft2"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="GrassTuft3" parent="Foliage" instance=ExtResource("20_grasstuft")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -4, 1.0, 14)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/GrassTuft3"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="GrassTuft4" parent="Foliage" instance=ExtResource("21_grassplant")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 16, 1.0, 14)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/GrassTuft4"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="GrassTuft5" parent="Foliage" instance=ExtResource("20_grasstuft")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -16, 1.0, -16)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/GrassTuft5"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
+[node name="GrassTuft6" parent="Foliage" instance=ExtResource("21_grassplant")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 8, 1.0, -14)
+
+[node name="MaterialApplier" type="Node" parent="Foliage/GrassTuft6"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/grass.tres"
+
 [node name="Props" type="Node3D" parent="."]
 
 [node name="Rocks1" parent="Props" instance=ExtResource("8_rock1")]
@@ -455,3 +541,35 @@ transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -10, 2.6, 20)
 [node name="MaterialApplier" type="Node" parent="Props/TreasureChest"]
 script = ExtResource("13_mat")
 material_path = "res://resources/materials/brass_shiny.tres"
+
+; Rocks4-7: more filler decor, v1 (docs/21_WORLD_SCALE_AND_MAINLANDS.md §3/§9
+; task 3) — new rock variants (rocks-a/b/c, distinct from the rocks-sand-a/b
+; already used by Rocks1-3) filling remaining open quadrants.
+
+[node name="Rocks4" parent="Props" instance=ExtResource("17_rocka")]
+transform = Transform3D(2.0, 0, 0, 0, 2.0, 0, 0, 0, 2.0, -30, 2.0, -8)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks4"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"
+
+[node name="Rocks5" parent="Props" instance=ExtResource("18_rockb")]
+transform = Transform3D(2.0, 0, 0, 0, 2.0, 0, 0, 0, 2.0, 32, 2.0, -4)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks5"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"
+
+[node name="Rocks6" parent="Props" instance=ExtResource("19_rockc")]
+transform = Transform3D(2.2, 0, 0, 0, 2.2, 0, 0, 0, 2.2, -16, 2.3, 16)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks6"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"
+
+[node name="Rocks7" parent="Props" instance=ExtResource("17_rocka")]
+transform = Transform3D(2.2, 0, 0, 0, 2.2, 0, 0, 0, 2.2, 20, 2.3, 20)
+
+[node name="MaterialApplier" type="Node" parent="Props/Rocks7"]
+script = ExtResource("13_mat")
+material_path = "res://resources/materials/stone.tres"

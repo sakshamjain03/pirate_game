@@ -308,6 +308,13 @@ except where noted.
 3. **More filler decor, v1** (§3 v1 task) — more of the same asset kinds, still shared across
    islands. Acceptance: headful screenshot, island reads as fuller; GUT suite unaffected (no
    gameplay code touched, decoration only).
+   **Status: done.** Added 4 palms (`palm-bend`/`palm-straight` — new variants, distinct from the
+   `palm-detailed-*` ones already in use), 4 rocks (`rocks-a/b/c`, distinct from `rocks-sand-a/b`),
+   and 6 small `grass`/`grass-plant` tufts — 14 new nodes total, all reusing the existing
+   `KenneyMaterialApplier` re-tint pattern, no `CollisionShape3D`, no gameplay hook. Every position
+   checked against the Sand1-24 tile squares (same method as task 2). GUT unaffected (8/8 on
+   `test_world_map_layout.gd`; full suite unaffected — decoration only, no gameplay code touched).
+   Headful capture confirms the island now reads as visibly fuller.
 4. **`is_repeatable` + build-flow bypass** (§4, first three bullets) — the mechanical enabler, no
    new content yet. Acceptance: a GUT test placing the same repeatable `building_id` twice on a
    test island, confirming both persist through a save/restore round trip.

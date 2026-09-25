@@ -16,6 +16,8 @@ var _saved_sdk_initialized: bool
 var _saved_pending_surface: StringName
 var _had_state_file: bool
 var _backup_path := "user://ad_permission_data_test_backup.json"
+var _had_ad_free: bool
+var _ad_free_record
 
 
 func before_each():
@@ -33,6 +35,14 @@ func before_each():
 		src.close()
 		dst.close()
 
+	# An Ad-Free entitlement left over from anywhere (a real purchase on this
+	# dev profile, or another test's leak) makes request_bonus() grant directly
+	# with no SDK call — so every "ad must load" assertion here depends on it
+	# being absent. Removed in memory only; restored in after_each.
+	_had_ad_free = EntitlementManager._entitlements.has(EntitlementManager.AD_FREE_ID)
+	_ad_free_record = EntitlementManager._entitlements.get(EntitlementManager.AD_FREE_ID)
+	EntitlementManager._entitlements.erase(EntitlementManager.AD_FREE_ID)
+
 	AdManager.state = AdManager.State.UNKNOWN
 	AdManager._is_under_age = false
 	AdManager._ledger.clear()
@@ -45,6 +55,10 @@ func before_each():
 
 
 func after_each():
+	if _had_ad_free:
+		EntitlementManager._entitlements[EntitlementManager.AD_FREE_ID] = _ad_free_record
+	else:
+		EntitlementManager._entitlements.erase(EntitlementManager.AD_FREE_ID)
 	AdManager.state = _saved_state
 	AdManager._is_under_age = _saved_is_under_age
 	AdManager._ledger = _saved_ledger.duplicate(true)

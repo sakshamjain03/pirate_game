@@ -201,6 +201,34 @@ func repair(pool: String, amount: float) -> float:
 	return after - before
 
 
+func set_stats_preserving_fractions(new_stats: ShipStats) -> void:
+	## Swaps in new stats while keeping each pool at the same *fraction* of its
+	## maximum. Plain assignment left the pools at their old absolute values:
+	## EnemySpawner assigns a Dinghy's stats to the EnemyShip scene before it
+	## enters the tree, so this node's _ready() filled hull from the scene's
+	## default 120-HP stats and the ship then showed "120/50". Same story for
+	## EncounterManager's empire-strength rescale and for a level/component
+	## upgrade raising the player's maximum. A destroyed hull stays destroyed.
+	if new_stats == ship_stats:
+		return
+	var had_pools := ship_stats != null and is_inside_tree()
+	var fractions := {}
+	if had_pools:
+		for pool in ["hull", "sails", "crew"]:
+			var m := get_pool_maximum(pool)
+			var cur: float = get(pool)
+			fractions[pool] = clamp(cur / m, 0.0, 1.0) if m > 0.0 else 1.0
+	ship_stats = new_stats
+	if not had_pools or not ship_stats:
+		return
+	for pool in ["hull", "sails", "crew"]:
+		set(pool, fractions[pool] * get_pool_maximum(pool))
+	if _is_destroyed:
+		hull = 0.0
+	for pool in ["hull", "sails", "crew"]:
+		pool_changed.emit(pool, get(pool), get_pool_maximum(pool))
+
+
 func restore_all() -> void:
 	## Full restore of all three pools, clearing the destroyed flag. Used by
 	## respawn and by buying/switching a ship.

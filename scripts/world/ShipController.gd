@@ -153,7 +153,12 @@ func _apply_ship_stats() -> void:
 	# hulls at runtime left the damage pools clamped to the *old* ship's maxima.
 	var dmg = get_node_or_null("ShipDamage")
 	if dmg:
-		dmg.ship_stats = ship_stats
+		# Fraction-preserving, not a bare assignment — see
+		# ShipDamage.set_stats_preserving_fractions() for the "120/50" bug.
+		if dmg.has_method("set_stats_preserving_fractions"):
+			dmg.set_stats_preserving_fractions(ship_stats)
+		else:
+			dmg.ship_stats = ship_stats
 	var solver = get_node_or_null("FiringSolver")
 	if solver:
 		solver.ship_stats = ship_stats

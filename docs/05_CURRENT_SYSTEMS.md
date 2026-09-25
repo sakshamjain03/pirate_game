@@ -2631,7 +2631,7 @@ enemy displayed `"120/100"` (current hull exceeding its own reported max). The o
 silently `clampf()`-ed this to a full 100% bar with no indication; the new widget shows the true
 numbers. Likely a difficulty/role-scaling path (see `AIProfileData.role`/`tests/test_enemy_roles.gd`
 above) boosting current hull without a matching `ShipDamage.get_effective_max_health()` term —
-undiagnosed, flagged here as a follow-up rather than guessed at.
+undiagnosed, flagged here as a follow-up rather than guessed at. **Resolved in M23 follow-up** — see "M23 — Naval Dynamics → Follow-up fixes".
 
 ## M23 — Naval Dynamics (2026-09-25)
 
@@ -2719,6 +2719,26 @@ Save adds `"components"`; a pre-M23 save starts every part at the saved ship lev
 component ids and unresolvable module/ship paths now `push_error` (the module path was a silent
 skip). UI: IslandMenu fleet panel, one row per part with level/cap/cost and a reason on every
 disabled button.
+
+### Follow-up fixes (2026-09-25, same day)
+- **"120/50" enemy hull bar — root-caused and fixed** (flagged as undiagnosed in the combat-clarity
+  entry above). `EnemySpawner` assigns a hull's stats before `add_child`, so `ShipDamage._ready()`
+  filled its pools from the *scene's* default stats (EnemyShipStats, 120 HP) and
+  `ShipController._apply_ship_stats()` then swapped in e.g. a Dinghy's (max 50) without touching the
+  pools. `EncounterManager`'s strength rescale and player level/component upgrades had the same gap.
+  New `ShipDamage.set_stats_preserving_fractions()` (called from `_apply_ship_stats()`) keeps each
+  pool at the same fraction of its new maximum; a wreck stays a wreck. `tests/test_ship_stats_swap.gd`.
+- **`test_ad_gating` flake — root-caused.** `test_store_screen`'s buy test completes a stub purchase
+  (can be Ad-Free); `EntitlementManager.grant()` persisted it to the real `user://account_data.json`
+  and the test restored only the in-memory dict. Next launch booted Ad-Free "owned", so
+  `request_bonus()` never touched the SDK. `test_store_screen` now backs up/restores the file
+  (`test_entitlements.gd`'s convention) and `test_ad_gating` removes Ad-Free for its own duration.
+  **Note:** dev profiles that ran the suite before this fix still carry those stub grants
+  (`order_id` `stub_order_*`) in `%APPDATA%/Godot/app_userdata/Pirate Empire/account_data.json`.
+- **`test_combat_loop_end_to_end` "must lock the starboard battery" — root-caused.** Not a solver
+  bug: the test's 120-HP target was sunk by ~0.4 s (pre-M23 by 0.5 s reloads; post-M23 by the
+  special volley's rippling guns), and a wreck is correctly dropped as a target before the 0.8 s
+  check. The test now uses a sturdy target.
 
 ### Not verifiable headlessly
 Ram *feel* (knockback strength, splinters, HUD text timing), how hull-sliding reads in real play,

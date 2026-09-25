@@ -17,8 +17,25 @@ var _saved_entitlements: Dictionary
 var _saved_price_strings: Dictionary
 
 
+var _had_account_file: bool = false
+var _account_backup_path := "user://account_data_store_screen_backup.json"
+
+
 func before_each():
 	_saved_entitlements = EntitlementManager._entitlements.duplicate(true)
+	# test_buy_button_press_begins_a_purchase completes a (stub) purchase, and
+	# EntitlementManager.grant() writes it to the real account_data.json.
+	# Restoring only the in-memory dict left that grant on disk, so the next
+	# launch booted with e.g. Ad-Free "owned" — which is what made
+	# test_ad_gating fail intermittently. Same backup/restore convention as
+	# test_entitlements.gd.
+	if FileAccess.file_exists(EntitlementManager.ACCOUNT_DATA_PATH):
+		_had_account_file = true
+		var src := FileAccess.open(EntitlementManager.ACCOUNT_DATA_PATH, FileAccess.READ)
+		var dst := FileAccess.open(_account_backup_path, FileAccess.WRITE)
+		dst.store_string(src.get_as_text())
+		src.close()
+		dst.close()
 	EntitlementManager._entitlements.erase(_BUYABLE_COSMETIC_ID)
 	_saved_price_strings = StoreManager._price_strings.duplicate(true)
 	StoreManager._price_strings.clear()
@@ -27,6 +44,19 @@ func before_each():
 func after_each():
 	get_tree().paused = false
 	EntitlementManager._entitlements = _saved_entitlements.duplicate(true)
+	var dir := DirAccess.open("user://")
+	if dir and dir.file_exists("account_data.json"):
+		dir.remove("account_data.json")
+	if _had_account_file:
+		var src := FileAccess.open(_account_backup_path, FileAccess.READ)
+		var dst := FileAccess.open(EntitlementManager.ACCOUNT_DATA_PATH, FileAccess.WRITE)
+		dst.store_string(src.get_as_text())
+		src.close()
+		dst.close()
+		dir.remove("account_data_store_screen_backup.json")
+	else:
+		EntitlementManager._write_account_data()
+	_had_account_file = false
 	StoreManager._price_strings = _saved_price_strings.duplicate(true)
 	if is_instance_valid(_viewport):
 		_viewport.queue_free()

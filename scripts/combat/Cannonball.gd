@@ -28,6 +28,10 @@ func _process(_delta: float) -> void:
 		queue_free()
 
 func _spawn_splash() -> void:
+	# No scene to splash into (a ball outliving its scene, e.g. a rippled gun
+	# that fired just as a test scene or level was torn down).
+	if not get_tree().current_scene:
+		return
 	var splash = CPUParticles3D.new()
 	splash.emitting = false
 	splash.one_shot = true

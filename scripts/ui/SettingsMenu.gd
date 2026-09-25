@@ -287,6 +287,10 @@ func _populate_controls() -> void:
 		var mobile_card := _add_section_card(controls_vbox)
 		_add_mobile_controls(mobile_card)
 
+	_add_section_header(controls_vbox, tr("Gameplay"))
+	var gameplay_card := _add_section_card(controls_vbox)
+	_add_ai_difficulty_control(gameplay_card)
+
 	_add_section_header(controls_vbox, tr("Display"))
 	var display_card := _add_section_card(controls_vbox)
 	_add_graphics_quality_control(display_card)
@@ -458,6 +462,35 @@ func _add_ui_font_control(card: VBoxContainer) -> void:
 	hbox.add_child(option)
 
 	card.add_child(hbox)
+
+
+func _add_ai_difficulty_control(card: VBoxContainer) -> void:
+	## M23 Requirement 6 — how hard enemy ships hit, reload and aim. Names and
+	## descriptions come from the AIDifficultyData resources, not this file.
+	var hbox := HBoxContainer.new()
+	var label := _make_row_label(tr("Enemy Difficulty"))
+	label.custom_minimum_size.x = 200
+	hbox.add_child(label)
+
+	var option := OptionButton.new()
+	var names: Array[String] = settings_manager.get_ai_difficulty_names()
+	for i in names.size():
+		option.add_item(tr(names[i]), i)
+	option.select(settings_manager.ai_difficulty)
+	hbox.add_child(option)
+	card.add_child(hbox)
+
+	var hint := _make_row_label("")
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.add_child(hint)
+	var refresh_hint := func():
+		var profile: AIDifficultyData = settings_manager.get_ai_difficulty_profile()
+		hint.text = tr(profile.description) if profile else ""
+	refresh_hint.call()
+	option.item_selected.connect(func(index: int):
+		settings_manager.ai_difficulty = index
+		settings_manager.save_settings()
+		refresh_hint.call())
 
 
 func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, max_v: float, step: float,

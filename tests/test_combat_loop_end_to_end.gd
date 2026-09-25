@@ -136,6 +136,14 @@ func test_the_whole_v1_combat_loop_runs_through_the_real_scenes():
 
 	# Place a hostile squarely off the starboard beam and let auto-fire take it.
 	var target = load(ENEMY_SHIP).instantiate() as Node3D
+	# Sturdy enough to survive the 0.8 s window below. With the stock 120 hull
+	# the special volley's rippling guns plus one auto volley sank it by ~0.4 s,
+	# and a wreck is (correctly) dropped as a target — so this assertion was
+	# failing on the test's own fixture, not on the solver.
+	var sturdy: ShipStats = target.ship_stats.duplicate()
+	sturdy.max_health = 100000.0
+	target.ship_stats = sturdy
+	target.get_node("ShipDamage").ship_stats = sturdy
 	_root.add_child(target)
 	target.global_position = Vector3(40, 0, 0)
 	if target is RigidBody3D:

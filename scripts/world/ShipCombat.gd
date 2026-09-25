@@ -305,7 +305,7 @@ func get_aim_spread_degrees(side: String) -> float:
 
 func _fire_rippled_gun(marker: Node3D, side: String, volley_mult: float) -> void:
 	## One delayed gun of a rippling broadside: may misfire, else fires.
-	if not is_instance_valid(marker) or not is_inside_tree():
+	if not is_instance_valid(marker) or not is_inside_tree() or not get_tree().current_scene:
 		return
 	var parent = get_parent()
 	var dmg = parent.get_node_or_null("ShipDamage") if parent else null

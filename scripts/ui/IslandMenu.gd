@@ -710,31 +710,89 @@ func _create_progression_rows(owned: OwnedShipData, index: int) -> void:
 	## Ship level + modules (`docs/navalCombat.md` §13) — one row for leveling
 	## the hull, one per module slot. List-based like the rest of this menu
 	## rather than a dedicated equip screen.
+	##
+	## M23 — the ship level is a Clash-of-Clans-style Town Hall: it caps every
+	## component's level, and only rises once all components have caught up.
+	## Every disabled button says *why* it's disabled.
 	var level_row = HBoxContainer.new()
 	var level_lbl = Label.new()
+	var behind := owned.get_components_below_level()
 	if owned.level >= OwnedShipData.MAX_LEVEL:
-		level_lbl.text = tr("Level: MAX")
+		level_lbl.text = tr("Ship Level %d: MAX") % owned.level
+	elif not behind.is_empty():
+		level_lbl.text = tr("Ship Level %d — upgrade all parts to Lv %d first (%d to go)") % [
+			owned.level, owned.level, behind.size()]
 	else:
-		var cost = owned.get_level_up_cost()
-		level_lbl.text = tr("Level Up: %d Gold  %d Wood") % [cost.get("gold", 0), cost.get("wood", 0)]
+		level_lbl.text = tr("Ship Level %d → %d: %s") % [
+			owned.level, owned.level + 1, _format_cost(owned.get_level_up_cost())]
 	level_lbl.add_theme_font_size_override("font_size", 12)
 	level_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	level_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	level_row.add_child(level_lbl)
 
 	if owned.level < OwnedShipData.MAX_LEVEL:
 		var level_btn = Button.new()
-		level_btn.text = tr("Level Up")
-		level_btn.custom_minimum_size = Vector2(90, 32)
-		if not ResourceManager.can_afford(owned.get_level_up_cost()):
+		level_btn.text = tr("Upgrade Ship")
+		level_btn.custom_minimum_size = Vector2(110, 32)
+		if not owned.can_level_up_ship() or not ResourceManager.can_afford(owned.get_level_up_cost()):
 			level_btn.disabled = true
 		else:
 			level_btn.pressed.connect(func(): _on_level_up_pressed(index))
 		level_row.add_child(level_btn)
 	fleet_container.add_child(level_row)
 
+	var catalog := OwnedShipData.get_component_catalog()
+	if catalog:
+		for comp in catalog.components:
+			if comp:
+				_create_component_row(owned, index, comp)
+
 	for slot in [ShipModuleData.Slot.HULL, ShipModuleData.Slot.CANNON,
 			ShipModuleData.Slot.SAIL, ShipModuleData.Slot.UTILITY, ShipModuleData.Slot.SPECIAL]:
 		_create_module_slot_row(owned, index, slot)
+
+func _create_component_row(owned: OwnedShipData, index: int, comp: ShipComponentData) -> void:
+	var row = HBoxContainer.new()
+	var lvl := owned.get_component_level(comp.component_id)
+	var lbl = Label.new()
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.text = tr("%s  Lv %d/%d  (%s)") % [tr(comp.display_name), lvl, owned.level, comp.describe_level(lvl)]
+	lbl.tooltip_text = tr(comp.description)
+	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	row.add_child(lbl)
+
+	var btn = Button.new()
+	btn.custom_minimum_size = Vector2(150, 32)
+	if lvl >= OwnedShipData.MAX_LEVEL:
+		btn.text = tr("MAX")
+		btn.disabled = true
+	elif not owned.can_upgrade_component(comp.component_id):
+		btn.text = tr("Needs Ship Lv %d") % (lvl + 1)
+		btn.disabled = true
+	else:
+		var cost := owned.get_component_upgrade_cost(comp.component_id)
+		btn.text = tr("Upgrade: %s") % _format_cost(cost)
+		if not ResourceManager.can_afford(cost):
+			btn.disabled = true
+		else:
+			btn.pressed.connect(func(): _on_upgrade_component_pressed(index, comp.component_id))
+	row.add_child(btn)
+	fleet_container.add_child(row)
+
+
+func _format_cost(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for key in ["gold", "wood", "iron", "rum"]:
+		if int(cost.get(key, 0)) > 0:
+			parts.append("%d %s" % [int(cost[key]), tr(key.capitalize())])
+	return "  ".join(parts) if not parts.is_empty() else tr("Free")
+
+
+func _on_upgrade_component_pressed(index: int, component_id: String) -> void:
+	if FleetManager.upgrade_component(index, component_id):
+		_refresh_fleet()
+
 
 func _create_module_slot_row(owned: OwnedShipData, index: int, slot: int) -> void:
 	var row = HBoxContainer.new()

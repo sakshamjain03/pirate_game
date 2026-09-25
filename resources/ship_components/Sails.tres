@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ShipComponentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipComponentData.gd" id="1_comp"]
+
+[resource]
+script = ExtResource("1_comp")
+component_id = "sails"
+display_name = "Sails & Rigging"
+description = "Better canvas and rigging. Faster, quicker to pick up speed, and harder to shoot to rags."
+max_speed_bonus = 0.025
+max_sails_bonus = 0.05
+acceleration_bonus = 0.04
+cost_gold_base = 160
+cost_wood_base = 50
+cost_iron_base = 0
+cost_growth = 1.5

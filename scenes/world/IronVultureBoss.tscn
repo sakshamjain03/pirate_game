@@ -21,7 +21,7 @@ size = Vector3(3.6, 1.8, 7.5)
 ; sized for.
 [node name="IronVultureBoss" type="RigidBody3D" groups=["enemy_ship", "boss_ship"]]
 collision_layer = 2
-collision_mask = 5
+collision_mask = 7
 center_of_mass_mode = 1
 center_of_mass = Vector3(0, 0.4, 0)
 can_sleep = false

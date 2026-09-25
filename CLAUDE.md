@@ -128,7 +128,12 @@ These are past defects, each costly to re-debug, not hypothetical risks — full
 
 - **Ship stability** (`BuoyancySimulator.gd`/`ShipMovement.gd`'s buoyancy/stability-torque/yaw-servo
   code) took four separate root-cause fixes to stabilize; the yaw servo deliberately preserves roll
-  and pitch. Don't touch it without a task explicitly calling for it.
+  and pitch. Don't touch it without a task explicitly calling for it. M23 added exactly one scalar
+  to it — `CONTACT_YAW_AUTHORITY` during `notify_contact()`'s grace window, which is what lets
+  touching hulls rotate apart instead of locking; removing it brings back ships sticking together.
+- **Ship collision hull** is generated at runtime by `ShipCollisionHandler` from each scene's
+  `BoxShape3D` and must keep that box's exact AABB — GodotPhysics derives a convex shape's inertia
+  from its AABB, so a differently-sized hull silently retunes buoyancy/stability.
 - **Cannon firing direction** derives forward from the hull basis
   (`parent.global_transform.basis.x`), never from marker rotation — a bug across all 12 markers on
   all 3 ship scenes was fixed exactly this way; don't revert it.

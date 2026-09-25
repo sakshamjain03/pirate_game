@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ShipComponentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipComponentData.gd" id="1_comp"]
+
+[resource]
+script = ExtResource("1_comp")
+component_id = "stern"
+display_name = "Stern & Rudder"
+description = "A stouter rudder and braced stern. Sharper turns and less damage from raking fire."
+turn_rate_bonus = 0.04
+stern_crit_reduction = 0.06
+cost_gold_base = 140
+cost_wood_base = 40
+cost_iron_base = 0
+cost_growth = 1.5

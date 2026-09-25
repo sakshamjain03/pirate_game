@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ShipComponentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipComponentData.gd" id="1_comp"]
+
+[resource]
+script = ExtResource("1_comp")
+component_id = "hull"
+display_name = "Hull"
+description = "Thicker planking and heavier frames. More hull points and shrugs off rams and groundings."
+max_health_bonus = 0.06
+impact_resistance_bonus = 0.05
+cost_gold_base = 180
+cost_wood_base = 60
+cost_iron_base = 0
+cost_growth = 1.5

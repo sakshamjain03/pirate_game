@@ -102,6 +102,19 @@ class_name ShipStats extends Resource
 ## auto-fire once a hostile is inside this cone and within `cannon_range`
 ## (`docs/navalCombat.md` §4/§5). Wider = more forgiving to aim.
 @export_range(5.0, 90.0) var firing_arc_degrees: float = 35.0
+## Guns per broadside side (M23). 0 = one gun per authored Port/StarboardMarker
+## (the pre-M23 behavior, and what a bare ShipStats.new() in tests gets). More
+## guns than markers get generated firing points spread along the side — see
+## ShipCombat._rebuild_batteries(). The `cannons` ship component adds to this.
+@export_range(0, 16) var cannons_per_side: int = 0
+
+@export_group("Ramming")
+## M23 — scales the damage this hull's BOW deals when it rams another ship.
+## Raised by the `bow` ship component.
+@export_range(0.1, 5.0) var ram_damage_mult: float = 1.0
+## M23 — divides every ram/grounding impact this hull takes. Raised by the
+## `hull` ship component.
+@export_range(0.1, 5.0) var impact_resistance: float = 1.0
 
 @export_group("Chasers")
 ## Bow/stern weapon slots (`docs/navalCombat.md` §3: "Port broadside, Starboard

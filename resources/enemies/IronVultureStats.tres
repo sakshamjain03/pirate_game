@@ -31,8 +31,8 @@ stern_arc_degrees = 60.0
 bow_armor_multiplier = 0.75
 bow_arc_degrees = 60.0
 min_speed_fraction = 0.35
-cannon_damage = 26.0
-fire_rate = 1.4
+cannon_damage = 39.0
+fire_rate = 0.1538
 ; M11 Requirement 5 — artillery identity: cannon_range sits at ~85% of
 ; reachable distance (cannon_speed * 0.70 * 1.35) rather than the ~75% every
 ; standard hull uses, giving her a genuine outranging advantage that backs

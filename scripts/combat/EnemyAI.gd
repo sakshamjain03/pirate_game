@@ -76,6 +76,26 @@ enum AIState {
 ## Steering authority applied when a feeler is blocked, 0..1.
 @export var avoid_turn_strength: float = 1.0
 
+@export_group("Ship Avoidance")
+## M23 — a second, shorter whisker set against other HULLS (player + enemy
+## layers). Terrain avoidance above always wins; this is only consulted when
+## the way is clear of land, so two AI ships stop driving into each other (or
+## into the player outside a deliberate ram) and grinding.
+@export var ship_avoid_enabled: bool = true
+@export var ship_avoid_distance: float = 20.0
+@export_flags_3d_physics var ship_avoid_mask: int = 3
+
+@export_group("Ramming")
+## M23 Requirement 4. Tendency/distance come from the AIProfileData.
+@export var ram_tendency: float = 0.0
+@export var ram_max_distance: float = 60.0
+## Seconds between "should I ram now?" rolls while in ATTACK.
+@export var ram_eval_interval: float = 3.0
+## A run that hasn't connected by now is abandoned.
+@export var ram_run_timeout: float = 8.0
+## Target's broadside exposure (|target.right . direction to it|) needed to start.
+@export_range(0.0, 1.0) var ram_min_exposure: float = 0.65
+
 var current_state: AIState = AIState.IDLE
 var ship_controller: ShipController
 var ship_combat: ShipCombat
@@ -92,6 +112,10 @@ var idle_timer: float = 0.0
 var broadside_side: String = "port"  # which side to present to player
 var _attack_repositioning: bool = false
 
+var _ram_active: bool = false
+var _ram_elapsed: float = 0.0
+var _ram_eval_timer: float = 0.0
+
 
 func _ready() -> void:
 	if ai_profile:
@@ -99,6 +123,9 @@ func _ready() -> void:
 		preferred_combat_distance = ai_profile.get("preferred_combat_distance")
 		flee_health_threshold = ai_profile.get("flee_health_threshold")
 		broadside_angle_tolerance = ai_profile.get("broadside_angle_tolerance")
+		if "ram_tendency" in ai_profile:
+			ram_tendency = ai_profile.ram_tendency
+			ram_max_distance = ai_profile.ram_max_distance
 		
 	ship_controller = get_parent() as ShipController
 	if not ship_controller:
@@ -107,6 +134,10 @@ func _ready() -> void:
 
 	ship_combat = ship_controller.get_node_or_null("ShipCombat") as ShipCombat
 	firing_solver = ship_controller.get_node_or_null("FiringSolver") as FiringSolver
+	_ram_eval_timer = randf_range(0.0, ram_eval_interval)
+	# Deferred: ShipController adds its ShipCollisionHandler in its own _ready(),
+	# which runs after this child's.
+	call_deferred("_connect_collision_handler")
 
 	# Feed the profile's gun-crew discipline into the shared solver instead of
 	# keeping a second copy of the arc check here.
@@ -129,6 +160,19 @@ func _ready() -> void:
 	call_deferred("_find_player")
 
 	_change_state(AIState.PATROL)
+
+
+func _connect_collision_handler() -> void:
+	var handler = ship_controller.get_node_or_null("ShipCollisionHandler") if ship_controller else null
+	if handler and not handler.rammed.is_connected(_on_rammed):
+		handler.rammed.connect(_on_rammed)
+
+
+func _on_rammed(other: Node, _my_zone: int, _their_zone: int, _damage: float) -> void:
+	# Any contact with the ram target ends the run -- hit or glancing blow, the
+	# ship now has to come about and set up again.
+	if _ram_active and other == player_ship:
+		_end_ram_run()
 
 
 func _find_player() -> void:
@@ -282,6 +326,14 @@ func _process_attack(delta: float) -> void:
 		_change_state(AIState.FLEE)
 		return
 
+	if _ram_active:
+		_process_ram(delta)
+		return
+	if _should_start_ram(delta):
+		_start_ram_run()
+		_process_ram(delta)
+		return
+
 	var to_player = player_ship.global_position - ship_controller.global_position
 	var dist = Vector2(to_player.x, to_player.z).length()
 
@@ -426,6 +478,12 @@ func _steer_towards(target: Vector3, throttle: float) -> void:
 	if avoid_turn != 0.0:
 		turn = avoid_turn
 		actual_throttle = min(actual_throttle, 0.5)
+	else:
+		# M23 -- then other hulls. Terrain always wins over this.
+		var ship_turn := _get_ship_avoidance_turn()
+		if ship_turn != 0.0:
+			turn = ship_turn
+			actual_throttle = min(actual_throttle, 0.6)
 
 	ship_controller.set_input(actual_throttle, turn)
 
@@ -483,6 +541,54 @@ func _get_avoidance_turn() -> float:
 	return turn_dir * urgency * avoid_turn_strength
 
 
+func _get_ship_avoidance_turn() -> float:
+	## Same 3-feeler shape as _get_avoidance_turn(), shorter and against hull
+	## layers. The ram target is excluded during a ram run -- that's the one hull
+	## this ship is *trying* to hit.
+	if not ship_avoid_enabled or not ship_controller or not ship_controller.is_inside_tree():
+		return 0.0
+	var space := ship_controller.get_world_3d().direct_space_state
+	if not space:
+		return 0.0
+	var origin := ship_controller.global_position
+	var forward := -ship_controller.global_transform.basis.z
+	forward = Vector3(forward.x, 0.0, forward.z).normalized()
+	if forward.length_squared() < 0.01:
+		return 0.0
+	var exclude: Array[RID] = [ship_controller.get_rid()]
+	if _ram_active and is_instance_valid(player_ship):
+		exclude.append(player_ship.get_rid())
+	var rad := deg_to_rad(avoid_feeler_angle)
+	var left := _probe_mask(space, origin, forward.rotated(Vector3.UP, rad), ship_avoid_distance, ship_avoid_mask, exclude)
+	var right := _probe_mask(space, origin, forward.rotated(Vector3.UP, -rad), ship_avoid_distance, ship_avoid_mask, exclude)
+	var centre := _probe_mask(space, origin, forward, ship_avoid_distance, ship_avoid_mask, exclude)
+	if left < 0.0 and right < 0.0 and centre < 0.0:
+		return 0.0
+	var left_room: float = left if left >= 0.0 else INF
+	var right_room: float = right if right >= 0.0 else INF
+	var turn_dir := 1.0 if left_room > right_room else -1.0
+	var nearest: float = min(left_room, right_room)
+	if centre >= 0.0:
+		nearest = min(nearest, centre)
+	var urgency: float = clamp(1.0 - (nearest / ship_avoid_distance), 0.25, 1.0)
+	return turn_dir * urgency * avoid_turn_strength
+
+
+func _probe_mask(space: PhysicsDirectSpaceState3D, origin: Vector3, dir: Vector3, distance: float,
+		mask: int, exclude: Array[RID]) -> float:
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + dir * distance)
+	query.collision_mask = mask
+	query.exclude = exclude
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		return -1.0
+	# Islands sit on layer 1 too; terrain is already handled by the first probe.
+	var collider = hit.get("collider")
+	if not (collider is ShipController):
+		return -1.0
+	return origin.distance_to(hit.position)
+
+
 func _probe(space: PhysicsDirectSpaceState3D, origin: Vector3, dir: Vector3) -> float:
 	## Casts one feeler. Returns the distance to the obstruction, or -1.0 if
 	## the ray is clear. Excludes the ship's own body so a hull that overlaps
@@ -519,7 +625,7 @@ func _can_detect_player() -> bool:
 		return false
 		
 	var dist = _flat_distance_to(player_ship.global_position)
-	return dist < detection_range
+	return dist < detection_range * _difficulty_detection_mult()
 
 
 func _should_flee() -> bool:
@@ -597,7 +703,91 @@ func _push_to_open_water(point: Vector3) -> Vector3:
 	return home_position
 
 
+# === RAMMING (M23) ===
+
+func _get_effective_ram_tendency() -> float:
+	var t := ram_tendency
+	var diff := AIDifficultyData.for_ship(ship_controller)
+	if diff:
+		t *= diff.ram_tendency_mult
+	return clamp(t, 0.0, 1.0)
+
+
+func _should_start_ram(delta: float) -> bool:
+	## Commit to a ram only on a periodic roll, and only when it's a good idea:
+	## the target is showing us its side, it's close, and we're not the more
+	## battered hull (a ram hurts the rammer too).
+	_ram_eval_timer -= delta
+	if _ram_eval_timer > 0.0:
+		return false
+	_ram_eval_timer = ram_eval_interval
+	var tendency := _get_effective_ram_tendency()
+	if tendency <= 0.0 or not is_instance_valid(player_ship):
+		return false
+	if not ram_conditions_met():
+		return false
+	return randf() < tendency
+
+
+func ram_conditions_met() -> bool:
+	if not is_instance_valid(player_ship):
+		return false
+	var to_target: Vector3 = player_ship.global_position - ship_controller.global_position
+	to_target.y = 0.0
+	var dist := to_target.length()
+	if dist > ram_max_distance or dist < 1.0:
+		return false
+	var target_right: Vector3 = player_ship.global_transform.basis.x
+	target_right.y = 0.0
+	var exposure: float = abs(target_right.normalized().dot(to_target / dist))
+	if exposure < ram_min_exposure:
+		return false
+	return _hull_fraction(ship_controller) >= _hull_fraction(player_ship)
+
+
+func _hull_fraction(ship: Node) -> float:
+	var dmg = ship.get_node_or_null("ShipDamage") if ship else null
+	if not dmg or not dmg.has_method("get_effective_max_health"):
+		return 1.0
+	var max_hp: float = dmg.get_effective_max_health()
+	return dmg.hull / max_hp if max_hp > 0.0 else 0.0
+
+
+func _start_ram_run() -> void:
+	_ram_active = true
+	_ram_elapsed = 0.0
+
+
+func _end_ram_run() -> void:
+	_ram_active = false
+	_ram_eval_timer = ram_eval_interval
+
+
+func is_ramming() -> bool:
+	return _ram_active
+
+
+func _process_ram(delta: float) -> void:
+	_ram_elapsed += delta
+	if _ram_elapsed > ram_run_timeout or _should_flee() or not is_instance_valid(player_ship) \
+			or _flat_distance_to(player_ship.global_position) > ram_max_distance * 1.5:
+		_end_ram_run()
+		return
+	# Lead the target: aim where its midship will be when we arrive.
+	var my_speed: float = max(ship_controller.linear_velocity.length(), 5.0)
+	var lead: float = clamp(_flat_distance_to(player_ship.global_position) / my_speed, 0.0, 3.0)
+	var intercept: Vector3 = player_ship.global_position + player_ship.linear_velocity * lead
+	_steer_towards(intercept, 1.0)
+
+
+func _difficulty_detection_mult() -> float:
+	var diff := AIDifficultyData.for_ship(ship_controller)
+	return diff.detection_range_mult if diff else 1.0
+
+
 func _change_state(new_state: AIState) -> void:
+	if new_state != AIState.ATTACK and _ram_active:
+		_end_ram_run()
 	if new_state == current_state:
 		return
 

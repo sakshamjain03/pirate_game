@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/patch-sand-foliage.glb"         id="1_sand"]
 [ext_resource type="PackedScene" path="res://assets/models/patch-grass-foliage.glb"         id="2_grass"]
@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" path="res://assets/models/rocks-c.glb"                     id="19_rockc"]
 [ext_resource type="PackedScene" path="res://assets/models/grass.glb"                       id="20_grasstuft"]
 [ext_resource type="PackedScene" path="res://assets/models/grass-plant.glb"                 id="21_grassplant"]
+[ext_resource type="PhysicsMaterial" path="res://resources/physics/TerrainPhysics.tres" id="30_terrphys"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_1"]
 radius = 38.0
@@ -40,6 +41,7 @@ size = Vector3(12, 5, 12)
 ; hull it was attached to and collapsed inside it.
 [node name="Island" type="StaticBody3D"]
 collision_layer = 17
+physics_material_override = ExtResource("30_terrphys")
 script = ExtResource("14_isl")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

@@ -1,0 +1,7 @@
+[gd_resource type="PhysicsMaterial" format=3]
+
+; M23: Godot's default friction is 1.0, which let two hulls grip and grind
+; against each other. Low friction + a little bounce makes contacts glance off.
+[resource]
+friction = 0.12
+bounce = 0.15

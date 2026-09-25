@@ -31,8 +31,8 @@ stern_arc_degrees = 60.0
 bow_armor_multiplier = 0.75
 bow_arc_degrees = 60.0
 min_speed_fraction = 0.35
-cannon_damage = 42.0
-fire_rate = 0.6
+cannon_damage = 63.0
+fire_rate = 0.1
 ; The longest cannon_range in the game (docs/13_CAMPAIGN_LEVELS_1-5.md §7):
 ; closing costs hull the whole way in.
 cannon_range = 135.0

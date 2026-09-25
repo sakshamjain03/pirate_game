@@ -27,7 +27,9 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current: 467 tests, 467 passing, 0 failing**
+**Current (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing.** The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
+
+Previous: 467 tests, 467 passing, 0 failing (2026-09-14)
 
 Progression history: 103 → 118/117 (stale count fixed) → 214/213 (M8 Phase 1) → 249/248 (M8 Phase 2) → 320/319 (M7 campaign + M1/M2 tail) → 323/322 (M7.5, self-reported, did not reproduce) → 324/323 (M7.5 correction) → 326/326 (M10, ocean LOD closes the standing failure) → 391/391 (M9) → 396/396 (M12) → 417/417 (M15) → 419/419 (fresh M14 start) → 464/464 (M14 complete) → **467/467 (BUG_REPORT.md fix pass 2026-09-14: 3 new regression tests for save/load and campaign-gating edge cases)**
 
@@ -2630,3 +2632,96 @@ silently `clampf()`-ed this to a full 100% bar with no indication; the new widge
 numbers. Likely a difficulty/role-scaling path (see `AIProfileData.role`/`tests/test_enemy_roles.gd`
 above) boosting current hull without a matching `ShipDamage.get_effective_max_health()` term —
 undiagnosed, flagged here as a follow-up rather than guessed at.
+
+## M23 — Naval Dynamics (2026-09-25)
+
+Spec: `.kiro/specs/milestone-m23-naval-dynamics/`. Four player-reported gaps closed: hulls sticking
+together/to surfaces, no ramming, cannon fire too fast and too certain, AI too harsh with no knob,
+plus Clash-of-Clans-style per-part ship upgrades.
+
+### Anti-stick physics
+Root causes found in code, not guessed:
+- `ShipMovement`'s yaw servo drives `angular_velocity.y` toward its target every tick (toward zero
+  with no helm input), which erased the spin a collision imparts — bow-to-bow hulls could never
+  rotate off each other while the thrust servo kept pushing. **Fix:** `ShipMovement.notify_contact(s)`
+  opens a grace window during which the yaw lerp factor is scaled by `CONTACT_YAW_AUTHORITY` (0.15).
+  That scalar is the *only* change to the servo; the roll/pitch-preserving reconstruction is
+  byte-identical and `BuoyancySimulator.gd` is untouched.
+- All 8 ship scenes used a sharp-cornered `BoxShape3D` on Godot's default friction (1.0). **Fix:**
+  `ShipCollisionHandler` swaps it at runtime for a pointed `ConvexPolygonShape3D` prism with the
+  **same AABB** (GodotPhysics derives convex inertia from the AABB, so body inertia — and the
+  buoyancy tuning — is unchanged; vertical walls mean horizontal contact normals only) and sets
+  `resources/physics/ShipHullPhysics.tres` (friction 0.12, bounce 0.15). `Island.tscn` got
+  `TerrainPhysics.tres` (friction 0.08).
+- Enemy/boss `collision_mask` was 5 (no layer 2), so enemy hulls interpenetrated each other and
+  trapped whatever hit the pile. All 7 enemy/boss scenes are now 7.
+- The world-edge clamp teleported the hull every tick while the sails pushed outward. A soft inward
+  spring (`WorldBoundsData.edge_margin`/`edge_spring`) now turns ships back before the unchanged
+  hard clamp is reached.
+- `EnemyAI` whiskers only probed terrain. `_get_ship_avoidance_turn()` adds a shorter hull-layer
+  probe, consulted only when terrain avoidance returns 0 (terrain always wins); the existing
+  `_get_avoidance_turn`/`_probe`/`_push_to_open_water` are intact.
+- Anti-stuck watchdog in the handler: in contact + throttle > 0.3 + forward speed < 0.6 m/s for
+  1.2 s → one separating impulse along the averaged contact normal plus a yaw-only kick.
+
+### Ramming — `scripts/world/ShipCollisionHandler.gd` (auto-added by `ShipController._ready()`)
+Reads `PhysicsServer3D.body_get_direct_state()` contacts each tick (hulls and `StaticBody3D`
+terrain only — cannonballs are ignored). Uses *pre-step* velocity snapshots (contacts arrive after
+the solver has already bounced the bodies). One resolver per pair (lower instance id) with a
+per-pair cooldown. Zone = BOW (front 25%) / MIDSHIP / STERN (rear 20%) of each hull at the contact.
+Damage = `damage_per_speed_sq · closing² · mass share · size scale · zone_matrix[mine][theirs]`,
+× rammer's `ram_damage_mult` (bow strikes only), × own `bow_armor_multiplier` (own bow),
+÷ `impact_resistance`. Bow→midship: victim 1.0, rammer 0.2. Stern hits add a rudder speed penalty.
+Friendly pairs (`FiringSolver.are_hostile`) bump without damage. Grounding damages the ship only.
+Damage goes through the new `ShipDamage.apply_impact()` — `apply_hit()` is unchanged. All balance
+in `resources/combat/RamConfig.tres` (`RamConfigData`). New `ShipStats` exports: `ram_damage_mult`,
+`impact_resistance`, `cannons_per_side`. Signals: `rammed(other, my_zone, their_zone, dmg)`,
+`grounded(dmg)`.
+
+### Cannon fire — `ShipCombat` + `resources/combat/CannonConfig.tres` (`CannonConfigData`)
+- **Rebalanced reloads**: every ship/enemy `fire_rate` now = 1 / (5.0, 5.5, 6.5, 8.0, 10.0 s) by
+  `ship_class` (was 0.3–2 s); `cannon_damage` ×1.5 so each volley matters.
+- **Ripple**: gun 0 fires on the trigger (so `fire_broadside()` still spawns a ball synchronously),
+  later guns every `ripple_interval` (0.12 s). **Misfire**: each later gun may fail
+  (`base_misfire_chance + crew_misfire_chance × missing crew`); the first gun never does.
+- **Aim spread**: per-ball yaw/pitch error, σ grows with off-beam angle and range — hits and misses
+  come from real trajectories. **Glancing hits**: a ball striking MIDSHIP at a shallow angle deals
+  `lerp(glancing_damage_min, 1, incidence)`; bow/stern rakes are not reduced (`Cannonball.get_impact_angle_multiplier`).
+- **Gun count**: `ShipStats.cannons_per_side` (0 = one per scene marker, the old behavior). More guns
+  than markers → `ShipCombat._rebuild_batteries()` hides the authored markers and generates evenly
+  spaced `PortMarkerGen*`/`StarboardMarkerGen*` with cannon models; rebuilt on `ship_stats_changed`.
+  Player hulls author 3/4/5/6/8 by class; enemies keep one-per-marker.
+
+### AI difficulty — `AIDifficultyData` + `SettingsManager.ai_difficulty`
+Relaxed / Normal (default) / Hard (= authored values) / Brutal, `resources/combat/ai_difficulty/`.
+Multiplies enemy ball damage, reload time, aim spread, detection range and ram tendency, applied at
+use time to hostile hulls only (`AIDifficultyData.for_ship()` excludes `player_ship`/`friendly_ship`),
+so a Settings change takes effect mid-session. Persisted as `[gameplay] ai_difficulty`. Settings
+menu → Controls tab → "Gameplay" card. `EnemyAI.aggression` is read from profiles but consumed by
+nothing — deliberately no multiplier for it.
+
+### AI ramming
+`AIProfileData.ram_tendency`/`ram_max_distance` (AggressiveGalleon 0.45, IronVulture 0.35,
+Intransigent 0.3, Boss 0.2, HarassingSloop 0.15; everything else 0). In ATTACK, every
+`ram_eval_interval` the AI rolls to start a ram run if the target's broadside faces it
+(`ram_conditions_met()`), it's in range, and its own hull fraction ≥ the target's; it then steers to
+a lead intercept at full throttle (terrain avoidance still active) until impact, timeout, flee, or
+the target escapes.
+
+### Ship components (Clash-of-Clans gating) — `OwnedShipData` + `resources/ship_components/`
+Five parts (`ShipComponentData`, catalog `ShipProgressionConfig.tres`): hull (HP, impact resistance),
+bow (ram damage, bow armor), stern (turn rate, stern-crit reduction), sails (speed, sail HP,
+acceleration), cannons (damage, reload, +1 gun/side at Lv 3/5/7/9). `OwnedShipData.MAX_LEVEL` 5 → 10.
+**A part can't exceed the ship level; the ship levels up only when every part has reached it**
+(`can_upgrade_component`, `can_level_up_ship`, `FleetManager.upgrade_component`). Ship level's own
+flat bonus lowered 5% → 2%/level (components now carry the power). Modules are unchanged and stack.
+Save adds `"components"`; a pre-M23 save starts every part at the saved ship level; unknown
+component ids and unresolvable module/ship paths now `push_error` (the module path was a silent
+skip). UI: IslandMenu fleet panel, one row per part with level/cap/cost and a reason on every
+disabled button.
+
+### Not verifiable headlessly
+Ram *feel* (knockback strength, splinters, HUD text timing), how hull-sliding reads in real play,
+whether 5–10 s reloads feel right, and the IslandMenu/Settings rows on a real phone. The GUT suite
+covers the math, gating, persistence, and real-physics separation/ram outcomes
+(`test_ship_collision.gd`).

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AIDifficultyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/AIDifficultyData.gd" id="1_diff"]
+
+[resource]
+script = ExtResource("1_diff")
+display_name = "Brutal"
+description = "Veteran gun crews and captains who ram without hesitation."
+damage_mult = 1.25
+reload_time_mult = 0.85
+spread_mult = 0.8
+detection_range_mult = 1.15
+ram_tendency_mult = 1.3

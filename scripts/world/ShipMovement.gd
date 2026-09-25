@@ -22,6 +22,14 @@ const MIN_RUDDER_AUTHORITY := 0.35
 # keeps each ship's relative feel while giving all of them a longer,
 # more boat-like drift decay.
 const DRIFT_COMPENSATION_SCALE := 0.25
+# M23 — yaw-servo authority while a hull is in contact with something. The
+# servo below drives yaw toward its target every tick (toward zero with no
+# helm input), which used to erase the spin a collision imparts: two hulls
+# that met bow-to-bow could never rotate off each other and stayed locked
+# face-to-face while the thrust servo kept pushing. During the grace window
+# the servo only nudges, so contact spin survives. Roll/pitch handling is
+# untouched — this scales the yaw lerp factor and nothing else.
+const CONTACT_YAW_AUTHORITY := 0.15
 
 @export var ship_stats: ShipStats
 var body: RigidBody3D
@@ -29,6 +37,8 @@ var body: RigidBody3D
 # or scenes with no EnvironmentController, in which case wind is simply a
 # no-op (see apply_movement()).
 var _environment_controller: Node = null
+# Seconds of reduced yaw-servo authority remaining (see CONTACT_YAW_AUTHORITY).
+var _contact_grace: float = 0.0
 
 func _ready() -> void:
 	body = get_parent() as RigidBody3D
@@ -122,6 +132,9 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 
 	var target_yaw_speed = deg_to_rad(target_yaw_speed_dps)
 	var yaw_t = 1.0 - exp(-TURN_RESPONSE_RATE * delta)
+	if _contact_grace > 0.0:
+		_contact_grace -= delta
+		yaw_t *= CONTACT_YAW_AUTHORITY
 	# Servo ONLY the yaw component, preserving roll/pitch. Assigning
 	# `angular_velocity.y` directly used to overwrite the world-Y component
 	# outright every frame — which is precisely the component the buoyancy
@@ -141,6 +154,16 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 	var drift_velocity = body.linear_velocity.dot(right_dir)
 	var anti_drift_force = -right_dir * (drift_velocity * (1.0 - ship_stats.drift_factor) * body.mass * ship_stats.drift_compensation_multiplier * DRIFT_COMPENSATION_SCALE)
 	body.apply_central_force(anti_drift_force)
+
+## M23 — called by ShipCollisionHandler while the hull is touching something
+## and after a ram, so the yaw servo lets collision spin carry the hulls apart.
+func notify_contact(seconds: float) -> void:
+	_contact_grace = max(_contact_grace, seconds)
+
+
+func is_in_contact_grace() -> bool:
+	return _contact_grace > 0.0
+
 
 ## Anchor mechanic — damps linear velocity and yaw toward zero so the ship
 ## holds position, without a hard freeze (unlike dock()): BuoyancySimulator's

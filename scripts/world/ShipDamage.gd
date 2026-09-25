@@ -122,6 +122,31 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 		_is_destroyed = true
 		destroyed.emit()
 
+func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: float = 0.0,
+		penalty_duration: float = 0.0) -> void:
+	## M23 — collision damage (rams, running aground). Deliberately separate from
+	## apply_hit(): zone and mass are already folded into `amount` by
+	## ShipCollisionHandler, and a collision has no ammo type or cannon facing —
+	## routing it through apply_hit() would re-apply facing armor to a number that
+	## already accounts for where the hulls met. Same pool/destroyed contract.
+	if _is_destroyed or not ship_stats or amount <= 0.0:
+		return
+	hull = clamp(hull - amount, 0.0, get_pool_maximum("hull"))
+	pool_changed.emit("hull", hull, get_pool_maximum("hull"))
+
+	var crew_dmg: float = amount * crew_fraction
+	if crew_dmg > 0.0:
+		crew = clamp(crew - crew_dmg, 0.0, ship_stats.max_crew)
+		pool_changed.emit("crew", crew, ship_stats.max_crew)
+
+	if speed_penalty > 0.0 and penalty_duration > 0.0:
+		apply_speed_penalty(speed_penalty, penalty_duration)
+
+	if hull <= 0.0 and not _is_destroyed:
+		_is_destroyed = true
+		destroyed.emit()
+
+
 func is_destroyed() -> bool:
 	return _is_destroyed
 

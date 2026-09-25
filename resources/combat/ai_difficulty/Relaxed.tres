@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AIDifficultyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/AIDifficultyData.gd" id="1_diff"]
+
+[resource]
+script = ExtResource("1_diff")
+display_name = "Relaxed"
+description = "Enemies hit softly, reload slowly and miss often. For enjoying the voyage."
+damage_mult = 0.55
+reload_time_mult = 1.4
+spread_mult = 1.6
+detection_range_mult = 0.8
+ram_tendency_mult = 0.3

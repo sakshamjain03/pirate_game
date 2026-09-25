@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShipProgressionConfig" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipProgressionConfig.gd" id="1_cfg"]
+[ext_resource type="Resource" path="res://resources/ship_components/Hull.tres" id="2_hull"]
+[ext_resource type="Resource" path="res://resources/ship_components/Bow.tres" id="3_bow"]
+[ext_resource type="Resource" path="res://resources/ship_components/Stern.tres" id="4_stern"]
+[ext_resource type="Resource" path="res://resources/ship_components/Sails.tres" id="5_sails"]
+[ext_resource type="Resource" path="res://resources/ship_components/Cannons.tres" id="6_cannons"]
+
+; M23 — the upgradable ship parts, in the order the Fleet panel lists them.
+[resource]
+script = ExtResource("1_cfg")
+components = Array[ShipComponentData]([ExtResource("2_hull"), ExtResource("3_bow"), ExtResource("4_stern"), ExtResource("5_sails"), ExtResource("6_cannons")])

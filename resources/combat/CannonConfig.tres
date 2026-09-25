@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CannonConfigData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/CannonConfigData.gd" id="1_cannon"]
+
+; M23 cannon realism — ripple, misfire, aim spread, glancing hits.
+; See .kiro/specs/milestone-m23-naval-dynamics/design.md §5.
+[resource]
+script = ExtResource("1_cannon")
+ripple_interval = 0.12
+base_misfire_chance = 0.06
+crew_misfire_chance = 0.25
+base_spread_degrees = 0.8
+off_beam_spread_degrees = 3.5
+range_spread_degrees = 2.0
+vertical_spread_ratio = 0.35
+glancing_damage_min = 0.45

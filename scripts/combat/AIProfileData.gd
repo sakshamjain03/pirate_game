@@ -30,3 +30,11 @@ enum Role { BALANCED, RAIDER, ARTILLERY, TANK, SUPPORT, BOSS }
 ## An ally at or above this hull fraction doesn't need help — a Support ship at
 ## full strength itself has nothing to do but hold position and wait.
 @export_range(0.0, 1.0) var support_heal_threshold: float = 0.6
+
+@export_group("Ramming")
+## M23 Requirement 4 — chance, re-rolled every `EnemyAI.ram_eval_interval`
+## seconds in ATTACK, that this hull commits to a ram run when the target shows
+## it a broadside. 0 = never rams on purpose (still takes accidental ram damage).
+@export_range(0.0, 1.0) var ram_tendency: float = 0.0
+## Only consider a ram run inside this distance of the target.
+@export var ram_max_distance: float = 60.0

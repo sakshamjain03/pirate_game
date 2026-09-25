@@ -60,6 +60,17 @@ const DEFAULT_MOBILE_TILT_AXIS: int = 1
 ## (PirataOne, the original blackletter-style face), 2: Times New Roman (an
 ## OS-resolved SystemFont, not a bundled asset).
 const DEFAULT_UI_FONT: int = 0
+## M23 Requirement 6 — player-selected enemy difficulty. Index into
+## AI_DIFFICULTY_PATHS: 0 Relaxed, 1 Normal (default), 2 Hard (the authored
+## enemy stats unscaled), 3 Brutal. Applied at use time by ShipCombat/EnemyAI
+## via AIDifficultyData.for_ship(), so a change takes effect mid-session.
+const DEFAULT_AI_DIFFICULTY: int = 1
+const AI_DIFFICULTY_PATHS: Array[String] = [
+	"res://resources/combat/ai_difficulty/Relaxed.tres",
+	"res://resources/combat/ai_difficulty/Normal.tres",
+	"res://resources/combat/ai_difficulty/Hard.tres",
+	"res://resources/combat/ai_difficulty/Brutal.tres",
+]
 ## M22 (2026-09-25) — mobile_control_overrides' stored "position" deltas are
 ## in MobileLayoutManager.REFERENCE_LANDSCAPE units (see that var's own
 ## comment), which moved from a 1080-tall reference to a 780-tall one when
@@ -101,6 +112,11 @@ var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTR
 var mobile_tilt_steering_enabled: bool = DEFAULT_MOBILE_TILT_STEERING_ENABLED
 var mobile_tilt_axis: int = DEFAULT_MOBILE_TILT_AXIS
 var ui_font: int = DEFAULT_UI_FONT
+var ai_difficulty: int = DEFAULT_AI_DIFFICULTY:
+	set(value):
+		ai_difficulty = clampi(value, 0, AI_DIFFICULTY_PATHS.size() - 1)
+		_ai_difficulty_profile = null
+var _ai_difficulty_profile: AIDifficultyData = null
 ## Per-control HUD layout customization (drag to move/resize on mobile).
 ## Keyed by control id (e.g. "movement", "top_bar"); each entry is
 ## {"position": Vector2, "scale_mult": float}, where "position" is a delta
@@ -233,6 +249,8 @@ func load_settings() -> void:
 	_migrate_hud_layout_if_needed()
 	var _ui_font = config.get_value("display", "ui_font", DEFAULT_UI_FONT)
 	ui_font = _ui_font if typeof(_ui_font) == TYPE_INT else DEFAULT_UI_FONT
+	var _ai_difficulty = config.get_value("gameplay", "ai_difficulty", DEFAULT_AI_DIFFICULTY)
+	ai_difficulty = _ai_difficulty if typeof(_ai_difficulty) == TYPE_INT else DEFAULT_AI_DIFFICULTY
 
 	if apply_input_bindings_on_load:
 		load_input_bindings(config)
@@ -256,6 +274,7 @@ func save_settings() -> void:
 	config.set_value("display", "vsync", vsync)
 	config.set_value("display", "quality", graphics_quality)
 	config.set_value("display", "ui_font", ui_font)
+	config.set_value("gameplay", "ai_difficulty", ai_difficulty)
 
 	config.set_value("input", "sensitivity", input_sensitivity)
 	config.set_value("input", "dead_zone", input_dead_zone)
@@ -375,3 +394,26 @@ func _apply_defaults() -> void:
 	mobile_control_overrides = {}
 	hud_layout_version = HUD_LAYOUT_VERSION_CURRENT
 	ui_font = DEFAULT_UI_FONT
+	ai_difficulty = DEFAULT_AI_DIFFICULTY
+
+
+## M23 — the active enemy difficulty profile (cached until ai_difficulty changes).
+## An unloadable path is a push_error, never a silent fallback to "no scaling".
+func get_ai_difficulty_profile() -> AIDifficultyData:
+	if _ai_difficulty_profile:
+		return _ai_difficulty_profile
+	var path: String = AI_DIFFICULTY_PATHS[ai_difficulty]
+	var res = load(path)
+	if not (res is AIDifficultyData):
+		push_error("SettingsManager: AI difficulty resource '%s' missing or wrong type" % path)
+		return null
+	_ai_difficulty_profile = res
+	return _ai_difficulty_profile
+
+
+func get_ai_difficulty_names() -> Array[String]:
+	var names: Array[String] = []
+	for path in AI_DIFFICULTY_PATHS:
+		var res = load(path)
+		names.append(res.display_name if res is AIDifficultyData else path.get_file().get_basename())
+	return names

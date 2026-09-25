@@ -141,10 +141,13 @@ func test_the_whole_v1_combat_loop_runs_through_the_real_scenes():
 	if target is RigidBody3D:
 		target.freeze = true
 	watch_signals(combat)
-	# Long enough for two things the special volley above just consumed: the
-	# solver's 0.1 s retarget interval, and the per-side reload (fire_rate 2.0 =>
-	# 0.5 s). A shorter window would be asserting against the reload gate working,
-	# not against auto-fire failing.
+	# The special volley above started the per-side reload. Since M23 a broadside
+	# reloads in 5-10 s (was 0.5 s), so rather than sit out a full reload this
+	# test re-opens the gate — it asserts that auto-fire pulls the trigger on
+	# alignment, not how long reloading takes (test_ship_combat.gd covers that).
+	# The wait still has to cover the solver's 0.1 s retarget interval.
+	combat.can_fire_port = true
+	combat.can_fire_starboard = true
 	await wait_seconds(0.8)
 	assert_true(solver.is_aligned(FiringSolver.SIDE_STARBOARD),
 		"A hostile off the beam must lock the starboard battery")

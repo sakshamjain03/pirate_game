@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ShipComponentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/ShipComponentData.gd" id="1_comp"]
+
+[resource]
+script = ExtResource("1_comp")
+component_id = "bow"
+display_name = "Bow & Ram"
+description = "An iron-shod cutwater. Rams hit harder and the bow takes less punishment."
+ram_damage_bonus = 0.08
+bow_armor_bonus = 0.03
+cost_gold_base = 150
+cost_wood_base = 30
+cost_iron_base = 15
+cost_growth = 1.5

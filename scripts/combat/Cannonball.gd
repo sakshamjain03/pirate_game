@@ -68,21 +68,45 @@ func _on_body_entered(body: Node) -> void:
 	if not _is_friendly(body):
 		var hit_dir = linear_velocity.normalized()
 		var hit_ammo = ammo if ammo else load("res://resources/combat/ammo/RoundShot.tres")
-		
+		var hit_damage: float = damage * get_impact_angle_multiplier(body, hit_dir)
+
 		# Check if body has a ShipDamage component directly or through ShipCombat
 		var dmg = body.get_node_or_null("ShipDamage")
 		if dmg:
-			dmg.apply_hit(damage, hit_ammo, hit_dir)
+			dmg.apply_hit(hit_damage, hit_ammo, hit_dir)
 		elif body.has_method("take_damage"):
-			body.take_damage(damage, hit_ammo, hit_dir)
+			body.take_damage(hit_damage, hit_ammo, hit_dir)
 		elif body.has_node("ShipCombat"):
 			var combat = body.get_node("ShipCombat")
 			if combat.has_method("take_damage"):
-				combat.take_damage(damage, hit_ammo, hit_dir)
+				combat.take_damage(hit_damage, hit_ammo, hit_dir)
 
 	# Spawn impact effect here later
 
 	queue_free()
+
+
+func get_impact_angle_multiplier(body: Node, hit_dir: Vector3) -> float:
+	## M23 Requirement 5.5 — a ball that strikes the side square-on punches
+	## through; one that glances along the planking mostly skips off. Only the
+	## MIDSHIP (side) zone is affected: a ball entering at the bow or stern is a
+	## rake down the length of the ship, which is devastating, not glancing (the
+	## stern-crit multiplier in ShipDamage already rewards it).
+	if not (body is Node3D):
+		return 1.0
+	var handler = body.get_node_or_null("ShipCollisionHandler")
+	if not handler or not handler.has_method("get_zone_at"):
+		return 1.0
+	if handler.get_zone_at(global_position) != RamConfigData.Zone.MIDSHIP:
+		return 1.0
+	var right: Vector3 = (body as Node3D).global_transform.basis.x
+	var dir_flat := Vector3(hit_dir.x, 0.0, hit_dir.z)
+	right.y = 0.0
+	if dir_flat.length_squared() < 0.0001 or right.length_squared() < 0.0001:
+		return 1.0
+	var incidence: float = abs(dir_flat.normalized().dot(right.normalized()))
+	var cfg: CannonConfigData = load("res://resources/combat/CannonConfig.tres")
+	return cfg.get_impact_angle_multiplier(incidence) if cfg else 1.0
 
 
 func _is_friendly(body: Node) -> bool:

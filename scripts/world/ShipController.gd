@@ -79,6 +79,15 @@ func _ready() -> void:
 
 	_apply_ship_stats()
 
+	# M23 — every hull gets collision behavior (anti-stick, ramming) without
+	# each of the 8 ship scenes having to carry the node. Added after the model
+	# auto-detect loop above, and it's a plain Node, so it's never mistaken
+	# for the model.
+	if not get_node_or_null("ShipCollisionHandler"):
+		var handler := ShipCollisionHandler.new()
+		handler.name = "ShipCollisionHandler"
+		add_child(handler)
+
 
 func _apply_recoil(is_port: bool) -> void:
 	# Firing a broadside kicks the hull toward the OPPOSITE side (Newton's
@@ -208,6 +217,18 @@ func _clamp_to_world_bounds() -> void:
 	var half := _world_bounds.half_extent
 	var pos := global_position
 	var at_edge := false
+
+	# M23 — soft inward spring before the hard clamp below. The clamp alone
+	# teleported the hull every tick while the sail servo kept pushing outward,
+	# pinning the ship to the wall; the spring turns it back well before that.
+	var soft := half - _world_bounds.edge_margin
+	var push := Vector3.ZERO
+	if abs(pos.x) > soft:
+		push.x = -sign(pos.x) * (abs(pos.x) - soft)
+	if abs(pos.z) > soft:
+		push.z = -sign(pos.z) * (abs(pos.z) - soft)
+	if push != Vector3.ZERO:
+		apply_central_force(push * mass * _world_bounds.edge_spring)
 
 	if pos.x > half:
 		pos.x = half

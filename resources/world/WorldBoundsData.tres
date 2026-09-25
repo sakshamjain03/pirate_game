@@ -5,3 +5,5 @@
 [resource]
 script = ExtResource("1_wbd")
 half_extent = 1400.0
+edge_margin = 25.0
+edge_spring = 0.6

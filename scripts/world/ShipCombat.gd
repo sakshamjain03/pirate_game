@@ -13,6 +13,8 @@ signal fired(side: String)
 signal arc_lock_changed(side: String, locked: bool)
 signal special_broadside_fired()
 signal special_broadside_ready()
+## M23 — a gun in a rippling broadside failed to fire.
+signal misfired(side: String)
 
 @export var ship_stats: ShipStats
 @export var current_ammo: AmmoData
@@ -44,6 +46,11 @@ const CANNONBALL_SPAWN_CLEARANCE := 1.0
 var floating_damage_scene: PackedScene = preload("res://scenes/ui/FloatingDamage.tscn")
 var cannon_model_scene: PackedScene = preload("res://assets/models/cannon.glb")
 
+## M23 — ripple / misfire / aim-spread balance (Requirement 5). Loaded in
+## _ready() if not assigned.
+@export var cannon_config: CannonConfigData
+const CANNON_CONFIG_PATH := "res://resources/combat/CannonConfig.tres"
+
 var can_fire_port: bool = true
 var can_fire_starboard: bool = true
 var can_fire_bow: bool = true
@@ -56,6 +63,12 @@ var starboard_markers: Array[Node3D] = []
 ## author a BowMarker/SternMarker node, regardless of `ship_stats.has_*_chaser`.
 var bow_markers: Array[Node3D] = []
 var stern_markers: Array[Node3D] = []
+# M23 — the scene-authored broadside markers, kept separately from
+# port_markers/starboard_markers (which are the *active* guns) so a gun-count
+# change can always rebuild from the original layout.
+var _authored_port: Array[Node3D] = []
+var _authored_starboard: Array[Node3D] = []
+var _generated_markers: Array[Node3D] = []
 
 var _fallback_health: float = -1.0
 
@@ -129,6 +142,11 @@ func _ready() -> void:
 				elif child.name.begins_with("SternMarker"):
 					stern_markers.append(child)
 					
+	_authored_port = port_markers.duplicate()
+	_authored_starboard = starboard_markers.duplicate()
+	if not cannon_config:
+		cannon_config = load(CANNON_CONFIG_PATH)
+
 	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
 	if dmg:
 		if not dmg.is_connected("destroyed", Callable(self, "die")):
@@ -151,6 +169,11 @@ func _ready() -> void:
 		call_deferred("emit_signal", "health_changed", _fallback_health, ship_stats.max_health)
 
 	_spawn_cannon_models()
+	_rebuild_batteries()
+	# A ship-component upgrade or hull swap can change the gun count mid-game.
+	if parent and parent.has_signal("ship_stats_changed") \
+			and not parent.ship_stats_changed.is_connected(_rebuild_batteries):
+		parent.ship_stats_changed.connect(_rebuild_batteries)
 
 func _on_pool_changed(pool: String, current: float, maximum: float) -> void:
 	if pool == "hull":
@@ -182,6 +205,152 @@ func _spawn_cannon_models() -> void:
 			cannon.position.y += CANNON_SCALE
 		var applier = preload("res://scripts/components/KenneyMaterialApplier.gd").new()
 		cannon.add_child(applier)
+
+# === BATTERIES (M23) ===
+
+func get_guns_per_side() -> int:
+	## 0 on ShipStats means "one gun per authored marker" — the pre-M23 layout.
+	if ship_stats and ship_stats.cannons_per_side > 0:
+		return ship_stats.cannons_per_side
+	return max(_authored_port.size(), _authored_starboard.size())
+
+
+func _rebuild_batteries() -> void:
+	## Matches the active broadside markers to get_guns_per_side(). When the
+	## count equals the scene's authored markers nothing changes. Otherwise the
+	## authored markers are hidden and that many firing points are generated,
+	## evenly spaced along the same side at the same height/offset, each with a
+	## cannon model — so upgrading the `cannons` component visibly adds guns.
+	if not ship_stats:
+		return
+	for m in _generated_markers:
+		if is_instance_valid(m):
+			m.queue_free()
+	_generated_markers.clear()
+	var n := get_guns_per_side()
+	port_markers = _build_side(_authored_port, n, "PortMarkerGen")
+	starboard_markers = _build_side(_authored_starboard, n, "StarboardMarkerGen")
+
+
+func _build_side(authored: Array[Node3D], n: int, prefix: String) -> Array[Node3D]:
+	if authored.is_empty() or n == authored.size() or n <= 0:
+		for m in authored:
+			m.visible = true
+		return authored.duplicate()
+	var parent := get_parent() as Node3D
+	var z_min := INF
+	var z_max := -INF
+	for m in authored:
+		z_min = min(z_min, m.position.z)
+		z_max = max(z_max, m.position.z)
+		m.visible = false
+	# Guns need roughly a metre of deck each; widen the battery to fit, but
+	# keep it inside the hull (the shared footprint is 9 long).
+	var span: float = max(z_max - z_min, min(1.1 * float(n - 1), 7.0))
+	var mid := (z_min + z_max) * 0.5
+	var template: Node3D = authored[0]
+	var out: Array[Node3D] = []
+	for i in n:
+		var t: float = 0.5 if n == 1 else float(i) / float(n - 1)
+		var marker := Marker3D.new()
+		marker.name = "%s%d" % [prefix, i + 1]
+		marker.transform = template.transform
+		marker.position.z = mid - span * 0.5 + span * t
+		parent.add_child(marker)
+		_generated_markers.append(marker)
+		out.append(marker)
+		if cannon_model_scene:
+			var cannon = cannon_model_scene.instantiate()
+			marker.add_child(cannon)
+			if cannon is Node3D:
+				cannon.scale = Vector3.ONE * 0.45
+				cannon.position.y += 0.45
+			cannon.add_child(preload("res://scripts/components/KenneyMaterialApplier.gd").new())
+	return out
+
+
+func _difficulty() -> AIDifficultyData:
+	return AIDifficultyData.for_ship(get_parent())
+
+
+func get_aim_spread_degrees(side: String) -> float:
+	## Standard deviation of this gun's aim error right now: grows as the target
+	## sits further off the perfect beam and further out toward max range.
+	if not cannon_config:
+		return 0.0
+	var off_beam := 0.0
+	var range_frac := 0.0
+	var solver := _get_solver()
+	var parent := get_parent() as Node3D
+	var target: Node3D = solver.get_target(side) if solver else null
+	if target and parent:
+		var to_t := target.global_position - parent.global_position
+		to_t.y = 0.0
+		var is_chaser := side == FiringSolver.SIDE_BOW or side == FiringSolver.SIDE_STERN
+		if is_chaser:
+			var keel := -parent.global_transform.basis.z if side == FiringSolver.SIDE_BOW else parent.global_transform.basis.z
+			keel.y = 0.0
+			var ang: float = rad_to_deg(keel.normalized().angle_to(to_t.normalized())) if to_t.length_squared() > 0.01 else 0.0
+			off_beam = ang / max(solver.get_chaser_arc_degrees(), 1.0)
+			range_frac = to_t.length() / max(solver.get_chaser_range(), 1.0)
+		else:
+			off_beam = solver.get_broadside_angle(to_t) / max(solver.get_arc_degrees(), 1.0)
+			range_frac = to_t.length() / max(solver.get_range(), 1.0)
+	var sigma := cannon_config.get_spread_degrees(off_beam, range_frac)
+	var diff := _difficulty()
+	if diff:
+		sigma *= diff.spread_mult
+	return sigma
+
+
+func _fire_rippled_gun(marker: Node3D, side: String, volley_mult: float) -> void:
+	## One delayed gun of a rippling broadside: may misfire, else fires.
+	if not is_instance_valid(marker) or not is_inside_tree():
+		return
+	var parent = get_parent()
+	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
+	if dmg and (dmg.is_destroyed() or dmg.crew <= 0.0):
+		return
+	if parent and "is_docked" in parent and parent.is_docked:
+		return
+	var crew_frac: float = 1.0
+	if dmg and ship_stats and ship_stats.max_crew > 0.0:
+		crew_frac = dmg.crew / ship_stats.max_crew
+	if cannon_config and randf() < cannon_config.get_misfire_chance(crew_frac):
+		_spawn_misfire_smoke(marker)
+		misfired.emit(side)
+		return
+	_spawn_cannonball(marker, side, volley_mult)
+
+
+func _spawn_misfire_smoke(marker: Node3D) -> void:
+	var scene_root := get_tree().current_scene
+	if not scene_root:
+		return
+	var puff := CPUParticles3D.new()
+	puff.emitting = false
+	puff.one_shot = true
+	puff.amount = 10
+	puff.lifetime = 1.0
+	puff.explosiveness = 0.8
+	puff.direction = Vector3(0, 1, 0)
+	puff.spread = 25.0
+	puff.gravity = Vector3(0, 0.6, 0)
+	puff.initial_velocity_min = 0.5
+	puff.initial_velocity_max = 1.2
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.35, 0.35, 0.35, 0.7)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.25
+	mesh.height = 0.5
+	mesh.material = mat
+	puff.mesh = mesh
+	scene_root.add_child(puff)
+	puff.global_position = marker.global_position
+	puff.emitting = true
+	get_tree().create_timer(1.5).timeout.connect(func(): if is_instance_valid(puff): puff.queue_free())
+
 
 func take_damage(amount: float, ammo: AmmoData = null, hit_direction: Vector3 = Vector3.ZERO) -> void:
 	var parent = get_parent()
@@ -365,9 +534,23 @@ func fire_broadside(side: String) -> bool:
 	var markers: Array[Node3D] = markers_by_side.get(side, [])
 	var fired_any = false
 
-	for marker in markers:
-		_spawn_cannonball(marker, side)
+	# M23 — a broadside ripples down the side instead of going off as one
+	# instantaneous blast. Gun 0 fires now (so the volley always gets a ball off
+	# and callers can rely on it existing synchronously); each later gun fires
+	# ripple_interval after the previous and may misfire. The volley multiplier
+	# is captured now — the special broadside resets it right after this call.
+	var ripple: float = cannon_config.ripple_interval if cannon_config else 0.0
+	var volley_mult := _volley_damage_multiplier
+	for i in markers.size():
+		var marker := markers[i]
 		fired_any = true
+		if i == 0:
+			_spawn_cannonball(marker, side, volley_mult)
+		elif ripple <= 0.0:
+			_fire_rippled_gun(marker, side, volley_mult)
+		else:
+			get_tree().create_timer(ripple * float(i), false).timeout.connect(
+				_fire_rippled_gun.bind(marker, side, volley_mult))
 
 	if fired_any:
 		fired.emit(side)
@@ -375,7 +558,7 @@ func fire_broadside(side: String) -> bool:
 
 	return fired_any
 
-func _spawn_cannonball(marker: Node3D, side: String) -> void:
+func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -> void:
 	if not cannonball_scene:
 		return
 
@@ -406,11 +589,15 @@ func _spawn_cannonball(marker: Node3D, side: String) -> void:
 			var mods := _get_modifiers()
 			if mods:
 				dmg_mod *= mods.damage_mult
+			# M23 — player-selected enemy difficulty (hostile hulls only).
+			var diff := _difficulty()
+			if diff:
+				dmg_mod *= diff.damage_mult
 
 			var base_damage: float = ship_stats.chaser_damage \
 				if (side == FiringSolver.SIDE_BOW or side == FiringSolver.SIDE_STERN) \
 				else ship_stats.cannon_damage
-			ball.damage = base_damage * dmg_mod * _volley_damage_multiplier
+			ball.damage = base_damage * dmg_mod * volley_mult
 			ball.source_ship = parent
 			ball.ammo = ammo_data
 
@@ -434,6 +621,17 @@ func _spawn_cannonball(marker: Node3D, side: String) -> void:
 			var spread_rad = deg_to_rad(ammo_data.spread_degrees)
 			var angle = randf_range(-spread_rad * 0.5, spread_rad * 0.5)
 			forward = forward.rotated(Vector3.UP, angle)
+
+		# M23 — aim error. Hits and misses come from where the ball actually
+		# goes, so a target far off the beam or at long range really is harder
+		# to hit rather than rolling a hidden hit chance.
+		var sigma := get_aim_spread_degrees(side)
+		if sigma > 0.0:
+			forward = forward.rotated(Vector3.UP, deg_to_rad(randfn(0.0, sigma)))
+			var pitch_axis: Vector3 = forward.cross(Vector3.UP)
+			if pitch_axis.length_squared() > 0.0001:
+				forward = forward.rotated(pitch_axis.normalized(),
+					deg_to_rad(randfn(0.0, sigma * cannon_config.vertical_spread_ratio)))
 
 		# See CANNONBALL_SPAWN_CLEARANCE above — must happen after any spread
 		# rotation, so the push is along the ball's actual travel direction.
@@ -477,7 +675,10 @@ func _start_cooldown(side: String) -> void:
 	if mods:
 		rate *= mods.fire_rate_mult
 
-	var cooldown_time = 1.0 / max(rate, 0.1)
+	var cooldown_time = 1.0 / max(rate, 0.01)
+	var diff := _difficulty()
+	if diff:
+		cooldown_time *= diff.reload_time_mult
 
 	match side:
 		FiringSolver.SIDE_PORT:

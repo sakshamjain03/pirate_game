@@ -21,8 +21,16 @@ class MockSettingsManager extends Node:
 	## "Invalid access to property or key 'ui_font'" SCRIPT ERRORs (pre-
 	## existing, non-failing — see tasks.md Notes).
 	var ui_font: int = 0
+	## M23 — SettingsMenu._add_ai_difficulty_control() reads these.
+	var ai_difficulty: int = 1
 
 	var calls: Array[String] = []
+
+	func get_ai_difficulty_names() -> Array[String]:
+		return ["Relaxed", "Normal", "Hard", "Brutal"]
+
+	func get_ai_difficulty_profile() -> AIDifficultyData:
+		return null
 	
 	func save_settings() -> void:
 		calls.append("save_settings")

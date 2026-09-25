@@ -288,8 +288,10 @@ Two layers: a simple numeric **Level**, and meaningful **Modules** (Hull / Canno
 Utility / Special) that let two players build a "Fast Sloop" vs. a "Tank Sloop" from the same
 hull rather than everyone converging on identical stats.
 
-**Current code:** ships have neither a level nor a module system — `FleetManager` treats an owned
-`ShipStats` resource as fixed once bought. This is genuinely new scope; see §14.
+**Current code (updated M23, 2026-09-25):** shipped. `OwnedShipData` wraps each owned hull with a
+ship level (1–10), swappable modules (one per slot), and five upgradable components (hull, bow,
+stern, sails, cannons) gated Clash-of-Clans style — a component can't exceed the ship level, and the
+ship levels up only once every component has caught up. See `docs/05_CURRENT_SYSTEMS.md` "M23".
 
 ## Visual progression
 

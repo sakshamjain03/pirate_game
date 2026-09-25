@@ -10,3 +10,4 @@ preferred_combat_distance = 35.0
 flee_health_threshold = 0.3
 broadside_angle_tolerance = 20.0
 ammo_preference = "ChainShot"
+ram_tendency = 0.15

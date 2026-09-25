@@ -177,10 +177,31 @@ func level_up_ship(index: int) -> bool:
 	var owned := owned_ships[index]
 	if owned.level >= OwnedShipData.MAX_LEVEL:
 		return false
+	# M23 — Town-Hall gating: every component must have caught up first.
+	if not owned.can_level_up_ship():
+		return false
 	var cost := owned.get_level_up_cost()
 	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
 		return false
 	owned.level += 1
+	if AudioManager: AudioManager.play_sound("level_up")
+	fleet_changed.emit()
+	_refresh_ship_on_deck(index)
+	return true
+
+
+func upgrade_component(index: int, component_id: String) -> bool:
+	## M23 Requirement 3 — raise one part of a hull by a level, capped at the
+	## ship's own level (OwnedShipData.can_upgrade_component).
+	if index < 0 or index >= owned_ships.size():
+		return false
+	var owned := owned_ships[index]
+	if not owned.can_upgrade_component(component_id):
+		return false
+	var cost := owned.get_component_upgrade_cost(component_id)
+	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
+		return false
+	owned.component_levels[component_id] = owned.get_component_level(component_id) + 1
 	if AudioManager: AudioManager.play_sound("level_up")
 	fleet_changed.emit()
 	_refresh_ship_on_deck(index)

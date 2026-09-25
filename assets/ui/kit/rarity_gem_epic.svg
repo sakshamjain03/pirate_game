@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="136" height="136" viewBox="0 0 136 136">
+<defs>
+<radialGradient id="glow_epic" cx="0.5" cy="0.5" r="0.55"><stop offset="0" stop-color="#7B3FC4" stop-opacity="0.55"/><stop offset="1" stop-color="#7B3FC4" stop-opacity="0"/></radialGradient>
+</defs>
+<circle cx="68" cy="68" r="54" fill="url(#glow_epic)"/>
+<defs>
+<linearGradient id="gem_epic" x1="0.15" y1="0.1" x2="0.85" y2="0.9"><stop offset="0" stop-color="#C49BFF" stop-opacity="1"/><stop offset="0.34" stop-color="#7B3FC4" stop-opacity="1"/><stop offset="0.6" stop-color="#7B3FC4" stop-opacity="1"/><stop offset="1" stop-color="#45207A" stop-opacity="1"/></linearGradient>
+</defs>
+<circle cx="68" cy="68" r="40" fill="none" stroke="url(#gem_epic)" stroke-width="3"/>
+<circle cx="54" cy="54" r="6.4" fill="#FFFFFF" opacity="0.6"/>
+</svg>

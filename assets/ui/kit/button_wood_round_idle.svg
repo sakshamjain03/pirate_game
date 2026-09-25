@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="148" viewBox="0 0 128 148">
+<defs>
+<radialGradient id="wood_round_idle" cx="0.35" cy="0.3" r="0.85"><stop offset="0" stop-color="#6D452A" stop-opacity="1"/><stop offset="1" stop-color="#2E1A0C" stop-opacity="1"/></radialGradient>
+</defs>
+<rect x="6" y="64" width="116" height="70" rx="58" fill="#3A2616" opacity="0.85"/>
+<circle cx="64" cy="64" r="58" fill="url(#wood_round_idle)"/>
+<circle cx="64" cy="64" r="55" fill="none" stroke="#3A2616" stroke-width="6"/>
+<circle cx="43.12" cy="43.12" r="16.24" fill="#FFFFFF" opacity="0.18"/>
+</svg>

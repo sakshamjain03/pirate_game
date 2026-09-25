@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="30" viewBox="0 0 160 30">
+<defs>
+<linearGradient id="pill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7DE98" stop-opacity="1"/><stop offset="1" stop-color="#C29444" stop-opacity="1"/></linearGradient>
+</defs>
+<rect x="0" y="0" width="160" height="30" rx="15" fill="url(#pill)"/>
+</svg>

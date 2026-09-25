@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="148" viewBox="0 0 128 148">
+<defs>
+<radialGradient id="wood_round_disabled" cx="0.35" cy="0.3" r="0.85"><stop offset="0" stop-color="#8C8378" stop-opacity="1"/><stop offset="1" stop-color="#665F55" stop-opacity="1"/></radialGradient>
+</defs>
+<rect x="6" y="64" width="116" height="70" rx="58" fill="#3A2616" opacity="0.85"/>
+<circle cx="64" cy="64" r="58" fill="url(#wood_round_disabled)"/>
+<circle cx="64" cy="64" r="55" fill="none" stroke="#3A2616" stroke-width="6"/>
+</svg>

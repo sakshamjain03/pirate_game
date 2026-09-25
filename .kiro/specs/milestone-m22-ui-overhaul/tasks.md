@@ -128,31 +128,60 @@ independently re-verified.
 
 ### Phase 2 — Texture kit
 
-- [ ] 2.1 `tools/ui_kit/gen_kit.py` skeleton + panels: parchment 9-slice, wood frame + rope +
+- [x] 2.1 `tools/ui_kit/gen_kit.py` skeleton + panels: parchment 9-slice, wood frame + rope +
         studs, wood plaque 3-slice.
   - **Verify:** `python tools/ui_kit/gen_kit.py` is deterministic: two runs → byte-identical SVGs.
+    Confirmed via `diff -rq` on two separate `--out-dir` runs — **first attempt was NOT
+    deterministic** (a button gradient id used Python's built-in `hash()` on a tuple, which is
+    salted per-process unless `PYTHONHASHSEED` is fixed); fixed by using a plain descriptive id
+    string instead of a hash. Re-verified deterministic after the fix, and again after a later
+    parchment-highlight tweak.
   - _Requirements: 4.1, 4.2_
-- [ ] 2.2 Buttons: Primary (coral), Brass, Wood-round × idle/pressed/disabled with baked lip.
-  - **Verify:** `UIKitSheet` screenshot shows 9 button states; pressed body sits 4 design px lower.
+- [x] 2.2 Buttons: Primary (coral), Brass, Wood-round × idle/pressed/disabled with baked lip.
+  - **Verify:** `UIKitSheet` screenshot shows all 9 button states. Rectangular (Primary/Brass)
+    idle/pressed clearly differ (taller vs. shorter lip, body dropped `dpx(4)`=8px). The wood-round
+    button's first attempt used a same-radius circle offset a few px for its "lip", which is
+    correct for the rectangular buttons' rect-slab lip but produced only a razor-thin, barely-
+    visible sliver on a circle — caught by actually looking at the capture, not assumed from the
+    code; fixed with a proper stadium-shaped slab.
   - _Requirements: 4.1_
-- [ ] 2.3 Controls: toggle on/off + knob, rope slider track/fill/knob, segmented well/pill, tab
+- [x] 2.3 Controls: toggle on/off + knob, rope slider track/fill/knob, segmented well/pill, tab
         idle/active, dropdown sheet, scrollbar.
-  - **Verify:** UIKitSheet screenshot next to v0.3 "Settings controls" for side-by-side review.
+  - **Verify:** UIKitSheet screenshot reviewed against the v0.3 doc's "Settings controls" section —
+    toggle on (teal+brass knob right) vs. off (dark wood+cream knob left), rope slider's dark
+    groove vs. gold fill vs. brass knob, segmented pill vs. well, tab active (parchment) vs. idle
+    (dark), all visually distinct.
   - _Requirements: 4.1_
-- [ ] 2.4 Misc: resource pill, 5 rarity gem borders, cooldown ring mask, glow sprite.
-  - **Verify:** UIKitSheet screenshot.
+- [x] 2.4 Misc: resource pill, 5 rarity gem borders, cooldown ring mask, glow sprite.
+  - **Verify:** UIKitSheet screenshot — all 5 rarity gems distinct (common/uncommon/rare plain
+    rings, epic/legendary with a visible outer glow), cooldown ring mask a clean white ring,
+    glow sprite a soft coral radial blob.
   - _Requirements: 4.1_
-- [ ] 2.5 Icons: **correction, see design.md §5a** — `claude design outputs/` has no new art (every
+- [x] 2.5 Icons: **correction, see design.md §5a** — `claude design outputs/` has no new art (every
         file there except `higgins.png` is a byte-identical duplicate of an existing, correctly-placed
-        asset; verified by hashing the whole folder against `assets/`). Nothing to move. Generate
-        the two genuinely-missing resource icons (research, cannonball) per the v0.3 icon spec, add
-        them to `UIIcons._PATHS`.
-  - **Verify:** test iterates `UIIcons` keys, and every one loads a `Texture2D`.
+        asset; verified by hashing the whole folder against `assets/`). Nothing to move. Generated
+        the two genuinely-missing resource icons (research, cannonball) per the v0.3 icon spec,
+        added to `UIIcons._PATHS`. Also found: a `tests/test_ui_icons.gd` already existed from
+        M15.5 covering the original 7 keys — merged into it (extended `_EXPECTED_KEYS`, added one
+        new size-sanity test) rather than the accidental blind overwrite this session first made
+        (caught before committing; no coverage was actually lost, since the replacement happened to
+        be a strict superset, but the discipline violation — not reading before overwriting an
+        existing file — is worth naming here rather than quietly fixing).
+  - **Verify:** `tests/test_ui_icons.gd` iterates all 9 `UIIcons` keys (old 7 + new 2), every one
+    loads a `Texture2D`; 3/3 passing.
   - _Requirements: 4.3_
-- [ ] 2.6 `scenes/debug/UIKitSheet.tscn` laying out every piece (+ a sweep entry).
-  - **Verify:** headful capture exists and has been viewed.
+- [x] 2.6 `scenes/debug/UIKitSheet.tscn` laying out every piece (+ a sweep entry).
+  - **Verify:** headful capture exists (`screenshots/m22/phase2/`) and has been viewed, both
+    standalone and via `UIScreenSweep --profile=desktop`'s new `13_ui_kit_sheet` entry (a
+    `self_capture` export was needed on `UIKitSheet` so an embedded instance doesn't also see the
+    shared `--capture-dir=` arg and quit the whole sweep early — confirmed the full sweep runs to
+    completion, all 16 shots, with it wired in).
   - _Requirements: 4.4_
-- [ ] 2.7 **Checkpoint — Phase 2.**
+- [x] 2.7 **Checkpoint — Phase 2.** checkpoint-reviewer independently re-verified all 6 criteria
+        (determinism via its own `diff -rq` on two fresh runs, all 34 files rasterizing through
+        Godot's real importer, `UIIcons`/test extension, the sweep integration end-to-end with its
+        own headful run, a fresh GUT suite at 653/651/2 — same 2 tracked failures, no regression —
+        and scope). PASS. Committed and pushed.
 
 ### Phase 3 — Theme rebuild
 

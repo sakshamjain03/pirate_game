@@ -92,6 +92,7 @@ func _capture(shot_name: String) -> void:
 func _run() -> void:
 	await _run_world_screens()
 	await _run_standalone_menus()
+	await _run_kit_sheet()
 
 
 func _run_world_screens() -> void:
@@ -206,4 +207,20 @@ func _run_standalone_menus() -> void:
 	await _settle(5)
 	await _capture("12_credits")
 	credits.queue_free()
+	await _settle(2)
+
+
+func _run_kit_sheet() -> void:
+	# M22 Phase 2.6 — UIKitSheet.gd's self_capture=false so it builds its
+	# grid without also self-driving its own window-resize/capture/quit
+	# (both tools share the same --capture-dir= cmdline arg; without this
+	# flag an embedded instance would quit the whole sweep early).
+	var sheet = load("res://scenes/debug/UIKitSheet.tscn").instantiate()
+	sheet.self_capture = false
+	add_child(sheet)
+	await _settle(3)
+	sheet.size_window_to_fit()
+	await _settle(3)
+	await _capture("13_ui_kit_sheet")
+	sheet.queue_free()
 	await _settle(2)

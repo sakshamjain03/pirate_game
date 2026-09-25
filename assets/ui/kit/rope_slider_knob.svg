@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+<defs>
+<radialGradient id="knob" cx="0.35" cy="0.3" r="0.9"><stop offset="0" stop-color="#F7DE98" stop-opacity="1"/><stop offset="1" stop-color="#C29444" stop-opacity="1"/></radialGradient>
+</defs>
+<circle cx="13" cy="13" r="13" fill="url(#knob)"/>
+<circle cx="13" cy="13" r="11.5" fill="none" stroke="#3A2616" stroke-width="1.5"/>
+</svg>

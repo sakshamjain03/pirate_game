@@ -156,7 +156,7 @@ func _on_map_display_draw() -> void:
 		if r.display_ring_radius <= 0.0:
 			continue
 		var radius: float = (r.display_ring_radius / _world_radius) * display_radius
-		map_display.draw_arc(center, radius, 0.0, TAU, 64, PirateThemeBuilder.COLOR_GOLD, 2.0, true)
+		map_display.draw_arc(center, radius, 0.0, TAU, 64, UITokens.palette().brass, 2.0, true)
 		# Bearing offset by 200 deg (not a bare tier*72) and pushed 10% past the
 		# ring line — a plain tier-indexed stagger put "Beginner Waters" and
 		# "Contested Waters" right on top of Skull Cove/Tortuga's own markers,
@@ -166,7 +166,7 @@ func _on_map_display_draw() -> void:
 		var bearing_rad: float = deg_to_rad(fmod(float(r.tier - 1) * 72.0 + 200.0, 360.0))
 		var label_pos := center + Vector2(sin(bearing_rad), -cos(bearing_rad)) * radius * 1.08
 		map_display.draw_string(ThemeDB.fallback_font, label_pos, r.display_name,
-			HORIZONTAL_ALIGNMENT_CENTER, -1, 12, PirateThemeBuilder.COLOR_GOLD)
+			HORIZONTAL_ALIGNMENT_CENTER, -1, 12, UITokens.palette().brass)
 
 	# Island markers. Undiscovered islands are omitted entirely rather than
 	# shown as a "?" — the milestone's own framing (docs/00_VISION.md's
@@ -177,11 +177,11 @@ func _on_map_display_draw() -> void:
 		var data: IslandData = marker.data
 		var pos: Vector2 = marker.pos
 		if data == _selected_island:
-			map_display.draw_arc(pos, 10.0, 0.0, TAU, 24, PirateThemeBuilder.COLOR_TEXT_LIGHT, 2.0, true)
-		map_display.draw_circle(pos, 6.0, PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+			map_display.draw_arc(pos, 10.0, 0.0, TAU, 24, UITokens.palette().text_on_dark, 2.0, true)
+		map_display.draw_circle(pos, 6.0, UITokens.palette().brass_light)
 		map_display.draw_string(ThemeDB.fallback_font, pos + Vector2(8, 4),
 			data.island_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
-			PirateThemeBuilder.COLOR_TEXT_LIGHT)
+			UITokens.palette().text_on_dark)
 
 	# Player position/heading marker — a small triangle pointing along yaw,
 	# reusing the same ship global_position/global_rotation_degrees.y data
@@ -194,7 +194,7 @@ func _on_map_display_draw() -> void:
 		var left := ppos + Vector2(sin(heading_rad + 2.5), -cos(heading_rad + 2.5)) * 6.0
 		var right := ppos + Vector2(sin(heading_rad - 2.5), -cos(heading_rad - 2.5)) * 6.0
 		map_display.draw_colored_polygon(PackedVector2Array([tip, left, right]),
-			PirateThemeBuilder.COLOR_GREEN_HEALTH)
+			UITokens.palette().hp_good)
 
 	_draw_compass_rose()
 
@@ -206,16 +206,16 @@ func _draw_compass_rose() -> void:
 	var origin := Vector2(map_display.size.x - _COMPASS_MARGIN - _COMPASS_RADIUS,
 		_COMPASS_MARGIN + _COMPASS_RADIUS)
 	map_display.draw_circle(origin, _COMPASS_RADIUS, Color(0.05, 0.07, 0.14, 0.55))
-	map_display.draw_arc(origin, _COMPASS_RADIUS, 0.0, TAU, 32, PirateThemeBuilder.COLOR_GOLD, 1.5, true)
+	map_display.draw_arc(origin, _COMPASS_RADIUS, 0.0, TAU, 32, UITokens.palette().brass, 1.5, true)
 	var dirs := {"N": 0.0, "E": 90.0, "S": 180.0, "W": 270.0}
 	for label in dirs:
 		var rad: float = deg_to_rad(dirs[label])
 		var dir := Vector2(sin(rad), -cos(rad))
 		map_display.draw_line(origin, origin + dir * (_COMPASS_RADIUS - 4.0),
-			PirateThemeBuilder.COLOR_GOLD, 1.5)
+			UITokens.palette().brass, 1.5)
 		var text_pos := origin + dir * (_COMPASS_RADIUS + 11.0)
 		map_display.draw_string(ThemeDB.fallback_font, text_pos, label,
-			HORIZONTAL_ALIGNMENT_CENTER, -1, 13, PirateThemeBuilder.COLOR_TEXT_LIGHT)
+			HORIZONTAL_ALIGNMENT_CENTER, -1, 13, UITokens.palette().text_on_dark)
 
 
 func _on_map_display_gui_input(event: InputEvent) -> void:

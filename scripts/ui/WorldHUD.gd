@@ -1316,7 +1316,7 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	style.border_width_top = 4
 	style.border_width_right = 4
 	style.border_width_bottom = 4
-	style.border_color = PirateThemeBuilder.COLOR_GOLD
+	style.border_color = UITokens.palette().brass
 	style.corner_radius_top_left = 8
 	style.corner_radius_top_right = 8
 	style.corner_radius_bottom_right = 8
@@ -1333,7 +1333,7 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(32))
 	label.add_theme_color_override("font_color",
-		PirateThemeBuilder.COLOR_RED_HEALTH if is_warning else PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+		UITokens.palette().hp_low if is_warning else UITokens.palette().brass_light)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 8)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -25,7 +25,7 @@ static func apply_to_label(portrait_label: Label, portrait_path: String, display
 		initial = trimmed.substr(0, 1).to_upper()
 	portrait_label.text = initial
 	portrait_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(36))
-	portrait_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	portrait_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 
 ## M11 — the upgrade apply_to_label()'s own doc comment anticipated: a caller
 ## with both a TextureRect (for real art) and a Label sibling (for the

@@ -285,6 +285,61 @@ should call `scaled_button_size()` for any new button-sizing code, not
 - **Not verifiable here:** on-device touch feel, haptics, real-device fps with the textures and
   particles, and safe-area on notched hardware. Say so at every checkpoint.
 
+## 11a. Phase 3 findings (theme rebuild)
+
+Three real defects found by actually viewing `UIKitSheet`'s new "live controls" row
+(design.md §1's own stated method — a raw swatch always looks fine in isolation; only a real,
+themed `Control` reveals a bad 9-slice margin or engine quirk) and the full sweep, not assumed
+from code:
+
+- **Confirmed upstream Godot 4.3 engine bug, not our own defect:**
+  [`godotengine/godot#97417`](https://github.com/godotengine/godot/issues/97417) (see also #95509)
+  — a `Button` auto-sized to EXACTLY its computed minimum silently drops its own last character
+  under `canvas_items` stretch mode + font oversampling (both of which this project uses).
+  Confirmed via websearch/PR reading: fixed for 4.4 by PR #95511, not backported to our pinned
+  4.3.stable. Reproduced directly: a button forced to 400px (far past its natural fit) rendered
+  correctly; the same label at auto-computed size did not, and increasing `content_margin`
+  uniformly never helped (auto-sizing always matches width to content+margin exactly, so the
+  button is still "as small as possible" no matter the margin's absolute value — margin can't
+  create genuine slack). Fixed centrally in `PirateThemeBuilder.apply_button_juice()`
+  (`_BTN_TEXT_CLIP_BUG_BUFFER`, see its own header) — the one sweep every Button already passes
+  through, so every screen gets the workaround with no per-screen changes. Affects any project
+  using `canvas_items` + oversampling, not something specific to this kit.
+- **`Slider`'s `slider`/`grabber_area` `StyleBox` draws at a height equal to
+  `content_margin_top + content_margin_bottom`, not stretched to the control's actual height** —
+  Slider has no child content, so Godot repurposes "content margin" as "groove thickness" for this
+  control type specifically. The first pass used 0/0 (meant literally as "no padding"), which
+  rendered a genuinely zero-height, invisible groove regardless of the texture's own pixel content
+  — this is *also* §9's originally-diagnosed "low contrast" symptom's real root cause once the
+  actual StyleBoxTexture pipeline was in place (the old flat `StyleBoxFlat` groove happened to
+  still paint a visible rect at 0 margin because a flat box's fill isn't margin-gated the same
+  way). Fixed with `content_margin_top = content_margin_bottom = 7` (half the track's own design
+  thickness) on both `rope_slider_track`/`rope_slider_fill`. Confirmed fixed on the real
+  `SettingsMenu` capture (`screenshots/m22/phase3/desktop/11_settings_tab0.png`): all three
+  sliders now show a clear gold fill + dark groove + brass knob.
+- **`UIKitSheet`'s own `apply_button_juice()` call must run AFTER the built subtree is parented**
+  into the sheet's live theme-resolving tree, not before — a Control not yet part of a themed
+  ancestor chain resolves Godot's *stock* default theme instead, so measuring
+  `get_minimum_size()` at that point (as the text-clip-bug buffer above needs to) reads the wrong,
+  much smaller baseline. Debug-harness-only bug (real screens are already live-tree members by the
+  time their own `_ready()`/`apply_button_juice()` runs), fixed in `UIKitSheet.gd`.
+
+**Deliberately not fixed / not in Phase 3 scope:**
+- The v0.3 source itself (`claude design outputs/…v0.3.html`, at the user's own request re-checked
+  during this phase) bakes a per-button-family-tinted lip shadow (e.g. a coral-family
+  button's lip is a warm dark red-brown, `#6a260c`, not the flat `ink` every kit button lip
+  currently uses) — a real, minor richness gap against the source, not a defect. Already-approved
+  Phase 2 art is not reopened for this; noted here as a candidate for a future kit polish pass.
+- `test_store_screen.gd`'s `test_property_no_overlap_between_content_and_close_button` now fails:
+  its `CloseButton` has a `.tscn`-authored `custom_minimum_size = Vector2(0, 44)` from the old
+  (small-font) theme era. Germania One's own line-height at the new `FONT_BODY` (32 canvas px) is
+  tall enough that the button's real content-driven minimum height is ~104px, exceeding that
+  hardcoded 44 — a genuine, intentional consequence of the deliberately chunkier type scale, not a
+  theme bug. `StoreScreen` is explicitly Phase 6's screen (6b) to restyle properly; left failing
+  and documented here (tasks.md Notes), not patched around, matching `test_touch_target_audit`'s
+  own already-established Phase 1→Phase 4 precedent for the same class of "legacy hardcoded size
+  vs. deliberately bigger theme" collision.
+
 ## 12. Screen inventory (baseline 2026-09-25)
 
 Override counts to burn down. `tscn` = `theme_override_*` lines in `scenes/ui/<name>.tscn`;

@@ -157,7 +157,7 @@ func _apply_settings_visual_language() -> void:
 	root_control.move_child(_settings_card, 1)
 
 	title_label.add_theme_font_size_override("font_size", 32)
-	title_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	title_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	title_label.add_theme_color_override("font_outline_color", Color("07101d"))
 	title_label.add_theme_constant_override("outline_size", 6)
 	tab_container.add_theme_font_size_override("font_size", 18)
@@ -224,7 +224,7 @@ func _apply_mobile_sizing() -> void:
 		grid_container.get_node("TutorialLabel"),
 	]:
 		label.add_theme_font_size_override("font_size", 21)
-		label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+		label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 		label.custom_minimum_size = Vector2(0.0, 32.0)
 	for slider in [master_slider, music_slider, sfx_slider]:
 		slider.custom_minimum_size = Vector2(0.0, 64.0)
@@ -477,7 +477,7 @@ func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, ma
 	hbox.add_child(slider)
 
 	var value_label := _make_row_label("%.2f" % value)
-	value_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	value_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	value_label.custom_minimum_size.x = 50
 	hbox.add_child(value_label)
 
@@ -496,7 +496,7 @@ func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, ma
 func _make_row_label(text_content: String) -> Label:
 	var label := Label.new()
 	label.text = text_content
-	label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_TEXT_LIGHT)
+	label.add_theme_color_override("font_color", UITokens.palette().text_on_dark)
 	return label
 
 
@@ -505,8 +505,8 @@ func _add_section_header(parent: VBoxContainer, text_content: String) -> void:
 	var label := Label.new()
 	label.text = text_content
 	label.add_theme_font_size_override("font_size", 20)
-	label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
-	label.add_theme_color_override("font_outline_color", PirateThemeBuilder.COLOR_SHADOW_DARK)
+	label.add_theme_color_override("font_color", UITokens.palette().brass_light)
+	label.add_theme_color_override("font_outline_color", UITokens.palette().ink)
 	label.add_theme_constant_override("outline_size", 3)
 	parent.add_child(label)
 
@@ -522,7 +522,7 @@ func _add_section_card(parent: VBoxContainer) -> VBoxContainer:
 	style.border_width_top = 1
 	style.border_width_right = 1
 	style.border_width_bottom = 1
-	style.border_color = PirateThemeBuilder.COLOR_GOLD.darkened(0.3)
+	style.border_color = UITokens.palette().brass.darkened(0.3)
 	style.corner_radius_top_left = 12
 	style.corner_radius_top_right = 12
 	style.corner_radius_bottom_left = 12
@@ -702,7 +702,7 @@ func _build_signed_out_account_ui() -> void:
 
 	var terms_link := LinkButton.new()
 	terms_link.text = tr("Terms of Service")
-	terms_link.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	terms_link.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	terms_link.pressed.connect(func(): OS.shell_open(TERMS_URL))
 	terms_hbox.add_child(terms_link)
 
@@ -710,7 +710,7 @@ func _build_signed_out_account_ui() -> void:
 
 	var privacy_link := LinkButton.new()
 	privacy_link.text = tr("Privacy Policy")
-	privacy_link.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	privacy_link.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	privacy_link.pressed.connect(func(): OS.shell_open(PRIVACY_URL))
 	terms_hbox.add_child(privacy_link)
 
@@ -731,7 +731,7 @@ func _build_signed_out_account_ui() -> void:
 
 	var forgot_link := LinkButton.new()
 	forgot_link.text = tr("Forgot password?")
-	forgot_link.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD)
+	forgot_link.add_theme_color_override("font_color", UITokens.palette().brass)
 	forgot_link.pressed.connect(_on_forgot_password_pressed)
 	card.add_child(forgot_link)
 
@@ -744,7 +744,7 @@ func _build_signed_in_account_ui() -> void:
 	var card := _add_section_card(account_vbox)
 
 	var status_label := _make_row_label(tr("Signed in"))
-	status_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+	status_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	card.add_child(status_label)
 
 	var sign_out_button := Button.new()
@@ -810,7 +810,7 @@ func _show_message(text_content: String, is_warning: bool = false) -> void:
 	style.border_width_top = 4
 	style.border_width_right = 4
 	style.border_width_bottom = 4
-	style.border_color = PirateThemeBuilder.COLOR_GOLD
+	style.border_color = UITokens.palette().brass
 	style.corner_radius_top_left = 8
 	style.corner_radius_top_right = 8
 	style.corner_radius_bottom_left = 8
@@ -829,7 +829,7 @@ func _show_message(text_content: String, is_warning: bool = false) -> void:
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override(
 		"font_color",
-		PirateThemeBuilder.COLOR_RED_HEALTH if is_warning else PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+		UITokens.palette().hp_low if is_warning else UITokens.palette().brass_light)
 	panel.add_child(label)
 
 	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)

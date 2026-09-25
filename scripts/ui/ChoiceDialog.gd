@@ -29,7 +29,7 @@ func _init(title_text: String, body_text: String, button_labels: PackedStringArr
 	style.border_width_top = 4
 	style.border_width_right = 4
 	style.border_width_bottom = 4
-	style.border_color = PirateThemeBuilder.COLOR_GOLD
+	style.border_color = UITokens.palette().brass
 	style.corner_radius_top_left = 8
 	style.corner_radius_top_right = 8
 	style.corner_radius_bottom_left = 8
@@ -50,14 +50,14 @@ func _init(title_text: String, body_text: String, button_labels: PackedStringArr
 		var title_label := Label.new()
 		title_label.text = title_text
 		title_label.add_theme_font_size_override("font_size", 28)
-		title_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_GOLD_BRIGHT)
+		title_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 		title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(title_label)
 
 	var body_label := Label.new()
 	body_label.text = body_text
 	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body_label.add_theme_color_override("font_color", PirateThemeBuilder.COLOR_TEXT_LIGHT)
+	body_label.add_theme_color_override("font_color", UITokens.palette().text_on_dark)
 	body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(body_label)
 

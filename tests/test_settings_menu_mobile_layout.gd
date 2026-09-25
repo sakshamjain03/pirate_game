@@ -43,8 +43,17 @@ func test_pc_only_display_controls_stay_visible_and_default_sized_on_pc():
 	assert_true(_menu.vsync_check.visible, "VSync must stay visible on PC")
 
 	var pc_default := Vector2(44, 44)
-	assert_eq(_menu.fullscreen_check.custom_minimum_size, pc_default,
-		"PC's Fullscreen control size must be untouched by the mobile pass")
+	# M22 Phase 3: PirateThemeBuilder.apply_button_juice() adds a small width
+	# buffer to every Button-derived control (CheckButton included) to work
+	# around a confirmed Godot 4.3 engine bug where a button/toggle sized to
+	# its EXACT natural minimum silently drops its own last character under
+	# this project's canvas_items stretch mode (godotengine/godot#97417,
+	# fixed for 4.4, not backported to our pinned 4.3.stable — see
+	# PirateThemeBuilder.apply_button_juice's own header). fullscreen_check
+	# IS a CheckButton (a Button subtype), so it now carries that buffer on
+	# PC too — HSlider is NOT a Button subtype and stays genuinely untouched.
+	assert_eq(_menu.fullscreen_check.custom_minimum_size, Vector2(64, 44),
+		"PC's Fullscreen control height must be untouched by the mobile pass; width now carries Phase 3's text-clip-bug-workaround buffer")
 	assert_eq(_menu.master_slider.custom_minimum_size, pc_default,
 		"PC's slider sizes must be untouched by the mobile pass")
 

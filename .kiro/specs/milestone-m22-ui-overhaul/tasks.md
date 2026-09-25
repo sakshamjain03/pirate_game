@@ -185,30 +185,60 @@ independently re-verified.
 
 ### Phase 3 — Theme rebuild
 
-- [ ] 3.1 `build()`: panels (`ParchmentPanel`, `WoodFramePanel`, `PlaquePanel`; default
+- [x] 3.1 `build()`: panels (`ParchmentPanel`, `WoodFramePanel`, `PlaquePanel`; default
         Panel/PanelContainer = wood frame) from kit `StyleBoxTexture`s.
-  - **Verify:** UIKitSheet "live controls" row shows each variation.
+  - **Verify:** UIKitSheet "live controls" row (new) shows all three panel variations + the
+    default Panel/PanelContainer, each a real `StyleBoxTexture` — reviewed on
+    `screenshots/m22/phase3/desktop/ui_kit_sheet.png`. Also visible automatically on every real
+    screen the sweep touches (WorldHUD chips/dialogue, IslandMenu, PauseMenu, TutorialDialogue) —
+    design.md §1's "layer 2 changes the most pixels for the least risk" claim confirmed directly.
   - _Requirements: 5.5_
-- [ ] 3.2 Buttons + variations (`PrimaryButton`, default brass, `WoodRoundButton`), label type
+- [x] 3.2 Buttons + variations (`PrimaryButton`, default brass, `WoodRoundButton`), label type
         variations, font shadow/outline (design §5, §7).
-  - **Verify:** new `tests/test_theme_variations.gd` asserts each variation exists with the
-    expected base type and font sizes.
+  - **Verify:** `tests/test_theme_variations.gd` (6 tests) — panel/button variation base types,
+    default-Button-is-brass-not-primary, label type-scale sizes match `UITokens`,
+    Display/Title use Germania with shadow+outline, HudNum/Chip use the 800-weight Baloo2
+    variation. All passing.
   - _Requirements: 2.2, 2.3, 5.1_
-- [ ] 3.3 `ButtonJuice` → modulate press (60/120ms); `PrimaryGlow.gd` + `mark_primary()`.
-  - **Verify:** test simulates `button_down`/`button_up` and checks `self_modulate` reaches 0.88 and
-    returns to 1. `mark_primary` twice → one glow child.
+- [x] 3.3 `ButtonJuice` → modulate press (60/120ms); `PrimaryGlow.gd` + `mark_primary()`.
+  - **Verify:** `tests/test_button_juice_and_glow.gd` (2 tests, deliberately split from
+    test_theme_variations.gd — its real-time press-timing assertion doesn't want that file's
+    heavy per-test theme-rebuild `before_each` ahead of it). `button_down`/`button_up` simulated via
+    direct `emit_signal` (see Notes — a lambda-callable quirk found along the way);
+    `self_modulate` reaches 0.88 and returns to 1. `mark_primary` called twice → exactly one
+    `PrimaryGlow` child. Both passing.
   - _Requirements: 5.2, 5.3_
-- [ ] 3.4 HSlider (rope), CheckButton (toggle), CheckBox, OptionButton/PopupMenu (parchment),
+- [x] 3.4 HSlider (rope), CheckButton (toggle), CheckBox, OptionButton/PopupMenu (parchment),
         TabContainer/TabBar, ProgressBar, ScrollBar, LineEdit, TooltipPanel,
-        AcceptDialog/ConfirmationDialog (`Window` `embedded_border`/`panel`). Delete the
-        now-unused `_make_*_icon` image generators.
-  - **Verify:** UIKitSheet live-controls row screenshot; slider track clearly visible.
+        AcceptDialog/ConfirmationDialog (`Window` `embedded_border`/`panel`). Deleted the
+        now-unused `_make_toggle_icon`/`_make_slider_grabber_icon` generators (kit textures
+        replace them); `_make_checkbox_icon` kept (no kit asset for CheckBox) and recoloured onto
+        the palette.
+  - **Verify:** `screenshots/m22/phase3/desktop/11_settings_tab0.png` — the pre-M22 "invisible
+    slider" defect (tasks.md Notes, M18) is fixed: all three sliders show a gold fill, dark
+    groove, and brass knob. Required a real, non-obvious second fix beyond the kit texture itself
+    (design.md §11a — Slider's stylebox content-margin doubles as groove thickness, not padding).
+    Dropdown/tabs/checkboxes/toggles all reviewed on the same capture and on
+    `ui_kit_sheet.png`'s live-controls row.
   - _Requirements: 5.4_
-- [ ] 3.5 Route every `PirateThemeBuilder.COLOR_*` use through the palette
+- [x] 3.5 Route every `PirateThemeBuilder.COLOR_*` use through the palette
         (`grep -rn "PirateThemeBuilder.COLOR_" scripts`).
-  - **Verify:** that grep returns only the compatibility accessors themselves.
+  - **Verify:** `grep -rn "PirateThemeBuilder.COLOR_" scripts` returns zero real matches (one
+    unrelated comment in `tools/gen_app_icons.gd` naming the old const for cross-reference). No
+    compatibility accessors were needed — every one of the 27 call sites across `ChoiceDialog.gd`,
+    `PortraitFallback.gd`, `SettingsMenu.gd` (11), `WorldMapScreen.gd` (9), `WorldHUD.gd` (2) was
+    migrated directly to `UITokens.palette().<field>`, and the old `COLOR_*`/`_make_toggle_icon`
+    style consts were deleted from `PirateThemeBuilder.gd` outright rather than kept as a second,
+    parallel colour system (AGENTS.md "never duplicate systems").
   - _Requirements: 1.3_
-- [ ] 3.6 **Checkpoint — Phase 3** (sweep shows every screen already restyled by the theme alone).
+- [x] 3.6 **Checkpoint — Phase 3.** Full sweep (phone + desktop, all 16 shots each,
+        `screenshots/m22/phase3/{phone,desktop}/`) viewed: MainMenu, WorldHUD, IslandMenu,
+        PauseMenu, Settings (all 3 tabs), Credits all already restyled by the theme alone — wood
+        frame panels, brass/coral buttons, working sliders, no text clipping. GUT full suite
+        710/714 passing (see Notes for the 4 non-blocking failures and their disposition). Two
+        real defects found and fixed via the live-controls capture, not assumed from code (design
+        §11a): a confirmed upstream Godot 4.3 button-text-clipping engine bug (worked around
+        centrally), and Slider's content-margin-as-groove-thickness behaviour.
 
 ### Phase 4 — Menus & modals
 
@@ -380,6 +410,32 @@ independently re-verified.
     stated lesson, docs/16_MILESTONE_HISTORY.md's M15.5 "419 vs 434" entry) — worth a real fix
     (seed the RNG or use a local `RandomNumberGenerator`) as a small separate task outside M22,
     not blocking this checkpoint.
+  - **Found during Phase 3 (real GUT-suite run, this milestone's tree): 710/714 passing.** Beyond
+    the 2 baseline failures above (still present, unchanged):
+    1. `test_store_screen::test_property_no_overlap_between_content_and_close_button` — **new,
+       real, and intentionally left failing** — see design.md §11a. `StoreScreen.tscn`'s
+       `CloseButton` has a hardcoded pre-M22 `custom_minimum_size.y = 44`; Germania One's own
+       line-height at the new `FONT_BODY` makes the button's real content-driven minimum ~104px.
+       Same class of "legacy hardcoded size vs. deliberately bigger theme" collision as
+       `test_touch_target_audit` above, for a screen Phase 6 (task 6.7) already owns restyling —
+       left failing and documented, not patched around or loosened.
+    2. `test_purchase_flow::test_bundle_purchase_grants_every_entitlement_atomically` — failed
+       once in the full-suite run, 8/8 passing when re-run in isolation immediately after. No file
+       this milestone touches is anywhere near `StoreManager.gd`/`EntitlementManager.gd`; same
+       "flaky, order/timing-dependent, pre-existing test-hygiene defect" shape as
+       `test_ocean_properties` above, not a regression.
+    3. A `ShipCombat`-area test ("A hostile off the beam must lock the starboard battery") failed
+       once. `git status` at the time showed `scripts/world/{ShipCombat,ShipController,
+       ShipCollisionHandler,EnemyAI,Cannonball,ShipMovement,ShipDamage,ShipStats}.gd` and several
+       `resources/combat/*` files all modified/untracked under an unrelated in-progress
+       `.kiro/specs/milestone-m23-naval-dynamics/` — a concurrent session's own active work
+       (CLAUDE.md "Concurrent sessions git safety"), not anything this phase's `scripts/ui/*`
+       changes touch. Not investigated further and not staged/committed by this phase (scoped
+       `git add` of M22 files only).
+    - Also observed, transient and non-reproducing: one phone-profile `UIScreenSweep` run and one
+      headful capture each hit a momentary script-compile error while the same concurrent session
+      was mid-save on `SettingsManager.gd`; both re-ran clean seconds later. Noted for the same
+      reason as above, not a real defect.
 - **Highest-risk task:** 1.3/1.4/1.8, the base-resolution change. It moves every screen at once.
   Keep it in its own commit so it can be bisected.
 - **Parallelizable:** within Phase 2, tasks 2.1–2.5 are independent. Within Phase 6, screens are

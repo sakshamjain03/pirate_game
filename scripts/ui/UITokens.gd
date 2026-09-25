@@ -41,6 +41,10 @@ const GLOW_SCALE_MAX   := 1.07
 const TEXT_SHADOW_OFFSET := 4   ## design 2
 const TEXT_OUTLINE_SIZE  := 4
 
+# --- Phase 3 additions (design.md §7) ---
+const FOCUS_OUTLINE_WIDTH := 8   ## design 4 — keyboard/gamepad focus ring
+const GLOW_INSET          := 24  ## design 12 — PrimaryGlow's outward anchor offset
+
 const PALETTE_PATH := "res://resources/ui/palette_default.tres"
 
 static var _palette_cache: UIPalette = null

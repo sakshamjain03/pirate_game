@@ -239,6 +239,9 @@ independently re-verified.
         real defects found and fixed via the live-controls capture, not assumed from code (design
         §11a): a confirmed upstream Godot 4.3 button-text-clipping engine bug (worked around
         centrally), and Slider's content-margin-as-groove-thickness behaviour.
+        `checkpoint-reviewer` independently re-verified all of the above (its own fresh GUT run,
+        its own headful sweep, its own `git show 74af27e --stat` scope check, its own grep for
+        Phase 3.5's palette migration) — PASS. Committed (`74af27e`) and pushed.
 
 ### Phase 4 — Menus & modals
 
@@ -419,19 +422,21 @@ independently re-verified.
        Same class of "legacy hardcoded size vs. deliberately bigger theme" collision as
        `test_touch_target_audit` above, for a screen Phase 6 (task 6.7) already owns restyling —
        left failing and documented, not patched around or loosened.
-    2. `test_purchase_flow::test_bundle_purchase_grants_every_entitlement_atomically` — failed
-       once in the full-suite run, 8/8 passing when re-run in isolation immediately after. No file
-       this milestone touches is anywhere near `StoreManager.gd`/`EntitlementManager.gd`; same
-       "flaky, order/timing-dependent, pre-existing test-hygiene defect" shape as
-       `test_ocean_properties` above, not a regression.
-    3. A `ShipCombat`-area test ("A hostile off the beam must lock the starboard battery") failed
-       once. `git status` at the time showed `scripts/world/{ShipCombat,ShipController,
+    2. A **flaky, unrelated-to-M22 combat/purchase test** failed once per full-suite run, but
+       *which one* varied run to run: this session's own runs saw
+       `test_purchase_flow::test_bundle_purchase_grants_every_entitlement_atomically` fail once
+       (8/8 passing in isolation immediately after); the independent `checkpoint-reviewer` pass
+       saw `test_combat_loop_end_to_end::test_the_whole_v1_combat_loop_runs_through_the_real_scenes`
+       fail instead, with `test_purchase_flow` passing clean. Neither file this milestone touches
+       is anywhere near `StoreManager.gd`/`EntitlementManager.gd` or `scripts/world/`/`scripts/combat/`.
+       `git status` throughout showed `scripts/world/{ShipCombat,ShipController,
        ShipCollisionHandler,EnemyAI,Cannonball,ShipMovement,ShipDamage,ShipStats}.gd` and several
        `resources/combat/*` files all modified/untracked under an unrelated in-progress
        `.kiro/specs/milestone-m23-naval-dynamics/` — a concurrent session's own active work
-       (CLAUDE.md "Concurrent sessions git safety"), not anything this phase's `scripts/ui/*`
-       changes touch. Not investigated further and not staged/committed by this phase (scoped
-       `git add` of M22 files only).
+       (CLAUDE.md "Concurrent sessions git safety"). The failure moving between combat-adjacent
+       tests run-to-run, never anything `scripts/ui/*`, is itself evidence this is state/timing
+       noise from that concurrent work landing mid-run, not a Phase 3 regression. Not investigated
+       further and not staged/committed by this phase (scoped `git add` of M22 files only).
     - Also observed, transient and non-reproducing: one phone-profile `UIScreenSweep` run and one
       headful capture each hit a momentary script-compile error while the same concurrent session
       was mid-save on `SettingsManager.gd`; both re-ran clean seconds later. Noted for the same

@@ -60,6 +60,19 @@ const DEFAULT_MOBILE_TILT_AXIS: int = 1
 ## (PirataOne, the original blackletter-style face), 2: Times New Roman (an
 ## OS-resolved SystemFont, not a bundled asset).
 const DEFAULT_UI_FONT: int = 0
+## M22 (2026-09-25) — mobile_control_overrides' stored "position" deltas are
+## in MobileLayoutManager.REFERENCE_LANDSCAPE units (see that var's own
+## comment), which moved from a 1080-tall reference to a 780-tall one when
+## the project base changed (design.md §3/§9). A config file with no
+## "hud_layout_version" key predates that change (version 1); load_settings()
+## rescales its stored positions by HUD_LAYOUT_MIGRATION_RATIO once, in
+## memory, so a returning player's saved HUD customization still lands in
+## the same real screen location instead of drifting — never silently reset
+## (CLAUDE.md fragile-area rule). HUD_LAYOUT_VERSION_CURRENT is the version
+## this build understands; a fresh install with no config file at all starts
+## already at the current version (nothing to migrate).
+const HUD_LAYOUT_VERSION_CURRENT: int = 2
+const HUD_LAYOUT_MIGRATION_RATIO: float = 780.0 / 1080.0
 
 ## The gameplay actions the player may rebind. Single source of truth — this
 ## list was previously duplicated verbatim in both save_settings() and
@@ -95,6 +108,10 @@ var ui_font: int = DEFAULT_UI_FONT
 ## MobileLayoutManager.apply_control_override(). An empty dict is both the
 ## default and the fully-reset state.
 var mobile_control_overrides: Dictionary = {}
+## Not written to save_settings() directly by name here — see save_settings(),
+## which always writes HUD_LAYOUT_VERSION_CURRENT (this var only matters
+## in-memory, between a load_settings() migration and the next save).
+var hud_layout_version: int = HUD_LAYOUT_VERSION_CURRENT
 
 ## Transient handoff flag, not persisted (mirrors SaveManager._pending_offline_ticks'
 ## pattern) — "Customize HUD Layout" is only meaningful with a live HUD on
@@ -208,6 +225,12 @@ func load_settings() -> void:
 	mobile_tilt_axis = _tilt_axis if typeof(_tilt_axis) == TYPE_INT else DEFAULT_MOBILE_TILT_AXIS
 	var _overrides = config.get_value("mobile", "control_overrides", {})
 	mobile_control_overrides = _overrides if typeof(_overrides) == TYPE_DICTIONARY else {}
+	# A config file with no "hud_layout_version" key predates M22's base-
+	# resolution change — default 1 (not HUD_LAYOUT_VERSION_CURRENT) so its
+	# absence is correctly read as "needs migrating," not "already current."
+	var _hud_layout_version = config.get_value("mobile", "hud_layout_version", 1)
+	hud_layout_version = _hud_layout_version if typeof(_hud_layout_version) == TYPE_INT else 1
+	_migrate_hud_layout_if_needed()
 	var _ui_font = config.get_value("display", "ui_font", DEFAULT_UI_FONT)
 	ui_font = _ui_font if typeof(_ui_font) == TYPE_INT else DEFAULT_UI_FONT
 
@@ -242,6 +265,7 @@ func save_settings() -> void:
 	config.set_value("mobile", "tilt_steering_enabled", mobile_tilt_steering_enabled)
 	config.set_value("mobile", "tilt_axis", mobile_tilt_axis)
 	config.set_value("mobile", "control_overrides", mobile_control_overrides)
+	config.set_value("mobile", "hud_layout_version", HUD_LAYOUT_VERSION_CURRENT)
 
 	# Write input bindings under the "input" section. Only actions that actually
 	# carry key events are written — persisting an empty array would read back
@@ -307,6 +331,31 @@ func apply_audio_settings() -> void:
 	am.set_bus_volume("SFX", sfx_volume)
 
 
+## M22 Phase 1.6 (design.md §9) — rescales mobile_control_overrides'
+## "position" deltas by HUD_LAYOUT_MIGRATION_RATIO in memory when loading a
+## pre-M22 config file, then marks the in-memory version current so a
+## repeat call this same session is a no-op. Does not touch "scale_mult" —
+## that is already a dimensionless ratio, not a distance, so it needs no
+## rescaling. Idempotent and safe to call even with an empty overrides dict.
+func _migrate_hud_layout_if_needed() -> void:
+	if hud_layout_version >= HUD_LAYOUT_VERSION_CURRENT:
+		return
+	var migrated := {}
+	for control_id in mobile_control_overrides:
+		var entry = mobile_control_overrides[control_id]
+		if typeof(entry) != TYPE_DICTIONARY or not entry.has("position"):
+			migrated[control_id] = entry
+			continue
+		var new_entry: Dictionary = entry.duplicate()
+		new_entry["position"] = Vector2(entry["position"]) * HUD_LAYOUT_MIGRATION_RATIO
+		migrated[control_id] = new_entry
+	mobile_control_overrides = migrated
+	if not mobile_control_overrides.is_empty():
+		print("[SettingsManager] Migrated %d HUD layout override(s) from version %d to %d (x%.4f)" %
+			[mobile_control_overrides.size(), hud_layout_version, HUD_LAYOUT_VERSION_CURRENT, HUD_LAYOUT_MIGRATION_RATIO])
+	hud_layout_version = HUD_LAYOUT_VERSION_CURRENT
+
+
 func _apply_defaults() -> void:
 	# Apply default values without saving
 	master_volume = DEFAULT_MASTER_VOLUME
@@ -324,4 +373,5 @@ func _apply_defaults() -> void:
 	mobile_tilt_steering_enabled = DEFAULT_MOBILE_TILT_STEERING_ENABLED
 	mobile_tilt_axis = DEFAULT_MOBILE_TILT_AXIS
 	mobile_control_overrides = {}
+	hud_layout_version = HUD_LAYOUT_VERSION_CURRENT
 	ui_font = DEFAULT_UI_FONT

@@ -59,8 +59,12 @@ func test_empty_dict_is_the_reset_state_even_after_a_prior_override():
 
 
 func test_position_delta_is_applied_in_reference_scale_units():
-	# mobile_scale() at 2340x1080 against the 2340x1080 reference is exactly 1.0,
-	# so a stored delta of (100, 40) reference-units should add through unscaled.
+	# mobile_scale() at REFERENCE_LANDSCAPE against REFERENCE_LANDSCAPE itself
+	# is exactly 1.0, so a stored delta of (100, 40) reference-units should
+	# add through unscaled. M22 (2026-09-25): REFERENCE_LANDSCAPE moved from
+	# 2340x1080 (physical) to 1688x780 (canvas px — design.md §3), so this
+	# test's own viewport must match it, not a hardcoded 2340x1080.
+	_viewport.size = Vector2i(MobileLayoutManager.REFERENCE_LANDSCAPE)
 	SettingsManager.mobile_control_overrides = {"movement": {"position": Vector2(100, 40), "scale_mult": 1.0}}
 	var result: Dictionary = MobileLayoutManager.apply_control_override(
 		"movement", Vector2(10, 20), 0.8, _viewport, Vector2(200, 100))

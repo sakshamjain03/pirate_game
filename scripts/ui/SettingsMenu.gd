@@ -433,11 +433,12 @@ func _add_graphics_quality_control(card: VBoxContainer) -> void:
 
 
 func _add_ui_font_control(card: VBoxContainer) -> void:
-	## 2026-09-24 — player-selectable body/UI font. Default (Cinzel) is what
-	## PirateThemeBuilder.build() now uses project-wide after PirataOne was
-	## found illegible for dense HUD numeric text at small sizes; kept here as
-	## opt-in choices for players who want the original pirate blackletter
-	## look, or their own OS Times New Roman. See PirateThemeBuilder._load_body_font().
+	## 2026-09-24 — player-selectable body/UI font. Default (Baloo 2 as of
+	## M22 2026-09-25; previously Cinzel) is what PirateThemeBuilder.build()
+	## now uses project-wide after PirataOne was found illegible for dense
+	## HUD numeric text at small sizes; kept here as opt-in choices for
+	## players who want the original pirate blackletter look, or their own
+	## OS Times New Roman. See PirateThemeBuilder._load_body_font().
 	var hbox := HBoxContainer.new()
 	var label := _make_row_label(tr("UI Font"))
 	label.custom_minimum_size.x = 200

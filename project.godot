@@ -55,10 +55,11 @@ HapticFeedbackManager="*res://scripts/managers/HapticFeedbackManager.gd"
 
 [display]
 
-window/size/viewport_width=1920
-window/size/viewport_height=1080
+window/size/viewport_width=1688
+window/size/viewport_height=780
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation="sensor_landscape"
 
 
 [input]

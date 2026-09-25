@@ -3,9 +3,21 @@ extends GutTest
 # test_touch_target_audit.gd
 # M13 Task 16.5 follow-up #2 (2026-09-20) — Automated touch-target verification.
 # Rather than checking every screen's layout manually to guarantee docs/18_ACCESSIBILITY.md §6
-# (72x72 minimum target), this parameterised test iterates through all core UI screens.
+# (48dp minimum target), this parameterised test iterates through all core UI screens.
 # It simulates the mobile environment and verifies that PirateThemeBuilder's layout pass
-# successfully clamped every Button's custom_minimum_size to at least 72x72.
+# successfully clamped every Button's custom_minimum_size to at least
+# PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET.
+#
+# M22 (2026-09-25) — the floor moved from 72x72 to 96x96 canvas px (still
+# 48dp, but the base resolution changed — design.md §3); reads the real
+# constant now instead of a second hardcoded copy of the number, so this test
+# can never itself drift out of sync with PirateThemeBuilder again. This
+# raised floor is EXPECTED to still fail for MainMenu/SettingsMenu at the end
+# of Phase 1 — see tasks.md Notes and design.md §9: MainMenu.gd's
+# _apply_button_sizing() unconditionally overwrites custom_minimum_size with
+# its own MOBILE_BUTTON_MIN_SIZE=(320,64) AFTER apply_button_juice()'s clamp
+# already ran, undoing it; the real per-screen fix is Phase 4's, not this
+# constant-reference update.
 
 const SCENES_TO_TEST = [
 	"res://scenes/ui/MainMenu.tscn",
@@ -44,8 +56,10 @@ func _check_buttons_recursively(node: Node, scene_name: String) -> void:
 	if node is Button:
 		# Some buttons are naturally large without custom_minimum_size, but PirateThemeBuilder
 		# enforces it universally on mobile. We verify that this enforcement occurred.
-		assert_true(node.custom_minimum_size.x >= 72.0 and node.custom_minimum_size.y >= 72.0,
-			"Button '%s' in %s must meet the 72x72 minimum touch target (found %s)" % [node.name, scene_name, node.custom_minimum_size])
+		var floor_size := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET
+		assert_true(node.custom_minimum_size.x >= floor_size.x and node.custom_minimum_size.y >= floor_size.y,
+			"Button '%s' in %s must meet the %sx%s minimum touch target (found %s)" %
+				[node.name, scene_name, floor_size.x, floor_size.y, node.custom_minimum_size])
 	for child in node.get_children():
 		_check_buttons_recursively(child, scene_name)
 

@@ -29,7 +29,7 @@ func _apply_mobile_sizing() -> void:
 	panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
 	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(36))
 	for btn in [resume_button, settings_button, quit_button]:
-		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(btn.custom_minimum_size)
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(btn.custom_minimum_size)
 		btn.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(22))
 
 func _unhandled_input(event: InputEvent) -> void:

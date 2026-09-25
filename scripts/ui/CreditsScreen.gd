@@ -30,7 +30,7 @@ func _apply_mobile_sizing() -> void:
 	scroll_container.offset_right = PirateThemeBuilder.scaled(scroll_container.offset_right)
 	scroll_container.offset_top = PirateThemeBuilder.scaled(scroll_container.offset_top)
 	scroll_container.offset_bottom = PirateThemeBuilder.scaled(scroll_container.offset_bottom)
-	back_button.custom_minimum_size = PirateThemeBuilder.scaled_size(back_button.custom_minimum_size)
+	back_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(back_button.custom_minimum_size)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

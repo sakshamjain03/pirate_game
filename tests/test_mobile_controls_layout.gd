@@ -68,10 +68,10 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 		var blockers := {
 			"HealthBarContainer": _hud.get_node("HealthBarContainer").get_global_rect(),
 			# D-something: BtnPause used to sit at a hardcoded "150 * this
-			# script's own mobile_scale()" offset, unrelated to the fixed
-			# hud_scale=1.45 WorldHUD actually positions this panel with — the
-			# two drifted apart on real devices, leaving only BtnPause's bottom
-			# sliver clickable under the panel. Guards that regression.
+			# script's own mobile_scale()" offset, unrelated to whatever scale
+			# WorldHUD actually positions this panel with — the two drifted
+			# apart on real devices, leaving only BtnPause's bottom sliver
+			# clickable under the panel. Guards that regression.
 			"TopRightPanel": _hud.top_right_panel.get_global_rect(),
 		}
 		var mobile_buttons := {
@@ -110,11 +110,16 @@ func test_property_every_mobile_control_button_meets_the_minimum_touch_target():
 		"Movement/BtnLeft", "Movement/BtnRight", "Movement/SailControl",
 		"BtnPause", "Actions/BtnCaptainAbility", "Actions/BtnSpecialBroadside",
 	]
+	# M22 (2026-09-25): floor moved 72->96 canvas px (still 48dp — the base
+	# resolution changed, see design.md §3); reads the real constant instead
+	# of a second hardcoded copy, so this can't itself drift out of sync
+	# with PirateThemeBuilder again.
+	var floor_size := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET
 	for path in button_paths:
 		var btn: Button = mobile_controls.get_node(path)
 		var rect := btn.get_global_rect()
-		assert_true(rect.size.x >= 72.0 and rect.size.y >= 72.0,
-			"MobileControls/%s (%s) must meet the 72x72 phone touch target" % [path, rect.size])
+		assert_true(rect.size.x >= floor_size.x and rect.size.y >= floor_size.y,
+			"MobileControls/%s (%s) must meet the %sx%s phone touch target" % [path, rect.size, floor_size.x, floor_size.y])
 
 
 # Property: each bottom cluster sits just above the safe-area's true bottom

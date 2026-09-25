@@ -15,6 +15,14 @@ class_name PirateThemeBuilder extends RefCounted
 const FONT_PIRATA    := "res://assets/fonts/PirataOne-Regular.ttf"
 const FONT_CINZEL    := "res://assets/fonts/Cinzel-Regular.ttf"
 const FONT_CINZEL_B  := "res://assets/fonts/Cinzel-Bold.ttf"
+## M22 Phase 1.7 (design.md §5) — the v0.3 design system's own type faces:
+## Germania One for headers/button/tab labels, Baloo 2 (variable, weight
+## selected via FontVariation) for body/HUD-number text. Cinzel/PirataOne
+## stay on disk (still player-selectable — see _load_body_font() below;
+## Phase 9 removes whichever ends up genuinely unreferenced) but Cinzel is no
+## longer build()'s own default anywhere after this task.
+const FONT_GERMANIA  := "res://assets/fonts/GermaniaOne-Regular.ttf"
+const FONT_BALOO2    := "res://assets/fonts/Baloo2-VariableFont_wght.ttf"
 
 const BUTTON_TEX_NORMAL   := "res://assets/ui_icons/buttons/button_normal.png"
 const BUTTON_TEX_HOVER    := "res://assets/ui_icons/buttons/button_hover.png"
@@ -40,7 +48,17 @@ const COLOR_GREEN_HEALTH := Color(0.22,  0.7,   0.27,  1.0)
 ## individually. PC keeps the original sizes — desktop viewing distance and
 ## mouse precision don't need this, and the user asked for platform-
 ## appropriate sizing, not one shared size.
-const MOBILE_FONT_SCALE := 1.45
+##
+## M22 (2026-09-25) — superseded, not removed: the multiplier above was
+## compensating for a project base resolution (1920x1080) that didn't match
+## phone dp (a 2340x1080 phone at ~2.77 density is ~845x390 dp; base 1080
+## canvas px there is ~390dp, not 1080dp). M22's base is 1688x780 — chosen to
+## equal the v0.3 design doc's own 844x390 authoring size x2 — so on a real
+## phone canvas px already lands at its intended dp with NO multiplier (see
+## .kiro/specs/milestone-m22-ui-overhaul/design.md §3's worked numbers). The
+## API (font_scale()/control_scale()/scaled_*()) is unchanged so every call
+## site stays valid; only these constants move, to ~identity.
+const MOBILE_FONT_SCALE := 1.0
 
 ## Tablet tier — a tablet has more physical inches per logical pixel at a
 ## typical viewing distance than a phone, so text should grow further while
@@ -50,9 +68,12 @@ const MOBILE_FONT_SCALE := 1.45
 ## single place that picks phone vs. tablet, so every existing call site
 ## (scaled_size(), scaled_font_size(), apply_button_juice(), etc.) becomes
 ## tablet-aware automatically with no changes of its own.
-const TABLET_CONTROL_SCALE := 1.15
-const TABLET_FONT_SCALE := 1.6
-const TABLET_MIN_TOUCH_TARGET := Vector2(56, 56)
+## M22: control scale drops to identity for the same reason MOBILE_FONT_SCALE
+## does above; text keeps a small (1.1x) bump — a tablet is still viewed from
+## further away than a phone even once the base-resolution/dp mismatch is fixed.
+const TABLET_CONTROL_SCALE := 1.0
+const TABLET_FONT_SCALE := 1.1
+const TABLET_MIN_TOUCH_TARGET := Vector2(96, 96)
 
 static func control_scale() -> float:
 	if not is_mobile():
@@ -83,12 +104,18 @@ static func _font_scale() -> float:
 ## constant to retune from real-device screenshots instead of 14 files' worth
 ## of magic numbers. Separate knob from MOBILE_FONT_SCALE since text and
 ## control geometry don't need to move in lockstep.
-const MOBILE_CONTROL_SCALE := 1.5
-## A 48dp target becomes 72 canvas pixels at the mobile control scale. This
-## floor is applied to every Button through apply_button_juice(), including
-## dynamically-created menu rows, so a new screen cannot accidentally ship
-## desktop-sized touch controls.
-const MOBILE_MIN_TOUCH_TARGET := Vector2(72, 72)
+## M22: drops to identity for the same base-resolution/dp reason as
+## MOBILE_FONT_SCALE above (design.md §3).
+const MOBILE_CONTROL_SCALE := 1.0
+## A 48dp touch-target floor, in canvas px. M22's base (1688x780, design px
+## x2) makes canvas px already equal real dp x2, so 48dp is 96 canvas px
+## directly — no scale-constant multiplication needed (previously 72 canvas
+## px at a 1.5x mobile control scale worked out to ~26dp on a real phone,
+## well under the 48dp minimum this was meant to guarantee; see design.md §3).
+## This floor is applied to every Button through apply_button_juice(),
+## including dynamically-created menu rows, so a new screen cannot
+## accidentally ship undersized touch controls.
+const MOBILE_MIN_TOUCH_TARGET := Vector2(96, 96)
 
 static var force_mobile_scaling_for_test: bool = false
 
@@ -97,6 +124,25 @@ static func is_mobile() -> bool:
 
 static func scaled_size(pc_size: Vector2) -> Vector2:
 	return pc_size if not is_mobile() else pc_size * control_scale()
+
+## Same as scaled_size(), but also floors the result to MOBILE_MIN_TOUCH_TARGET
+## — for BUTTON call sites specifically (a panel/scroll_container/portrait
+## frame has no such floor; keep using scaled_size() directly for those).
+## M22 (2026-09-25): roughly a dozen dialog screens' own post-theme mobile-
+## resize block runs *after* apply_button_juice() already clamped these same
+## buttons once, silently undoing that clamp with a smaller literal Vector2
+## that happened to clear the OLD 72px floor purely by coincidence — nearly
+## all of them a "48" base height times the old 1.5x MOBILE_CONTROL_SCALE,
+## which is exactly 72. That coincidence broke the moment MOBILE_CONTROL_SCALE
+## dropped to identity (design.md §3). This is that same one-mechanism fix
+## apply_button_juice()'s own docstring already argues for ("one constant to
+## retune... instead of 14 files' worth of magic numbers"), applied to this
+## second, independent place buttons get resized.
+static func scaled_button_size(pc_size: Vector2) -> Vector2:
+	var result := scaled_size(pc_size)
+	if not is_mobile():
+		return result
+	return result.max(MOBILE_MIN_TOUCH_TARGET)
 
 static func scaled(value: float) -> float:
 	return value if not is_mobile() else value * control_scale()
@@ -138,20 +184,24 @@ static func build() -> Theme:
 	var theme := Theme.new()
 	var scale := _font_scale()
 
-	var cinzel_font  = _load_font(FONT_CINZEL,    14)
-	var cinzel_bold  = _load_font(FONT_CINZEL_B,  18)
+	# M22 Phase 1.7 (design.md §5) — Germania One is the v0.3 design system's
+	# display/button/tab face; used here in place of the old Cinzel default.
+	# Full Germania styling (2px ink drop shadow, outline, label type
+	# variations) lands in Phase 3 alongside the kit — this task only swaps
+	# the font FILE each existing theme slot points at.
+	var display_font := _load_font(FONT_GERMANIA, 18)
 
 	# --- Body font (Label/ProgressBar/PopupMenu/LineEdit/default) ---
-	# Cinzel is the default, not PirataOne — PirataOne's blackletter-style
+	# Baloo 2 is the default, not PirataOne — PirataOne's blackletter-style
 	# swashes read fine as a large decorative flourish but are genuinely
 	# illegible for dense numeric readouts (HUD hull/HP text) at small/mobile
 	# sizes (player feedback, 2026-09-21). Player-selectable in Settings >
 	# Display > UI Font (SettingsManager.ui_font) for anyone who prefers the
 	# fully thematic look, or their own OS Times New Roman — see
 	# _load_body_font()'s header for that mapping. Buttons/OptionButton/
-	# CheckButton/TabContainer stay on Cinzel regardless of this choice; they
-	# were never the legibility complaint this setting exists for.
-	var body_font := _load_body_font(cinzel_font)
+	# CheckButton/TabContainer stay on Germania regardless of this choice;
+	# they were never the legibility complaint this setting exists for.
+	var body_font := _load_body_font()
 	theme.default_font      = body_font
 	theme.default_font_size = roundi(15 * scale)
 
@@ -175,7 +225,7 @@ static func build() -> Theme:
 	theme.set_stylebox("pressed",  "Button", btn_pressed)
 	theme.set_stylebox("focus",    "Button", btn_focus)
 	theme.set_stylebox("disabled", "Button", btn_disabled)
-	theme.set_font("font",      "Button", cinzel_font)
+	theme.set_font("font",      "Button", display_font)
 	theme.set_font_size("font_size", "Button", roundi(15 * scale))
 	# Button face is dark navy (see button_normal.png etc.) — label text needs
 	# to be light to read against it, not COLOR_SHADOW_DARK (that was tuned
@@ -223,7 +273,7 @@ static func build() -> Theme:
 	theme.set_icon("on_disabled",     "CheckButton", cb_on)
 	theme.set_icon("off",             "CheckButton", cb_off)
 	theme.set_icon("off_disabled",    "CheckButton", cb_off)
-	theme.set_font("font",            "CheckButton", cinzel_font)
+	theme.set_font("font",            "CheckButton", display_font)
 	theme.set_font_size("font_size",  "CheckButton", roundi(15 * scale))
 	theme.set_color("font_color",          "CheckButton", COLOR_TEXT_LIGHT)
 	theme.set_color("font_hover_color",    "CheckButton", COLOR_GOLD_BRIGHT)
@@ -245,7 +295,7 @@ static func build() -> Theme:
 	theme.set_icon("unchecked",         "CheckBox", chk_off)
 	theme.set_icon("checked_disabled",  "CheckBox", chk_on)
 	theme.set_icon("unchecked_disabled","CheckBox", chk_off)
-	theme.set_font("font",            "CheckBox", cinzel_font)
+	theme.set_font("font",            "CheckBox", display_font)
 	theme.set_font_size("font_size",  "CheckBox", roundi(15 * scale))
 	theme.set_color("font_color",          "CheckBox", COLOR_TEXT_LIGHT)
 	theme.set_color("font_hover_color",    "CheckBox", COLOR_GOLD_BRIGHT)
@@ -263,7 +313,7 @@ static func build() -> Theme:
 	theme.set_stylebox("pressed",  "OptionButton", btn_pressed)
 	theme.set_stylebox("focus",    "OptionButton", btn_focus)
 	theme.set_stylebox("disabled", "OptionButton", btn_disabled)
-	theme.set_font("font",      "OptionButton", cinzel_font)
+	theme.set_font("font",      "OptionButton", display_font)
 	theme.set_font_size("font_size", "OptionButton", roundi(15 * scale))
 	theme.set_color("font_color",          "OptionButton", COLOR_GOLD)
 	theme.set_color("font_hover_color",    "OptionButton", COLOR_GOLD_BRIGHT)
@@ -318,8 +368,8 @@ static func build() -> Theme:
 	theme.set_stylebox("tab_unselected", "TabBar", tab_unselected)
 	theme.set_stylebox("tab_hovered",    "TabBar", tab_hovered)
 	theme.set_stylebox("panel",          "TabContainer", tab_panel_style)
-	theme.set_font("font",       "TabContainer", cinzel_font)
-	theme.set_font("font",       "TabBar", cinzel_font)
+	theme.set_font("font",       "TabContainer", display_font)
+	theme.set_font("font",       "TabBar", display_font)
 	theme.set_font_size("font_size", "TabContainer", roundi(15 * scale))
 	theme.set_font_size("font_size", "TabBar", roundi(15 * scale))
 	# Selected tab has a solid gold pill background — its label reads best in
@@ -362,16 +412,15 @@ static func _load_font(path: String, _size: int) -> Font:
 	return null
 
 
-## Settings > Display > UI Font (SettingsManager.ui_font — 0: Default/Cinzel,
-## 1: Pirate/PirataOne, 2: Times New Roman). Default stays `cinzel_font`
-## (already loaded by the caller, passed in rather than reloaded here); the
+## Settings > Display > UI Font (SettingsManager.ui_font — 0: Default/Baloo 2
+## [M22: previously Cinzel], 1: Pirate/PirataOne, 2: Times New Roman). The
 ## other two are opt-in for players who want the fully thematic blackletter
 ## look, or their own OS-installed serif. Times New Roman is never bundled as
-## an asset (unlike Cinzel/PirataOne) — SystemFont resolves it from the OS at
+## an asset (unlike Baloo 2/PirataOne) — SystemFont resolves it from the OS at
 ## runtime, with plain-serif fallbacks for platforms (most Android devices)
 ## that don't ship it, so an unavailable choice degrades gracefully instead
 ## of erroring.
-static func _load_body_font(cinzel_font: Font) -> Font:
+static func _load_body_font() -> Font:
 	match SettingsManager.ui_font:
 		1:
 			return _load_font(FONT_PIRATA, 14)
@@ -380,7 +429,21 @@ static func _load_body_font(cinzel_font: Font) -> Font:
 			sys_font.font_names = PackedStringArray(["Times New Roman", "Liberation Serif", "Noto Serif"])
 			return sys_font
 		_:
-			return cinzel_font
+			return _load_baloo2_variation(600)
+
+
+## Baloo 2 ships as a single variable font (wght axis) rather than separate
+## Regular/Medium/SemiBold/Bold files — FontVariation picks the weight at
+## runtime. 600 (SemiBold) is design.md §5's body_font weight; a 800 (Bold)
+## num_font variation is added in Phase 3 alongside the kit for HUD numerals.
+static func _load_baloo2_variation(weight: int) -> Font:
+	var base_font := _load_font(FONT_BALOO2, 14)
+	if base_font == null:
+		return null
+	var variation := FontVariation.new()
+	variation.base_font = base_font
+	variation.variation_opentype = {"wght": weight}
+	return variation
 
 
 ## Sourced 9-slice button art (192x64, see header note) wrapped as a

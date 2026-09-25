@@ -458,7 +458,17 @@ func _mobile_utility_button_size() -> Vector2:
 	## HUD utility actions need the same device-pixel allowance as the rest of
 	## the phone UI. This is intentionally separate from the PC 70x32 utility
 	## buttons, which remain mouse-sized and are never used on a phone build.
-	return HUD_BUTTON_SIZE_MOBILE * PirateThemeBuilder.control_scale()
+	## M22 (2026-09-25): this dynamically-rebuilt control is never swept by
+	## PirateThemeBuilder.apply_button_juice() (only _rebuild_utility_controls()
+	## creates these buttons, and it doesn't call it), so it previously relied
+	## solely on HUD_BUTTON_SIZE_MOBILE's flat scale multiplier happening to
+	## clear the touch-target floor — true at the old 1.5x MOBILE_CONTROL_SCALE
+	## (120,52)*1.5=(180,78), no longer true once that constant dropped to
+	## identity (design.md §3). Floor explicitly here instead, the same way
+	## apply_button_juice() does for every other button.
+	var scaled := HUD_BUTTON_SIZE_MOBILE * PirateThemeBuilder.control_scale()
+	var floor_size := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET
+	return Vector2(maxf(scaled.x, floor_size.x), maxf(scaled.y, floor_size.y))
 
 
 func _create_utility_controls() -> void:

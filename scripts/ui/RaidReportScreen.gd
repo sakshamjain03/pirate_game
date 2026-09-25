@@ -22,7 +22,7 @@ func _ready() -> void:
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
 		outcome_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(42))
 		details_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
-		dismiss_button.custom_minimum_size = PirateThemeBuilder.scaled_size(dismiss_button.custom_minimum_size)
+		dismiss_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(dismiss_button.custom_minimum_size)
 		dismiss_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 
 func open(report: Dictionary) -> void:

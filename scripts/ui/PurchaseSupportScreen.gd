@@ -28,8 +28,8 @@ func _ready() -> void:
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
 		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
-		contact_button.custom_minimum_size = PirateThemeBuilder.scaled_size(contact_button.custom_minimum_size)
-		close_button.custom_minimum_size = PirateThemeBuilder.scaled_size(close_button.custom_minimum_size)
+		contact_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(contact_button.custom_minimum_size)
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 
 
 func open() -> void:

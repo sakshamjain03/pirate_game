@@ -61,10 +61,10 @@ func _ready() -> void:
 
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
-		close_button.custom_minimum_size = PirateThemeBuilder.scaled_size(close_button.custom_minimum_size)
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 		close_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(20))
 		island_name_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(32))
-		colonize_btn.custom_minimum_size = PirateThemeBuilder.scaled_size(colonize_btn.custom_minimum_size)
+		colonize_btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(colonize_btn.custom_minimum_size)
 
 func _load_building_data() -> void:
 	# In a real game, this would load from a directory or registry

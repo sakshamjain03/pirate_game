@@ -15,6 +15,12 @@ class MockSettingsManager extends Node:
 	var input_sensitivity: float = 1.0
 	var input_dead_zone: float = 0.2
 	var graphics_quality: int = 1
+	## M22 Phase 1.7 — SettingsMenu._add_ui_font_control() reads this
+	## (settings_manager.ui_font); a real SettingsMenu.tscn instance in this
+	## test's flow calls it, and a mock missing the property threw
+	## "Invalid access to property or key 'ui_font'" SCRIPT ERRORs (pre-
+	## existing, non-failing — see tasks.md Notes).
+	var ui_font: int = 0
 
 	var calls: Array[String] = []
 	

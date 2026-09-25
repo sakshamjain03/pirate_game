@@ -36,7 +36,7 @@ func _ready() -> void:
 
 	if PirateThemeBuilder.is_mobile():
 		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
-		close_button.custom_minimum_size = PirateThemeBuilder.scaled_size(close_button.custom_minimum_size)
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 
 
 func open() -> void:
@@ -79,7 +79,7 @@ func _build_entry(product: ProductData) -> Control:
 	row.add_child(label)
 
 	var action := Button.new()
-	action.custom_minimum_size = PirateThemeBuilder.scaled_size(_MIN_TOUCH_SIZE)
+	action.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_MIN_TOUCH_SIZE)
 
 	if StoreManager.is_owned(product.sku):
 		action.text = tr("Owned")

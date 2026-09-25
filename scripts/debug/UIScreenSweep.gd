@@ -65,6 +65,17 @@ func _settle(frames: int = 3) -> void:
 		await get_tree().process_frame
 
 
+## _settle()'s frame-count wait doesn't correspond to a fixed wall-clock
+## duration and can't reliably outlast a *timed* animation (e.g.
+## MainMenu._animate_title()'s 1.2s fade-in with up to a 0.5s delay — found
+## 2026-09-25 during M22 Phase 1: 5 frames left the title/subtitle captured
+## mid-fade, invisible, in BOTH the pre-M22 baseline and every later sweep,
+## confirmed pre-existing and unrelated to any M22 change). Use this instead
+## wherever a screen is known to run a real-time animation on open.
+func _wait_seconds(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+
+
 func _capture(shot_name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var vp := get_viewport()
@@ -172,6 +183,10 @@ func _run_standalone_menus() -> void:
 	var main_menu = load("res://scenes/ui/MainMenu.tscn").instantiate()
 	add_child(main_menu)
 	await _settle(5)
+	# MainMenu._animate_title() fades the title/subtitle in over up to ~1.7s
+	# real time (1.2s tween + 0.5s delay) — outlast it so the capture shows
+	# the settled screen, not mid-fade (see _wait_seconds()'s own header).
+	await _wait_seconds(1.8)
 	await _capture("10_main_menu")
 	main_menu.queue_free()
 	await _settle(2)

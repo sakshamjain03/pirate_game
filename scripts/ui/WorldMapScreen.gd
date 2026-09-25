@@ -60,7 +60,7 @@ func _apply_mobile_sizing() -> void:
 	map_display.custom_minimum_size = panel.custom_minimum_size - Vector2(64.0, 270.0)
 	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 	for btn in [view_log_button, close_button]:
-		btn.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(140, 48))
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(140, 48))
 
 
 func _load_regions() -> void:

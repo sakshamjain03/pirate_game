@@ -47,8 +47,17 @@ func _apply_button_sizing() -> void:
 		btn.custom_minimum_size = MOBILE_BUTTON_MIN_SIZE
 	button_panel.offset_left   = -170.0
 	button_panel.offset_right  = 170.0
-	button_panel.offset_top    = -220.0
-	button_panel.offset_bottom = 220.0
+	# M22 (2026-09-25): shifted down from -220/220 — TitleContainer's fixed
+	# 20-260 box (scenes/ui/MainMenu.tscn) was sized for Cinzel's shorter
+	# line height at 56px; Germania One's is taller, so the title/subtitle
+	# now render past that box and visibly overlapped ButtonPanel's old,
+	# independently-hardcoded position (a real found-in-Phase-1 instance of
+	# CLAUDE.md's own "two independently hardcoded offsets drift apart"
+	# fragile-area warning). This is a minimal stop-gap, not the fix: Phase 4
+	# owns MainMenu's real layout and should put both under one container so
+	# this relationship is computed, not two numbers tuned to agree by hand.
+	button_panel.offset_top    = -90.0
+	button_panel.offset_bottom = 350.0
 
 func _connect_buttons() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)

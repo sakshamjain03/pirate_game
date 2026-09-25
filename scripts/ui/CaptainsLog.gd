@@ -24,7 +24,7 @@ func _ready() -> void:
 		panel.custom_minimum_size = MobileLayoutManager.mobile_dialog_size(panel.custom_minimum_size, get_viewport())
 		scroll_container.custom_minimum_size = PirateThemeBuilder.scaled_size(scroll_container.custom_minimum_size)
 		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
-		close_button.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(100, 48))
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(100, 48))
 
 	CampaignManager.objective_progressed.connect(func(_a, _b, _c): _refresh())
 	CampaignManager.objective_completed.connect(func(_a): _refresh())

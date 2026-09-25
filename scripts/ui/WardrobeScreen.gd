@@ -51,7 +51,7 @@ func _ready() -> void:
 	if PirateThemeBuilder.is_mobile():
 		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 		for btn in [equip_button, store_button, close_button]:
-			btn.custom_minimum_size = PirateThemeBuilder.scaled_size(Vector2(100, 48))
+			btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(100, 48))
 
 
 func open() -> void:
@@ -83,7 +83,7 @@ func _build_slot_tabs() -> void:
 		btn.name = "Slot_%s" % slot
 		btn.text = slot.capitalize()
 		if PirateThemeBuilder.is_mobile():
-			btn.custom_minimum_size = PirateThemeBuilder.scaled_size(_MOBILE_TAB_SIZE)
+			btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_MOBILE_TAB_SIZE)
 			btn.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(20))
 		else:
 			btn.custom_minimum_size = _MIN_TOUCH_SIZE
@@ -117,7 +117,7 @@ func _build_entry(cosmetic: CosmeticData) -> Button:
 	var owned: bool = EntitlementManager.has_entitlement(cosmetic.id)
 
 	var btn := Button.new()
-	btn.custom_minimum_size = PirateThemeBuilder.scaled_size(_MIN_TOUCH_SIZE)
+	btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_MIN_TOUCH_SIZE)
 	btn.text = cosmetic.display_name if owned else tr("%s (Not Owned)") % cosmetic.display_name
 	btn.disabled = not owned
 	if cosmetic.icon:

@@ -47,7 +47,7 @@ func _apply_mobile_sizing() -> void:
 	offset_right = PirateThemeBuilder.scaled(offset_right)
 	offset_bottom = PirateThemeBuilder.scaled(offset_bottom)
 	portrait_panel.custom_minimum_size = PirateThemeBuilder.scaled_size(portrait_panel.custom_minimum_size)
-	next_button.custom_minimum_size = PirateThemeBuilder.scaled_size(next_button.custom_minimum_size)
+	next_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(next_button.custom_minimum_size)
 	portrait_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(36))
 	name_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
 	text_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(16))

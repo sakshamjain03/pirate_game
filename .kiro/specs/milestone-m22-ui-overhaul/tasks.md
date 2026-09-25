@@ -45,42 +45,86 @@ independently re-verified.
 
 ### Phase 1 — Foundation: tokens, fonts, display
 
-- [ ] 1.1 `UIPalette.gd` + `resources/ui/palette_default.tres` + `UITokens.gd` (design §4, §5 sizes).
-  - **Verify:** new `tests/test_ui_tokens.gd` asserts the palette loads, all 12 swatches + rarity
-    keys exist, and sizes equal design px × 2.
+- [x] 1.1 `UIPalette.gd` + `resources/ui/palette_default.tres` + `UITokens.gd` (design §4, §5 sizes).
+  - **Verify:** new `tests/test_ui_tokens.gd` (10 tests) asserts the palette loads, all 12 swatches
+    + rarity keys exist, and sizes equal design px × 2. All passing.
   - _Requirements: 1.1, 1.2_
-- [ ] 1.2 Add Germania One + Baloo 2 (and OFL texts) to `assets/fonts/`, then `--headless --import`.
-  - **Verify:** `ResourceLoader.load()` of both returns `Font` (asserted in test_ui_tokens).
+- [x] 1.2 Add Germania One + Baloo 2 (and OFL texts) to `assets/fonts/`, then `--headless --import`.
+  - **Verify:** `ResourceLoader.load()` of both returns `Font` (asserted in test_ui_tokens). `.import`
+    files + `.godot/imported` fontdata confirmed generated.
   - _Requirements: 2.1_
-- [ ] 1.3 `project.godot` display: 1688×780, `canvas_items`/`expand`, handheld orientation sensor
+- [x] 1.3 `project.godot` display: 1688×780, `canvas_items`/`expand`, handheld orientation sensor
         landscape.
-  - **Verify:** `grep -n "viewport_width=1688\|viewport_height=780\|orientation" project.godot`.
+  - **Verify:** `grep -n "viewport_width=1688\|viewport_height=780\|orientation" project.godot` — confirmed.
   - _Requirements: 3.1_
-- [ ] 1.4 Re-derive scale constants in `PirateThemeBuilder` per design §3 table. Update
-        `test_pirate_theme_builder_mobile_scaling` and `test_touch_target_audit` expectations
-        (and only those, deliberately).
-  - **Verify:** both tests pass with the new numbers; the commit message lists each changed assertion.
+- [x] 1.4 Re-derive scale constants in `PirateThemeBuilder` per design §3 table (MOBILE/TABLET
+        CONTROL_SCALE→1.0/1.0, FONT_SCALE→1.0/1.1, MIN_TOUCH_TARGET→96×96 both). Updated
+        `test_pirate_theme_builder_mobile_scaling` (2 assertions replaced — see design.md §3) and
+        `test_touch_target_audit` (hardcoded `72.0` → `PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET`
+        reference).
+  - **Verify:** both tests pass with the new numbers as intended (test_touch_target_audit's own
+    audit test still shows exactly the 2 pre-existing MainMenu/SettingsMenu failures, unchanged
+    from baseline — tracked for Phase 4, not regressed further).
   - _Requirements: 3.3_
-- [ ] 1.5 Fix `MobileLayoutManager.safe_area()`'s screen-px vs canvas-px mismatch and re-base
-        `REFERENCE_LANDSCAPE` (design §3). Then `SafeAreaMargin.gd` (48 design px sides +
-        `MobileLayoutManager.safe_area()`; recomputes on `size_changed`).
-  - **Verify:** unit test: a mocked 2340×1080 screen with a 1688×780 canvas and a native safe rect
-    inset 80 phys px on the left → canvas inset ≈ 57.8. SafeAreaMargin margins = max(96, inset).
+- [x] 1.5 Fixed `MobileLayoutManager.safe_area()`'s screen-px vs canvas-px mismatch (maps the native
+        safe rect through `viewport.get_final_transform().affine_inverse()`) and re-based
+        `REFERENCE_LANDSCAPE` to 1688×780. Also made `is_mobile()` honour
+        `PirateThemeBuilder.force_mobile_scaling_for_test` (design §8's "known harness gap") — and,
+        found while verifying the sweep, `MobileControls._uses_mobile_layout()` had the identical gap
+        independently and needed the same fix (design §8). `SafeAreaMargin.gd` created (not yet wired
+        into any screen — Phase 4+ does that).
+  - **Verify:** new `tests/test_safe_area_units.gd` (5 tests, using an embedded `Window` with real
+    `content_scale_*` to reproduce the actual physical/canvas split) — 80 phys-px inset → 57.8 canvas
+    px, matching the spec's own worked example almost exactly; `SafeAreaMargin` margins = max(96,
+    inset) in both directions verified. All passing.
   - _Requirements: 3.2_
-- [ ] 1.6 `SettingsManager` HUD-layout migration (design §9): scale stored positions by 780/1080 and
+- [x] 1.6 `SettingsManager` HUD-layout migration (design §9): scale stored positions by 780/1080 and
         stamp `hud_layout_version = 2`.
-  - **Verify:** new test loads a v1 config fixture → positions scaled, version = 2; a v2 config
-    loads unchanged.
+  - **Verify:** new `tests/test_hud_layout_migration.gd` (5 tests) — v1 config (no version key)
+    rescales positions and leaves `scale_mult` untouched; a v2 config loads unchanged; empty
+    overrides migrate without error; `save_settings()` always stamps the current version. All passing.
   - _Requirements: 7.3_
-- [ ] 1.7 Wire the body/display fonts into `build()` (Baloo 2 default for `ui_font` 0, Germania for
-        buttons/titles) using the existing styleboxes; no kit yet.
-  - **Verify:** GUT passes; sweep shows the new fonts on every screen.
+- [x] 1.7 Wired Germania One into Button/CheckButton/CheckBox/OptionButton/TabContainer/TabBar's font
+        slots (was Cinzel) and Baloo 2 (a `FontVariation` at weight 600) into the default/Label/body
+        slot when `ui_font == 0` (was Cinzel default) — using the existing styleboxes, no kit yet.
+        Fixed `MockSettingsManager` in `test_settings_menu.gd` (missing `ui_font`, a pre-existing
+        non-failing SCRIPT ERROR source per the Phase 0 baseline notes).
+  - **Verify:** GUT passes (`test_ui_tokens.gd`'s `test_build_uses_germania_for_the_button_font` /
+    `test_build_uses_baloo2_for_the_default_body_font_when_ui_font_is_default`); sweep confirms the
+    new fonts render on every screen.
   - _Requirements: 2.3, 2.4_
-- [ ] 1.8 Fix whatever the sweep shows broken by the base change (container layout, not literals).
-  Update the other layout tests only where the spec intentionally changed them.
-  - **Verify:** phone + desktop sweep viewed; no off-screen or clipped control on any screen.
+- [x] 1.8 Fixed what the sweep showed broken:
+  - MainMenu's title/subtitle overlapped ButtonPanel (Germania/Baloo2's taller line-height vs.
+    Cinzel's, against ButtonPanel's independently-hardcoded offsets — CLAUDE.md's own named fragile
+    pattern) — nudged ButtonPanel down as a documented stop-gap; Phase 4 owns the real shared-container
+    fix. Also found `UIScreenSweep`'s own `_settle()` frame-wait couldn't outlast MainMenu's real-time
+    title fade-in tween (pre-existing since Phase 0, unrelated to any M22 change, confirmed against
+    the `before/` baseline capture) — added `_wait_seconds()` for real-time waits.
+  - The base-resolution/scale-constant change also surfaced a second, WIDER regression: ~12 button
+    call sites across CaptainsLog/CreditsScreen/DeathScreen/IslandMenu/PauseMenu/
+    PurchaseSupportScreen/RaidReportScreen/StoreScreen/TutorialDialogue/WardrobeScreen/
+    WhatsNewScreen/WorldMapScreen relied on `scaled_size()`'s old 1.5× multiplier turning a "48"
+    literal into exactly the old 72px floor — fixed at the root with a new
+    `PirateThemeBuilder.scaled_button_size()` (design §8b), not 12 one-off patches.
+  - The right-hand HUD column clipping off-screen on phone (WorldHUD) was confirmed present in the
+    Phase-0 `before/` baseline too — a pre-existing defect, not caused by Phase 1; left for Phase 5,
+    which owns WorldHUD.
+  - **Verify:** phone + desktop sweep re-captured and viewed (`screenshots/m22/phase1/`) after every
+    fix above; no off-screen or overlapping control found on MainMenu, PauseMenu, CaptainsLog,
+    IslandMenu, WorldHUD, Settings, or Credits. Full GUT suite: 652 tests, 650 passing — the same 2
+    pre-existing, tracked failures as the Phase 0 baseline, no new ones.
   - _Requirements: 3.4_
-- [ ] 1.9 **Checkpoint — Phase 1.**
+- [x] 1.9 **Checkpoint — Phase 1.** checkpoint-reviewer PASSed all 10 substantive criteria on its
+        first independent pass; flagged one open question (`test_ocean_properties`'s
+        `test_property_19_wave_animation_continuity` failing in its own run, 650/652/3 vs. the
+        expected 650/652/2). Resolved with direct evidence, not asserted: that test draws
+        unseeded `randf_range()` 25x against Godot's global per-process RNG
+        (`tests/test_ocean_properties.gd:12-38`); `git log` on it and
+        `scripts/world/WaveGenerator.gd`/`OceanSettings.gd` shows zero M22 commits; isolated
+        re-runs were 5/5 passing; 3 further fresh full-suite runs after the reviewer's were all
+        652/650/2 (the expected baseline). Pre-existing, out-of-scope test-hygiene defect, not a
+        Phase 1 regression — see Notes for the write-up. Phase 1 files committed and pushed
+        (scoped commit, Phase 2 work in the same tree left unstaged).
 
 ### Phase 2 — Texture kit
 
@@ -98,8 +142,11 @@ independently re-verified.
 - [ ] 2.4 Misc: resource pill, 5 rarity gem borders, cooldown ring mask, glow sprite.
   - **Verify:** UIKitSheet screenshot.
   - _Requirements: 4.1_
-- [ ] 2.5 Icons: move design-output SVGs into `assets/ui/icons/`, generate the resource icons
-        (gold, rum, wood, iron, research, cannonball), and register them all in `UIIcons`.
+- [ ] 2.5 Icons: **correction, see design.md §5a** — `claude design outputs/` has no new art (every
+        file there except `higgins.png` is a byte-identical duplicate of an existing, correctly-placed
+        asset; verified by hashing the whole folder against `assets/`). Nothing to move. Generate
+        the two genuinely-missing resource icons (research, cannonball) per the v0.3 icon spec, add
+        them to `UIIcons._PATHS`.
   - **Verify:** test iterates `UIIcons` keys, and every one loads a `Texture2D`.
   - _Requirements: 4.3_
 - [ ] 2.6 `scenes/debug/UIKitSheet.tscn` laying out every piece (+ a sweep entry).
@@ -291,6 +338,19 @@ independently re-verified.
   - Also pre-existing and non-failing: `test_settings_menu`'s `MockSettingsManager` has no
     `ui_font` property, so it throws SCRIPT ERRORs at `SettingsMenu.gd:450`. Fix the mock in
     Phase 1.7, which touches `ui_font`.
+  - **Found during Phase 1 checkpoint review, unrelated to M22:**
+    `test_ocean_properties::test_property_19_wave_animation_continuity` failed exactly once
+    across 6 total full-suite runs this milestone (5 by the implementing session, 1 by
+    checkpoint-reviewer) — every other run (including 5/5 when re-run in isolation immediately
+    after) passed. Root cause: the test itself draws `randf_range()` 25x with no fixed seed
+    (`tests/test_ocean_properties.gd:17-25`) against Godot's global RNG, which is seeded from
+    system entropy fresh per process — a real, pre-existing test-hygiene defect (probabilistic,
+    order/seed-dependent), not a regression: no file this milestone touches is anywhere near
+    `scripts/world/WaveGenerator.gd`/`OceanSettings.gd`, and `git log` on both confirms no
+    M22 commit exists for either. Logged here rather than silently reconciled (this project's own
+    stated lesson, docs/16_MILESTONE_HISTORY.md's M15.5 "419 vs 434" entry) — worth a real fix
+    (seed the RNG or use a local `RandomNumberGenerator`) as a small separate task outside M22,
+    not blocking this checkpoint.
 - **Highest-risk task:** 1.3/1.4/1.8, the base-resolution change. It moves every screen at once.
   Keep it in its own commit so it can be bisected.
 - **Parallelizable:** within Phase 2, tasks 2.1–2.5 are independent. Within Phase 6, screens are

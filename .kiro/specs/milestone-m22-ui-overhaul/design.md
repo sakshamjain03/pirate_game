@@ -32,7 +32,7 @@ kit-sheet scene before any real screen is touched.
 | `assets/fonts/GermaniaOne-Regular.ttf`, `Baloo2[wght].ttf`, `OFL-*.txt` | **New.** |
 | `tools/ui_kit/gen_kit.py` | **New.** Deterministic (seeded) SVG generator for the kit (§6). |
 | `assets/ui/kit/*.svg` (+ Godot `.import`) | **New.** Generated kit textures. |
-| `assets/ui/icons/*.svg` | **New/moved.** Icons from `claude design outputs/` + new resource icons. |
+| `assets/ui/icons/research.svg`, `assets/ui/icons/cannonball.svg` | **New.** The only two icons genuinely missing from `UIIcons` (§6a). |
 | `scripts/ui/PirateThemeBuilder.gd` | **Rebuilt** `build()` on kit + variations; scale model re-derived (§3); `mark_primary()`. |
 | `scripts/ui/ButtonJuice.gd` | Scale tween → modulate press (§7). |
 | `scripts/ui/PrimaryGlow.gd` | **New.** Behind-parent looping glow (§7). |
@@ -131,6 +131,23 @@ in the same task. `grep -rn "PirateThemeBuilder.COLOR_" scripts` gives the full 
   match, and keep values 1/2. Cinzel files stay until Phase 9's unused-asset cleanup.
 - Source the fonts from `github.com/google/fonts` (`ofl/germaniaone/`, `ofl/baloo2/`), both OFL 1.1.
 
+## 5a. Correction (found starting Phase 2): `claude design outputs/` has no new art
+
+The original plan assumed `claude design outputs/` held delivered v0.3-styled icon/button art
+to move into the project. Verified false by hashing every file there against the whole `assets/`
+tree: **every file except `higgins.png` (a captain portrait, out of scope — requirements.md Out of
+Scope) is a byte-identical duplicate** of an asset already correctly placed under
+`assets/icons/controls/`, `assets/icons/cosmetics/`, `assets/branding/`, `assets/ui_icons/` or
+`assets/portraits/` — including the button/resource PNGs, which are the *current* (pre-M22, being
+replaced) art, not new v0.3 art. The folder is reference/context material bundled alongside the
+v0.3 HTML doc, not an asset delivery. **No file-moving happens in Phase 2.** The `action_*`/`nav_*`/
+`fire_*` control icons are already wired (as direct `ext_resource`s in `MobileControls.tscn` and a
+small local dict in `MobileControls.gd`) — left as-is; routing them through `UIIcons` too is a
+nice-to-have, not required, and not done here to avoid an unnecessary risk-free-looking-but-
+actually-two-integration-paths refactor mid-milestone. The only real gap against the v0.3 icon
+list (gold, rum, wood, iron, research, cannonball) is the last two — `UIIcons` gets exactly those
+two new keys (§6a), nothing else moves.
+
 ## 6. Texture kit pipeline
 
 Godot 4.3 imports SVG natively (ThorVG). ThorVG supports paths, linear/radial gradients, opacity
@@ -185,6 +202,39 @@ baseline phone shots show the right-hand HUD column clipped and no touch control
 real device (`screenshots/mobile/device_test/16_in_game.png`) does not. Phase 1.5 makes
 `MobileLayoutManager.is_mobile()` honour the same test-force flag (one flag, read in both
 places), so phone-profile sweeps match the device before any restyle is judged against them.
+
+## 8a. MainMenu touch-target root cause (found in Phase 1.4)
+
+`MainMenu.gd._apply_theme()` calls `PirateThemeBuilder.apply_button_juice(root_control)` (which
+clamps every button to `MOBILE_MIN_TOUCH_TARGET`) and then unconditionally calls
+`_apply_button_sizing()`, which overwrites `custom_minimum_size = MOBILE_BUTTON_MIN_SIZE` —
+a local `Vector2(320, 64)` constant from M13, tuned under the old 1080-canvas/1080-phys
+coincidence — on all six buttons, **undoing** the juice clamp (this runs unconditionally, not only
+on mobile). That is why `test_touch_target_audit` already failed pre-M22 at the old 72px floor,
+and will keep failing at the new 96px floor until Phase 4 either deletes `MOBILE_BUTTON_MIN_SIZE`
+in favour of the (now-correct) `apply_button_juice()` clamp, or replaces it with the v0.3 button
+composition (logo plaque + one Primary + brass secondaries) sized to meet the floor honestly.
+`SettingsMenu.gd`'s `ReplayTutorialButton`/`BackButton` likely have an equivalent explicit
+`custom_minimum_size` set after theming — check the same pattern there in Phase 4.
+
+## 8b. `scaled_button_size()` — a second, wider instance of the same bug
+
+Raising `MOBILE_MIN_TOUCH_TARGET` (Phase 1.4) exposed the same defect as §8a in
+**eleven more** call sites across CaptainsLog, CreditsScreen, DeathScreen, IslandMenu,
+PauseMenu, PurchaseSupportScreen, RaidReportScreen, StoreScreen, TutorialDialogue,
+WardrobeScreen, WhatsNewScreen and WorldMapScreen: each screen's own post-theme
+"resize for mobile" block calls `PirateThemeBuilder.scaled_size(...)` on a button
+*after* `apply_button_juice()` already clamped it once, and nearly every literal
+involved is a "48" base height — `48 * 1.5` (the old `MOBILE_CONTROL_SCALE`) is
+exactly 72, the old floor, by design, not coincidence. That stopped holding the
+moment the constant dropped to identity. Fixed at the root with one new function,
+`PirateThemeBuilder.scaled_button_size(pc_size)` — `scaled_size()` plus a floor at
+`MOBILE_MIN_TOUCH_TARGET`, mirroring `apply_button_juice()`'s own "one shared
+mechanism, not N screens" precedent — swapped in at every confirmed **Button**
+call site (panel/scroll_container/portrait_panel/row calls are untouched: they
+aren't Buttons and `test_touch_target_audit` doesn't check them). Phases 4/6/etc.
+should call `scaled_button_size()` for any new button-sizing code, not
+`scaled_size()`.
 
 ## 9. Settings & HUD-layout specifics
 

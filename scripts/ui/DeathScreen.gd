@@ -26,7 +26,7 @@ func _ready() -> void:
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
 		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(42))
 		penalty_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
-		respawn_button.custom_minimum_size = PirateThemeBuilder.scaled_size(respawn_button.custom_minimum_size)
+		respawn_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(respawn_button.custom_minimum_size)
 		respawn_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 
 func open(ship: ShipController) -> void:

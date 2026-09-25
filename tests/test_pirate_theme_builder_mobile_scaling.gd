@@ -35,9 +35,23 @@ func test_scaled_font_size_is_identity_on_pc():
 		"PC font sizes must never be touched by the mobile scaling helper")
 
 
-func test_mobile_control_scale_actually_grows_things():
-	assert_gt(PirateThemeBuilder.MOBILE_CONTROL_SCALE, 1.0,
-		"The one dial every screen's mobile sizing depends on must actually enlarge, not shrink or no-op")
+# M22 (2026-09-25) — the project base resolution changed from 1920x1080 to
+# 1688x780 (design.md §3), chosen so canvas px already equals real phone dp
+# with no multiplier; MOBILE_CONTROL_SCALE dropped from 1.5 to 1.0 as a
+# direct, intentional consequence (design.md §3's table). The "must actually
+# enlarge" invariant this test used to guard now lives in
+# MOBILE_MIN_TOUCH_TARGET (a flat 96x96 canvas-px floor, = 48dp x2) instead
+# of a scale multiplier — see test_touch_target_audit.gd.
+func test_mobile_control_scale_is_never_below_pc_size():
+	assert_true(PirateThemeBuilder.MOBILE_CONTROL_SCALE >= 1.0,
+		"Mobile control geometry must never shrink below PC size")
+
+
+func test_mobile_min_touch_target_meets_the_48dp_floor():
+	# 96 canvas px = 48dp x2 at M22's base (design.md §3) — the actual
+	# invariant "mobile touch targets must actually be big enough" now
+	# guards, replacing the old scale-multiplier-based check above.
+	assert_eq(PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET, Vector2(96, 96))
 
 
 func test_apply_mobile_control_scaling_is_a_noop_on_pc():
@@ -62,16 +76,21 @@ func test_apply_mobile_control_scaling_is_a_noop_on_pc():
 # font_scale()/_min_touch_target() are the one place that picks phone vs.
 # tablet; every existing scaled_size()/scaled_font_size()/apply_button_juice()
 # call site becomes tablet-aware automatically through them.
-func test_tablet_control_scale_is_smaller_than_phone_but_font_scale_is_not():
+#
+# M22 (2026-09-25) — with MOBILE_CONTROL_SCALE now 1.0 (see above), "a
+# tablet's touch targets should not grow as much as a phone's" is satisfied
+# by TABLET_CONTROL_SCALE also being 1.0 (equal, not smaller — neither scales
+# control geometry up any more; MOBILE_MIN_TOUCH_TARGET/TABLET_MIN_TOUCH_TARGET,
+# both 96x96, are what guarantee the floor now, per design.md §3's "a finger
+# isn't bigger on a tablet"). Font is still the one axis a tablet grows.
+func test_tablet_control_scale_equals_phone_but_font_scale_is_larger():
 	PirateThemeBuilder.force_mobile_scaling_for_test = true
 	MobileLayoutManager.force_tablet_for_test = true
 
-	assert_lt(PirateThemeBuilder.control_scale(), PirateThemeBuilder.MOBILE_CONTROL_SCALE,
-		"A tablet's touch targets should not grow as much as a phone's")
-	assert_gt(PirateThemeBuilder.control_scale(), 1.0,
-		"A tablet still needs some touch-target growth over PC, just less than a phone")
-	assert_true(PirateThemeBuilder.font_scale() >= PirateThemeBuilder.MOBILE_FONT_SCALE,
-		"A tablet's text should grow at least as much as a phone's, even though its buttons grow less")
+	assert_eq(PirateThemeBuilder.control_scale(), PirateThemeBuilder.MOBILE_CONTROL_SCALE,
+		"A tablet's control geometry no longer scales differently from a phone's")
+	assert_gt(PirateThemeBuilder.font_scale(), PirateThemeBuilder.MOBILE_FONT_SCALE,
+		"A tablet's text should grow more than a phone's, even though its buttons don't grow further")
 
 	MobileLayoutManager.force_tablet_for_test = false
 	PirateThemeBuilder.force_mobile_scaling_for_test = false

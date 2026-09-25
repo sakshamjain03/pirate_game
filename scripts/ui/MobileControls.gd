@@ -41,7 +41,13 @@ var _port_alignment_label: Label
 var _stbd_alignment_label: Label
 
 func _uses_mobile_layout() -> bool:
-	return force_mobile_layout_for_test or not OS.has_feature("pc")
+	# M22 (2026-09-25): OR in PirateThemeBuilder.is_mobile() the same way
+	# SettingsMenu._uses_mobile_layout() already does — without it, a
+	# --profile=phone UIScreenSweep run (which only sets
+	# PirateThemeBuilder.force_mobile_scaling_for_test, a shared static, not
+	# this per-instance @export) never showed the touch controls a real
+	# phone does (design.md §8's "known harness gap").
+	return force_mobile_layout_for_test or PirateThemeBuilder.is_mobile()
 
 func _ready() -> void:
 	# M15.5 — this CanvasLayer's own children never picked up

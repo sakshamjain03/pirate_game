@@ -8,10 +8,29 @@ signal layout_changed()
 
 const MIN_TOUCH_TARGET := 48.0
 const MIN_TOUCH_GAP := 8.0
-const REFERENCE_LANDSCAPE := Vector2(2340, 1080)
+## M22 (2026-09-25): canvas px matching the 1688x780 project base (design px
+## x2 — design.md §3), not a physical pixel count. Previously 2340x1080 — a
+## physical phone resolution that only equalled the canvas 1:1 by coincidence
+## under the old 1080-tall base (see safe_area()'s own note below for why
+## that coincidence broke). A landscape phone at the design's own aspect
+## produces a canvas visible_rect very close to this base itself.
+const REFERENCE_LANDSCAPE := Vector2(1688, 780)
+
+## Test-only override for DisplayServer.get_display_safe_area(), which has no
+## meaningful non-empty value on desktop/headless — lets a GUT test exercise
+## the real screen-px -> canvas-px mapping in safe_area() below without a
+## real notched device. Rect2i() (empty, the default) means "use the real
+## DisplayServer call," matching production behavior.
+static var force_native_safe_area_for_test: Rect2i = Rect2i()
 
 func is_mobile() -> bool:
-	return not OS.has_feature("pc")
+	# M22 Phase 1.5: share PirateThemeBuilder's force flag rather than a
+	# second one, so a --profile=phone UIScreenSweep run (or a GUT test)
+	# that forces mobile scaling also forces this class's own "is mobile"
+	# gate — previously only PirateThemeBuilder heard it, so a forced-mobile
+	# sweep run on a PC still took this class's desktop safe-area/dialog-
+	# sizing path (design.md §8's "known harness gap").
+	return PirateThemeBuilder.force_mobile_scaling_for_test or not OS.has_feature("pc")
 
 func is_left_handed() -> bool:
 	return SettingsManager.mobile_left_handed if is_mobile() else false
@@ -20,12 +39,24 @@ func safe_area(viewport: Viewport) -> Rect2:
 	var full := viewport.get_visible_rect()
 	if not is_mobile():
 		return full
-	var native_safe := Rect2(DisplayServer.get_display_safe_area())
+	var native_safe := (Rect2(force_native_safe_area_for_test) if force_native_safe_area_for_test.size.x > 0
+		else Rect2(DisplayServer.get_display_safe_area()))
 	# Desktop/headless and a few Android builds return an empty rect. The full
 	# viewport is the safe fallback; never collapse the controls to zero.
 	if native_safe.size.x <= 0.0 or native_safe.size.y <= 0.0:
 		return full
-	return native_safe.intersection(full)
+	# get_display_safe_area() is in PHYSICAL screen pixels; get_visible_rect()
+	# is in the viewport's own (possibly stretched) CANVAS pixels — these only
+	# agree when canvas_items+expand stretch happens to yield a 1:1 scale
+	# (true of the old 1080-tall base on a common 1080-tall phone, by
+	# coincidence, not in general). Mapping the physical rect through the
+	# viewport's own stretch transform keeps this correct at any base.
+	# A SubViewport (this project's own test convention — see
+	# test_mobile_dialog_sizing.gd etc.) has an identity final_transform, so
+	# this is a no-op there and every existing SubViewport-based test is
+	# unaffected.
+	var canvas_safe: Rect2 = viewport.get_final_transform().affine_inverse() * native_safe
+	return canvas_safe.intersection(full)
 
 func mobile_scale(viewport: Viewport) -> float:
 	var safe := safe_area(viewport)

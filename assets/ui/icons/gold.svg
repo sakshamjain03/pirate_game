@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<radialGradient id="ricon_FFF1B8" cx="0.3" cy="0.3" r="0.9"><stop offset="0" stop-color="#FFF1B8" stop-opacity="1"/><stop offset="0.55" stop-color="#F4C96E" stop-opacity="1"/><stop offset="1" stop-color="#9A6A1E" stop-opacity="1"/></radialGradient>
+</defs>
+<circle cx="24" cy="24" r="22" fill="url(#ricon_FFF1B8)"/>
+<circle cx="24" cy="24" r="20.5" fill="none" stroke="#9A6A1E" stroke-width="2.5"/>
+<circle cx="17.4" cy="17.4" r="3.52" fill="#FFFFFF" opacity="0.7"/>
+<circle cx="24" cy="24" r="14.96" fill="none" stroke="#9A6A1E" stroke-width="2" opacity="0.8"/>
+<path d="M 24 16.52 L 24 31.48 M 16.52 24 L 31.48 24" fill="none" stroke="#9A6A1E" stroke-width="2.4"/>
+</svg>

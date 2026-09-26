@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -14,19 +14,12 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/WardrobeScreen.tscn" id="16_wardrobe"]
 [ext_resource type="PackedScene" path="res://scenes/ui/AgeGate.tscn" id="17_agegate"]
 [ext_resource type="PackedScene" path="res://scenes/ui/ConsentPanel.tscn" id="18_consent"]
-[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/gold.png" id="10_gold_icon"]
-[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/wood.png" id="11_wood_icon"]
-[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/iron.png" id="12_iron_icon"]
-[ext_resource type="Texture2D" path="res://assets/ui_icons/icons/rum.png" id="13_rum_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/gold.svg" id="10_gold_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/wood.svg" id="11_wood_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/iron.svg" id="12_iron_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/rum.svg" id="13_rum_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/cannon_ready.png" id="14_cannon_icon"]
-
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_CannonHeader"]
-bg_color = Color(0.05, 0.09, 0.14, 1)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
+[ext_resource type="Texture2D" path="res://assets/ui/icons/research.svg" id="19_research_icon"]
 
 
 [node name="WorldHUD" type="CanvasLayer"]
@@ -58,6 +51,7 @@ offset_right  = 240.0
 offset_bottom = 52.0
 grow_horizontal = 1
 grow_vertical   = 1
+theme_type_variation = &"PlaquePanel"
 
 [node name="HBox" type="HBoxContainer" parent="TopBar"]
 layout_mode   = 2
@@ -67,12 +61,14 @@ alignment     = 1
 [node name="SpeedLabel" type="Label" parent="TopBar/HBox"]
 unique_name_in_owner = true
 layout_mode  = 2
+theme_type_variation = &"HudNumLabel"
 text         = "0.0 kn"
 size_flags_horizontal = 3
 
 [node name="SailLabel" type="Label" parent="TopBar/HBox"]
 unique_name_in_owner = true
 layout_mode  = 2
+theme_type_variation = &"HudNumLabel"
 text         = "⛵ Furled"
 size_flags_horizontal = 3
 
@@ -84,7 +80,7 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 32.0
-offset_top = -64.0
+offset_top = -92.0
 offset_right = 352.0
 offset_bottom = -32.0
 grow_vertical = 0
@@ -97,6 +93,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"HullBar"
 value = 100.0
 show_percentage = false
 
@@ -107,15 +104,11 @@ anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
 offset_left = 12.0
-offset_top = -11.5
+offset_top = -20.0
 offset_right = -12.0
-offset_bottom = 11.5
+offset_bottom = 20.0
 grow_vertical = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 18
+theme_type_variation = &"ChipLabel"
 text = "HULL  100 / 100"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -134,11 +127,8 @@ offset_right = -12.0
 offset_bottom = 11.5
 grow_horizontal = 0
 grow_vertical = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 18
+visible = false
+theme_type_variation = &"ChipLabel"
 text = "100/100"
 horizontal_alignment = 2
 vertical_alignment = 1
@@ -161,7 +151,7 @@ theme_override_constants/separation = 16
 alignment = 1
 
 [node name="PortPanel" type="PanelContainer" parent="CannonsContainer"]
-custom_minimum_size = Vector2(150, 120)
+custom_minimum_size = Vector2(320, 120)
 layout_mode = 2
 
 [node name="VBox" type="VBoxContainer" parent="CannonsContainer/PortPanel"]
@@ -171,25 +161,22 @@ theme_override_constants/separation = 4
 [node name="PortHeader" type="Label" parent="CannonsContainer/PortPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
-theme_override_font_sizes/font_size = 14
-theme_override_styles/normal = SubResource("StyleBoxFlat_CannonHeader")
+theme_type_variation = &"ChipLabel"
 text = "PORT CANNONS"
 horizontal_alignment = 1
+autowrap_mode = 3
 
 [node name="PortCooldown" type="Label" parent="CannonsContainer/PortPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.2, 0.8, 0.3, 1)
-theme_override_font_sizes/font_size = 20
+theme_type_variation = &"HudNumLabel"
 text = "READY ⚓"
 horizontal_alignment = 1
 
 [node name="PortAlignment" type="Label" parent="CannonsContainer/PortPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 1)
-theme_override_font_sizes/font_size = 13
+theme_type_variation = &"ChipLabel"
 text = "NO TARGET"
 horizontal_alignment = 1
 
@@ -203,7 +190,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="StbdPanel" type="PanelContainer" parent="CannonsContainer"]
-custom_minimum_size = Vector2(150, 120)
+custom_minimum_size = Vector2(320, 120)
 layout_mode = 2
 
 [node name="VBox" type="VBoxContainer" parent="CannonsContainer/StbdPanel"]
@@ -213,25 +200,22 @@ theme_override_constants/separation = 4
 [node name="StbdHeader" type="Label" parent="CannonsContainer/StbdPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
-theme_override_font_sizes/font_size = 14
-theme_override_styles/normal = SubResource("StyleBoxFlat_CannonHeader")
+theme_type_variation = &"ChipLabel"
 text = "STARBOARD CANNONS"
 horizontal_alignment = 1
+autowrap_mode = 3
 
 [node name="StarboardCooldown" type="Label" parent="CannonsContainer/StbdPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.2, 0.8, 0.3, 1)
-theme_override_font_sizes/font_size = 20
+theme_type_variation = &"HudNumLabel"
 text = "READY ⚓"
 horizontal_alignment = 1
 
 [node name="StarboardAlignment" type="Label" parent="CannonsContainer/StbdPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 1)
-theme_override_font_sizes/font_size = 13
+theme_type_variation = &"ChipLabel"
 text = "NO TARGET"
 horizontal_alignment = 1
 
@@ -244,21 +228,14 @@ texture = ExtResource("14_cannon_icon")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="CompassPanel" type="PanelContainer" parent="."]
-layout_mode    = 1
-anchors_preset = 3
-anchor_left    = 1.0
-anchor_top     = 0.0
-anchor_right   = 1.0
-anchor_bottom  = 0.0
-offset_left    = -100.0
-offset_top     = 12.0
-offset_right   = -12.0
-offset_bottom  = 100.0
-grow_horizontal = 0
-grow_vertical   = 1
+[node name="CompassPanel" type="PanelContainer" parent="TopBar/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 88)
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"RoundBadge"
 
-[node name="CompassNeedle" type="Control" parent="CompassPanel"]
+[node name="CompassNeedle" type="Control" parent="TopBar/HBox/CompassPanel"]
 unique_name_in_owner = true
 layout_mode  = 1
 anchors_preset = 15
@@ -267,7 +244,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical   = 2
 
-[node name="NLabel" type="Label" parent="CompassPanel/CompassNeedle"]
+[node name="NLabel" type="Label" parent="TopBar/HBox/CompassPanel/CompassNeedle"]
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -280,7 +257,7 @@ grow_horizontal = 2
 text = "N"
 horizontal_alignment = 1
 
-[node name="SLabel" type="Label" parent="CompassPanel/CompassNeedle"]
+[node name="SLabel" type="Label" parent="TopBar/HBox/CompassPanel/CompassNeedle"]
 layout_mode = 1
 anchors_preset = 7
 anchor_left    = 0.5
@@ -296,7 +273,7 @@ grow_vertical   = 0
 text = "S"
 horizontal_alignment = 1
 
-[node name="ELabel" type="Label" parent="CompassPanel/CompassNeedle"]
+[node name="ELabel" type="Label" parent="TopBar/HBox/CompassPanel/CompassNeedle"]
 layout_mode = 1
 anchors_preset = 6
 anchor_left    = 1.0
@@ -312,7 +289,7 @@ grow_vertical   = 2
 text = "E"
 horizontal_alignment = 1
 
-[node name="WLabel" type="Label" parent="CompassPanel/CompassNeedle"]
+[node name="WLabel" type="Label" parent="TopBar/HBox/CompassPanel/CompassNeedle"]
 layout_mode = 1
 anchors_preset = 4
 anchor_left    = 0.0
@@ -328,7 +305,7 @@ grow_vertical   = 2
 text = "W"
 horizontal_alignment = 1
 
-[node name="WindArrow" type="Label" parent="CompassPanel/CompassNeedle"]
+[node name="WindArrow" type="Label" parent="TopBar/HBox/CompassPanel/CompassNeedle"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
@@ -343,7 +320,6 @@ offset_bottom = -6.0
 pivot_offset  = Vector2(8, 22)
 grow_horizontal = 2
 grow_vertical   = 2
-theme_override_colors/font_color = Color(0.45, 0.75, 1.0, 1)
 theme_override_font_sizes/font_size = 16
 text = "▲"
 horizontal_alignment = 1
@@ -420,24 +396,27 @@ theme_override_constants/separation = 8
 [node name="ResourceBar" type="PanelContainer" parent="TopRightPanel"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"ClearPanel"
 
 [node name="HBox" type="HBoxContainer" parent="TopRightPanel/ResourceBar"]
 layout_mode = 2
 theme_override_constants/separation = 10
-alignment = 1
+alignment = 2
 
 [node name="GoldChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"ResourcePill"
 
 [node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/GoldChip"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-modulate = Color(1, 0.84, 0, 1)
+size_flags_vertical = 4
 texture = ExtResource("10_gold_icon")
 expand_mode = 1
 stretch_mode = 5
@@ -445,21 +424,30 @@ stretch_mode = 5
 [node name="GoldLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.84, 0, 1)
+theme_type_variation = &"HudNumLabel"
 text = "0"
+
+[node name="GoldCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_type_variation = &"ChipLabel"
+modulate = Color(1, 1, 1, 0.7)
+text = "/0"
 
 [node name="WoodChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"ResourcePill"
 
 [node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/WoodChip"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-modulate = Color(0.6, 0.4, 0.2, 1)
+size_flags_vertical = 4
 texture = ExtResource("11_wood_icon")
 expand_mode = 1
 stretch_mode = 5
@@ -467,21 +455,30 @@ stretch_mode = 5
 [node name="WoodLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
+theme_type_variation = &"HudNumLabel"
 text = "0"
+
+[node name="WoodCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_type_variation = &"ChipLabel"
+modulate = Color(1, 1, 1, 0.7)
+text = "/0"
 
 [node name="IronChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"ResourcePill"
 
 [node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/IronChip"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-modulate = Color(0.7, 0.7, 0.75, 1)
+size_flags_vertical = 4
 texture = ExtResource("12_iron_icon")
 expand_mode = 1
 stretch_mode = 5
@@ -489,21 +486,30 @@ stretch_mode = 5
 [node name="IronLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+theme_type_variation = &"HudNumLabel"
 text = "0"
+
+[node name="IronCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_type_variation = &"ChipLabel"
+modulate = Color(1, 1, 1, 0.7)
+text = "/0"
 
 [node name="RumChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"ResourcePill"
 
 [node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/RumChip"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-modulate = Color(0.8, 0.4, 0.1, 1)
+size_flags_vertical = 4
 texture = ExtResource("13_rum_icon")
 expand_mode = 1
 stretch_mode = 5
@@ -511,7 +517,38 @@ stretch_mode = 5
 [node name="RumLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.4, 0.1, 1)
+theme_type_variation = &"HudNumLabel"
+text = "0"
+
+[node name="RumCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_type_variation = &"ChipLabel"
+modulate = Color(1, 1, 1, 0.7)
+text = "/0"
+
+[node name="ResearchChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"ResourcePill"
+
+[node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/ResearchChip"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/ResearchChip/Row"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("19_research_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ResearchLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/ResearchChip/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudNumLabel"
 text = "0"
 
 [node name="IslandMenu" parent="." instance=ExtResource("2_island_menu")]

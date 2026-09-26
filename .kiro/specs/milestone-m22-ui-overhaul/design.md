@@ -398,6 +398,45 @@ for it:
 Remaining `theme_override_*` lines in Phase-4 scenes are all container spacing
 (`separation`/`margin_*`), which is layout rather than styling and stays by design.
 
+## 11c. Phase 5 findings (HUD & mobile controls)
+
+Target: v0.3 section 04 "HUD Overlay", rendered headlessly (Chrome `--screenshot`) and cropped, so
+the comparison was against pixels rather than markup. Found by viewing the sweeps:
+
+- **The phone HUD overflowed the right edge** (known since Phase 3). `_apply_mobile_safe_area()`
+  still scaled the top clusters by a hardcoded `1.45`, tuned for the pre-M22 1080-tall base where
+  desktop sizes were too small on phones. At the 1688×780 base, the token sizes are phone-sized.
+  Its 62%-of-width cap also divided by `top_right_panel.size` before the first layout pass, which is
+  the scene's authored rect, not the content. Fixed: scale 1.0 (`_MOBILE_HUD_SCALE`) and the cap
+  measured from `get_combined_minimum_size()`.
+- **The phone sweep never showed the phone HUD.** `_uses_mobile_utility_menu()` checks
+  `OS.has_feature("pc")`, not the forced-mobile flag, so `--profile=phone` captured the desktop rail
+  on a phone-sized screen. The sweep now forces the real branch and adds `00b`–`00g`: clean, low
+  hull and cooldowns, drawer, left-handed, custom layout and announcement.
+- **CanvasLayer children again.** A runtime Control added directly under a CanvasLayer resolves the
+  stock theme, so its variations silently fail. This showed up twice: the reparented Pause stayed a
+  grey square, and the announcement toast was a grey band. Rule: **give every such Control the
+  HUD's theme**. `WorldHUD._hud_owned_theme()` is built once, not per toast.
+- **The wood-round button art put its face 43% down the canvas**, so centred icons sat low at every
+  size. Asymmetric content margins can't fix that, because margins are rect px and a stretched
+  texture's lip isn't. The art now centres the face (a transparent band above), with symmetric
+  margins (`_ROUND_CONTENT`). `round_button_size()` keeps the 128×148 aspect so circles never
+  become ellipses.
+- **The compass had been buried under the resource bar** (both anchored top-right) for as long as
+  that bar existed. It is now the plaque HBox's last child (container-owned, so it moves and scales
+  with it). Its needle rotated around its top-left corner (no pivot), and four chip-size letters
+  couldn't fit an 88px disc, so it's now N plus the wind arrow.
+- **Placement found by the overlap tests, not by looking.** Two candidate placements (Pause in the
+  top row, a captioned 116px Captain opener) looked fine in the capture but collided at other
+  aspect ratios or scales in `test_mobile_controls_layout`. The opener and context action were added
+  to that test's blocker and button sets so this stays caught.
+- **Raw `Color()` literals for HUD state** (ready, reloading, on-target, at-cap, muted) predated
+  Phase 3.5's palette migration and are now tokens (`WorldHUD._hud_muted()` plus palette fields).
+
+**Not changed, deliberately:** the desktop cannon panels stay (v0.3's "cannons auto-fire, no button"
+is the phone model, and desktop needs the readout). They are restyled, balanced (ability readout
+moved to Starboard) and 320 wide.
+
 ## 12. Screen inventory (baseline 2026-09-25)
 
 Override counts to burn down. `tscn` = `theme_override_*` lines in `scenes/ui/<name>.tscn`;
@@ -413,9 +452,9 @@ same greps after each phase and update the "now" columns.
 | AgeGate | 8 | 0 | 4 | 2 | 0 |
 | ConsentPanel | 8 | 0 | 4 | 2 | 0 |
 | ChoiceDialog (code-only) | – | 6 | 4 | – | 2 |
-| WorldHUD | 39 | 32 | 5 | | |
-| MobileControls | 0 | 8 | 5 | | |
-| HudCustomizeOverlay (code-only) | – | 3 | 5 | | |
+| WorldHUD | 39 | 32 | 5 | 11 | 24 |
+| MobileControls | 0 | 8 | 5 | 0 | 4 |
+| HudCustomizeOverlay (code-only) | – | 3 | 5 | – | 3 |
 | IslandMenu | 14 | 51 | 6a | | |
 | WorldMapScreen | 8 | 1 | 6a | | |
 | TutorialDialogue | 15 | 5 | 6a | | |

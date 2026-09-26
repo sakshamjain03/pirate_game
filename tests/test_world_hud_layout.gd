@@ -132,14 +132,17 @@ func test_mobile_utility_controls_are_collapsed_behind_one_menu_button():
 	await _hud._rebuild_utility_controls()
 	await wait_seconds(0.1)
 
-	# M22 (2026-09-25): HUD_BUTTON_SIZE_MOBILE (120,52) * MOBILE_CONTROL_SCALE
-	# (now 1.0, was 1.5 — design.md §3) is (120,52), which floors up to
-	# (120,96) via _mobile_utility_button_size()'s own explicit
-	# MOBILE_MIN_TOUCH_TARGET clamp (96 canvas px = 48dp x2) — not (180,78),
-	# the old scale-multiplier result.
+	# M22 Phase 5.5: the opener and the drawer destinations are round wood
+	# buttons now (round_button_size(): width x the art's 148/128 aspect).
+	# The opener is the 48dp floor itself (96 canvas px); a bigger one plus
+	# its caption reached the action cluster on a 2340x1080 phone. The
+	# drawer items stay at HUD_BUTTON_SIZE_MOBILE's 120 width.
+	var floor_size := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET
 	assert_not_null(_hud.mobile_utility_menu_button)
-	assert_eq(_hud.mobile_utility_menu_button.custom_minimum_size, Vector2(120, 96),
+	assert_eq(_hud.mobile_utility_menu_button.custom_minimum_size, PirateThemeBuilder.round_button_size(96),
 		"The collapsed mobile menu must use the project's touch-friendly mobile scale.")
+	assert_true(_hud.mobile_utility_menu_button.custom_minimum_size.x >= floor_size.x
+		and _hud.mobile_utility_menu_button.custom_minimum_size.y >= floor_size.y)
 	assert_false(_hud.mobile_utility_drawer.visible,
 		"The infrequent utility destinations must not permanently obscure the mobile world view.")
 	assert_null(_hud.captains_log_button)
@@ -153,5 +156,8 @@ func test_mobile_utility_controls_are_collapsed_behind_one_menu_button():
 	assert_eq(_hud.mobile_utility_drawer.get_node("Items").get_child_count(), 5,
 		"The mobile drawer must retain every destination that desktop exposes directly.")
 	for item in _hud.mobile_utility_drawer.get_node("Items").get_children():
-		assert_eq(item.custom_minimum_size, Vector2(120, 96),
+		# Each destination is a caption + round Button pair (VBoxContainer).
+		var btn: Button = item.get_child(0)
+		assert_eq(btn.custom_minimum_size, PirateThemeBuilder.round_button_size(120),
 			"Every destination in the mobile menu must remain as touch-friendly as its opener.")
+		assert_eq(btn.theme_type_variation, &"WoodRoundButton")

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<linearGradient id="rum_staves" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B87A45" stop-opacity="1"/><stop offset="1" stop-color="#6D452A" stop-opacity="1"/></linearGradient>
+</defs>
+<path d="M 10 6 Q 5 24 10 42 L 38 42 Q 43 24 38 6 Z" fill="url(#rum_staves)"/>
+<rect x="7" y="13" width="34" height="4" fill="#C29444"/>
+<rect x="7" y="31" width="34" height="4" fill="#C29444"/>
+<path d="M 10 6 Q 5 24 10 42 L 38 42 Q 43 24 38 6 Z" fill="none" stroke="#2E1A0C" stroke-width="2.5"/>
+<rect x="14" y="10" width="3" height="10" fill="#FFFFFF" opacity="0.4"/>
+</svg>

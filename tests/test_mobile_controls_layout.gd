@@ -60,6 +60,14 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 		_instantiate_mobile_hud_at_size(size)
 		await wait_seconds(0.1)
 
+		# The collapsed utility opener is built in WorldHUD._find_ship(), a
+		# few frames after _ready() (it awaits a frame first) — wait for it
+		# rather than trusting 0.1s of wall-clock to cover those frames.
+		for _i in 30:
+			if _hud.mobile_utility_menu_button:
+				break
+			await wait_frames(1)
+		assert_not_null(_hud.mobile_utility_menu_button, "mobile HUD must build its utility opener")
 		var mobile_controls = _hud.get_node("MobileControls")
 		# The real mobile HUD removes cannon cooldown panels and places player
 		# hull health at the top. The test forces that same branch on desktop CI.
@@ -73,6 +81,10 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 			# apart on real devices, leaving only BtnPause's bottom sliver
 			# clickable under the panel. Guards that regression.
 			"TopRightPanel": _hud.top_right_panel.get_global_rect(),
+			# M22 Phase 5 — the collapsed utility opener (round button +
+			# caption) sits right under TopRightPanel; at 116 wide it reached
+			# the context action below it on a 2340x1080 phone.
+			"UtilityMenuOpener": _hud.mobile_utility_menu_button.get_parent().get_global_rect(),
 		}
 		var mobile_buttons := {
 			"BtnLeft": mobile_controls.get_node("Movement/BtnLeft"),
@@ -81,6 +93,7 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 			"BtnPause": mobile_controls.get_node("BtnPause"),
 			"BtnCaptainAbility": mobile_controls.get_node("Actions/BtnCaptainAbility"),
 			"BtnSpecialBroadside": mobile_controls.get_node("Actions/BtnSpecialBroadside"),
+			"ContextAction": mobile_controls.get_node("Actions/ContextAction"),
 		}
 
 		for blocker_name in blockers:
@@ -249,3 +262,37 @@ func test_tilt_steering_setting_hides_and_restores_left_right_buttons():
 	mobile_controls._apply_tilt_steering()
 	assert_true(btn_left.visible, "Disabling tilt steering must restore BtnLeft")
 	assert_true(btn_right.visible, "Disabling tilt steering must restore BtnRight")
+
+
+# M22 Phase 5.4 — the ability/broadside cooldown sweep is visual only: it
+# shows what's LEFT of the existing ready-fraction (0 = just used, 1 = ready)
+# as a clockwise dark disc over the round button's face.
+func test_cooldown_sweep_shows_the_remaining_fraction():
+	_instantiate_mobile_hud_at_size(Vector2i(2340, 1080))
+	await wait_seconds(0.1)
+	var mobile_controls = _hud.get_node("MobileControls")
+	for kind in ["ability", "broadside"]:
+		mobile_controls.set_cooldown_fraction(kind, 0.25)
+		assert_almost_eq(mobile_controls.get_cooldown_sweep_value(kind), 0.75, 0.001,
+			"%s: 25%% recharged must leave a 75%% sweep" % kind)
+		mobile_controls.set_cooldown_fraction(kind, 1.0)
+		assert_almost_eq(mobile_controls.get_cooldown_sweep_value(kind), 0.0, 0.001,
+			"%s: a ready button must show no sweep at all" % kind)
+	var sweep: TextureProgressBar = mobile_controls.get_node("Actions/BtnCaptainAbility/CooldownSweep")
+	assert_eq(sweep.fill_mode, TextureProgressBar.FILL_CLOCKWISE)
+	assert_eq(sweep.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"the sweep must never swallow the button's own taps")
+
+
+# M22 Phase 5.3 — the context action is the HUD's one Primary CTA, and only
+# while it reads "Set Sail"; Dock/Board/Anchor are brass utility states.
+func test_context_action_is_primary_only_as_set_sail():
+	_instantiate_mobile_hud_at_size(Vector2i(2340, 1080))
+	await wait_seconds(0.1)
+	var mobile_controls = _hud.get_node("MobileControls")
+	var context_action: Button = mobile_controls.get_node("Actions/ContextAction")
+	mobile_controls.set_dock_available(true)
+	assert_eq(context_action.text, "Dock")
+	assert_ne(context_action.theme_type_variation, &"PrimaryButton", "Dock is not the hero action")
+	for child in context_action.get_children():
+		assert_false(child is PrimaryGlow, "an unmarked button must lose its glow too")

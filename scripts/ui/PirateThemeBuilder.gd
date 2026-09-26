@@ -50,6 +50,16 @@ const TEX_DROPDOWN_SHEET    := KIT + "dropdown_sheet.svg"
 const TEX_SCROLLBAR_TRACK   := KIT + "scrollbar_track.svg"
 const TEX_DROPDOWN_ARROW   := KIT + "dropdown_arrow.svg"
 const TEX_SCROLLBAR_GRABBER := KIT + "scrollbar_grabber.svg"
+const TEX_RESOURCE_PILL     := KIT + "resource_pill.svg"
+const TEX_COOLDOWN_DISC     := KIT + "cooldown_disc.svg"
+## Canvas size of the wood-round button art (gen_kit.py: 58-design-px face +
+## lip + a matching transparent band above so the face is canvas-centred).
+## round_button_size() keeps any requested width at this aspect so the
+## circle never stretches into an ellipse.
+const ROUND_BUTTON_ART_SIZE := Vector2(128, 148)
+## Content inset for WoodRoundButton, on every side: the circle's inscribed
+## area. Icons use expand_icon inside it.
+const _ROUND_CONTENT := 28.0
 
 ## design.md §6/§7's texture_margin numbers (canvas px — see gen_kit.py's
 ## per-asset docstrings for the source dpx() math). Button margins equal
@@ -294,9 +304,12 @@ static func build() -> Theme:
 	var wood_frame_style := _texture_stylebox(TEX_WOOD_FRAME,
 			MARGIN_WOOD_FRAME, MARGIN_WOOD_FRAME, MARGIN_WOOD_FRAME, MARGIN_WOOD_FRAME,
 			32.0, 32.0, 32.0, 32.0)
+	# Content inset 48 clears the carved end caps' brass studs (drawn at
+	# 32±8 px in each 64px end, gen_kit.py) — 24 let the HUD's speed text and
+	# compass disc sit on top of them (M22 Phase 5 sweep).
 	var plaque_style := _texture_stylebox(TEX_WOOD_PLAQUE,
 			MARGIN_PLAQUE_END, MARGIN_PLAQUE_END, 0.0, 0.0,
-			24.0, 24.0, 16.0, 16.0)
+			48.0, 48.0, 16.0, 16.0)
 
 	theme.set_type_variation("ParchmentPanel", "PanelContainer")
 	theme.set_stylebox("panel", "ParchmentPanel", parchment_style)
@@ -388,10 +401,14 @@ static func build() -> Theme:
 	theme.set_color("font_focus_color", "Button", pal.ink)
 	theme.set_color("font_disabled_color", "Button", Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.55))
 
-	var wood_idle := _texture_stylebox(TEX_BUTTON_WOOD_ROUND_IDLE, 0, 0, 0, 0, 16.0, 16.0, 16.0, 16.0)
+	# Symmetric margins centre content on the face (the art centres it on the
+	# canvas, M22 Phase 5) at ANY button size — margins are rect px, not
+	# texture px, so an asymmetric lip reservation could only be right at one.
+	var rc := _ROUND_CONTENT
+	var wood_idle := _texture_stylebox(TEX_BUTTON_WOOD_ROUND_IDLE, 0, 0, 0, 0, rc, rc, rc, rc)
 	var wood_pressed := _texture_stylebox(TEX_BUTTON_WOOD_ROUND_PRESSED, 0, 0, 0, 0,
-			16.0, 16.0, 16.0 + UITokens.PRESS_OFFSET_Y, 16.0 - UITokens.PRESS_OFFSET_Y)
-	var wood_disabled := _texture_stylebox(TEX_BUTTON_WOOD_ROUND_DISABLED, 0, 0, 0, 0, 16.0, 16.0, 16.0, 16.0)
+			rc, rc, rc + UITokens.PRESS_OFFSET_Y, rc - UITokens.PRESS_OFFSET_Y)
+	var wood_disabled := _texture_stylebox(TEX_BUTTON_WOOD_ROUND_DISABLED, 0, 0, 0, 0, rc, rc, rc, rc)
 	var wood_hover := wood_idle.duplicate() as StyleBoxTexture
 	wood_hover.modulate_color = _HOVER_BRIGHTEN
 
@@ -551,6 +568,46 @@ static func build() -> Theme:
 	theme.set_font("font",      "ProgressBar", body_font)
 	theme.set_font_size("font_size", "ProgressBar", roundi(UITokens.FONT_CHIP * scale))
 	theme.set_color("font_color", "ProgressBar", pal.text_on_dark)
+
+	# ======================================================================
+	# HUD (M22 Phase 5) — resource pills, bare layout panels, hull gauge.
+	# ======================================================================
+	# ResourcePill: the kit's dark ocean pill with a brass rim (v0.3 HUD).
+	# 9-slice margins = half its 60px height so the ends stay round at any
+	# width; the icon sits snug in the left cap.
+	var pill := _texture_stylebox(TEX_RESOURCE_PILL, 30.0, 30.0, 30.0, 30.0, 8.0, 24.0, 6.0, 6.0)
+	theme.set_type_variation("ResourcePill", "PanelContainer")
+	theme.set_stylebox("panel", "ResourcePill", pill)
+	# ClearPanel: a PanelContainer used purely for layout (e.g. the bar the
+	# pills sit in) — v0.3's pills float over the world, not in a frame.
+	# RoundBadge: the same pill art at a square size reads as a brass-rimmed
+	# ocean disc (the compass; v0.3's round minimap). Symmetric insets, so
+	# centred/rotating content stays centred.
+	var badge := _texture_stylebox(TEX_RESOURCE_PILL, 30.0, 30.0, 30.0, 30.0, 8.0, 8.0, 8.0, 8.0)
+	theme.set_type_variation("RoundBadge", "PanelContainer")
+	theme.set_stylebox("panel", "RoundBadge", badge)
+	theme.set_type_variation("ClearPanel", "PanelContainer")
+	theme.set_stylebox("panel", "ClearPanel", StyleBoxEmpty.new())
+	# HullBar: the same dark pill as the track, a rounded hp-green fill with
+	# a lighter top edge (gloss), readable ChipLabel text over it.
+	var hull_bg := pill.duplicate() as StyleBoxTexture
+	hull_bg.set_content_margin_all(4.0)
+	var hull_fill := StyleBoxFlat.new()
+	hull_fill.bg_color = pal.hp_good
+	hull_fill.set_corner_radius_all(26)
+	hull_fill.border_width_top = 4
+	hull_fill.border_color = pal.hp_good.lightened(0.35)
+	hull_fill.expand_margin_left = -4.0
+	hull_fill.expand_margin_right = -4.0
+	hull_fill.expand_margin_top = -4.0
+	hull_fill.expand_margin_bottom = -4.0
+	hull_fill.anti_aliasing = true
+	theme.set_type_variation("HullBar", "ProgressBar")
+	theme.set_stylebox("background", "HullBar", hull_bg)
+	theme.set_stylebox("fill", "HullBar", hull_fill)
+	theme.set_font("font", "HullBar", num_font)
+	theme.set_font_size("font_size", "HullBar", roundi(UITokens.FONT_CHIP * scale))
+	theme.set_color("font_color", "HullBar", pal.text_on_dark)
 
 	# ======================================================================
 	# ScrollBar — thin brass (design.md §7)
@@ -799,6 +856,27 @@ static func apply_button_juice(root: Node) -> void:
 ## Idempotent: calling it twice on the same button never adds a second glow.
 ## A GUT test (test_primary_button_rule, Phase 4+) sweeps each instantiated
 ## screen scene to confirm at most one visible PrimaryButton per screen.
+## M22 Phase 5 — a button whose meaning changes at runtime (MobileControls'
+## context action: Set Sail / Drop Anchor / Dock) is only the Primary CTA in
+## some of its states. Reverts mark_primary(): brass again, glow removed.
+static func unmark_primary(btn: Button) -> void:
+	if not btn:
+		return
+	if btn.theme_type_variation == &"PrimaryButton":
+		btn.theme_type_variation = &""
+	for child in btn.get_children():
+		if child is PrimaryGlow:
+			# Detach first: mark_primary() skips adding a glow while one is still
+			# a child, and a merely-queued one would still count this frame.
+			btn.remove_child(child)
+			child.queue_free()
+
+
+## Size for a WoodRoundButton of the given width, at the art's own aspect.
+static func round_button_size(width: float) -> Vector2:
+	return Vector2(width, width * ROUND_BUTTON_ART_SIZE.y / ROUND_BUTTON_ART_SIZE.x)
+
+
 static func mark_primary(btn: Button) -> void:
 	if not btn:
 		return

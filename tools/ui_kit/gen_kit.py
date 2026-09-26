@@ -424,7 +424,12 @@ def gen_buttons() -> list[tuple[str, str, str]]:
     canvas_h = diam + _LIP_IDLE + dpx(10)
     for state, pressed, disabled in (("idle", False, False), ("pressed", True, False), ("disabled", False, True)):
         cx = canvas_w / 2
-        face_y = (_PRESS_DROP if pressed else 0) + diam / 2 + dpx(3)
+        # Face centred on the canvas (M22 Phase 5): the canvas is stretched
+        # over the whole Button rect, so a face sitting high in it (the
+        # original diam/2 + 3 = 43% down) put every centred icon/label low and
+        # onto the lip at any button size. The transparent band above is the
+        # price of symmetric content margins that work at every size.
+        face_y = (_PRESS_DROP if pressed else 0) + canvas_h / 2
         lip_h = _LIP_PRESSED if pressed else _LIP_IDLE
         top, bot = (PALETTE["driftwood"], PALETTE["wood_dark"]) if not disabled else ("#8C8378", "#665F55")
         gid = f"wood_round_{state}"
@@ -568,7 +573,9 @@ def gen_scrollbar() -> list[tuple[str, str, str]]:
 # --------------------------------------------------------------------------
 
 def gen_resource_pill() -> tuple[str, str]:
-    w, h = 120, dpx(18)
+    # design 30 tall (v0.3 HUD pills) -> 60 canvas; was dpx(18), sized before
+    # any screen used it — too short for a 36px HudNum + 48px icon row.
+    w, h = 160, dpx(30)
     body = [defs(linear_gradient("rp", [(0, "#152A33", 1), (1, PALETTE["ocean_deep"], 1)], x1=0, y1=0, x2=0, y2=1))]
     body.append(rect(0, 0, w, h, rx=h / 2, fill="url(#rp)"))
     body.append(rect(1, 1, w - 2, h - 2, rx=h / 2 - 1, fill="none", stroke=PALETTE["brass"], stroke_width=2, opacity=0.8))
@@ -693,6 +700,139 @@ def gen_icon_gear() -> tuple[str, str]:
 
 
 # --------------------------------------------------------------------------
+# M22 Phase 5 — painted resource icons (replacing the Kenney white glyphs the
+# HUD tinted per resource) and flat glyphs for the round HUD utility rail.
+# Same 24-design-px canvas + upper-left light / darkest-tone outline as
+# research/cannonball above (icon spec).
+# --------------------------------------------------------------------------
+
+def gen_icon_gold() -> tuple[str, str]:
+    """A struck gold coin: gradient disc, inner rim ring, a stamped cross."""
+    w = h = dpx(24)
+    cx = cy = w / 2
+    r = w / 2 - dpx(1)
+    body = _resource_icon_base(cx, cy, r, "#FFF1B8", PALETTE["horizon_gold"], "#9A6A1E")
+    body.append(circle(cx, cy, r * 0.68, fill="none", stroke="#9A6A1E", stroke_width=dpx(1.0), opacity=0.8))
+    arm = r * 0.34
+    body.append(path(f"M {cx:g} {cy - arm:g} L {cx:g} {cy + arm:g} M {cx - arm:g} {cy:g} L {cx + arm:g} {cy:g}",
+                     stroke="#9A6A1E", stroke_width=dpx(1.2)))
+    return svg_doc(w, h, "\n".join(body)), f"gold icon: {w:g}x{h:g}"
+
+
+def gen_icon_wood() -> tuple[str, str]:
+    """A sawn log end: bark ring + pale heartwood with growth rings."""
+    w = h = dpx(24)
+    cx = cy = w / 2
+    r = w / 2 - dpx(1)
+    body = [circle(cx, cy, r, fill=PALETTE["driftwood"])]
+    body.append(circle(cx, cy, r * 0.8, fill="#D9A866"))
+    for k in (0.58, 0.38, 0.18):
+        body.append(circle(cx + r * 0.04, cy + r * 0.03, r * k, fill="none", stroke="#9C6A36", stroke_width=dpx(0.8)))
+    body.append(circle(cx, cy, r - dpx(0.75), fill="none", stroke=PALETTE["wood_dark"], stroke_width=dpx(1.25)))
+    body.append(circle(cx - r * 0.35, cy - r * 0.35, r * 0.12, fill="#FFFFFF", opacity=0.45))
+    return svg_doc(w, h, "\n".join(body)), f"wood icon: {w:g}x{h:g}"
+
+
+def gen_icon_iron() -> tuple[str, str]:
+    """A cast ingot: lit top face + darker front face, cool grey-blue."""
+    w = h = dpx(24)
+    m = dpx(2)
+    top = f"M {m + dpx(4):g} {dpx(7):g} L {w - m - dpx(4):g} {dpx(7):g} L {w - m:g} {dpx(12):g} L {m:g} {dpx(12):g} Z"
+    front = f"M {m:g} {dpx(12):g} L {w - m:g} {dpx(12):g} L {w - m:g} {dpx(18):g} L {m:g} {dpx(18):g} Z"
+    body = [path(front, fill="#5E6B78"), path(top, fill="#B9C6D2")]
+    body.append(path(f"M {m:g} {dpx(12):g} L {m + dpx(4):g} {dpx(7):g} L {w - m - dpx(4):g} {dpx(7):g} "
+                     f"L {w - m:g} {dpx(12):g} L {w - m:g} {dpx(18):g} L {m:g} {dpx(18):g} Z",
+                     stroke="#2A323B", stroke_width=dpx(1.25)))
+    body.append(rect(m + dpx(5), dpx(8), dpx(6), dpx(1.2), fill="#FFFFFF", opacity=0.55))
+    return svg_doc(w, h, "\n".join(body)), f"iron icon: {w:g}x{h:g}"
+
+
+def gen_icon_rum() -> tuple[str, str]:
+    """A rum barrel: bulged staves + two brass hoops."""
+    w = h = dpx(24)
+    x0, x1, y0, y1 = dpx(5), w - dpx(5), dpx(3), h - dpx(3)
+    bulge = dpx(2.5)
+    d = (f"M {x0:g} {y0:g} Q {x0 - bulge:g} {h / 2:g} {x0:g} {y1:g} L {x1:g} {y1:g} "
+         f"Q {x1 + bulge:g} {h / 2:g} {x1:g} {y0:g} Z")
+    body = [defs(linear_gradient("rum_staves", [(0, "#B87A45", 1), (1, "#6D452A", 1)], x1=0, y1=0, x2=1, y2=0))]
+    body.append(path(d, fill="url(#rum_staves)"))
+    for yy in (dpx(7.5), h - dpx(7.5)):
+        body.append(rect(x0 - bulge * 0.6, yy - dpx(1), (x1 - x0) + bulge * 1.2, dpx(2), fill=PALETTE["brass"]))
+    body.append(path(d, stroke=PALETTE["wood_dark"], stroke_width=dpx(1.25)))
+    body.append(rect(x0 + dpx(2), y0 + dpx(2), dpx(1.5), dpx(5), fill="#FFFFFF", opacity=0.4))
+    return svg_doc(w, h, "\n".join(body)), f"rum icon: {w:g}x{h:g}"
+
+
+_GLYPH = PALETTE["text_on_dark"]
+_GLYPH_SW = dpx(1.8)
+
+
+def gen_icon_log() -> tuple[str, str]:
+    """Captain's Log — a rolled scroll with written lines."""
+    w = h = dpx(24)
+    body = [rect(dpx(5), dpx(4), dpx(14), dpx(16), rx=dpx(1.5), fill="none", stroke=_GLYPH, stroke_width=_GLYPH_SW)]
+    for i in range(3):
+        y = dpx(9) + i * dpx(3.5)
+        body.append(path(f"M {dpx(8):g} {y:g} L {dpx(16):g} {y:g}", stroke=_GLYPH, stroke_width=dpx(1.3)))
+    body.append(rect(dpx(3), dpx(3), dpx(18), dpx(3), rx=dpx(1.5), fill=_GLYPH))
+    return svg_doc(w, h, "\n".join(body)), f"log icon: {w:g}x{h:g}"
+
+
+def gen_icon_map() -> tuple[str, str]:
+    """World Map — a three-panel folded chart with an X."""
+    w = h = dpx(24)
+    d = (f"M {dpx(3):g} {dpx(6):g} L {dpx(9):g} {dpx(4):g} L {dpx(15):g} {dpx(6):g} L {dpx(21):g} {dpx(4):g} "
+         f"L {dpx(21):g} {dpx(18):g} L {dpx(15):g} {dpx(20):g} L {dpx(9):g} {dpx(18):g} L {dpx(3):g} {dpx(20):g} Z")
+    body = [path(d, stroke=_GLYPH, stroke_width=_GLYPH_SW)]
+    body.append(path(f"M {dpx(9):g} {dpx(4):g} L {dpx(9):g} {dpx(18):g} M {dpx(15):g} {dpx(6):g} L {dpx(15):g} {dpx(20):g}",
+                     stroke=_GLYPH, stroke_width=dpx(1.2)))
+    body.append(path(f"M {dpx(16.5):g} {dpx(9.5):g} L {dpx(19.5):g} {dpx(12.5):g} M {dpx(19.5):g} {dpx(9.5):g} L {dpx(16.5):g} {dpx(12.5):g}",
+                     stroke=PALETTE["coral_bloom"], stroke_width=dpx(1.6)))
+    return svg_doc(w, h, "\n".join(body)), f"map icon: {w:g}x{h:g}"
+
+
+def gen_icon_codex() -> tuple[str, str]:
+    """Codex — an open book."""
+    w = h = dpx(24)
+    left = f"M {dpx(12):g} {dpx(7):g} Q {dpx(8):g} {dpx(5):g} {dpx(3):g} {dpx(6):g} L {dpx(3):g} {dpx(19):g} Q {dpx(8):g} {dpx(18):g} {dpx(12):g} {dpx(20):g} Z"
+    right = f"M {dpx(12):g} {dpx(7):g} Q {dpx(16):g} {dpx(5):g} {dpx(21):g} {dpx(6):g} L {dpx(21):g} {dpx(19):g} Q {dpx(16):g} {dpx(18):g} {dpx(12):g} {dpx(20):g} Z"
+    body = [path(left, stroke=_GLYPH, stroke_width=_GLYPH_SW), path(right, stroke=_GLYPH, stroke_width=_GLYPH_SW)]
+    return svg_doc(w, h, "\n".join(body)), f"codex icon: {w:g}x{h:g}"
+
+
+def gen_icon_new() -> tuple[str, str]:
+    """What's New — a five-point star burst."""
+    w = h = dpx(24)
+    cx = cy = w / 2
+    pts = []
+    for i in range(10):
+        rr = (w / 2 - dpx(2)) if i % 2 == 0 else (w / 2 - dpx(2)) * 0.45
+        a = -math.pi / 2 + i * math.pi / 5
+        pts.append(f"{cx + math.cos(a) * rr:g},{cy + math.sin(a) * rr:g}")
+    body = [f'<polygon points="{" ".join(pts)}" fill="{_GLYPH}" stroke="{PALETTE["ink"]}" stroke-width="{dpx(0.8):g}"/>']
+    return svg_doc(w, h, "\n".join(body)), f"new icon: {w:g}x{h:g}"
+
+
+def gen_icon_wardrobe() -> tuple[str, str]:
+    """Wardrobe — a pirate tricorn hat."""
+    w = h = dpx(24)
+    crown = f"M {dpx(6):g} {dpx(13):g} Q {dpx(12):g} {dpx(2):g} {dpx(18):g} {dpx(13):g} Z"
+    brim = f"M {dpx(1.5):g} {dpx(11):g} Q {dpx(12):g} {dpx(20):g} {dpx(22.5):g} {dpx(11):g} Q {dpx(12):g} {dpx(15):g} {dpx(1.5):g} {dpx(11):g} Z"
+    body = [path(crown, fill=_GLYPH), path(brim, fill=_GLYPH, stroke=PALETTE["ink"], stroke_width=dpx(0.8))]
+    body.append(circle(dpx(12), dpx(9), dpx(1.3), fill=PALETTE["ink"]))
+    return svg_doc(w, h, "\n".join(body)), f"wardrobe icon: {w:g}x{h:g}"
+
+
+def gen_cooldown_disc() -> tuple[str, str]:
+    """M22 Phase 5.4 — the fill texture for a round button's clockwise
+    cooldown sweep (TextureProgressBar FILL_CLOCKWISE). Solid white so the
+    node's tint_progress decides the colour; sized to the wood-round face
+    (58 design px)."""
+    d = dpx(58)
+    return svg_doc(d, d, circle(d / 2, d / 2, d / 2, fill="#FFFFFF")), f"cooldown_disc: {d:g}x{d:g}"
+
+
+# --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
 
@@ -733,6 +873,7 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     for name in RARITY:
         svg, meta = gen_rarity_gem(name); emit(f"rarity_gem_{name}", svg, meta)
     svg, meta = gen_cooldown_ring_mask(); emit("cooldown_ring_mask", svg, meta)
+    svg, meta = gen_cooldown_disc(); emit("cooldown_disc", svg, meta)
     svg, meta = gen_glow_sprite(); emit("glow_sprite", svg, meta)
 
     icons_dir.mkdir(parents=True, exist_ok=True)
@@ -745,6 +886,12 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     svg, meta = gen_icon_gear()
     _write(icons_dir / "gear.svg", svg)
     manifest.append(meta)
+    for stem, fn in (("gold", gen_icon_gold), ("wood", gen_icon_wood), ("iron", gen_icon_iron),
+                     ("rum", gen_icon_rum), ("log", gen_icon_log), ("map", gen_icon_map),
+                     ("codex", gen_icon_codex), ("new", gen_icon_new), ("wardrobe", gen_icon_wardrobe)):
+        svg, meta = fn()
+        _write(icons_dir / f"{stem}.svg", svg)
+        manifest.append(meta)
 
     return manifest
 

@@ -114,7 +114,18 @@ func _run_world_screens() -> void:
 		if not any_islands.is_empty():
 			island = any_islands[0]
 
+	# M22 Phase 5 — the phone utility controls are gated on
+	# OS.has_feature("pc"), not the forced-mobile flag, so a phone-profile
+	# sweep on this PC used to capture the DESKTOP rail on a phone-sized
+	# screen (a layout no real phone ever shows). Force the real phone branch.
+	if _hud and PROFILES[_profile]["mobile"] and "force_mobile_utility_menu" in _hud:
+		_hud.force_mobile_utility_menu = true
+		await _hud._rebuild_utility_controls()
+		_hud._apply_mobile_safe_area()
+		await _settle(3)
+
 	await _capture("00_world_hud")
+	await _run_hud_states()
 
 	if _hud and "captains_log" in _hud and _hud.captains_log:
 		_hud.captains_log.open()
@@ -179,6 +190,68 @@ func _run_world_screens() -> void:
 
 	_world.queue_free()
 	await _settle(3)
+
+
+## M22 Phase 5 verification states (tasks.md 5.2/5.4/5.5/5.6): the HUD with
+## the first-run tutorial out of the way, hull under 25% (the low-hp pulse),
+## cooldown sweeps mid-way, and on phone the utility drawer open plus a
+## left-handed custom layout. Every change is reverted and nothing is saved.
+func _run_hud_states() -> void:
+	if not _hud:
+		return
+	var tutorial: Control = _hud.get("tutorial_dialogue")
+	var tutorial_was_visible := tutorial != null and tutorial.visible
+	if tutorial:
+		tutorial.hide()
+	await _settle(3)
+	await _capture("00b_world_hud_clean")
+
+	var mobile_controls: Node = _hud.get_node_or_null("MobileControls")
+	_hud.set_health(18.0, 100.0)
+	# WorldHUD._process() re-feeds the ship's REAL cooldown fractions every
+	# frame (ready at spawn), which would wipe these straight back to 0.
+	_hud.set_process(false)
+	if mobile_controls and mobile_controls.has_method("set_cooldown_fraction"):
+		mobile_controls.set_cooldown_fraction("ability", 0.35)
+		mobile_controls.set_cooldown_fraction("broadside", 0.7)
+	await _wait_seconds(0.35)
+	await _capture("00c_world_hud_low_hull")
+	_hud.set_process(true)
+	_hud.announce_event("Spanish Main is now active!
+The Spanish Empire is hunting you!")
+	await _wait_seconds(0.6)
+	await _capture("00g_announcement")
+	_hud.set_health(100.0, 100.0)
+
+	if PROFILES[_profile]["mobile"]:
+		if _hud.mobile_utility_menu_button:
+			_hud.mobile_utility_menu_button.emit_signal("pressed")
+			await _settle(3)
+			await _capture("00d_mobile_drawer")
+			_hud.mobile_utility_drawer.hide()
+		var was_left := bool(SettingsManager.mobile_left_handed)
+		var old_overrides: Dictionary = SettingsManager.mobile_control_overrides.duplicate(true)
+		SettingsManager.mobile_left_handed = true
+		MobileLayoutManager.notify_layout_changed()
+		await _settle(4)
+		await _capture("00e_left_handed")
+		# A saved HUD customisation (Settings > Customize HUD Layout) on the
+		# default right-handed layout. Overrides are clamped to the viewport,
+		# not to other controls — a player can drag one cluster onto another.
+		SettingsManager.mobile_left_handed = false
+		SettingsManager.mobile_control_overrides = {
+			"actions": {"position": Vector2(-60, -30), "scale_mult": 1.15},
+			"top_right_panel": {"position": Vector2(0, 10), "scale_mult": 0.9},
+		}
+		MobileLayoutManager.notify_layout_changed()
+		await _settle(4)
+		await _capture("00f_custom_layout")
+		SettingsManager.mobile_left_handed = was_left
+		SettingsManager.mobile_control_overrides = old_overrides
+		MobileLayoutManager.notify_layout_changed()
+		await _settle(2)
+	if tutorial and tutorial_was_visible:
+		tutorial.show()
 
 
 func _run_standalone_menus() -> void:

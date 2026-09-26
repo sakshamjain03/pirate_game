@@ -311,33 +311,72 @@ independently re-verified.
 
 ### Phase 5 — HUD & mobile controls
 
-- [ ] 5.1 WorldHUD resource pills (kit pill + icon + `HudNumLabel`), notoriety chip, production
+- [x] 5.1 WorldHUD resource pills (kit pill + icon + `HudNumLabel`), notoriety chip, production
         timer chip.
   - **Verify:** `test_world_hud_layout` passes (expectations updated only where intended); sweep shot.
+  - **Done:** five floating `ResourcePill`s (the kit pill regenerated at the design's 30-design-px
+    height). Each has a painted icon (new generated gold/wood/iron/rum SVGs replace the tinted Kenney
+    glyphs), a `HudNumLabel` amount and a dim `/cap` ChipLabel suffix; Research is the fifth pill
+    (it was a "🧪 N" suffix on the economy text). Notoriety and "Next Production" are pill chips,
+    with every translation key unchanged. Viewed: `screenshots/m22/phase5/{desktop,phone}/00*_*.png`.
+    The phone overflow noted below was the stale 1.45× `hud_scale` plus a width cap measured
+    against the pre-layout rect. Both are fixed (design.md §11c).
   - **Known going in (seen in both the Phase 3 and Phase 4 phone sweeps, `00_world_hud.png`):**
     the resource-pill bar and the right-hand Log/Map/Codex rail run off the right edge at
     2340×1080. The rail overlaps the Set Sail/Ability/Broadside cluster, and the notoriety chip is
     clipped. This isn't a Phase 4 regression, since the Phase 4 kit fix only made the labels
     readable; the layout itself is 5.1/5.3/5.4's job.
   - _Requirements: 7.1_
-- [ ] 5.2 Speed/sail plaque + hull ProgressBar restyle (keep the tween + low-hp pulse).
-  - **Verify:** sweep shot at full hull and at <25% hull (harness sets health).
+- [x] 5.2 Speed/sail plaque + hull ProgressBar restyle (keep the tween + low-hp pulse).
+  - **Verify:** sweep shot at full hull and at <25% hull (harness sets health). `00b` (full) and
+    `00c_world_hud_low_hull` (18/100) show the `PlaquePanel` speed/sail plaque (content inset
+    widened to clear its brass studs) and the new `HullBar` (dark pill track + rounded hp-green
+    fill). The tween and low-hp pulse are unchanged and visible. The compass now sits inside the
+    plaque (it had been buried under the resource bar all along).
   - _Requirements: 7.1_
-- [ ] 5.3 MobileControls → `WoodRoundButton` + icons; Set Sail = `mark_primary`.
-  - **Verify:** sweep with forced mobile shows the controls; touch-target audit passes.
+- [x] 5.3 MobileControls → `WoodRoundButton` + icons; Set Sail = `mark_primary`.
+  - **Verify:** sweep with forced mobile shows the controls; touch-target audit passes. Steering,
+    sail, ability, broadside, fire and pause are round wood buttons at the art's own aspect
+    (`round_button_size()`). The context action is coral Primary only as "Set Sail"; it goes back to
+    brass for Dock/Board/Anchor via the new `unmark_primary()`. `test_touch_target_audit` and
+    `test_mobile_controls_layout` pass; the latter gained a context-action Primary test and an
+    opener/context-action overlap check.
   - _Requirements: 7.2, 7.3_
-- [ ] 5.4 Ability/broadside cooldown as a clockwise `TextureProgressBar` sweep (visual only, reading
+- [x] 5.4 Ability/broadside cooldown as a clockwise `TextureProgressBar` sweep (visual only, reading
         the existing cooldown values).
   - **Verify:** test sets a cooldown fraction → progress value matches; `git diff` of combat
-    scripts is empty.
+    scripts is empty. `test_cooldown_sweep_shows_the_remaining_fraction` passes: 25% ready → 0.75
+    sweep, ready → 0, FILL_CLOCKWISE, and mouse-ignore so it never eats a tap. `00c` shows both
+    sweeps mid-way. The HUD only reads `get_cooldown_fraction()`/`get_special_cooldown_fraction()`
+    and no Phase 5 change touches `scripts/combat/` or `ShipCombat.gd`/`ShipController.gd`.
+    `scripts/combat/EnemySpawner.gd`'s working-tree diff belongs to a concurrent session (it
+    predates Phase 5) and is not part of this phase's commit.
   - _Requirements: 7.2, 7.4_
-- [ ] 5.5 Log/Map/Codex/New/Wardrobe drawer → round icon-button rail.
+- [x] 5.5 Log/Map/Codex/New/Wardrobe drawer → round icon-button rail.
   - **Verify:** sweep shot; each button still opens its screen (existing tests / manual sweep).
+    Desktop: one container-owned row of round wood icon buttons with captions (five new generated
+    glyphs). Phone: an icon-only round opener plus a wood-frame drawer with the same five buttons in
+    a row (`00d_mobile_drawer`). Every `*_button` reference and pressed handler is kept. The sweep
+    itself still opens each screen through the HUD (`01`–`05`), and `test_world_hud_layout` and
+    `test_captains_log`/`test_whats_new_screen` pass.
   - _Requirements: 7.1_
-- [ ] 5.6 Regression pass: HudCustomizeOverlay drag/resize, left-handed mirror, tilt-to-steer UI.
+- [x] 5.6 Regression pass: HudCustomizeOverlay drag/resize, left-handed mirror, tilt-to-steer UI.
   - **Verify:** existing tests pass; sweep shot with left-handed on and a custom layout applied.
+    `00e_left_handed` and `00f_custom_layout` (actions ×1.15 and moved, resource panel ×0.9) were
+    viewed with nothing colliding. HudCustomizeOverlay still targets only TopBar, TopRightPanel and
+    the three MobileControls clusters, all with unchanged paths. `test_hud_layout_migration` and the
+    tilt-steering test pass. **Known, pre-existing (M13 design):** a saved override is clamped to the
+    viewport, not to other controls, so a player *can* drag one cluster onto another. Seen with a
+    harness-only override; the default layouts never overlap.
   - _Requirements: 7.3_
-- [ ] 5.7 **Checkpoint — Phase 5.**
+- [x] 5.7 **Checkpoint — Phase 5.** The v0.3 HUD Overlay mock was rendered headlessly and compared
+        against real phone + desktop sweeps (`screenshots/m22/phase5/`, including the new
+        `00b`–`00g` HUD states). GUT full suite 726/727; the sole failure is the documented
+        `test_store_screen` overlap (6b). Test count +2. The design.md §11c findings include the stale
+        1.45× phone scale, a phone sweep that had never shown the phone HUD, and the compass buried
+        under the resource bar. `checkpoint-reviewer` independently re-verified with its own GUT
+        run and headful sweeps on both profiles; it also confirmed the ship/combat diff is empty,
+        re-grepped the §12 counts and judged the test-expectation changes: PASS.
 
 ### Phase 6 — Content screens (6a then 6b)
 

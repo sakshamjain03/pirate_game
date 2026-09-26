@@ -14,10 +14,13 @@ class_name UIIcons
 ## currency" / "bottled drink" silhouette a player would expect.
 
 const _PATHS := {
-	"gold":         "res://assets/ui_icons/icons/gold.png",
-	"wood":         "res://assets/ui_icons/icons/wood.png",
-	"iron":         "res://assets/ui_icons/icons/iron.png",
-	"rum":          "res://assets/ui_icons/icons/rum.png",
+	# M22 Phase 5.1 — painted full-colour resource icons (tools/ui_kit/
+	# gen_kit.py, v0.3 icon spec) replace the Kenney white glyphs that were
+	# tinted per resource in code; nothing should tint these any more.
+	"gold":         "res://assets/ui/icons/gold.svg",
+	"wood":         "res://assets/ui/icons/wood.svg",
+	"iron":         "res://assets/ui/icons/iron.svg",
+	"rum":          "res://assets/ui/icons/rum.svg",
 	"health":       "res://assets/ui_icons/icons/health.png",
 	"notoriety":    "res://assets/ui_icons/icons/notoriety.png",
 	"cannon_ready": "res://assets/ui_icons/icons/cannon_ready.png",
@@ -32,6 +35,12 @@ const _PATHS := {
 	# icon, but UIIcons is "every UI icon this project uses" per this file's
 	# own header, not resources-only.
 	"gear": "res://assets/ui/icons/gear.svg",
+	# M22 Phase 5.5 — glyphs for the HUD's round utility-button rail.
+	"log":      "res://assets/ui/icons/log.svg",
+	"map":      "res://assets/ui/icons/map.svg",
+	"codex":    "res://assets/ui/icons/codex.svg",
+	"new":      "res://assets/ui/icons/new.svg",
+	"wardrobe": "res://assets/ui/icons/wardrobe.svg",
 }
 
 static func get_icon(key: String) -> Texture2D:

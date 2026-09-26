@@ -18,6 +18,9 @@ extends GutTest
 const _EXPECTED_KEYS := [
 	"gold", "wood", "iron", "rum", "health", "notoriety", "cannon_ready",
 	"research", "cannonball", "gear",
+	# M22 Phase 5 — utility-rail glyphs (gold/wood/iron/rum above now point
+	# at generated painted SVGs too).
+	"log", "map", "codex", "new", "wardrobe",
 ]
 
 func test_every_registered_icon_key_loads_a_real_texture():
@@ -31,7 +34,7 @@ func test_unregistered_key_returns_null_not_an_error():
 	assert_null(UIIcons.get_icon("not_a_real_key"))
 
 func test_the_two_new_m22_icons_have_a_sane_nonzero_size():
-	for key in ["research", "cannonball"]:
+	for key in ["research", "cannonball", "gold", "wood", "iron", "rum", "log", "map", "codex", "new", "wardrobe"]:
 		var tex := UIIcons.get_icon(key)
 		var size := tex.get_size()
 		assert_true(size.x > 0 and size.y > 0, "'%s' icon must have a non-zero size (got %s)" % [key, size])

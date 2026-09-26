@@ -40,6 +40,18 @@ var _sail_control: Button
 var _port_alignment_label: Label
 var _stbd_alignment_label: Label
 
+## M22 Phase 5.3 — every on-screen control except the context action is a
+## round wood button (v0.3's right-thumb cluster); the context action is the
+## one wide pill, and the coral Primary only while it reads "Set Sail".
+## Widths in canvas px; heights follow the art (round_button_size()).
+const _ROUND_BIG := 150.0     # steering, sail, ability, broadside
+const _ROUND_SMALL := 96.0    # pause — the 48dp floor, a utility not an action
+## Sweep over a round button's face while its cooldown runs (5.4): dark ink,
+## not a grey-out, so the icon under it stays legible (v0.3: "cooldown = dark
+## conic sweep"). Purely visual — reads the existing cooldown fractions.
+const _COOLDOWN_SWEEP_ALPHA := 0.62
+var _cooldown_sweeps: Dictionary = {}
+
 func _uses_mobile_layout() -> bool:
 	# M22 (2026-09-25): OR in PirateThemeBuilder.is_mobile() the same way
 	# SettingsMenu._uses_mobile_layout() already does — without it, a
@@ -81,6 +93,8 @@ func _ready() -> void:
 	btn_dock.hide()
 	btn_set_sail.hide()
 	btn_anchor.hide()
+	for button: Button in [btn_left, btn_right, btn_fire_port, btn_fire_star]:
+		_make_round(button, _ROUND_BIG)
 	# Positioning and automatic broadside are the default phone combat model.
 	# Manual side-fire is a deliberate accessibility/preference opt-in.
 	_apply_advanced_combat_controls()
@@ -90,8 +104,11 @@ func _ready() -> void:
 	# Pause is a global utility, not a combat action. Pull it out of the lower
 	# action cluster so it is compact and consistently reachable at top-right.
 	btn_pause.reparent(self)
-	btn_pause.custom_minimum_size = Vector2(108, 72)
-	btn_pause.expand_icon = false
+	# Reparenting under this CanvasLayer drops the theme it inherited from
+	# Actions (a CanvasLayer can't hold one — see _ready()'s header), so the
+	# WoodRoundButton variation silently fell back to the stock grey button.
+	btn_pause.theme = theme
+	_make_round(btn_pause, _ROUND_SMALL)
 	# Same pause-gate fix as WorldHUD's captains_log_button/etc: without this,
 	# the moment PauseMenu.open() sets get_tree().paused = true, this button
 	# (inheriting process mode from the paused tree) stops receiving input —
@@ -174,8 +191,9 @@ func _apply_mobile_layout() -> void:
 	# relocates it (currently: left side, under the health bar) right after it
 	# lays out the panels this depends on, since that function, not this one,
 	# knows their real on-screen bottom edges for the current device.
-	btn_pause.position = Vector2(safe.end.x - 108.0 * scale - 16.0, safe.position.y + 150.0 * scale)
-	btn_pause.size = Vector2(108.0 * scale, 72.0 * scale)
+	var pause_size := PirateThemeBuilder.round_button_size(_ROUND_SMALL)
+	btn_pause.position = Vector2(safe.end.x - pause_size.x * scale - 16.0, safe.position.y + 150.0 * scale)
+	btn_pause.size = pause_size * scale
 
 
 func _layout_primary_actions() -> void:
@@ -186,20 +204,25 @@ func _layout_primary_actions() -> void:
 	# were previously 180x120, noticeably shorter than the movement cluster's
 	# buttons, reading as visibly smaller/less important despite serving
 	# equally primary actions (device-test feedback 2026-09-20).
-	btn_captain_ability.position = Vector2(0, 136)
-	btn_captain_ability.size = Vector2(180, 150)
-	btn_special_broadside.position = Vector2(198, 136)
-	btn_special_broadside.size = Vector2(180, 150)
+	# Same 378-wide column as the context action above them: two round
+	# buttons centred in each half of it.
+	var round_size := PirateThemeBuilder.round_button_size(_ROUND_BIG)
+	for button: Button in [btn_captain_ability, btn_special_broadside]:
+		_make_round(button, _ROUND_BIG)
+	btn_captain_ability.position = Vector2((189.0 - round_size.x) * 0.5, 136)
+	btn_special_broadside.position = Vector2(189.0 + (189.0 - round_size.x) * 0.5, 136)
 	for button in [btn_pause, btn_captain_ability, btn_special_broadside]:
 		_center_button_content(button)
+	_add_cooldown_sweep("ability", btn_captain_ability)
+	_add_cooldown_sweep("broadside", btn_special_broadside)
 
 
 func _create_action_captions() -> void:
 	## The ability/broadside icons alone gave no indication of what they do —
 	## a small label under each, matching that button's own width, makes their
 	## purpose legible without changing the icon buttons themselves.
-	_create_caption_label(tr("Ability"), btn_captain_ability.position.x, btn_captain_ability.size.x)
-	_create_caption_label(tr("Broadside"), btn_special_broadside.position.x, btn_special_broadside.size.x)
+	_create_caption_label(tr("Ability"), 0.0, 189.0)
+	_create_caption_label(tr("Broadside"), 189.0, 189.0)
 	_create_alignment_status_row()
 
 
@@ -212,20 +235,26 @@ func _create_alignment_status_row() -> void:
 	## Broadside buttons above, which it has nothing to do with. Added below
 	## the existing captions so _measured_bottom() folds its height into the
 	## cluster-stacking math the rest of this file already relies on.
-	var row_y: float = btn_captain_ability.position.y + btn_captain_ability.size.y + 4.0 + 28.0 + 6.0
+	var row_y: float = btn_captain_ability.position.y + btn_captain_ability.size.y + 4.0 + 36.0 + 4.0
 	_port_alignment_label = Label.new()
 	_port_alignment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_port_alignment_label.position = Vector2(btn_captain_ability.position.x, row_y)
-	_port_alignment_label.size = Vector2(btn_captain_ability.size.x, 24.0)
-	_port_alignment_label.add_theme_font_size_override("font_size", 13)
+	_port_alignment_label.position = Vector2(0.0, row_y)
+	_port_alignment_label.size = Vector2(189.0, 64.0)
+	_port_alignment_label.theme_type_variation = &"ChipLabel"
+	# "STARBOARD: OUT OF RANGE" is wider than its 189px column at chip size;
+	# the two used to overprint each other and run off the screen edge.
+	_port_alignment_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_port_alignment_label.text = tr("PORT: NO TARGET")
 	$Actions.add_child(_port_alignment_label)
 
 	_stbd_alignment_label = Label.new()
 	_stbd_alignment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_stbd_alignment_label.position = Vector2(btn_special_broadside.position.x, row_y)
-	_stbd_alignment_label.size = Vector2(btn_special_broadside.size.x, 24.0)
-	_stbd_alignment_label.add_theme_font_size_override("font_size", 13)
+	_stbd_alignment_label.position = Vector2(189.0, row_y)
+	_stbd_alignment_label.size = Vector2(189.0, 64.0)
+	_stbd_alignment_label.theme_type_variation = &"ChipLabel"
+	# "STARBOARD: OUT OF RANGE" is wider than its 189px column at chip size;
+	# the two used to overprint each other and run off the screen edge.
+	_stbd_alignment_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_stbd_alignment_label.text = tr("STARBOARD: NO TARGET")
 	$Actions.add_child(_stbd_alignment_label)
 
@@ -240,17 +269,17 @@ func _apply_alignment_caption(label: Label, side_name: String, preview: Dictiona
 		return
 	if locked:
 		label.text = "%s: ON TARGET" % side_name
-		label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.25))
+		label.add_theme_color_override("font_color", UITokens.palette().hp_low)
 	elif not preview.get("found", false):
 		label.text = "%s: NO TARGET" % side_name
-		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		label.add_theme_color_override("font_color", WorldHUD._hud_muted())
 	elif not preview.get("in_range", false):
 		label.text = "%s: OUT OF RANGE" % side_name
-		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		label.add_theme_color_override("font_color", WorldHUD._hud_muted())
 	else:
 		var angle: float = preview.get("angle_off_deg", 180.0)
 		label.text = "%s: %d°" % [side_name, int(ceil(angle))]
-		label.add_theme_color_override("font_color", Color(0.95, 0.75, 0.25))
+		label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 
 
 func _create_caption_label(caption: String, x: float, width: float) -> void:
@@ -258,8 +287,8 @@ func _create_caption_label(caption: String, x: float, width: float) -> void:
 	label.text = caption
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.position = Vector2(x, btn_captain_ability.position.y + btn_captain_ability.size.y + 4.0)
-	label.size = Vector2(width, 28.0)
-	label.add_theme_font_size_override("font_size", 14)
+	label.size = Vector2(width, 36.0)
+	label.theme_type_variation = &"ChipLabel"
 	$Actions.add_child(label)
 
 
@@ -343,6 +372,12 @@ func _refresh_context_action(_unused = null, _unused_b = null) -> void:
 			_context_action_name = "anchor"
 			_context_action.text = tr("Drop Anchor")
 	_context_action.visible = not _context_action_name.is_empty()
+	# One Primary per screen (design.md §7): coral only for the hero "go"
+	# moment, brass for the utility states (anchor, dock, board).
+	if _context_action_name == "set_sail":
+		PirateThemeBuilder.mark_primary(_context_action)
+	else:
+		PirateThemeBuilder.unmark_primary(_context_action)
 
 
 func _on_context_action_pressed() -> void:
@@ -361,11 +396,10 @@ func _create_sail_control() -> void:
 	# cluster read as oversized/heavy on a real device (device-test feedback
 	# 2026-09-20). Centred in the 180px gap between the two 180-wide arrow
 	# slots: 180 + (180-150)/2 = 195.
-	sail.custom_minimum_size = Vector2(150, 150)
+	_make_round(sail, _ROUND_BIG)
 	sail.position = Vector2(195, 0)
 	# Text makes the control meaningful even if an SVG import is unavailable on
 	# a device. The old icon-only control rendered as an empty square.
-	sail.add_theme_font_size_override("font_size", 20)
 	_center_button_content(sail)
 	sail.tooltip_text = tr("Sail State")
 	sail.pressed.connect(_cycle_sail_state)
@@ -403,6 +437,51 @@ func _refresh_sail_control() -> void:
 		_sail_control.text = tr("Sail")
 		return
 	_sail_control.text = "%s\n%d / %d" % [tr("Sail"), int(ship.sail_level), int(ship.ship_stats.sail_levels)]
+
+
+func _make_round(button: Button, width: float) -> void:
+	var round_size := PirateThemeBuilder.round_button_size(width)
+	button.theme_type_variation = &"WoodRoundButton"
+	button.custom_minimum_size = round_size
+	button.size = round_size
+	button.expand_icon = true
+
+
+func _add_cooldown_sweep(kind: String, button: Button) -> void:
+	## A clockwise TextureProgressBar over the button's face circle. The art
+	## centres the face on the canvas and draws it at 116/128 of the width.
+	var sweep := TextureProgressBar.new()
+	sweep.name = "CooldownSweep"
+	sweep.fill_mode = TextureProgressBar.FILL_CLOCKWISE
+	sweep.texture_progress = load(PirateThemeBuilder.TEX_COOLDOWN_DISC)
+	var ink := UITokens.palette().ink
+	sweep.tint_progress = Color(ink.r, ink.g, ink.b, _COOLDOWN_SWEEP_ALPHA)
+	sweep.nine_patch_stretch = true
+	sweep.min_value = 0.0
+	sweep.max_value = 1.0
+	sweep.step = 0.0
+	sweep.value = 0.0
+	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var diameter := button.size.x * 116.0 / PirateThemeBuilder.ROUND_BUTTON_ART_SIZE.x
+	sweep.size = Vector2(diameter, diameter)
+	sweep.position = (button.size - sweep.size) * 0.5
+	button.add_child(sweep)
+	_cooldown_sweeps[kind] = sweep
+
+
+## M22 Phase 5.4 — WorldHUD feeds the existing ready-fractions in (0 = just
+## used, 1 = ready); the sweep shows what's LEFT, so a full dark disc right
+## after use that unwinds clockwise to nothing as the button readies.
+func set_cooldown_fraction(kind: String, ready_fraction: float) -> void:
+	var sweep: TextureProgressBar = _cooldown_sweeps.get(kind)
+	if not sweep:
+		return
+	sweep.value = clampf(1.0 - ready_fraction, 0.0, 1.0)
+
+
+func get_cooldown_sweep_value(kind: String) -> float:
+	var sweep: TextureProgressBar = _cooldown_sweeps.get(kind)
+	return sweep.value if sweep else -1.0
 
 
 func _center_button_content(button: Button) -> void:

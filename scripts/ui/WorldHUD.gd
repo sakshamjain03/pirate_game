@@ -35,6 +35,15 @@ signal _dummy  # ensures signals section exists
 @onready var wood_label      : Label        = %WoodLabel
 @onready var iron_label      : Label        = %IronLabel
 @onready var rum_label       : Label        = %RumLabel
+## M22 Phase 5.1 — v0.3 pills show the amount big (HudNum) and the storage
+## cap as a small dim suffix, instead of one "200 / 5000" string that made
+## every pill twice as wide; research is the fifth pill (was a "🧪 N" suffix
+## tacked onto the economy readout).
+@onready var gold_cap_label  : Label        = %GoldCapLabel
+@onready var wood_cap_label  : Label        = %WoodCapLabel
+@onready var iron_cap_label  : Label        = %IronCapLabel
+@onready var rum_cap_label   : Label        = %RumCapLabel
+@onready var research_label  : Label        = %ResearchLabel
 @onready var island_menu     : IslandMenu   = %IslandMenu
 @onready var death_screen    : DeathScreen  = %DeathScreen
 @onready var upgrade_choice_screen: UpgradeChoiceScreen = %UpgradeChoiceScreen
@@ -65,9 +74,33 @@ const ENEMY_BAR_DISPLAY_RANGE := 150.0
 ## PC keeps direct mouse-accessible buttons. Phone builds expose one Menu
 ## button and reveal these infrequent destinations only on demand.
 const HUD_BUTTON_SIZE_PC     := Vector2(70, 32)
+const _MOBILE_HUD_SCALE      := 1.0
+
+
+## M22 Phase 5 — HUD state colours from the palette (they were raw Color()
+## literals Phase 3.5's COLOR_* migration never reached). Semantic, not
+## decorative: ready = hp_good, alarm/at-cap = hp_low, attention = gold.
+static func _hud_muted() -> Color:
+	var t := UITokens.palette().text_on_dark
+	return Color(t.r, t.g, t.b, 0.55)
+## Compass disc (canvas px) and the box each cardinal letter is seated in.
+## Widest an event announcement toast gets (canvas px), centred.
+const _ANNOUNCE_MAX_WIDTH := 900.0
+const _COMPASS_SIZE := 88.0
+const _COMPASS_LETTER := 26.0
 const HUD_BUTTON_SIZE_MOBILE := Vector2(120, 52)
 static func _hud_button_min_size() -> Vector2:
 	return HUD_BUTTON_SIZE_PC if OS.has_feature("pc") else HUD_BUTTON_SIZE_MOBILE
+
+## M22 Phase 5.5 — Log/Map/Codex/New/Wardrobe are a rail of round wood icon
+## buttons with a caption under each (v0.3's round nav buttons), instead of
+## five ragged-width brass text buttons stacked down the right edge. 96 wide
+## = the 48dp touch floor (MOBILE_MIN_TOUCH_TARGET); height follows the art.
+const _RAIL_BUTTON_WIDTH := 96.0
+## The phone's collapsed "Captain" opener: the same 48dp round button. A
+## 116-wide one (plus caption) reached down into the action cluster's
+## context button on a 2340x1080 phone (Phase 5 sweep).
+const _MOBILE_MENU_BUTTON_WIDTH := 96.0
 
 ## Test-only injection for the mobile branch: desktop CI cannot report a
 ## phone OS feature, so layout coverage needs a deterministic override.
@@ -111,7 +144,6 @@ func _ready() -> void:
 	# World.tscn — a name-based lookup for "WorldHUD" always missed.
 	add_to_group("hud")
 	_apply_theme()
-	_style_resource_chips()
 	_find_ship()
 	# SaveManager.load_game() runs deferred and finishes after this _ready(), so
 	# _pending_offline_ticks isn't populated yet on a real Continue-from-save load.
@@ -177,7 +209,11 @@ func _apply_mobile_safe_area() -> void:
 	## need no separate phone/tablet layout variant.
 	var safe := MobileLayoutManager.safe_area(get_viewport())
 	var top_bar: Control = %TopBar
-	var hud_scale := 1.45
+	# Was 1.45 — tuned for the pre-M22 1080-tall base, where desktop-authored
+	# HUD sizes were too small on a phone. At the 1688x780 base the token
+	# sizes are phone-sized already (design.md §3), and 1.45 pushed the
+	# resource bar and utility controls off the right edge (Phase 3/4 sweeps).
+	var hud_scale := _MOBILE_HUD_SCALE
 	# A player's saved drag/resize customization (Settings > Customize HUD
 	# Layout) is applied as a bounded delta on top of each element's already-
 	# computed default position/scale — never a replacement of it.
@@ -195,12 +231,17 @@ func _apply_mobile_safe_area() -> void:
 		# edge (device-test feedback 2026-09-21), and on a narrow/tall aspect
 		# the uncapped panel grows wide enough to reach clear across and
 		# overlap it (test-caught 2026-09-21).
-		var panel_scale := minf(hud_scale, (safe.size.x * 0.62) / top_right_panel.size.x)
+		# Measured from the panel's real content minimum, not .size — before the
+		# first layout pass .size is still the scene's authored rect, so the
+		# 62% width cap silently compared against the wrong width.
+		var panel_size := top_right_panel.get_combined_minimum_size()
+		top_right_panel.size = panel_size
+		var panel_scale := minf(hud_scale, (safe.size.x * 0.62) / maxf(1.0, panel_size.x))
 		var base_position := Vector2(
-			safe.end.x - top_right_panel.size.x * panel_scale - 12.0,
+			safe.end.x - panel_size.x * panel_scale - 12.0,
 			safe.position.y + 12.0)
 		var result := MobileLayoutManager.apply_control_override(
-			"top_right_panel", base_position, panel_scale, get_viewport(), top_right_panel.size)
+			"top_right_panel", base_position, panel_scale, get_viewport(), panel_size)
 		top_right_panel.position = result.position
 		top_right_panel.scale = Vector2.ONE * float(result.scale)
 	if _economy_label:
@@ -213,17 +254,21 @@ func _apply_mobile_safe_area() -> void:
 		# is pushed below whichever of TopBar/top_right_panel sits lower.
 		var top_bar_bottom_for_econ := (top_bar.position.y + top_bar.size.y * hud_scale) if top_bar else safe.position.y + 62.0
 		var panel_bottom_for_econ := top_right_panel.get_global_rect().end.y if top_right_panel else safe.position.y + 62.0
-		_economy_label.position.y = maxf(top_bar_bottom_for_econ, panel_bottom_for_econ) + 10.0
+		_economy_chip.size = _economy_chip.get_combined_minimum_size()
+		_economy_chip.position = Vector2(
+			get_viewport().get_visible_rect().size.x * 0.5 - _economy_chip.size.x * 0.5,
+			maxf(top_bar_bottom_for_econ, panel_bottom_for_econ) + 10.0)
 	if health_container:
 		# Hull health is always visible but no longer competes with steering in
 		# the lower-left corner. A single centred readout avoids the duplicate
 		# current/max labels the original desktop HUD carried.
 		var health_scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
-		health_container.size = Vector2(320.0 * health_scale, 44.0 * health_scale)
+		# 60 = the hull pill art's own height (its 9-slice caps are 30+30).
+		health_container.size = Vector2(360.0 * health_scale, maxf(60.0, 60.0 * health_scale))
 		var top_bar_bottom := (top_bar.position.y + top_bar.size.y * hud_scale) if top_bar else safe.position.y + 62.0
 		health_container.position = Vector2(safe.position.x + 12.0, top_bar_bottom + 10.0)
-		if health_right:
-			health_right.hide()
+		# (HealthRightLabel is hidden on every platform now, in the scene —
+		# HealthLeftLabel's "HULL x / y" already carries both numbers.)
 		# Pause moved to the left side, under the health bar, per device-test
 		# feedback 2026-09-21 — it previously sat on the right under
 		# top_right_panel, close enough to the Captain button below it (also
@@ -237,7 +282,8 @@ func _apply_mobile_safe_area() -> void:
 			pause_btn_to_nudge.position = Vector2(
 				health_container.position.x, health_container.get_global_rect().end.y + 12.0)
 	if mobile_utility_menu_button:
-		var button_size := mobile_utility_menu_button.size
+		var opener: Control = mobile_utility_menu_button.get_parent()
+		var button_size := opener.get_combined_minimum_size()
 		# Sits directly below top_right_panel by that panel's own measured
 		# bottom edge (same technique as the old Pause-relative nudge this
 		# replaces) now that Pause has moved to the opposite side — this reads
@@ -245,11 +291,15 @@ func _apply_mobile_safe_area() -> void:
 		# extra gap underneath it too.
 		var top_y := (top_right_panel.get_global_rect().end.y + 12.0) if top_right_panel \
 			else safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5
-		mobile_utility_menu_button.position = Vector2(safe.end.x - button_size.x - 16.0, top_y)
+		opener.position = Vector2(safe.end.x - button_size.x - 16.0, top_y)
 	if mobile_utility_drawer:
-		var drawer_width := minf(420.0, safe.size.x - 32.0)
-		mobile_utility_drawer.size = Vector2(drawer_width, 276.0)
-		mobile_utility_drawer.position = Vector2(safe.get_center().x - drawer_width * 0.5, safe.end.y - 366.0)
+		# Sized from its own content (one row of five round buttons + captions)
+		# rather than a fixed 420x276 box sized for the old 2x3 text grid.
+		var drawer_size := mobile_utility_drawer.get_combined_minimum_size()
+		mobile_utility_drawer.size = drawer_size
+		mobile_utility_drawer.position = Vector2(safe.get_center().x - drawer_size.x * 0.5,
+				safe.end.y - drawer_size.y - 180.0)
+	_place_compass()
 	if _objective_card:
 		var action_scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
 		var card_width := 378.0 * action_scale
@@ -308,28 +358,27 @@ func _offer_offline_income_bonus() -> void:
 	offer.present(&"offline_double", tr("Watch an ad to double the income you just earned?"),
 		SaveManager.grant_offline_income_bonus)
 
+## The one Theme this HUD builds (_apply_theme). Every Control this script
+## adds DIRECTLY under the HUD's CanvasLayer at runtime must be given it: a
+## CanvasLayer can't hold/propagate a theme, so without it type variations
+## (WoodFramePanel, HudNumLabel…) silently resolve against the stock theme —
+## how the announcement toast shipped as a grey band (M22 Phase 5 sweep).
+## Reused rather than rebuilt per toast: build() loads every font and kit SVG.
+var _hud_theme: Theme
+
+func _hud_owned_theme() -> Theme:
+	if not _hud_theme:
+		_hud_theme = PirateThemeBuilder.build()
+	return _hud_theme
+
+
 func _apply_theme() -> void:
 	## Inject the runtime pirate theme into this HUD
 	var theme := PirateThemeBuilder.build()
+	_hud_theme = theme
 	for child in get_children():
 		if child is Control:
 			child.theme = theme
-
-func _style_resource_chips() -> void:
-	## M15.5 Requirement 3.1 — each resource chip's background is tinted to
-	## match that resource's existing color identity (same colors
-	## _on_resources_changed()/_tint_label() already use), rather than one
-	## flat generic panel for all four.
-	var chip_tints := {
-		"GoldChip": Color(1, 0.84, 0, 1),
-		"WoodChip": Color(0.6, 0.4, 0.2, 1),
-		"IronChip": Color(0.7, 0.7, 0.75, 1),
-		"RumChip":  Color(0.8, 0.4, 0.1, 1),
-	}
-	for chip_name in chip_tints:
-		var chip: PanelContainer = get_node_or_null("%" + chip_name)
-		if chip:
-			chip.add_theme_stylebox_override("panel", PirateThemeBuilder.make_chip_stylebox(chip_tints[chip_name]))
 
 func _find_ship() -> void:
 	## Try to locate the PlayerShip in the scene tree
@@ -416,14 +465,74 @@ func _find_ship() -> void:
 	CampaignManager.objective_progressed.connect(_on_campaign_objective_progressed)
 
 var _economy_label: Label
+## M22 Phase 5.1 — "Next Production" is a pill chip like the resources (was
+## tiny pale-green floating text, top-centre, which the widened resource row
+## ran into on desktop). The chip is what gets positioned; the label is what
+## tests measure, and it can only ever sit inside the chip.
+var _economy_chip: PanelContainer
 func _create_economy_label() -> void:
+	_economy_chip = PanelContainer.new()
+	_economy_chip.name = "EconomyChip"
+	_economy_chip.theme_type_variation = &"ResourcePill"
+	_economy_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_economy_chip.theme = _hud_owned_theme()
 	_economy_label = Label.new()
-	_economy_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(14))
-	_economy_label.add_theme_color_override("font_color", Color(0.6, 0.8, 0.6))
-	# Position top center
-	_economy_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_economy_label.position.y += 20
-	add_child(_economy_label)
+	_economy_label.theme_type_variation = &"ChipLabel"
+	_economy_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_economy_chip.add_child(_economy_label)
+	add_child(_economy_chip)
+	# Desktop: directly under the speed/sail plaque, from its measured edge
+	# (the mobile path re-places it in _apply_mobile_safe_area()).
+	call_deferred("_place_economy_chip")
+
+
+func _place_economy_chip() -> void:
+	_place_compass()
+	if not _economy_chip or PirateThemeBuilder.is_mobile() or _uses_mobile_utility_menu():
+		return
+	var top_bar: Control = %TopBar
+	var top_rect := top_bar.get_global_rect() if top_bar else Rect2(12, 12, 0, 40)
+	_economy_chip.position = Vector2(top_rect.position.x, top_rect.end.y + 10.0)
+
+
+## M22 Phase 5 — the compass was anchored to the top-right corner, exactly
+## where TopRightPanel's resource bar sits, so it rendered as a sliver behind
+## the last resource chip for as long as that bar has existed. It is now the
+## last child of the speed/sail plaque's HBox (scene), so it moves and scales
+## with the plaque and can't overlap anything the plaque doesn't. This only
+## seats the cardinal letters (their scene offsets were tuned for ~14px text
+## and overprinted each other at chip size) and centres the rotation pivot
+## (the needle turns with the ship's yaw every frame — around its top-left
+## corner by default, which swung N/S/E/W off the disc).
+func _place_compass() -> void:
+	if not compass_needle:
+		return
+	var disc: Control = compass_needle.get_parent()
+	var needle_size: Vector2 = disc.size - Vector2(16, 16) if disc else compass_needle.size
+	compass_needle.pivot_offset = needle_size * 0.5
+	if wind_arrow:
+		wind_arrow.add_theme_color_override("font_color", UITokens.palette().shallows.lightened(0.35))
+	# Only the north marker: four chip-size letters don't fit an 88px disc
+	# without touching, and the needle rotating with the ship already reads
+	# as a compass from N + the wind arrow alone.
+	for other in ["SLabel", "ELabel", "WLabel"]:
+		var hidden_letter := compass_needle.get_node_or_null(other)
+		if hidden_letter:
+			hidden_letter.visible = false
+	var half := _COMPASS_LETTER * 0.5
+	for letter_offsets in [["NLabel", Vector4(-half, 0, half, _COMPASS_LETTER)]]:
+		var letter: Label = compass_needle.get_node_or_null(letter_offsets[0])
+		if not letter:
+			continue
+		var o: Vector4 = letter_offsets[1]
+		letter.theme_type_variation = &"ChipLabel"
+		letter.add_theme_color_override("font_color", UITokens.palette().coral_bloom)
+		letter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		letter.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		letter.offset_left = o.x
+		letter.offset_top = o.y
+		letter.offset_right = o.z
+		letter.offset_bottom = o.w
 
 var _fps_label: Label
 func _create_fps_label() -> void:
@@ -434,6 +543,7 @@ func _create_fps_label() -> void:
 	_fps_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
 	_fps_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_fps_label.position = Vector2(8, -20)
+	_fps_label.theme = _hud_owned_theme()
 	add_child(_fps_label)
 	if not OS.has_feature("pc"):
 		# Frame telemetry is useful in desktop development, not as persistent
@@ -449,6 +559,45 @@ var wardrobe_button: Button
 var mobile_utility_menu_button: Button
 var mobile_utility_drawer: PanelContainer
 var mobile_utility_badge: Label
+var _utility_rail: HBoxContainer
+
+
+## A round wood icon button + caption, the one recipe every utility
+## destination uses (desktop rail and phone drawer). The Button is returned so
+## callers keep their existing `*_button` references and pressed wiring.
+func _make_round_utility_button(button_name: String, icon_key: String, caption: String,
+		width: float, with_caption: bool = true) -> Dictionary:
+	var item := VBoxContainer.new()
+	item.name = button_name + "Item"
+	item.add_theme_constant_override("separation", 2)
+	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var btn := Button.new()
+	btn.name = button_name
+	btn.theme_type_variation = &"WoodRoundButton"
+	btn.icon = UIIcons.get_icon(icon_key)
+	btn.expand_icon = true
+	btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	btn.tooltip_text = caption
+	btn.custom_minimum_size = PirateThemeBuilder.round_button_size(width)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# WorldHUD itself is not PROCESS_MODE_ALWAYS (its own _process() drives
+	# cannon cooldowns/compass that must stay frozen while paused), so without
+	# this the button stops receiving input the moment ANY pause-on-open
+	# panel sets get_tree().paused = true — a toggle that can open its panel
+	# but never close it back (a real "looks stuck" bug from self-play).
+	btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	item.add_child(btn)
+	btn.add_child(ButtonJuice.new())
+	if with_caption:
+		var label := Label.new()
+		label.name = "Caption"
+		label.text = caption
+		label.theme_type_variation = &"ChipLabel"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		item.add_child(label)
+	return {"item": item, "button": btn}
 
 func _uses_mobile_utility_menu() -> bool:
 	return force_mobile_utility_menu or not OS.has_feature("pc")
@@ -468,13 +617,22 @@ func _mobile_utility_button_size() -> Vector2:
 	## apply_button_juice() does for every other button.
 	var scaled := HUD_BUTTON_SIZE_MOBILE * PirateThemeBuilder.control_scale()
 	var floor_size := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET
-	return Vector2(maxf(scaled.x, floor_size.x), maxf(scaled.y, floor_size.y))
+	# M22 Phase 5.5: round now, so width alone decides it (height follows the
+	# art's aspect, and is always taller than the width).
+	return PirateThemeBuilder.round_button_size(maxf(scaled.x, floor_size.x))
 
 
 func _create_utility_controls() -> void:
 	if _uses_mobile_utility_menu():
 		_create_mobile_utility_menu()
 		return
+	# One container-owned row, right-aligned under the status chips (named
+	# "Utility…" so _rebuild_utility_controls() clears it with the rest).
+	_utility_rail = HBoxContainer.new()
+	_utility_rail.name = "UtilityRail"
+	_utility_rail.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_utility_rail.add_theme_constant_override("separation", 12)
+	top_right_panel.add_child(_utility_rail)
 	_create_captains_log_button()
 	_create_world_map_button()
 	_create_codex_button()
@@ -503,43 +661,48 @@ func _rebuild_utility_controls() -> void:
 
 
 func _create_mobile_utility_menu() -> void:
-	mobile_utility_menu_button = Button.new()
-	mobile_utility_menu_button.name = "UtilityMenuButton"
-	mobile_utility_menu_button.text = tr("Captain")
-	mobile_utility_menu_button.custom_minimum_size = _mobile_utility_button_size()
-	mobile_utility_menu_button.size = _mobile_utility_button_size()
-	mobile_utility_menu_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mobile_utility_menu_button.process_mode = Node.PROCESS_MODE_ALWAYS
-	mobile_utility_menu_button.theme = PirateThemeBuilder.build()
-	add_child(mobile_utility_menu_button)
-	mobile_utility_menu_button.add_child(ButtonJuice.new())
+	# M22 Phase 5.5 — a round wood button (log glyph: the drawer is the
+	# captain's papers) with a "Captain" caption, same family as the rail.
+	# Icon-only (tooltip "Captain"): with a caption under it the opener
+	# reached down into the action cluster's context button on a 2340x1080
+	# phone — caught by test_mobile_controls_layout's opener check.
+	var opener_parts := _make_round_utility_button("UtilityMenuButton", "log", tr("Captain"),
+			_MOBILE_MENU_BUTTON_WIDTH, false)
+	mobile_utility_menu_button = opener_parts.button
+	var opener: VBoxContainer = opener_parts.item
+	opener.name = "UtilityMenuOpener"
+	opener.theme = _hud_owned_theme()
+	add_child(opener)
 	mobile_utility_badge = Label.new()
 	mobile_utility_badge.name = "UtilityAttentionBadge"
 	mobile_utility_badge.text = "!"
 	mobile_utility_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mobile_utility_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	mobile_utility_badge.position = Vector2(mobile_utility_menu_button.size.x - 30, 4)
+	mobile_utility_badge.position = Vector2(mobile_utility_menu_button.custom_minimum_size.x - 30, 4)
 	mobile_utility_badge.size = Vector2(24, 24)
-	mobile_utility_badge.add_theme_font_size_override("font_size", 16)
-	mobile_utility_badge.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	mobile_utility_badge.theme_type_variation = &"ChipLabel"
+	mobile_utility_badge.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	mobile_utility_menu_button.add_child(mobile_utility_badge)
 
 	mobile_utility_drawer = PanelContainer.new()
 	mobile_utility_drawer.name = "UtilityMenuDrawer"
+	mobile_utility_drawer.theme_type_variation = &"WoodFramePanel"
 	mobile_utility_drawer.process_mode = Node.PROCESS_MODE_ALWAYS
-	mobile_utility_drawer.theme = PirateThemeBuilder.build()
+	mobile_utility_drawer.theme = _hud_owned_theme()
 	mobile_utility_drawer.visible = false
 	add_child(mobile_utility_drawer)
-	var items := GridContainer.new()
+	# One row of round icon buttons (was a 2-column grid of brass text
+	# buttons) — the same five destinations, the same recipe as desktop.
+	var items := HBoxContainer.new()
 	items.name = "Items"
-	items.columns = 2
-	items.add_theme_constant_override("separation", 8)
+	items.alignment = BoxContainer.ALIGNMENT_CENTER
+	items.add_theme_constant_override("separation", 16)
 	mobile_utility_drawer.add_child(items)
-	_add_mobile_utility_item(items, "Log", "log")
-	_add_mobile_utility_item(items, "Map", "map")
-	_add_mobile_utility_item(items, "Codex", "codex")
-	_add_mobile_utility_item(items, "New", "new")
-	_add_mobile_utility_item(items, "Wardrobe", "wardrobe")
+	_add_mobile_utility_item(items, "Log", "log", "log")
+	_add_mobile_utility_item(items, "Map", "map", "map")
+	_add_mobile_utility_item(items, "Codex", "codex", "codex")
+	_add_mobile_utility_item(items, "New", "new", "new")
+	_add_mobile_utility_item(items, "Wardrobe", "wardrobe", "wardrobe")
 	mobile_utility_menu_button.pressed.connect(func():
 		mobile_utility_drawer.visible = not mobile_utility_drawer.visible)
 	_update_mobile_menu_badge()
@@ -558,16 +721,11 @@ func _update_mobile_menu_badge() -> void:
 	mobile_utility_badge.visible = needs_attention
 
 
-func _add_mobile_utility_item(parent: Container, label: String, destination: String) -> void:
-	var item := Button.new()
-	item.name = "Utility%sButton" % destination.capitalize()
-	item.text = tr(label)
-	item.custom_minimum_size = _mobile_utility_button_size()
-	item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	item.process_mode = Node.PROCESS_MODE_ALWAYS
-	item.pressed.connect(_open_mobile_utility.bind(destination))
-	parent.add_child(item)
-	item.add_child(ButtonJuice.new())
+func _add_mobile_utility_item(parent: Container, label: String, destination: String, icon_key: String) -> void:
+	var parts := _make_round_utility_button("Utility%sButton" % destination.capitalize(), icon_key,
+			tr(label), _mobile_utility_button_size().x)
+	parts.button.pressed.connect(_open_mobile_utility.bind(destination))
+	parent.add_child(parts.item)
 
 
 func _open_mobile_utility(destination: String) -> void:
@@ -595,14 +753,19 @@ func _open_mobile_utility(destination: String) -> void:
 
 func _create_notoriety_label() -> void:
 	notoriety_label = Label.new()
-	notoriety_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(14))
-	notoriety_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
+	notoriety_label.name = "NotorietyLabel"
+	# M22 Phase 5.1 — ChipLabel (Baloo 800) in the horizon-gold the palette
+	# uses for "attention, not alarm"; was 14px orange on a brown chip.
+	notoriety_label.theme_type_variation = &"ChipLabel"
+	notoriety_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	notoriety_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	# M15.5 Requirement 3.4 — same rounded chip treatment as the resource
-	# counters, instead of bare floating text.
+	# counters, instead of bare floating text (now literally the same pill).
 	var chip := PanelContainer.new()
-	chip.add_theme_stylebox_override("panel", PirateThemeBuilder.make_chip_stylebox(Color(1.0, 0.5, 0.2, 1)))
+	chip.name = "NotorietyChip"
+	chip.theme_type_variation = &"ResourcePill"
 	# Shrink-to-content rather than the VBoxContainer default of filling
 	# TopRightPanel's full width — a full-width tinted panel behind a short
 	# "Notoriety: 0.0" readout rendered as a large mostly-empty bar.
@@ -632,85 +795,51 @@ func _create_captains_log_button() -> void:
 	## it once that label became container-positioned (and thus taller) —
 	## the exact "two independently-hardcoded numbers drift apart" failure
 	## mode D36 already burned this HUD on once.
-	captains_log_button = Button.new()
-	captains_log_button.name = "UtilityLogButton"
-	captains_log_button.text = tr("Log")
-	captains_log_button.custom_minimum_size = _hud_button_min_size()
-	captains_log_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	# WorldHUD itself is not PROCESS_MODE_ALWAYS (its own _process() drives
-	# cannon cooldowns/compass that must stay frozen while paused), so without
-	# this the button stops receiving input the moment ANY pause-on-open
-	# panel (this one included) sets get_tree().paused = true — a toggle
-	# button that can open its panel but never close it back via a second
-	# press, a real "looks stuck" bug found via self-play testing.
-	captains_log_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	var log_parts := _make_round_utility_button("UtilityLogButton", "log", tr("Log"), _RAIL_BUTTON_WIDTH)
+	captains_log_button = log_parts.button
 	captains_log_button.pressed.connect(func():
 		if captains_log:
 			captains_log.toggle())
-	top_right_panel.add_child(captains_log_button)
-	captains_log_button.add_child(ButtonJuice.new())
+	_utility_rail.add_child(log_parts.item)
 
 func _create_world_map_button() -> void:
 	## M10 Requirement 3 — same dynamic-positioning pattern as
 	## _create_captains_log_button() just above: a fourth child of
 	## top_right_panel, container-positioned rather than a fifth
 	## independently-hardcoded offset.
-	world_map_button = Button.new()
-	world_map_button.name = "UtilityMapButton"
-	world_map_button.text = tr("Map")
-	world_map_button.custom_minimum_size = _hud_button_min_size()
-	world_map_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	# See _create_captains_log_button()'s comment — same pause-gate fix.
-	world_map_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	var map_parts := _make_round_utility_button("UtilityMapButton", "map", tr("Map"), _RAIL_BUTTON_WIDTH)
+	world_map_button = map_parts.button
 	world_map_button.pressed.connect(func():
 		if world_map_screen:
 			world_map_screen.toggle())
-	top_right_panel.add_child(world_map_button)
-	world_map_button.add_child(ButtonJuice.new())
+	_utility_rail.add_child(map_parts.item)
 
 
 func _create_codex_button() -> void:
 	## Uses the same container-owned placement as Log/Map, avoiding a second
 	## hard-coded HUD offset and its known overlap regression (D36).
-	codex_button = Button.new()
-	codex_button.name = "UtilityCodexButton"
-	codex_button.text = tr("Codex")
-	codex_button.custom_minimum_size = _hud_button_min_size()
-	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	# See _create_captains_log_button()'s comment — same pause-gate fix.
-	codex_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	var codex_parts := _make_round_utility_button("UtilityCodexButton", "codex", tr("Codex"), _RAIL_BUTTON_WIDTH)
+	codex_button = codex_parts.button
 	codex_button.pressed.connect(func():
 		if codex_screen and codex_screen.has_method("toggle"):
 			codex_screen.toggle())
-	top_right_panel.add_child(codex_button)
-	codex_button.add_child(ButtonJuice.new())
+	_utility_rail.add_child(codex_parts.item)
 
 
 func _create_whats_new_button() -> void:
 	## M14 Requirement 5.1 — same container-owned placement as Log/Map/Codex.
-	whats_new_button = Button.new()
-	whats_new_button.name = "UtilityNewButton"
-	whats_new_button.text = tr("New")
-	whats_new_button.custom_minimum_size = _hud_button_min_size()
-	whats_new_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	# See _create_captains_log_button()'s comment — same pause-gate fix.
-	whats_new_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	var new_parts := _make_round_utility_button("UtilityNewButton", "new", tr("New"), _RAIL_BUTTON_WIDTH)
+	whats_new_button = new_parts.button
 	whats_new_button.pressed.connect(func():
 		if whats_new_screen:
 			whats_new_screen.toggle())
-	top_right_panel.add_child(whats_new_button)
-	whats_new_button.add_child(ButtonJuice.new())
+	_utility_rail.add_child(new_parts.item)
 
 
 func _create_wardrobe_button() -> void:
 	## M16 Task 18 — same container-owned placement as Log/Map/Codex/New.
-	wardrobe_button = Button.new()
-	wardrobe_button.name = "UtilityWardrobeButton"
-	wardrobe_button.text = tr("Wardrobe")
-	wardrobe_button.custom_minimum_size = _hud_button_min_size()
-	wardrobe_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	# See _create_captains_log_button()'s comment — same pause-gate fix.
-	wardrobe_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	var wardrobe_parts := _make_round_utility_button("UtilityWardrobeButton", "wardrobe", tr("Wardrobe"), _RAIL_BUTTON_WIDTH)
+	wardrobe_button = wardrobe_parts.button
 	wardrobe_button.pressed.connect(func():
 		# Participate in M9's panel arbitration rather than stacking on top
 		# (the V14 defect class) — a tutorial beat keeps focus if active.
@@ -718,8 +847,7 @@ func _create_wardrobe_button() -> void:
 			return
 		if wardrobe_screen:
 			wardrobe_screen.toggle())
-	top_right_panel.add_child(wardrobe_button)
-	wardrobe_button.add_child(ButtonJuice.new())
+	_utility_rail.add_child(wardrobe_parts.item)
 
 
 # --- Campaign feedback (M7 §9.2/§9.4) ---
@@ -787,7 +915,7 @@ func _on_notoriety_changed(new_val: float) -> void:
 					
 	if next_threshold >= 0:
 		var remaining = max(0.0, next_threshold - new_val)
-		text += "\n" + (tr("Next escalation in: %.1f") % remaining)
+		text += "   ·   " + (tr("Next escalation in: %.1f") % remaining)
 		
 	notoriety_label.text = text
 
@@ -849,32 +977,28 @@ func _on_boarding_resolved(success: bool, loot: Dictionary, _target_faction_id: 
 func _tint_label(lbl: Label, current: int, maximum: int) -> void:
 	if not lbl: return
 	if current >= maximum:
-		lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+		lbl.add_theme_color_override("font_color", UITokens.palette().hp_low)
 	else:
 		lbl.remove_theme_color_override("font_color")
+
+func _set_resource_pill(value_label: Label, cap_label: Label, current: int, maximum: int) -> void:
+	if value_label:
+		value_label.text = str(current)
+		_tint_label(value_label, current, maximum)
+	if cap_label:
+		cap_label.text = "/%s" % str(maximum)
+
 
 func _on_resources_changed(res: Dictionary) -> void:
 	## M15.5 — the icon now carries what an emoji prefix used to (each resource
 	## chip's Icon TextureRect, tinted to match this same label's font color).
 	var max_res = ResourceManager.max_storage
-	if gold_label:
-		gold_label.text = tr("%s / %s") % [str(res.get("gold", 0)), str(max_res.get("gold", 9999))]
-		_tint_label(gold_label, res.get("gold", 0), max_res.get("gold", 9999))
-	if wood_label:
-		wood_label.text = tr("%s / %s") % [str(res.get("wood", 0)), str(max_res.get("wood", 9999))]
-		_tint_label(wood_label, res.get("wood", 0), max_res.get("wood", 9999))
-	if iron_label:
-		iron_label.text = tr("%s / %s") % [str(res.get("iron", 0)), str(max_res.get("iron", 9999))]
-		_tint_label(iron_label, res.get("iron", 0), max_res.get("iron", 9999))
-	if rum_label:
-		rum_label.text  = tr("%s / %s") % [str(res.get("rum", 0)), str(max_res.get("rum", 9999))]
-		_tint_label(rum_label, res.get("rum", 0), max_res.get("rum", 9999))
-	if _economy_label:
-		# Just append it to the economy label for now to avoid creating a new UI element
-		var res_str = " | 🧪 %s" % str(res.get("research", 0))
-		if not _economy_label.has_meta("res_str"):
-			_economy_label.set_meta("res_str", res_str)
-		_economy_label.set_meta("res_str", res_str)
+	_set_resource_pill(gold_label, gold_cap_label, res.get("gold", 0), max_res.get("gold", 9999))
+	_set_resource_pill(wood_label, wood_cap_label, res.get("wood", 0), max_res.get("wood", 9999))
+	_set_resource_pill(iron_label, iron_cap_label, res.get("iron", 0), max_res.get("iron", 9999))
+	_set_resource_pill(rum_label, rum_cap_label, res.get("rum", 0), max_res.get("rum", 9999))
+	if research_label:
+		research_label.text = str(res.get("research", 0))
 
 func _on_dock_completed(island_id: String) -> void:
 	if _uses_mobile_utility_menu():
@@ -916,7 +1040,9 @@ func _update_cannon_cooldown_display(side: String, total: float, start_ms: int) 
 func _update_cannon_header_captions() -> void:
 	if not _firing_solver:
 		return
-	var caption := " · %d° / %dm" % [int(_firing_solver.get_arc_degrees()), int(_firing_solver.get_range())]
+	# Own line under the side name: at chip size "PORT CANNONS · 40° / 85m"
+	# no longer fits the panel on one line and wrapped mid-phrase.
+	var caption := "\n%d° / %dm" % [int(_firing_solver.get_arc_degrees()), int(_firing_solver.get_range())]
 	if port_header_label:
 		port_header_label.text = tr("PORT CANNONS") + caption
 	if stbd_header_label:
@@ -954,16 +1080,16 @@ func _apply_alignment_label(label: Label, preview: Dictionary, locked: bool) -> 
 	label.visible = true
 	if not preview.get("found", false):
 		label.text = tr("NO TARGET")
-		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		label.add_theme_color_override("font_color", _hud_muted())
 	elif not preview.get("in_range", false):
 		label.text = tr("OUT OF RANGE")
-		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		label.add_theme_color_override("font_color", _hud_muted())
 	else:
 		var angle: float = preview.get("angle_off_deg", 180.0)
 		label.text = tr("%d° TO ALIGN") % int(ceil(angle))
 		var arc: float = maxf(_firing_solver.get_arc_degrees(), 0.01) if _firing_solver else 35.0
 		var warmth: float = clampf(1.0 - angle / arc, 0.0, 1.0)
-		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65).lerp(Color(1.0, 0.84, 0.2), warmth))
+		label.add_theme_color_override("font_color", _hud_muted().lerp(UITokens.palette().horizon_gold, warmth))
 
 ## Replaces the old per-ship Label3D (EnemyHealthBar.gd) that only appeared
 ## once an enemy had taken damage and had no occlusion handling — a
@@ -1068,11 +1194,7 @@ func _process(_delta: float) -> void:
 
 	if _economy_label and ResourceManager:
 		var time_left = ResourceManager.ECONOMY_TICK_INTERVAL - ResourceManager._economy_timer
-		var base_text = tr("Next Production: %.1fs") % max(0.0, time_left)
-		if _economy_label.has_meta("res_str"):
-			_economy_label.text = base_text + _economy_label.get_meta("res_str")
-		else:
-			_economy_label.text = base_text
+		_economy_label.text = tr("Next Production: %.1fs") % max(0.0, time_left)
 
 func _on_speed_changed(speed: float) -> void:
 	if speed_label:
@@ -1149,14 +1271,15 @@ func _create_objective_label() -> void:
 	## failure mode with PRESET_CENTER's zero-width rect.
 	_objective_label = Label.new()
 	_objective_label.name = "ObjectiveLabel"
-	_objective_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
-	_objective_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	_objective_label.theme_type_variation = &"HudNumLabel"
+	_objective_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_objective_label.set_anchors_preset(Control.PRESET_TOP_WIDE, true)
 	_objective_label.offset_top = 44.0
 	_objective_label.offset_bottom = 90.0
 	_objective_label.visible = false
+	_objective_label.theme = _hud_owned_theme()
 	add_child(_objective_label)
 
 
@@ -1165,13 +1288,13 @@ func _create_mobile_objective_card() -> void:
 	## above the primary action cluster instead of competing with top HUD data.
 	_objective_card = PanelContainer.new()
 	_objective_card.name = "ObjectiveCard"
-	_objective_card.theme = PirateThemeBuilder.build()
+	_objective_card.theme = _hud_owned_theme()
 	_objective_card.visible = false
 	add_child(_objective_card)
 	_objective_label = Label.new()
 	_objective_label.name = "ObjectiveLabel"
-	_objective_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
-	_objective_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	_objective_label.theme_type_variation = &"HudNumLabel"
+	_objective_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_objective_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1235,16 +1358,16 @@ func set_cannon_cooldown(side: String, ready: bool, pct: float = 1.0) -> void:
 		# The moment that matters: a hostile is in the arc and the guns are
 		# loaded, so this side is about to fire on its own.
 		label.text = tr("ON TARGET ✹")
-		label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.25))
+		label.add_theme_color_override("font_color", UITokens.palette().hp_low)
 	elif locked:
 		label.text = tr("TARGET · RELOADING %d%%") % int(pct * 100.0)
-		label.add_theme_color_override("font_color", Color(0.95, 0.75, 0.25))
+		label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	elif ready:
 		label.text = tr("READY ⚓")
-		label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.3))
+		label.add_theme_color_override("font_color", UITokens.palette().hp_good)
 	else:
 		label.text = tr("RELOADING %d%% ⌛") % int(pct * 100.0)
-		label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
+		label.add_theme_color_override("font_color", UITokens.palette().brass)
 
 func _update_special_broadside_display() -> void:
 	if not _special_label or not _ship_controller or not _ship_controller.combat:
@@ -1253,13 +1376,15 @@ func _update_special_broadside_display() -> void:
 	if not combat.has_method("is_special_broadside_ready"):
 		_special_label.visible = false
 		return
+	if mobile_controls and mobile_controls.has_method("set_cooldown_fraction"):
+		mobile_controls.set_cooldown_fraction("broadside", combat.get_special_cooldown_fraction())
 	if combat.is_special_broadside_ready():
 		_special_label.text = tr("[SPACE] FULL BROADSIDE")
-		_special_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+		_special_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	else:
 		var pct: float = combat.get_special_cooldown_fraction()
 		_special_label.text = tr("FULL BROADSIDE %d%%") % int(pct * 100.0)
-		_special_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.6))
+		_special_label.add_theme_color_override("font_color", _hud_muted())
 
 func _update_captain_ability_display() -> void:
 	if not _ability_label or not _ship_controller:
@@ -1269,22 +1394,30 @@ func _update_captain_ability_display() -> void:
 		_ability_label.visible = false
 		return
 	_ability_label.visible = true
+	if mobile_controls and mobile_controls.has_method("set_cooldown_fraction"):
+		mobile_controls.set_cooldown_fraction("ability", node.get_cooldown_fraction())
 	var ability = node.get_ability()
 	if node.is_ready():
 		_ability_label.text = tr("[R] %s %s") % [ability.icon, ability.display_name]
-		_ability_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
+		_ability_label.add_theme_color_override("font_color", UITokens.palette().shallows.lightened(0.45))
 	else:
 		_ability_label.text = "%s %s %d%%" % [
 			ability.icon, ability.display_name, int(node.get_cooldown_fraction() * 100.0)]
-		_ability_label.add_theme_color_override("font_color", Color(0.5, 0.52, 0.58))
+		_ability_label.add_theme_color_override("font_color", _hud_muted())
 
 func _create_captain_ability_label() -> void:
-	if not port_label or not port_label.get_parent():
+	# Starboard panel (M22 Phase 5): the special broadside readout already
+	# sits under Port, and stacking both there made Port twice Starboard's
+	# height with an empty Starboard beside it.
+	var host: Node = stbd_label.get_parent() if stbd_label else null
+	if not host:
 		return
 	_ability_label = Label.new()
 	_ability_label.name = "CaptainAbilityLabel"
+	_ability_label.theme_type_variation = &"ChipLabel"
+	_ability_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_ability_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	port_label.get_parent().add_child(_ability_label)
+	host.add_child(_ability_label)
 	_update_captain_ability_display()
 
 func _create_special_broadside_label() -> void:
@@ -1295,6 +1428,8 @@ func _create_special_broadside_label() -> void:
 		return
 	_special_label = Label.new()
 	_special_label.name = "SpecialBroadsideLabel"
+	_special_label.theme_type_variation = &"ChipLabel"
+	_special_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_special_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	port_label.get_parent().add_child(_special_label)
 	_update_special_broadside_display()
@@ -1309,33 +1444,18 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	## regardless of tone. Framed like the rest of the HUD's panels; color
 	## reads informational (gold) by default, alarm-red only for genuine
 	## warnings (e.g. docking too fast, a corrupted save).
+	# M22 Phase 5: the kit's wood frame + HudNum text (was a flat navy
+	# StyleBoxFlat with a black-outlined label — the pre-M22 look).
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.07, 0.12, 0.95)
-	style.border_width_left = 4
-	style.border_width_top = 4
-	style.border_width_right = 4
-	style.border_width_bottom = 4
-	style.border_color = UITokens.palette().brass
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_right = 8
-	style.corner_radius_bottom_left = 8
-	style.content_margin_left = 24.0
-	style.content_margin_right = 24.0
-	style.content_margin_top = 12.0
-	style.content_margin_bottom = 12.0
-	panel.add_theme_stylebox_override("panel", style)
+	panel.theme_type_variation = &"WoodFramePanel"
 
 	var label = Label.new()
 	label.text = text_content
+	label.theme_type_variation = &"HudNumLabel"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(32))
 	label.add_theme_color_override("font_color",
 		UITokens.palette().hp_low if is_warning else UITokens.palette().brass_light)
-	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 8)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel.add_child(label)
 
@@ -1344,12 +1464,21 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	# rightwards off the edge of the screen instead of centring within it —
 	# "While you were away: your empire kept running (N ticks)" ran clean off
 	# the frame. A full-width rect with wrapping centres properly at any length.
-	panel.set_anchors_preset(Control.PRESET_HCENTER_WIDE, true)
-	panel.offset_left = 40.0
-	panel.offset_right = -40.0
+	# M22 Phase 5: centred and capped at _ANNOUNCE_MAX_WIDTH — a full-width
+	# wood band read as a wall and, on phone, covered the side clusters
+	# (Set Sail) for its whole 3.4s. Still a real-width rect (never the
+	# zero-width PRESET_CENTER trap described above), so it wraps and centres.
+	var announce_width := minf(_ANNOUNCE_MAX_WIDTH, get_viewport().get_visible_rect().size.x - 80.0)
+	panel.set_anchors_preset(Control.PRESET_CENTER_TOP, true)
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -announce_width * 0.5
+	panel.offset_right = announce_width * 0.5
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.offset_top = -140.0
 	panel.offset_bottom = -40.0
 
+	panel.theme = _hud_owned_theme()
 	add_child(panel)
 
 	# Start transparent, otherwise the first tween fades from 1.0 to 1.0 and the

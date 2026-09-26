@@ -349,7 +349,11 @@ func _spawn_misfire_smoke(marker: Node3D) -> void:
 	scene_root.add_child(puff)
 	puff.global_position = marker.global_position
 	puff.emitting = true
-	get_tree().create_timer(1.5).timeout.connect(func(): if is_instance_valid(puff): puff.queue_free())
+	# Bound method, not a lambda: this SceneTreeTimer outlives the scene, and a
+	# lambda capturing an already-freed puff errors ("Lambda capture ... was
+	# freed") before is_instance_valid() can run — e.g. leaving World right
+	# after a shot. A bound callable is auto-disconnected when puff is freed.
+	get_tree().create_timer(1.5).timeout.connect(puff.queue_free)
 
 
 func take_damage(amount: float, ammo: AmmoData = null, hit_direction: Vector3 = Vector3.ZERO) -> void:

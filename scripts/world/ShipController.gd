@@ -137,7 +137,11 @@ func _spawn_cannon_smoke(is_port: bool) -> void:
 	
 	# Cleanup
 	var timer = get_tree().create_timer(2.0)
-	timer.timeout.connect(func(): if is_instance_valid(smoke): smoke.queue_free())
+	# Bound method, not a lambda: this SceneTreeTimer outlives the scene, and a
+	# lambda capturing an already-freed smoke errors ("Lambda capture ... was
+	# freed") before is_instance_valid() can run — e.g. leaving World right
+	# after a shot. A bound callable is auto-disconnected when smoke is freed.
+	timer.timeout.connect(smoke.queue_free)
 
 func _apply_ship_stats() -> void:
 	## Propagate stats to sub-systems (so they don't need individual
@@ -430,7 +434,11 @@ func _spawn_explosion() -> void:
 	explosion.emitting = true
 	
 	var timer = get_tree().create_timer(2.5)
-	timer.timeout.connect(func(): if is_instance_valid(explosion): explosion.queue_free())
+	# Bound method, not a lambda: this SceneTreeTimer outlives the scene, and a
+	# lambda capturing an already-freed explosion errors ("Lambda capture ... was
+	# freed") before is_instance_valid() can run — e.g. leaving World right
+	# after a shot. A bound callable is auto-disconnected when explosion is freed.
+	timer.timeout.connect(explosion.queue_free)
 
 func _spawn_loot() -> void:
 	## Spawn a floating loot crate at the ship's death position

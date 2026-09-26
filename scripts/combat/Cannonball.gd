@@ -59,7 +59,11 @@ func _spawn_splash() -> void:
 	splash.emitting = true
 
 	var timer = get_tree().create_timer(1.0)
-	timer.timeout.connect(func(): if is_instance_valid(splash): splash.queue_free())
+	# Bound method, not a lambda: this SceneTreeTimer outlives the scene, and a
+	# lambda capturing an already-freed splash errors ("Lambda capture ... was
+	# freed") before is_instance_valid() can run — e.g. leaving World right
+	# after a shot. A bound callable is auto-disconnected when splash is freed.
+	timer.timeout.connect(splash.queue_free)
 
 func _on_body_entered(body: Node) -> void:
 	# Ignore collision with the ship that fired this — but still despawn;

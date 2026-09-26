@@ -379,7 +379,11 @@ func _spawn_splinters(point: Vector3) -> void:
 	scene_root.add_child(p)
 	p.global_position = Vector3(point.x, max(point.y, 0.5), point.z)
 	p.emitting = true
-	get_tree().create_timer(1.5).timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+	# Bound method, not a lambda: this SceneTreeTimer outlives the scene, and a
+	# lambda capturing an already-freed p errors ("Lambda capture ... was
+	# freed") before is_instance_valid() can run — e.g. leaving World right
+	# after a shot. A bound callable is auto-disconnected when p is freed.
+	get_tree().create_timer(1.5).timeout.connect(p.queue_free)
 
 
 func _announce_ram(player_zone: int, enemy_zone: int, dmg_taken: float, dmg_dealt: float) -> void:

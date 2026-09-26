@@ -220,6 +220,11 @@ independently re-verified.
     (design.md §11a — Slider's stylebox content-margin doubles as groove thickness, not padding).
     Dropdown/tabs/checkboxes/toggles all reviewed on the same capture and on
     `ui_kit_sheet.png`'s live-controls row.
+  - **Correction (Phase 4):** three things this item claimed were wrong, and the Phase 4 sweep
+    caught all three. (a) Toggles were never the kit art: the icons were set under Godot 3's
+    `on`/`off` names, which Godot 4 ignores. (b) AcceptDialog theming never reached the crash
+    notice, because a `Window` under a CanvasLayer can't inherit the theme. (c) ScrollBars were 0px
+    wide. All three are fixed in Phase 4 (design.md §11b).
   - _Requirements: 5.4_
 - [x] 3.5 Route every `PirateThemeBuilder.COLOR_*` use through the palette
         (`grep -rn "PirateThemeBuilder.COLOR_" scripts`).
@@ -245,39 +250,75 @@ independently re-verified.
 
 ### Phase 4 — Menus & modals
 
-- [ ] 4.1 MainMenu: logo plaque, one Primary (Continue/New Game), brass secondaries, round gear.
+- [x] 4.1 MainMenu: logo plaque, one Primary (Continue/New Game), brass secondaries, round gear.
   - **Verify:** phone + desktop sweep shots of MainMenu vs. v0.3.
+    `screenshots/m22/phase4/{phone,desktop}/10_main_menu.png` were viewed. They show the emblem +
+    Germania title plaque, coral New Game (Continue when a save exists) with glow, brass
+    Store/Credits/Quit on a wood frame, and the round wood gear (new `gear.svg` kit icon). The sizes
+    come from `scaled_button_size()`. Found along the way (design.md §11b): **every** brass/coral
+    button's label sat half off its face. It's fixed at the kit source, and the fix applies to
+    every screen.
   - _Requirements: 6.1, 6.3_
-- [ ] 4.2 PauseMenu restyle (Resume = Primary).
-  - **Verify:** sweep shot.
+- [x] 4.2 PauseMenu restyle (Resume = Primary).
+  - **Verify:** sweep shot. `07_pause_menu.png` (both profiles) shows a WoodFramePanel, coral
+    Resume and brass Settings/Quit to Menu, with labels centred on their faces.
   - _Requirements: 6.1, 6.3_
-- [ ] 4.3 SettingsMenu: confirm the slider root cause (design §9), constrain the content width,
+- [x] 4.3 SettingsMenu: confirm the slider root cause (design §9), constrain the content width,
         apply the rope-slider row anatomy with value readouts, container-laid Back. Same kit for the
         Controls/Account tabs. Restyle only: no new options.
   - **Verify:** sweep shots of all 3 tabs; every slider shows a track, knob and value; no
-    horizontal scrollbar.
+    horizontal scrollbar. `11_settings_tab{0,1,2}.png` (phone + desktop) were viewed. Pages are
+    now parchment with ink text (`build_parchment_page_theme()`), with the rope track, knob and
+    "%" readout clear of the knob. Toggles are the real kit art (the Godot 3 icon-name bug, §11b),
+    dropdowns show the new ink chevron, Controls-row labels no longer run into their dropdown, the
+    phone has no horizontal scrollbar and no clipped readouts, and phone text uses token sizes.
+    Covered by `test_settings_menu*.gd`, and `test_theme_variations.gd` gained toggle/RichText tests.
   - _Requirements: 6.2_
-- [ ] 4.4 ChoiceDialog + crash-recovery notice (`CrashReporter`'s dialog) on the parchment modal.
-  - **Verify:** sweep triggers both dialogs and captures them.
+- [x] 4.4 ChoiceDialog + crash-recovery notice (`CrashReporter`'s dialog) on the parchment modal.
+  - **Verify:** sweep triggers both dialogs and captures them. `UIScreenSweep._run_modals()` →
+    `14_crash_notice.png`/`15_choice_dialog.png` show a centred parchment, ink title/body and brass
+    buttons (no Primary: a destructive choice must never be coral). The crash notice now uses
+    ChoiceDialog; the old AcceptDialog could never inherit the theme (§11b).
   - _Requirements: 6.1_
-- [ ] 4.5 CreditsScreen, AgeGate, ConsentPanel.
-  - **Verify:** sweep shots.
+- [x] 4.5 CreditsScreen, AgeGate, ConsentPanel.
+  - **Verify:** sweep shots. `12_credits.png`: Credits is rebuilt as one CenterContainer
+    (parchment + ink title + `InkRichTextLabel`, then Back) on the MainMenu background art. Its
+    `[b]`/`[i]` headings now render, which needed the has_font/default_font fix in §11b.
+    `16_age_gate.png`/`17_consent_panel.png` are parchment modals that fit on phone.
   - _Requirements: 6.1_
-- [ ] 4.6 Strip now-redundant `theme_override_*`/`add_theme_*` in these screens; update the design.md
+- [x] 4.6 Strip now-redundant `theme_override_*`/`add_theme_*` in these screens; update the design.md
         inventory counts.
-  - **Verify:** counts for Phase-4 screens reduced; GUT passes.
+  - **Verify:** counts for Phase-4 screens reduced; GUT passes. design.md §12: `tscn`/`gd` counts
+    went from 36/45 to 19/10 across the 7 Phase-4 surfaces. Everything left in the scenes is
+    container spacing, which is layout rather than styling. The Settings section card and toast
+    moved onto theme variations (`InkInsetPanel`, `WoodFramePanel`).
   - _Requirements: 1.3_
-- [ ] 4.7 New `tests/test_primary_button_rule.gd`: instantiate each Phase-4 screen and assert
+- [x] 4.7 New `tests/test_primary_button_rule.gd`: instantiate each Phase-4 screen and assert
         ≤1 visible `PrimaryButton`.
-  - **Verify:** test passes. (Extended to more screens in Phases 5–6.)
+  - **Verify:** test passes. (Extended to more screens in Phases 5–6.) 3 tests pass: exactly one
+    Primary on MainMenu/PauseMenu (so it can't pass vacuously); at most one on
+    Settings/Credits/AgeGate/Consent; none in ChoiceDialog.
   - _Requirements: 6.3_
-- [ ] 4.8 **Checkpoint — Phase 4.**
+- [x] 4.8 **Checkpoint — Phase 4.** Full sweeps (`screenshots/m22/phase4/{phone,desktop}/`, now
+        including the 4 new modal shots) were viewed. GUT full suite: 724/725. The sole failure is
+        the already-documented `test_store_screen` overlap (deferred to 6b). The previously flaky
+        `test_ad_gating` and the long-standing LOD test both pass this run. Nine real defects were
+        found by looking and fixed (design.md §11b), including two that affected every screen:
+        button labels sat off-face, and toggles were the engine default.
+        `checkpoint-reviewer` independently re-verified: its own GUT run and headful sweep on both
+        profiles, the §12 counts re-grepped, the container-layout rule, and no ship/combat files
+        touched. Result: PASS.
 
 ### Phase 5 — HUD & mobile controls
 
 - [ ] 5.1 WorldHUD resource pills (kit pill + icon + `HudNumLabel`), notoriety chip, production
         timer chip.
   - **Verify:** `test_world_hud_layout` passes (expectations updated only where intended); sweep shot.
+  - **Known going in (seen in both the Phase 3 and Phase 4 phone sweeps, `00_world_hud.png`):**
+    the resource-pill bar and the right-hand Log/Map/Codex rail run off the right edge at
+    2340×1080. The rail overlaps the Set Sail/Ability/Broadside cluster, and the notoriety chip is
+    clipped. This isn't a Phase 4 regression, since the Phase 4 kit fix only made the labels
+    readable; the layout itself is 5.1/5.3/5.4's job.
   - _Requirements: 7.1_
 - [ ] 5.2 Speed/sail plaque + hull ProgressBar restyle (keep the tween + low-hp pulse).
   - **Verify:** sweep shot at full hull and at <25% hull (harness sets health).

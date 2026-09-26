@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://c5b2a1a8c9e7f"]
+[gd_scene load_steps=6 format=3 uid="uid://c5b2a1a8c9e7f"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_4n7a3"]
 [ext_resource type="Texture2D" path="res://assets/art/concept_art/island_level_max_1785440673629.jpg" id="2_bg"]
 [ext_resource type="Texture2D" path="res://assets/branding/emblem.svg" id="3_emblem"]
 [ext_resource type="PackedScene" path="res://scenes/ui/StoreScreen.tscn" id="4_store"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/gear.svg" id="5_gear"]
 
 [node name="MainMenu" type="CanvasLayer"]
 script = ExtResource("1_4n7a3")
@@ -37,101 +38,94 @@ grow_horizontal  = 2
 grow_vertical    = 2
 color            = Color(0.02, 0.04, 0.10, 0.72)
 
-[node name="TitleContainer" type="VBoxContainer" parent="Control"]
-layout_mode      = 1
-anchors_preset   = 5
-anchor_left      = 0.5
-anchor_right     = 0.5
-offset_left      = -300.0
-offset_top       = 20.0
-offset_right     = 300.0
-offset_bottom    = 260.0
-grow_horizontal  = 2
-alignment        = 1
-theme_override_constants/separation = 8
-
-[node name="EmblemLogo" type="TextureRect" parent="Control/TitleContainer"]
-layout_mode      = 2
-custom_minimum_size = Vector2(96, 96)
-size_flags_horizontal = 4
-texture          = ExtResource("3_emblem")
-expand_mode      = 1
-stretch_mode     = 5
-
-[node name="TitleLabel" type="Label" parent="Control/TitleContainer"]
-layout_mode      = 2
-theme_override_font_sizes/font_size = 56
-text             = "PIRATE EMPIRE"
-horizontal_alignment = 1
-vertical_alignment   = 1
-label_settings   = null
-
-[node name="SubtitleLabel" type="Label" parent="Control/TitleContainer"]
-layout_mode      = 2
-theme_override_font_sizes/font_size = 20
-text             = "Rule the Seas. Build an Empire."
-horizontal_alignment = 1
-vertical_alignment   = 1
-
-[node name="Divider" type="ColorRect" parent="Control/TitleContainer"]
-layout_mode      = 2
-custom_minimum_size = Vector2(400, 2)
-color            = Color(0.831, 0.686, 0.216, 0.6)
-
-[node name="ButtonPanel" type="PanelContainer" parent="Control"]
+[node name="MainVBox" type="VBoxContainer" parent="Control"]
+unique_name_in_owner = true
 layout_mode      = 1
 anchors_preset   = 8
 anchor_left      = 0.5
 anchor_top       = 0.5
 anchor_right     = 0.5
 anchor_bottom    = 0.5
-offset_left      = -130.0
-offset_top       = -30.0
-offset_right     = 130.0
-offset_bottom    = 240.0
 grow_horizontal  = 2
 grow_vertical    = 2
+theme_override_constants/separation = 28
+alignment        = 1
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Control/ButtonPanel"]
+[node name="TitlePlaque" type="PanelContainer" parent="Control/MainVBox"]
+layout_mode      = 2
+size_flags_horizontal = 4
+theme_type_variation = &"PlaquePanel"
+
+[node name="TitleVBox" type="VBoxContainer" parent="Control/MainVBox/TitlePlaque"]
+layout_mode      = 2
+theme_override_constants/separation = 6
+alignment        = 1
+
+[node name="EmblemLogo" type="TextureRect" parent="Control/MainVBox/TitlePlaque/TitleVBox"]
+layout_mode      = 2
+custom_minimum_size = Vector2(72, 72)
+size_flags_horizontal = 4
+texture          = ExtResource("3_emblem")
+expand_mode      = 1
+stretch_mode     = 5
+
+[node name="TitleLabel" type="Label" parent="Control/MainVBox/TitlePlaque/TitleVBox"]
+layout_mode      = 2
+theme_type_variation = &"TitleLabel"
+text             = "PIRATE EMPIRE"
+horizontal_alignment = 1
+vertical_alignment   = 1
+
+[node name="SubtitleLabel" type="Label" parent="Control/MainVBox/TitlePlaque/TitleVBox"]
+layout_mode      = 2
+theme_type_variation = &"ChipLabel"
+text             = "Rule the Seas. Build an Empire."
+horizontal_alignment = 1
+vertical_alignment   = 1
+
+[node name="ButtonPanel" type="PanelContainer" parent="Control/MainVBox"]
+layout_mode      = 2
+size_flags_horizontal = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/MainVBox/ButtonPanel"]
 layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="ContinueButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+[node name="ContinueButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
 text = "Continue"
 
-[node name="NewGameButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
+[node name="NewGameButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
 text = "New Game"
 
-[node name="SettingsButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Settings"
-
-[node name="StoreButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
-custom_minimum_size = Vector2(240, 44)
+[node name="StoreButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
 layout_mode      = 2
-theme_override_font_sizes/font_size = 28
 text             = "Store"
-size_flags_horizontal = 3
 
-[node name="CreditsButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
-custom_minimum_size = Vector2(240, 44)
+[node name="CreditsButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
 layout_mode      = 2
-theme_override_font_sizes/font_size = 28
 text             = "Credits"
-size_flags_horizontal = 3
 
-[node name="QuitButton" type="Button" parent="Control/ButtonPanel/VBoxContainer"]
-custom_minimum_size = Vector2(240, 44)
+[node name="QuitButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
 layout_mode      = 2
-theme_override_font_sizes/font_size = 28
 text             = "Quit"
-size_flags_horizontal = 3
+
+[node name="GearButton" type="Button" parent="Control"]
+unique_name_in_owner = true
+layout_mode      = 1
+anchors_preset   = 1
+anchor_left      = 1.0
+anchor_right     = 1.0
+offset_left      = -128.0
+offset_top       = 32.0
+offset_right     = -32.0
+offset_bottom    = 128.0
+grow_horizontal  = 0
+theme_type_variation = &"WoodRoundButton"
+icon             = ExtResource("5_gear")
+tooltip_text     = "Settings"
 
 [node name="VersionLabel" type="Label" parent="Control"]
 layout_mode      = 1

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://dpsa8k3nqw87f"]
+[gd_scene load_steps=3 format=3 uid="uid://dpsa8k3nqw87f"]
 
 [ext_resource type="Script" path="res://scripts/ui/SettingsMenu.gd" id="1_2n7m5"]
+[ext_resource type="Texture2D" path="res://assets/art/concept_art/island_level_max_1785440673629.jpg" id="2_bg"]
 
 [node name="SettingsMenu" type="CanvasLayer"]
 script = ExtResource("1_2n7m5")
@@ -13,6 +14,18 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="Background" type="TextureRect" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+modulate = Color(0.4, 0.45, 0.55, 1)
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
 [node name="ColorRect" type="ColorRect" parent="Control"]
 layout_mode = 1
 anchors_preset = 15
@@ -20,7 +33,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.7)
+color = Color(0.02, 0.04, 0.1, 0.72)
 
 [node name="TitleLabel" type="Label" parent="Control"]
 layout_mode = 1
@@ -57,12 +70,14 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
+offset_left = -260.0
 offset_top = -170.0
-offset_right = 200.0
+offset_right = 260.0
 offset_bottom = 170.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 10
 columns = 2
 
 [node name="Controls" type="Control" parent="Control/TabContainer"]
@@ -71,6 +86,7 @@ layout_mode = 2
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Control/TabContainer/Controls"]
 layout_mode = 1
+horizontal_scroll_mode = 0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -87,6 +103,7 @@ layout_mode = 2
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Control/TabContainer/Account"]
 layout_mode = 1
+horizontal_scroll_mode = 0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -101,37 +118,73 @@ size_flags_horizontal = 3
 layout_mode = 2
 text = "Master Volume"
 
-[node name="MasterSlider" type="HSlider" parent="Control/TabContainer/General/GridContainer"]
+[node name="MasterRow" type="HBoxContainer" parent="Control/TabContainer/General/GridContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 36
+
+[node name="MasterSlider" type="HSlider" parent="Control/TabContainer/General/GridContainer/MasterRow"]
 custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = 0.0
 max_value = 1.0
 step = 0.01
+
+[node name="MasterValueLabel" type="Label" parent="Control/TabContainer/General/GridContainer/MasterRow"]
+layout_mode = 2
+theme_type_variation = &"HudNumLabel"
+custom_minimum_size = Vector2(96, 0)
+text = "100%"
+horizontal_alignment = 2
 
 [node name="MusicVolumeLabel" type="Label" parent="Control/TabContainer/General/GridContainer"]
 layout_mode = 2
 text = "Music Volume"
 
-[node name="MusicSlider" type="HSlider" parent="Control/TabContainer/General/GridContainer"]
+[node name="MusicRow" type="HBoxContainer" parent="Control/TabContainer/General/GridContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 36
+
+[node name="MusicSlider" type="HSlider" parent="Control/TabContainer/General/GridContainer/MusicRow"]
 custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = 0.0
 max_value = 1.0
 step = 0.01
+
+[node name="MusicValueLabel" type="Label" parent="Control/TabContainer/General/GridContainer/MusicRow"]
+layout_mode = 2
+theme_type_variation = &"HudNumLabel"
+custom_minimum_size = Vector2(96, 0)
+text = "100%"
+horizontal_alignment = 2
 
 [node name="SFXVolumeLabel" type="Label" parent="Control/TabContainer/General/GridContainer"]
 layout_mode = 2
 text = "SFX Volume"
 
-[node name="SFXSlider" type="HSlider" parent="Control/TabContainer/General/GridContainer"]
+[node name="SFXRow" type="HBoxContainer" parent="Control/TabContainer/General/GridContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 36
+
+[node name="SFXSlider" type="HSlider" parent="Control/TabContainer/General/GridContainer/SFXRow"]
 custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = 0.0
 max_value = 1.0
 step = 0.01
+
+[node name="SFXValueLabel" type="Label" parent="Control/TabContainer/General/GridContainer/SFXRow"]
+layout_mode = 2
+theme_type_variation = &"HudNumLabel"
+custom_minimum_size = Vector2(96, 0)
+text = "100%"
+horizontal_alignment = 2
 
 [node name="FullscreenLabel" type="Label" parent="Control/TabContainer/General/GridContainer"]
 layout_mode = 2
@@ -175,18 +228,17 @@ custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 text = "Replay Tutorial"
 
-[node name="BackButton" type="Button" parent="Control"]
-custom_minimum_size = Vector2(44, 44)
+[node name="BackButtonContainer" type="CenterContainer" parent="Control"]
+unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
+anchors_preset = 12
 anchor_top = 1.0
-anchor_right = 0.5
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -50.0
-offset_top = -80.0
-offset_right = 50.0
-offset_bottom = -36.0
-grow_horizontal = 2
+offset_top = -96.0
+offset_bottom = -20.0
 grow_vertical = 0
+
+[node name="BackButton" type="Button" parent="Control/BackButtonContainer"]
+layout_mode = 2
 text = "Back"

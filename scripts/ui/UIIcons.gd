@@ -28,6 +28,10 @@ const _PATHS := {
 	# hold no new art at all, just duplicates of what's already in assets/).
 	"research":   "res://assets/ui/icons/research.svg",
 	"cannonball": "res://assets/ui/icons/cannonball.svg",
+	# M22 Phase 4.1 — MainMenu's round Settings button glyph. Not a resource
+	# icon, but UIIcons is "every UI icon this project uses" per this file's
+	# own header, not resources-only.
+	"gear": "res://assets/ui/icons/gear.svg",
 }
 
 static func get_icon(key: String) -> Texture2D:

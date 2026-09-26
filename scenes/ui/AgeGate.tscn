@@ -2,18 +2,6 @@
 
 [ext_resource type="Script" path="res://scripts/ui/AgeGate.gd" id="1_agegate"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_AgeGateBg"]
-bg_color = Color(0.078, 0.137, 0.196, 0.95)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.83, 0.69, 0.22, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
 [node name="AgeGate" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -41,48 +29,42 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(440, 260)
+custom_minimum_size = Vector2(600, 0)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_AgeGateBg")
+theme_type_variation = &"ParchmentPanel"
 
-[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
+theme_override_constants/separation = 20
 
-[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
+[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"InkTitleLabel"
 text = "Before You Continue"
 horizontal_alignment = 1
 
-[node name="BodyLabel" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="BodyLabel" type="Label" parent="CenterContainer/Panel/VBox"]
 layout_mode = 2
+theme_type_variation = &"InkBodyLabel"
 autowrap_mode = 3
 horizontal_alignment = 1
 text = "To keep advertising appropriate, please tell us: are you 13 years of age or older?"
 
-[node name="ButtonRow" type="HBoxContainer" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="ButtonRow" type="HBoxContainer" parent="CenterContainer/Panel/VBox"]
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 16
 
-[node name="UnderThresholdButton" type="Button" parent="CenterContainer/Panel/Margin/VBox/ButtonRow"]
+[node name="UnderThresholdButton" type="Button" parent="CenterContainer/Panel/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(160, 48)
+custom_minimum_size = Vector2(220, 80)
 text = "Under 13"
 focus_mode = 2
 
-[node name="OverThresholdButton" type="Button" parent="CenterContainer/Panel/Margin/VBox/ButtonRow"]
+[node name="OverThresholdButton" type="Button" parent="CenterContainer/Panel/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(160, 48)
+custom_minimum_size = Vector2(220, 80)
 text = "13 or older"
 focus_mode = 2

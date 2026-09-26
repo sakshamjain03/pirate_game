@@ -52,7 +52,13 @@ func test_pc_only_display_controls_stay_visible_and_default_sized_on_pc():
 	# PirateThemeBuilder.apply_button_juice's own header). fullscreen_check
 	# IS a CheckButton (a Button subtype), so it now carries that buffer on
 	# PC too — HSlider is NOT a Button subtype and stays genuinely untouched.
-	assert_eq(_menu.fullscreen_check.custom_minimum_size, Vector2(64, 44),
+	# M22 Phase 4: the natural width is now the real 124px kit toggle — the
+	# theme previously set Godot 3's "on"/"off" icon names, which Godot 4
+	# ignores, so the old 64 here was the engine's own 32px default + buffer.
+	var toggle_w := _menu.fullscreen_check.get_theme_icon("unchecked").get_width()
+	assert_eq(toggle_w, 124, "Fullscreen must draw the 62x30-design kit toggle")
+	assert_eq(_menu.fullscreen_check.custom_minimum_size,
+		Vector2(toggle_w + PirateThemeBuilder._BTN_TEXT_CLIP_BUG_BUFFER, 44),
 		"PC's Fullscreen control height must be untouched by the mobile pass; width now carries Phase 3's text-clip-bug-workaround buffer")
 	assert_eq(_menu.master_slider.custom_minimum_size, pc_default,
 		"PC's slider sizes must be untouched by the mobile pass")

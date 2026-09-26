@@ -313,8 +313,9 @@ from code:
   — this is *also* §9's originally-diagnosed "low contrast" symptom's real root cause once the
   actual StyleBoxTexture pipeline was in place (the old flat `StyleBoxFlat` groove happened to
   still paint a visible rect at 0 margin because a flat box's fill isn't margin-gated the same
-  way). Fixed with `content_margin_top = content_margin_bottom = 7` (half the track's own design
-  thickness) on both `rope_slider_track`/`rope_slider_fill`. Confirmed fixed on the real
+  way). Fixed with `content_margin_top = content_margin_bottom = 7` on both
+  `rope_slider_track`/`rope_slider_fill` — **raised to 14 in Phase 4**, once the track itself was
+  found to have been generated at half its spec height (§11b). Confirmed fixed on the real
   `SettingsMenu` capture (`screenshots/m22/phase3/desktop/11_settings_tab0.png`): all three
   sliders now show a clear gold fill + dark groove + brass knob.
 - **`UIKitSheet`'s own `apply_button_juice()` call must run AFTER the built subtree is parented**
@@ -340,6 +341,63 @@ from code:
   own already-established Phase 1→Phase 4 precedent for the same class of "legacy hardcoded size
   vs. deliberately bigger theme" collision.
 
+## 11b. Phase 4 findings (menus & modals)
+
+Every item below was found by viewing the phone + desktop sweep captures
+(`screenshots/m22/phase4/`), not by reading code. None showed up in GUT until a test was written
+for it:
+
+- **Every brass/coral button's label sat half off its face (all screens).** The rectangular button
+  SVGs were 108px tall, but the face + lip only covers 0-76. The bottom 32px was transparent, and
+  the 9-slice stretched that empty band over every Button rect too, so the face sat high while the
+  label stayed centred on the whole rect. Fixed at source (`gen_kit.py`: `_BTN_H = face + idle lip`,
+  asserted equal to `press drop + face + pressed lip`). Content is now centred on the *face*:
+  `content_margin_bottom` reserves `UITokens.LIP_IDLE` (`_BTN_CONTENT_BOTTOM`). Because of that,
+  buttons are ~12px taller than their pre-Phase-4 content minimum.
+- **Toggles drew Godot's own tiny grey default pill.** The theme set the CheckButton icons as
+  `on`/`off`, which are Godot 3 names and silently ignored in Godot 4 (`checked`/`unchecked`/
+  `*_disabled`/`*_mirrored`). Separately, `gen_kit.py` generated the toggle (31×15 instead of
+  62×30), the rope-slider track (7 instead of 14) and the knob (13 instead of 26) at **half** their
+  spec. The docstrings were right and the `dpx()` arguments were halved. Both are fixed, with the
+  kit size guarded in `test_theme_variations.gd`.
+- **`Theme.has_font()`/`has_font_size()` return true for *any* type once a theme has a
+  `default_font`/`default_font_size`.** A type variation that doesn't declare its own fonts
+  therefore resolves to the default font instead of falling through to its base type. Probed
+  directly: `InkRichTextLabel`'s `[b]` came back as the body font, not Germania. Rule: **a
+  variation must set every font/size item its controls read**. Colours and styleboxes don't have
+  this default, so they do fall through. The same rule is why `build_parchment_page_theme()` (below)
+  deliberately sets no default font.
+- **Parchment pages need ink text everywhere, including runtime-built rows.** Settings' pages became
+  parchment (v0.3: the active tab bleeds into the page). The mechanism is
+  `PirateThemeBuilder.build_parchment_page_theme()`, a colour-only `Theme` set on the TabContainer
+  itself. Godot's per-owner lookup falls through to `build()`'s theme for everything it leaves out.
+  It replaced about 12 per-label `text_on_dark`/`brass_light` colour overrides. `InkTitleLabel`/
+  `InkBodyLabel`/`InkRichTextLabel` cover one-off parchment surfaces (ChoiceDialog, AgeGate,
+  ConsentPanel, Credits).
+- **Settings mobile layout forced its content width from `tab_container.size`.** That ignores the
+  page stylebox's content margins, so content overflowed sideways: a horizontal scrollbar,
+  off-screen "%" readouts and a clipped Replay button. The mobile path also still carried 19-34px
+  font-size overrides tuned for the pre-M22 1080-tall base, which now made phone text *smaller* than
+  desktop. Both were removed: width comes from the ScrollContainer, and sizes come from the theme
+  tokens.
+- **Smaller layout collisions:** the slider knob overhangs the track end at 100% (`center_grabber`),
+  so the value readout needs a gap of more than half the knob (`_SLIDER_VALUE_GAP` 36); a 200px
+  row-label column was narrower than "Enemy Difficulty" at body 32; the dropdown arrow was the
+  engine's light-grey chevron, invisible on brass (new kit `dropdown_arrow.svg`); and on phone the
+  page bottom now derives from Back's real combined height.
+- **Credits** was three independently hardcoded offsets (title, scroll box, Back) on a flat black
+  rect. It is now one `CenterContainer` › VBox › parchment (ink title + `InkRichTextLabel`) + Back,
+  on the same background art as the MainMenu.
+- **Crash notice:** Phase 3's claim that `AcceptDialog`/`ConfirmationDialog` theming "kills the grey
+  crash popup" was wrong. A `Window` parented under a CanvasLayer never inherits a Control's theme,
+  because theme lookup stops at the non-Control parent. The notice now uses the same `ChoiceDialog`
+  parchment modal as every other prompt.
+- **ScrollBars were 0px wide project-wide** (the same content-margin-as-thickness trap as Slider in
+  §11a). They are fixed at 4px margins, with a test.
+
+Remaining `theme_override_*` lines in Phase-4 scenes are all container spacing
+(`separation`/`margin_*`), which is layout rather than styling and stays by design.
+
 ## 12. Screen inventory (baseline 2026-09-25)
 
 Override counts to burn down. `tscn` = `theme_override_*` lines in `scenes/ui/<name>.tscn`;
@@ -348,13 +406,13 @@ same greps after each phase and update the "now" columns.
 
 | Screen | tscn | gd | Phase | tscn now | gd now |
 |---|---:|---:|---|---:|---:|
-| MainMenu | 10 | 0 | 4 | | |
-| PauseMenu | 10 | 2 | 4 | | |
-| SettingsMenu | 0 | 37 | 4 | | |
-| CreditsScreen | 0 | 0 | 4 | | |
-| AgeGate | 8 | 0 | 4 | | |
-| ConsentPanel | 8 | 0 | 4 | | |
-| ChoiceDialog (code-only) | – | 6 | 4 | | |
+| MainMenu | 10 | 0 | 4 | 3 | 0 |
+| PauseMenu | 10 | 2 | 4 | 5 | 0 |
+| SettingsMenu | 0 | 37 | 4 | 5 | 8 |
+| CreditsScreen | 0 | 0 | 4 | 2 | 0 |
+| AgeGate | 8 | 0 | 4 | 2 | 0 |
+| ConsentPanel | 8 | 0 | 4 | 2 | 0 |
+| ChoiceDialog (code-only) | – | 6 | 4 | – | 2 |
 | WorldHUD | 39 | 32 | 5 | | |
 | MobileControls | 0 | 8 | 5 | | |
 | HudCustomizeOverlay (code-only) | – | 3 | 5 | | |

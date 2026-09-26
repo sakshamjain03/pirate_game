@@ -348,14 +348,20 @@ def gen_wood_plaque() -> tuple[str, str]:
 # 2.2 — Buttons: Primary (coral) / Brass / Wood-round x idle/pressed/disabled
 # --------------------------------------------------------------------------
 
-# Shared rectangular-button canvas: wide enough for a real label, tall
-# enough to reserve room for the idle lip without the face itself moving.
-_BTN_W, _BTN_H = 240, 108
 _BTN_FACE_H = 64          # design 32 — the visible button face height
 _LIP_IDLE = dpx(6)        # design 6 -> canvas 12 (UITokens.LIP_IDLE)
 _LIP_PRESSED = dpx(2)     # design 2 -> canvas 4 (UITokens.LIP_PRESSED)
 _PRESS_DROP = dpx(4)      # design 4 -> canvas 8 (UITokens.PRESS_OFFSET_Y)
 _BORDER = dpx(3)          # design 3 -> canvas 6 (UITokens.BORDER_WIDTH)
+# Shared rectangular-button canvas: wide enough for a real label, and
+# EXACTLY face + idle lip tall (== press drop + face + pressed lip) — no
+# transparent padding below. The 9-slice stretches the whole canvas over
+# the Button's rect, so any empty band here became an empty band at the
+# bottom of every button, pushing the face up while the label stayed
+# centred on the full rect — every label rendered half off its face (M22
+# Phase 4 sweep, visible on every brass/primary button).
+_BTN_W, _BTN_H = 240, _BTN_FACE_H + _LIP_IDLE
+assert _BTN_H == _PRESS_DROP + _BTN_FACE_H + _LIP_PRESSED
 
 
 def _button_face(fill_top, fill_bot, radius, *, desaturated=False) -> tuple[str, str]:
@@ -449,7 +455,9 @@ def gen_buttons() -> list[tuple[str, str, str]]:
 def gen_toggle(is_on: bool) -> tuple[str, str]:
     """62x30 design px per requirements.md -> canvas 124x60. On = teal ocean
     fill + brass knob; off = dark wood."""
-    w, h = dpx(31), dpx(15)
+    # Was dpx(31)/dpx(15) — half the spec, so the rendered toggle was a
+    # 31x15-design sliver (M22 Phase 4 Settings sweep).
+    w, h = dpx(62), dpx(30)
     r = h / 2
     track = PALETTE["sunset_teal"] if is_on else PALETTE["wood_dark"]
     knob = PALETTE["brass_light"] if is_on else PALETTE["text_on_dark"]
@@ -467,7 +475,7 @@ def gen_rope_slider() -> list[tuple[str, str, str]]:
     (44px design hit-area handled by the Control node in Phase 3, not the
     texture)."""
     out = []
-    track_h = dpx(7)
+    track_h = dpx(14)     # was dpx(7) — half the spec (M22 Phase 4 sweep)
     w = 200
     body = [rect(0, 0, w, track_h, rx=track_h / 2, fill=PALETTE["wood_dark"])]
     body.append(seeded_grain_strokes("rope-slider-track", w, track_h, 30, PALETTE["ink"], min_len=3, max_len=8,
@@ -480,7 +488,7 @@ def gen_rope_slider() -> list[tuple[str, str, str]]:
     fill_body.append(rect(0, 0, w, track_h * 0.45, rx=track_h * 0.3, fill=PALETTE["brass_light"], opacity=0.6))
     out.append(("rope_slider_fill", svg_doc(w, track_h, "\n".join(fill_body)), f"rope_slider_fill: {w:g}x{track_h:g}"))
 
-    knob_d = dpx(13)
+    knob_d = dpx(26)      # was dpx(13) — half the spec
     kb = [defs(radial_gradient("knob", [(0, PALETTE["brass_light"], 1), (1, PALETTE["brass"], 1)], cx=0.35, cy=0.3, r=0.9))]
     kb.append(circle(knob_d / 2, knob_d / 2, knob_d / 2, fill="url(#knob)"))
     kb.append(circle(knob_d / 2, knob_d / 2, knob_d / 2 - 1.5, fill="none", stroke=PALETTE["ink"], stroke_width=1.5))
@@ -527,6 +535,19 @@ def gen_dropdown_sheet() -> tuple[str, str]:
     body.append(rect(1.5, 1.5, w - 3, h - 3, rx=dpx(6) - 1.5, fill="none", stroke=PALETTE["ink"], stroke_width=3, opacity=0.8))
     svg = svg_doc(w, h, "\n".join(body))
     return svg, f"dropdown_sheet: {w:g}x{h:g}"
+
+
+def gen_dropdown_arrow() -> tuple[str, str]:
+    """M22 Phase 4.3 — OptionButton's "arrow" icon. The engine default is a
+    tiny light-grey chevron that vanishes on the brass button face; this is
+    an ink chevron sized for a 32-canvas-px label (design 10x6 -> 20x12,
+    plus stroke room)."""
+    w, h = dpx(12), dpx(8)
+    sw = dpx(1.5)
+    pts = f"{sw:g},{sw:g} {w / 2:g},{h - sw:g} {w - sw:g},{sw:g}"
+    body = (f'<polyline points="{pts}" fill="none" stroke="{PALETTE["ink"]}" '
+            f'stroke-width="{sw * 1.4:g}" stroke-linecap="round" stroke-linejoin="round"/>')
+    return svg_doc(w, h, body), f"dropdown_arrow: {w:g}x{h:g}"
 
 
 def gen_scrollbar() -> list[tuple[str, str, str]]:
@@ -639,6 +660,38 @@ def gen_icon_cannonball() -> tuple[str, str]:
     return svg, f"cannonball icon: {w:g}x{h:g}"
 
 
+def gen_icon_gear() -> tuple[str, str]:
+    """M22 Phase 4.1 — MainMenu's round Settings button glyph, not a resource
+    icon (kept in the same icons_dir/UIIcons registry regardless — UIIcons
+    is "every UI icon this project uses", not resources-only). A body disc +
+    N radial teeth reads as "gear" at the small sizes a round nav button
+    uses; the centre "hole" is a solid ink dot rather than true alpha
+    transparency (simpler, and reads the same at this size — same pragmatic
+    choice as cooldown_ring_mask's plain stroke ring)."""
+    w = h = dpx(24)
+    cx = cy = w / 2
+    r_outer = w / 2 - dpx(2)
+    r_body = r_outer * 0.68
+    r_hole = r_outer * 0.28
+    teeth = 8
+    tooth_w = r_outer * 0.30
+    tooth_h = r_outer * 0.38
+    body = [circle(cx, cy, r_body, fill=PALETTE["brass_light"])]
+    for i in range(teeth):
+        angle = (2 * math.pi / teeth) * i
+        tx = cx + math.cos(angle) * r_body
+        ty = cy + math.sin(angle) * r_body
+        deg = math.degrees(angle)
+        body.append(
+            f'<rect x="{tx - tooth_w / 2:g}" y="{ty - tooth_h / 2:g}" width="{tooth_w:g}" height="{tooth_h:g}" '
+            f'fill="{PALETTE["brass_light"]}" transform="rotate({deg:g} {tx:g} {ty:g})"/>'
+        )
+    body.append(circle(cx, cy, r_body, fill="none", stroke=PALETTE["ink"], stroke_width=dpx(1.0)))
+    body.append(circle(cx, cy, r_hole, fill=PALETTE["ink"]))
+    svg = svg_doc(w, h, "\n".join(body))
+    return svg, f"gear icon: {w:g}x{h:g}"
+
+
 # --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
@@ -672,6 +725,7 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     for stem, svg, meta in gen_tabs():
         emit(stem, svg, meta)
     svg, meta = gen_dropdown_sheet(); emit("dropdown_sheet", svg, meta)
+    svg, meta = gen_dropdown_arrow(); emit("dropdown_arrow", svg, meta)
     for stem, svg, meta in gen_scrollbar():
         emit(stem, svg, meta)
 
@@ -687,6 +741,9 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     manifest.append(meta)
     svg, meta = gen_icon_cannonball()
     _write(icons_dir / "cannonball.svg", svg)
+    manifest.append(meta)
+    svg, meta = gen_icon_gear()
+    _write(icons_dir / "gear.svg", svg)
     manifest.append(meta)
 
     return manifest

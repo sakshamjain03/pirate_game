@@ -32,13 +32,18 @@ class_name SettingsMenu
 @onready var title_label: Label = $Control/TitleLabel
 @onready var tab_container: TabContainer = $Control/TabContainer
 @onready var general_tab: Control = $Control/TabContainer/General
-@onready var master_slider: HSlider = $Control/TabContainer/General/GridContainer/MasterSlider
-@onready var music_slider: HSlider = $Control/TabContainer/General/GridContainer/MusicSlider
-@onready var sfx_slider: HSlider = $Control/TabContainer/General/GridContainer/SFXSlider
+@onready var master_slider: HSlider = $Control/TabContainer/General/GridContainer/MasterRow/MasterSlider
+@onready var music_slider: HSlider = $Control/TabContainer/General/GridContainer/MusicRow/MusicSlider
+@onready var sfx_slider: HSlider = $Control/TabContainer/General/GridContainer/SFXRow/SFXSlider
+## M22 Phase 4.3 (design.md's v0.3 row anatomy — "value in Baloo 800 at right").
+@onready var master_value_label: Label = $Control/TabContainer/General/GridContainer/MasterRow/MasterValueLabel
+@onready var music_value_label: Label = $Control/TabContainer/General/GridContainer/MusicRow/MusicValueLabel
+@onready var sfx_value_label: Label = $Control/TabContainer/General/GridContainer/SFXRow/SFXValueLabel
 @onready var fullscreen_check: CheckButton = $Control/TabContainer/General/GridContainer/FullscreenCheckButton
 @onready var resolution_option: OptionButton = $Control/TabContainer/General/GridContainer/ResolutionOptionButton
 @onready var vsync_check: CheckButton = $Control/TabContainer/General/GridContainer/VSyncCheckButton
-@onready var back_button: Button = $Control/BackButton
+@onready var back_button_container: CenterContainer = $Control/BackButtonContainer
+@onready var back_button: Button = $Control/BackButtonContainer/BackButton
 @onready var replay_tutorial_button: Button = $Control/TabContainer/General/GridContainer/ReplayTutorialButton
 @onready var grid_container: GridContainer = $Control/TabContainer/General/GridContainer
 @onready var fullscreen_label: Label = $Control/TabContainer/General/GridContainer/FullscreenLabel
@@ -49,6 +54,14 @@ class_name SettingsMenu
 @onready var account_vbox: VBoxContainer = $Control/TabContainer/Account/ScrollContainer/AccountVBox
 
 var _awaiting_rebind: String = ""
+## Gap between a slider and its value readout — must exceed half the rope
+## knob (52 canvas px, and center_grabber lets it overhang the track end at
+## 100%), or the knob overlaps the "100%" (M22 Phase 4 sweep).
+const _SLIDER_VALUE_GAP := 36
+## Row-label column for the runtime-built Controls rows. Was 200, narrower
+## than "Enemy Difficulty"/"Graphics Quality" at the M22 32px body size, so
+## those labels ran straight into their dropdown with no gap.
+const _ROW_LABEL_WIDTH := 320
 var _settings_card: Panel
 var _mobile_general_scroll: ScrollContainer
 
@@ -87,7 +100,10 @@ func _ready() -> void:
 	master_slider.value = settings_manager.master_volume
 	music_slider.value = settings_manager.music_volume
 	sfx_slider.value = settings_manager.sfx_volume
-	
+	master_value_label.text = "%d%%" % roundi(settings_manager.master_volume * 100.0)
+	music_value_label.text = "%d%%" % roundi(settings_manager.music_volume * 100.0)
+	sfx_value_label.text = "%d%%" % roundi(settings_manager.sfx_volume * 100.0)
+
 	fullscreen_check.button_pressed = settings_manager.fullscreen
 	vsync_check.button_pressed = settings_manager.vsync
 	
@@ -131,6 +147,9 @@ func _apply_settings_visual_language() -> void:
 	## Settings used to be an unframed, edge-to-edge TabContainer. Give every
 	## device a deliberate surface, while the mobile branch below narrows it to
 	## a readable, thumb-friendly panel instead of scaling a desktop rectangle.
+	## M22 Phase 4.3 — was a hand-rolled flat navy/gold StyleBoxFlat (the exact
+	## pre-M22 look this milestone replaces); now the kit's WoodFramePanel via
+	## the theme's own default Panel style, like every other screen.
 	_settings_card = Panel.new()
 	_settings_card.name = "SettingsCard"
 	_settings_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -139,28 +158,16 @@ func _apply_settings_visual_language() -> void:
 	_settings_card.offset_top = 32.0
 	_settings_card.offset_right = -72.0
 	_settings_card.offset_bottom = -32.0
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color("17243a")
-	card_style.border_width_left = 2
-	card_style.border_width_top = 2
-	card_style.border_width_right = 2
-	card_style.border_width_bottom = 2
-	card_style.border_color = Color("b98a3f")
-	card_style.corner_radius_top_left = 18
-	card_style.corner_radius_top_right = 18
-	card_style.corner_radius_bottom_left = 18
-	card_style.corner_radius_bottom_right = 18
-	card_style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
-	card_style.shadow_size = 16
-	_settings_card.add_theme_stylebox_override("panel", card_style)
 	root_control.add_child(_settings_card)
-	root_control.move_child(_settings_card, 1)
+	# Above Background + its dark overlay (indices 0, 1), below everything else.
+	root_control.move_child(_settings_card, 2)
 
-	title_label.add_theme_font_size_override("font_size", 32)
-	title_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
-	title_label.add_theme_color_override("font_outline_color", Color("07101d"))
-	title_label.add_theme_constant_override("outline_size", 6)
-	tab_container.add_theme_font_size_override("font_size", 18)
+	title_label.theme_type_variation = &"TitleLabel"
+	# Pages are parchment (v0.3: the active parchment tab bleeds into the
+	# page) with ink text — a colour-only sub-theme layered on this
+	# TabContainer, so runtime-built Controls/Account rows get ink too
+	# without a per-label colour override each.
+	tab_container.theme = PirateThemeBuilder.build_parchment_page_theme()
 	# The frame intentionally leaves an even margin around all pages.
 	tab_container.offset_left = 100.0
 	tab_container.offset_top = 104.0
@@ -187,12 +194,14 @@ func _apply_mobile_sizing() -> void:
 	_settings_card.offset_bottom = -bottom_margin
 	title_label.position = Vector2(0.0, top_margin + 12.0)
 	title_label.size = Vector2(viewport_size.x, 52.0)
-	title_label.add_theme_font_size_override("font_size", 34)
 	tab_container.offset_left = side_margin + 16.0
 	tab_container.offset_top = top_margin + 78.0
 	tab_container.offset_right = -side_margin - 16.0
-	tab_container.offset_bottom = -bottom_margin - 76.0
-	tab_container.add_theme_font_size_override("font_size", 22)
+	# offset_bottom is set below, from the Back button's real height.
+	# M22: no per-control font-size overrides on mobile any more. The old
+	# 19-34px values were tuned for the pre-M22 1080-tall base; at the
+	# 1688x780 base the theme's own token sizes (body 32) are already
+	# phone-sized, so those overrides made phone text SMALLER than desktop.
 
 	for ctrl in [fullscreen_label, fullscreen_check, resolution_label, resolution_option,
 			vsync_label, vsync_check]:
@@ -204,12 +213,17 @@ func _apply_mobile_sizing() -> void:
 	grid_container.columns = 1
 	grid_container.add_theme_constant_override("h_separation", 12)
 	grid_container.add_theme_constant_override("v_separation", 10)
-	grid_container.custom_minimum_size = Vector2(maxf(320.0, tab_container.size.x - 32.0), 0.0)
+	# Width comes from the ScrollContainer (horizontal scroll disabled +
+	# EXPAND_FILL), not tab_container.size: that ignored the page stylebox's
+	# own content margins, so content overflowed sideways — a horizontal
+	# scrollbar, off-screen % readouts, a clipped Replay button (M22 sweep).
+	grid_container.custom_minimum_size = Vector2.ZERO
+	grid_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid_container.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	grid_container.position = Vector2(16.0, 16.0)
 	if not _mobile_general_scroll:
 		_mobile_general_scroll = ScrollContainer.new()
 		_mobile_general_scroll.name = "GeneralScrollContainer"
+		_mobile_general_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_mobile_general_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_mobile_general_scroll.offset_left = 12.0
 		_mobile_general_scroll.offset_top = 12.0
@@ -223,17 +237,26 @@ func _apply_mobile_sizing() -> void:
 		grid_container.get_node("SFXVolumeLabel"),
 		grid_container.get_node("TutorialLabel"),
 	]:
-		label.add_theme_font_size_override("font_size", 21)
-		label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 		label.custom_minimum_size = Vector2(0.0, 32.0)
 	for slider in [master_slider, music_slider, sfx_slider]:
 		slider.custom_minimum_size = Vector2(0.0, 64.0)
 		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	replay_tutorial_button.custom_minimum_size = Vector2(0.0, 68.0)
-	replay_tutorial_button.add_theme_font_size_override("font_size", 20)
-	back_button.custom_minimum_size = Vector2(176.0, 62.0)
-	back_button.position = Vector2(viewport_size.x * 0.5 - 88.0, viewport_size.y - bottom_margin - 66.0)
-	back_button.add_theme_font_size_override("font_size", 21)
+	replay_tutorial_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(260.0, 80.0))
+	# Container-laid (design.md §11's own fragile-area lesson, applied here):
+	# BackButtonContainer's CenterContainer keeps the button horizontally
+	# centred on its own — only the container's vertical offsets (safe-area
+	# clearance) are touched here, never the button's own position, so its
+	# size and its placement can never drift apart the way two independently
+	# hardcoded numbers did before.
+	back_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(220.0, 80.0))
+	back_button_container.offset_bottom = -bottom_margin - 8.0
+	# Real combined minimum, not custom_minimum_size: the lip-aware content
+	# margins can make the button taller than its requested 80, and the page
+	# bottom below is derived from this — sizing them independently let Back
+	# cover the page's last row (M22 Phase 4 phone sweep).
+	var back_h := maxf(back_button.custom_minimum_size.y, back_button.get_combined_minimum_size().y)
+	back_button_container.offset_top = back_button_container.offset_bottom - back_h - 16.0
+	tab_container.offset_bottom = back_button_container.offset_top - 4.0
 
 	_style_mobile_scroll_content(controls_vbox)
 	_style_mobile_scroll_content(account_vbox)
@@ -244,9 +267,6 @@ func _style_mobile_scroll_content(container: VBoxContainer) -> void:
 	## touch targets after population. The internal page margin is deliberately
 	## consistent with General's scroll view.
 	container.add_theme_constant_override("separation", 14)
-	container.add_theme_constant_override("margin_left", 18)
-	container.add_theme_constant_override("margin_right", 18)
-	container.custom_minimum_size.x = maxf(320.0, tab_container.size.x - 36.0)
 	# Section headers/cards (added by _add_section_header/_add_section_card)
 	# nest rows inside PanelContainer > VBoxContainer, so this needs to recurse
 	# rather than assume every row is a direct child of `container`.
@@ -257,18 +277,11 @@ func _style_mobile_rows_recursive(node: Node) -> void:
 	for child in node.get_children():
 		if child is Button or child is CheckButton or child is OptionButton or child is LineEdit:
 			child.custom_minimum_size.y = maxf(child.custom_minimum_size.y, 64.0)
-			child.add_theme_font_size_override("font_size", 20)
-		elif child is Label:
-			if not child.has_theme_font_size_override("font_size"):
-				child.add_theme_font_size_override("font_size", 19)
 		elif child is HBoxContainer:
 			child.custom_minimum_size.y = maxf(child.custom_minimum_size.y, 64.0)
 			for row_child in child.get_children():
-				if row_child is Label:
-					row_child.add_theme_font_size_override("font_size", 19)
-				elif row_child is Button or row_child is OptionButton:
+				if row_child is Button or row_child is OptionButton:
 					row_child.custom_minimum_size.y = maxf(row_child.custom_minimum_size.y, 60.0)
-					row_child.add_theme_font_size_override("font_size", 19)
 				elif row_child is HSlider:
 					row_child.custom_minimum_size.y = maxf(row_child.custom_minimum_size.y, 60.0)
 		elif child is PanelContainer or child is VBoxContainer:
@@ -306,7 +319,7 @@ func _populate_controls() -> void:
 		if InputMap.has_action(action):
 			var hbox = HBoxContainer.new()
 			var label = _make_row_label(tr(action.capitalize().replace("_", " ")))
-			label.custom_minimum_size.x = 200
+			label.custom_minimum_size.x = _ROW_LABEL_WIDTH
 			hbox.add_child(label)
 
 			var btn = Button.new()
@@ -420,7 +433,7 @@ func _add_graphics_quality_control(card: VBoxContainer) -> void:
 	## InputManager uses for sensitivity/dead zone.
 	var hbox := HBoxContainer.new()
 	var label := _make_row_label(tr("Graphics Quality"))
-	label.custom_minimum_size.x = 200
+	label.custom_minimum_size.x = _ROW_LABEL_WIDTH
 	hbox.add_child(label)
 
 	var option := OptionButton.new()
@@ -445,7 +458,7 @@ func _add_ui_font_control(card: VBoxContainer) -> void:
 	## OS Times New Roman. See PirateThemeBuilder._load_body_font().
 	var hbox := HBoxContainer.new()
 	var label := _make_row_label(tr("UI Font"))
-	label.custom_minimum_size.x = 200
+	label.custom_minimum_size.x = _ROW_LABEL_WIDTH
 	hbox.add_child(label)
 
 	var option := OptionButton.new()
@@ -469,7 +482,7 @@ func _add_ai_difficulty_control(card: VBoxContainer) -> void:
 	## descriptions come from the AIDifficultyData resources, not this file.
 	var hbox := HBoxContainer.new()
 	var label := _make_row_label(tr("Enemy Difficulty"))
-	label.custom_minimum_size.x = 200
+	label.custom_minimum_size.x = _ROW_LABEL_WIDTH
 	hbox.add_child(label)
 
 	var option := OptionButton.new()
@@ -497,7 +510,7 @@ func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, ma
 		value: float, on_changed: Callable) -> void:
 	var hbox := HBoxContainer.new()
 	var label := _make_row_label(label_text)
-	label.custom_minimum_size.x = 200
+	label.custom_minimum_size.x = _ROW_LABEL_WIDTH
 	hbox.add_child(label)
 
 	var slider := HSlider.new()
@@ -507,11 +520,13 @@ func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, ma
 	slider.value = value
 	slider.custom_minimum_size.x = 200
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_theme_constant_override("separation", _SLIDER_VALUE_GAP)
 	hbox.add_child(slider)
 
 	var value_label := _make_row_label("%.2f" % value)
-	value_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
-	value_label.custom_minimum_size.x = 50
+	value_label.theme_type_variation = &"HudNumLabel"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.custom_minimum_size.x = 96
 	hbox.add_child(value_label)
 
 	slider.value_changed.connect(func(v: float):
@@ -521,26 +536,22 @@ func _add_input_slider(card: VBoxContainer, label_text: String, min_v: float, ma
 	card.add_child(hbox)
 
 
-## M18 settings uplift — every screen-built Label previously relied on the
-## theme's fallback Label color, which reads fine on some panels but low-
-## contrast on others (Account/Controls tabs reported as hard to read).
-## Every dynamically-built row label now goes through this single helper so
-## color stays consistent and correctable in one place.
+## M18 settings uplift — every dynamically-built row label goes through this
+## single helper. M22: colour now comes from the parchment page sub-theme
+## (build_parchment_page_theme) rather than a per-label override, which is
+## what used to force light text onto what is now a light page.
 func _make_row_label(text_content: String) -> Label:
 	var label := Label.new()
 	label.text = text_content
-	label.add_theme_color_override("font_color", UITokens.palette().text_on_dark)
 	return label
 
 
-## Bold gold section title used to head each grouped card in Controls/Account.
+## Germania ink section title heading each grouped card in Controls/Account.
 func _add_section_header(parent: VBoxContainer, text_content: String) -> void:
 	var label := Label.new()
 	label.text = text_content
-	label.add_theme_font_size_override("font_size", 20)
-	label.add_theme_color_override("font_color", UITokens.palette().brass_light)
-	label.add_theme_color_override("font_outline_color", UITokens.palette().ink)
-	label.add_theme_constant_override("outline_size", 3)
+	label.theme_type_variation = &"InkTitleLabel"
+	label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
 	parent.add_child(label)
 
 
@@ -549,22 +560,8 @@ func _add_section_header(parent: VBoxContainer, text_content: String) -> void:
 ## unrelated rows with no visual separation.
 func _add_section_card(parent: VBoxContainer) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.071, 0.102, 0.18, 0.55)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = UITokens.palette().brass.darkened(0.3)
-	style.corner_radius_top_left = 12
-	style.corner_radius_top_right = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	style.content_margin_left = 14.0
-	style.content_margin_right = 14.0
-	style.content_margin_top = 10.0
-	style.content_margin_bottom = 10.0
-	panel.add_theme_stylebox_override("panel", style)
+	# Theme variation (PirateThemeBuilder), was a per-card StyleBoxFlat.
+	panel.theme_type_variation = &"InkInsetPanel"
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
@@ -592,16 +589,19 @@ func _on_master_slider_changed(value: float) -> void:
 	settings_manager.master_volume = value
 	audio_manager.set_bus_volume("Master", value)
 	settings_manager.save_settings()
+	master_value_label.text = "%d%%" % roundi(value * 100.0)
 
 func _on_music_slider_changed(value: float) -> void:
 	settings_manager.music_volume = value
 	audio_manager.set_bus_volume("Music", value)
 	settings_manager.save_settings()
+	music_value_label.text = "%d%%" % roundi(value * 100.0)
 
 func _on_sfx_slider_changed(value: float) -> void:
 	settings_manager.sfx_volume = value
 	audio_manager.set_bus_volume("SFX", value)
 	settings_manager.save_settings()
+	sfx_value_label.text = "%d%%" % roundi(value * 100.0)
 
 func _on_fullscreen_toggled(button_pressed: bool) -> void:
 	settings_manager.fullscreen = button_pressed
@@ -735,7 +735,6 @@ func _build_signed_out_account_ui() -> void:
 
 	var terms_link := LinkButton.new()
 	terms_link.text = tr("Terms of Service")
-	terms_link.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	terms_link.pressed.connect(func(): OS.shell_open(TERMS_URL))
 	terms_hbox.add_child(terms_link)
 
@@ -743,7 +742,6 @@ func _build_signed_out_account_ui() -> void:
 
 	var privacy_link := LinkButton.new()
 	privacy_link.text = tr("Privacy Policy")
-	privacy_link.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	privacy_link.pressed.connect(func(): OS.shell_open(PRIVACY_URL))
 	terms_hbox.add_child(privacy_link)
 
@@ -764,7 +762,6 @@ func _build_signed_out_account_ui() -> void:
 
 	var forgot_link := LinkButton.new()
 	forgot_link.text = tr("Forgot password?")
-	forgot_link.add_theme_color_override("font_color", UITokens.palette().brass)
 	forgot_link.pressed.connect(_on_forgot_password_pressed)
 	card.add_child(forgot_link)
 
@@ -777,7 +774,6 @@ func _build_signed_in_account_ui() -> void:
 	var card := _add_section_card(account_vbox)
 
 	var status_label := _make_row_label(tr("Signed in"))
-	status_label.add_theme_color_override("font_color", UITokens.palette().brass_light)
 	card.add_child(status_label)
 
 	var sign_out_button := Button.new()
@@ -836,40 +832,27 @@ func _on_sign_up_pending_confirmation() -> void:
 ## recipe (M9's framed-announcement pattern). Self-contained rather than calling WorldHUD
 ## directly, since SettingsMenu is also reachable from MainMenu where no WorldHUD exists.
 func _show_message(text_content: String, is_warning: bool = false) -> void:
+	# M22: the kit's wood frame (was a flat navy StyleBoxFlat), added to
+	# root_control — outside the parchment page — so its text stays light.
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.07, 0.12, 0.95)
-	style.border_width_left = 4
-	style.border_width_top = 4
-	style.border_width_right = 4
-	style.border_width_bottom = 4
-	style.border_color = UITokens.palette().brass
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.content_margin_left = 24
-	style.content_margin_right = 24
-	style.content_margin_top = 12
-	style.content_margin_bottom = 12
-	panel.add_theme_stylebox_override("panel", style)
+	panel.theme_type_variation = &"WoodFramePanel"
 
 	var label := Label.new()
 	label.text = text_content
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 24)
-	label.add_theme_color_override(
-		"font_color",
-		UITokens.palette().hp_low if is_warning else UITokens.palette().brass_light)
+	if is_warning:
+		label.add_theme_color_override("font_color", UITokens.palette().hp_low)
 	panel.add_child(label)
 
 	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	panel.offset_left = -300.0
 	panel.offset_right = 300.0
 	panel.offset_top = 100.0
-	panel.offset_bottom = 160.0
+	# Height comes from the content (the wood frame's margins + wrapped text),
+	# not a fixed 60px band that the kit frame's own margins would overflow.
+	panel.offset_bottom = panel.offset_top
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	PirateThemeBuilder.apply_mobile_control_scaling(panel)
 

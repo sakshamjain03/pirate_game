@@ -62,6 +62,70 @@ func test_display_and_title_labels_use_germania_with_shadow_and_outline():
 		assert_eq(_theme.get_constant("outline_size", variation), UITokens.TEXT_OUTLINE_SIZE)
 
 
+# Slider and ScrollBar both size their track from the stylebox's own
+# minimum size (its content margins), NOT the control's height or the
+# texture's pixels. Zero margins render a valid-looking but zero-thickness,
+# invisible control — shipped once for each (design.md §11a), caught only
+# by looking at a capture. These guard that trap directly.
+func test_slider_groove_and_fill_have_real_thickness():
+	for slot in ["slider", "grabber_area"]:
+		var style := _theme.get_stylebox(slot, "HSlider")
+		assert_gt(style.get_minimum_size().y, 0.0,
+			"HSlider '%s' must have non-zero thickness or the groove is invisible" % slot)
+
+
+func test_scrollbars_have_real_thickness():
+	for bar_type in ["VScrollBar", "HScrollBar"]:
+		for slot in ["scroll", "grabber"]:
+			var min_size := _theme.get_stylebox(slot, bar_type).get_minimum_size()
+			var thickness := min_size.x if bar_type == "VScrollBar" else min_size.y
+			assert_gt(thickness, 0.0,
+				"%s '%s' must have non-zero thickness or the bar is 0px and undraggable" % [bar_type, slot])
+
+
+func test_parchment_label_variations_use_ink_not_light_text():
+	var pal := UITokens.palette()
+	for variation in ["InkTitleLabel", "InkBodyLabel"]:
+		assert_eq(_theme.get_type_variation_base(variation), &"Label")
+		assert_eq(_theme.get_color("font_color", variation), pal.text_on_parchment,
+			"%s sits on parchment and must use ink, not the default light text" % variation)
+
+
+# Godot 4 CheckButton icons are "checked"/"unchecked" — the Godot 3 names
+# "on"/"off" were set here once and silently ignored, so every toggle drew
+# the engine's own tiny default pill. Also guards the kit toggle's size:
+# it was generated at half the 62x30-design spec (canvas = design x2).
+func test_check_button_uses_kit_toggle_at_spec_size():
+	var owner := Control.new()
+	owner.theme = _theme
+	add_child_autofree(owner)
+	var toggle := CheckButton.new()
+	owner.add_child(toggle)
+	for icon_name in ["checked", "unchecked", "checked_disabled", "unchecked_disabled"]:
+		var icon := toggle.get_theme_icon(icon_name)
+		assert_true(icon.resource_path.begins_with(PirateThemeBuilder.KIT),
+			"CheckButton '%s' must be the kit toggle, not the engine default" % icon_name)
+		assert_eq(icon.get_size(), Vector2(124, 60), "toggle must be 62x30 design px (x2 canvas)")
+
+
+# Resolved through a real node, not Theme.get_font(): the theme entries were
+# correct all along, but Theme.has_font() answers true for ANY type once a
+# default_font is set, so a variation that didn't declare its own fonts got
+# the default font for [b]/[i] (Credits rendered with no bold headings).
+func test_rich_text_bbcode_fonts_resolve_through_variation():
+	var owner := Control.new()
+	owner.theme = _theme
+	add_child_autofree(owner)
+	for variation in [&"", &"InkRichTextLabel"]:
+		var rtl := RichTextLabel.new()
+		rtl.theme_type_variation = variation
+		owner.add_child(rtl)
+		assert_true(rtl.get_theme_font("bold_font") is FontFile,
+			"[b] in '%s' must resolve to Germania, not the default body font" % variation)
+		assert_ne(rtl.get_theme_font("italics_font"), rtl.get_theme_font("normal_font"),
+			"[i] in '%s' must differ from normal text" % variation)
+
+
 func test_hud_num_and_chip_labels_use_the_800_weight_baloo2_variation():
 	for variation in ["HudNumLabel", "ChipLabel"]:
 		var font := _theme.get_font("font", variation)

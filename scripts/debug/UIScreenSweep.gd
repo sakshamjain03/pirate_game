@@ -92,6 +92,7 @@ func _capture(shot_name: String) -> void:
 func _run() -> void:
 	await _run_world_screens()
 	await _run_standalone_menus()
+	await _run_modals()
 	await _run_kit_sheet()
 
 
@@ -208,6 +209,48 @@ func _run_standalone_menus() -> void:
 	await _capture("12_credits")
 	credits.queue_free()
 	await _settle(2)
+
+
+## M22 Phase 4.4/4.5 — the modals no ordinary screen path reaches: each is
+## normally opened by AdManager/CrashReporter state that a sweep never
+## produces, so without this they were never seen at all.
+func _run_modals() -> void:
+	# Crash-recovery notice: MainMenu shows it only when CrashReporter has a
+	# pending report. Set the flag for the capture, then restore it exactly —
+	# never dismiss_pending_report(), which would touch the real report.
+	var had_pending: bool = CrashReporter.has_pending_report
+	CrashReporter.has_pending_report = true
+	var menu = load("res://scenes/ui/MainMenu.tscn").instantiate()
+	add_child(menu)
+	await _settle(5)
+	await _wait_seconds(1.8)
+	await _capture("14_crash_notice")
+	menu.queue_free()
+	CrashReporter.has_pending_report = had_pending
+	await _settle(2)
+
+	var dialog := ChoiceDialog.new("Cloud Save Found",
+		"A newer save exists in the cloud. Which one do you want to keep?",
+		PackedStringArray(["Keep Local", "Keep Cloud"]))
+	add_child(dialog)
+	await _settle(4)
+	await _capture("15_choice_dialog")
+	dialog.queue_free()
+	await _settle(2)
+
+	# AgeGate/ConsentPanel open themselves off AdManager.state; show() them
+	# directly instead of driving the real ad state machine into a gate.
+	for entry in [["16_age_gate", "res://scenes/ui/AgeGate.tscn"],
+			["17_consent_panel", "res://scenes/ui/ConsentPanel.tscn"]]:
+		var modal = load(entry[1]).instantiate()
+		add_child(modal)
+		await _settle(3)
+		modal.show()
+		await _settle(3)
+		await _capture(entry[0])
+		modal.queue_free()
+		get_tree().paused = false
+		await _settle(2)
 
 
 func _run_kit_sheet() -> void:

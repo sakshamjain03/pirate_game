@@ -7,25 +7,28 @@ class_name MainMenu extends CanvasLayer
 ## TODOs: Add confirmation dialog before New Game overwrites an existing save.
 
 @onready var root_control    : Control = $Control
-@onready var button_panel    : PanelContainer = $Control/ButtonPanel
-@onready var continue_button : Button = $Control/ButtonPanel/VBoxContainer/ContinueButton
-@onready var new_game_button : Button = $Control/ButtonPanel/VBoxContainer/NewGameButton
-@onready var settings_button : Button = $Control/ButtonPanel/VBoxContainer/SettingsButton
-@onready var store_button    : Button = $Control/ButtonPanel/VBoxContainer/StoreButton
-@onready var credits_button  : Button = $Control/ButtonPanel/VBoxContainer/CreditsButton
-@onready var quit_button     : Button = $Control/ButtonPanel/VBoxContainer/QuitButton
-@onready var title_label     : Label  = $Control/TitleContainer/TitleLabel
-@onready var subtitle_label  : Label  = $Control/TitleContainer/SubtitleLabel
+@onready var button_panel    : PanelContainer = $Control/MainVBox/ButtonPanel
+@onready var continue_button : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/ContinueButton
+@onready var new_game_button : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/NewGameButton
+@onready var gear_button     : Button = $Control/GearButton
+@onready var store_button    : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/StoreButton
+@onready var credits_button  : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/CreditsButton
+@onready var quit_button     : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/QuitButton
+@onready var title_label     : Label  = $Control/MainVBox/TitlePlaque/TitleVBox/TitleLabel
+@onready var subtitle_label  : Label  = $Control/MainVBox/TitlePlaque/TitleVBox/SubtitleLabel
 @onready var version_label   : Label  = $Control/VersionLabel
 ## M17 Requirement 4.1 — the store's other required entry point.
 @onready var store_screen    : StoreScreen = %StoreScreen
 
-## M13 Task 16.5 follow-up (2026-09-19) — main menu buttons measured 240x44
-## (≈16dp tall), one of the specifically flagged "game menu buttons too
-## small" complaints. PC keeps the original size (already comfortable for a
-## mouse); mobile gets real touch-sized buttons plus a wider/taller
-## ButtonPanel so they fit without clipping.
-const MOBILE_BUTTON_MIN_SIZE := Vector2(320, 64)
+## M22 Phase 4.1 (design.md §7/§8a) — one Primary CTA (coral, glowing),
+## brass secondaries, a round gear icon button for Settings. Sized generous
+## and chunky on PC on purpose (the design brief's own "epic world, funny
+## furniture" aesthetic), and always run through scaled_button_size() so
+## the MOBILE_MIN_TOUCH_TARGET floor from apply_button_juice() is never
+## silently undone afterward — the exact §8a root cause this replaces.
+const _PRIMARY_SIZE := Vector2(340, 104)
+const _SECONDARY_SIZE := Vector2(300, 92)
+const _GEAR_SIZE := Vector2(96, 96)
 
 var _tween: Tween
 
@@ -43,36 +46,34 @@ func _apply_theme() -> void:
 	_apply_button_sizing()
 
 func _apply_button_sizing() -> void:
-	for btn in [continue_button, new_game_button, settings_button, store_button, credits_button, quit_button]:
-		btn.custom_minimum_size = MOBILE_BUTTON_MIN_SIZE
-	button_panel.offset_left   = -170.0
-	button_panel.offset_right  = 170.0
-	# M22 (2026-09-25): shifted down from -220/220 — TitleContainer's fixed
-	# 20-260 box (scenes/ui/MainMenu.tscn) was sized for Cinzel's shorter
-	# line height at 56px; Germania One's is taller, so the title/subtitle
-	# now render past that box and visibly overlapped ButtonPanel's old,
-	# independently-hardcoded position (a real found-in-Phase-1 instance of
-	# CLAUDE.md's own "two independently hardcoded offsets drift apart"
-	# fragile-area warning). This is a minimal stop-gap, not the fix: Phase 4
-	# owns MainMenu's real layout and should put both under one container so
-	# this relationship is computed, not two numbers tuned to agree by hand.
-	button_panel.offset_top    = -90.0
-	button_panel.offset_bottom = 350.0
+	for btn in [continue_button, new_game_button, store_button, credits_button, quit_button]:
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_SECONDARY_SIZE)
+	gear_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_GEAR_SIZE)
+	# Whichever CTA is actually the primary action gets the bigger Primary
+	# size + glow; done here (after the uniform secondary pass above) so it
+	# isn't undone by it. _connect_buttons() decides which one that is.
 
 func _connect_buttons() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)
 	new_game_button.pressed.connect(_on_new_game_pressed)
-	settings_button.pressed.connect(_on_settings_pressed)
+	gear_button.pressed.connect(_on_settings_pressed)
 	store_button.pressed.connect(store_screen.open)
 	credits_button.pressed.connect(_on_credits_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
-	
+
+	# One Primary CTA per screen (design.md §7) — Continue when there's a
+	# save to resume, New Game otherwise. The other stays a brass secondary
+	# rather than hidden: a player with a save may still want to start over.
+	var primary_btn: Button
 	if SaveManager.has_recoverable_save_data():
 		continue_button.visible = true
-		continue_button.grab_focus()
+		primary_btn = continue_button
 	else:
 		continue_button.visible = false
-		new_game_button.grab_focus()
+		primary_btn = new_game_button
+	primary_btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_PRIMARY_SIZE)
+	PirateThemeBuilder.mark_primary(primary_btn)
+	primary_btn.grab_focus()
 
 func _animate_title() -> void:
 	## Fade in and gentle float animation on the title
@@ -113,9 +114,16 @@ func _on_quit_pressed() -> void:
 func _show_crash_report_notice() -> void:
 	if not CrashReporter.has_pending_report:
 		return
-	var notice := AcceptDialog.new()
-	notice.title = tr("Previous Session Ended Unexpectedly")
-	notice.dialog_text = tr("A local diagnostic report is ready for support. It contains no personal information and will not be sent automatically.")
-	notice.confirmed.connect(CrashReporter.dismiss_pending_report)
-	add_child(notice)
-	notice.popup_centered()
+	# M22 Phase 4.4 — the same parchment ChoiceDialog modal as every other
+	# prompt, not a stock AcceptDialog. The AcceptDialog this replaces was
+	# never actually themed: a Window parented under this CanvasLayer can't
+	# inherit root_control's theme (Godot's theme lookup stops at any
+	# non-Control/non-Window parent), and once themed by hand its embedded title
+	# bar still drew outside its border stylebox. Found by the M22 sweep's
+	# first-ever capture of this notice.
+	await ChoiceDialog.new(
+		tr("Previous Session Ended Unexpectedly"),
+		tr("A local diagnostic report is ready for support. It contains no personal information and will not be sent automatically."),
+		PackedStringArray([tr("OK")])
+	).ask(self)
+	CrashReporter.dismiss_pending_report()

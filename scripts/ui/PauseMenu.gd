@@ -10,6 +10,12 @@ class_name PauseMenu extends Control
 @onready var panel: PanelContainer = %Panel
 @onready var title_label: Label = %TitleLabel
 
+## M22 Phase 4.2 (design.md §7) — Resume is the one Primary CTA per screen;
+## Settings/Quit stay brass secondaries. Sized generous on purpose, same
+## reasoning as MainMenu.gd's own _PRIMARY_SIZE/_SECONDARY_SIZE consts.
+const _PRIMARY_SIZE := Vector2(280, 92)
+const _SECONDARY_SIZE := Vector2(280, 80)
+
 func _ready() -> void:
 	resume_button.pressed.connect(_on_resume_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
@@ -22,15 +28,12 @@ func _ready() -> void:
 
 	theme = PirateThemeBuilder.build()
 	PirateThemeBuilder.apply_button_juice(self)
+	resume_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_PRIMARY_SIZE)
+	PirateThemeBuilder.mark_primary(resume_button)
+	for btn in [settings_button, quit_button]:
+		btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_SECONDARY_SIZE)
 	if PirateThemeBuilder.is_mobile():
-		_apply_mobile_sizing()
-
-func _apply_mobile_sizing() -> void:
-	panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
-	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(36))
-	for btn in [resume_button, settings_button, quit_button]:
-		btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(btn.custom_minimum_size)
-		btn.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(22))
+		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):

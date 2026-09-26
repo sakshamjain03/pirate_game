@@ -8,9 +8,18 @@ class_name CreditsScreen
 ## TODOs: Pull credits content from a Resource once contributor list stabilizes.
 
 @onready var root_control: Control = $Control
-@onready var back_button: Button = $Control/BackButton
+@onready var back_button: Button = %BackButton
 @onready var title_label: Label = %TitleLabel
 @onready var scroll_container: ScrollContainer = %ScrollContainer
+@onready var parchment: PanelContainer = %Parchment
+
+## M22 Phase 4.5 — a parchment scroll (ink text, Germania headings via the
+## theme's RichTextLabel fonts) with Back below it, all in one CenterContainer
+## VBox. Replaces a bare RichTextLabel floating on a black ColorRect, whose
+## title, text box and Back button were three independently hardcoded
+## pixel offsets (the drift-prone pattern CLAUDE.md's fragile-areas list
+## warns about).
+const _BACK_SIZE := Vector2(240, 80)
 
 func _ready() -> void:
 	# M9 Requirement 3 (D70) — the only other screen in scenes/ui/ that never
@@ -23,14 +32,11 @@ func _ready() -> void:
 	if PirateThemeBuilder.is_mobile():
 		_apply_mobile_sizing()
 
+
 func _apply_mobile_sizing() -> void:
-	title_label.offset_left = PirateThemeBuilder.scaled(title_label.offset_left)
-	title_label.offset_right = PirateThemeBuilder.scaled(title_label.offset_right)
-	scroll_container.offset_left = PirateThemeBuilder.scaled(scroll_container.offset_left)
-	scroll_container.offset_right = PirateThemeBuilder.scaled(scroll_container.offset_right)
-	scroll_container.offset_top = PirateThemeBuilder.scaled(scroll_container.offset_top)
-	scroll_container.offset_bottom = PirateThemeBuilder.scaled(scroll_container.offset_bottom)
-	back_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(back_button.custom_minimum_size)
+	parchment.custom_minimum_size = PirateThemeBuilder.scaled_button_size(parchment.custom_minimum_size)
+	scroll_container.custom_minimum_size.y = PirateThemeBuilder.scaled(scroll_container.custom_minimum_size.y)
+	back_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_BACK_SIZE)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

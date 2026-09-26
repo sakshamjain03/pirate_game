@@ -48,6 +48,7 @@ const TEX_TAB_IDLE   := KIT + "tab_idle.svg"
 const TEX_TAB_ACTIVE := KIT + "tab_active.svg"
 const TEX_DROPDOWN_SHEET    := KIT + "dropdown_sheet.svg"
 const TEX_SCROLLBAR_TRACK   := KIT + "scrollbar_track.svg"
+const TEX_DROPDOWN_ARROW   := KIT + "dropdown_arrow.svg"
 const TEX_SCROLLBAR_GRABBER := KIT + "scrollbar_grabber.svg"
 
 ## design.md §6/§7's texture_margin numbers (canvas px — see gen_kit.py's
@@ -69,6 +70,13 @@ const MARGIN_BTN_BRASS   := 28.0
 ## reads as chunkier "funny furniture" buttons anyway (design brief).
 const _BTN_CONTENT_H  := 48.0
 const _BTN_CONTENT_V  := 20.0
+## The kit's rectangular button art keeps its lip as the bottom LIP_IDLE px
+## of the texture (and so of every stretched Button rect), with the visible
+## face above it. Content is centred on the FACE, not the whole rect, by
+## reserving the lip in content_margin_bottom — otherwise every label sits
+## LIP_IDLE/2 low and overlaps the lip (M22 Phase 4 sweep). Pressed: the face
+## drops PRESS_OFFSET_Y and the label drops with it (top +8, bottom -8).
+const _BTN_CONTENT_BOTTOM := _BTN_CONTENT_V + UITokens.LIP_IDLE
 const _HOVER_BRIGHTEN := Color(1.15, 1.15, 1.15, 1.0)
 
 ## M13 Task 16.5 follow-up (2026-09-19) — real-device text was reported "even
@@ -238,6 +246,44 @@ static func build() -> Theme:
 		theme.set_color("font_outline_color", label_type, pal.ink)
 		theme.set_constant("outline_size", label_type, UITokens.TEXT_OUTLINE_SIZE)
 
+	# Ink-on-parchment variants — every label above is light-on-dark (wood,
+	# ocean), which is unreadable on a ParchmentPanel. Modals that sit on
+	# parchment use these instead of per-label colour overrides.
+	theme.set_type_variation("InkTitleLabel", "Label")
+	theme.set_font("font", "InkTitleLabel", display_font)
+	theme.set_font_size("font_size", "InkTitleLabel", roundi(UITokens.FONT_TITLE * scale))
+	theme.set_type_variation("InkBodyLabel", "Label")
+	theme.set_font("font", "InkBodyLabel", body_font)
+	theme.set_font_size("font_size", "InkBodyLabel", roundi(UITokens.FONT_BODY * scale))
+	for label_type in ["InkTitleLabel", "InkBodyLabel"]:
+		theme.set_color("font_color", label_type, pal.text_on_parchment)
+		theme.set_color("font_shadow_color", label_type, Color(0, 0, 0, 0))
+		theme.set_constant("shadow_offset_x", label_type, 0)
+		theme.set_constant("shadow_offset_y", label_type, 0)
+		theme.set_constant("outline_size", label_type, 0)
+
+	# RichTextLabel — had no theme entry at all, so [b]/[i] BBCode fell back
+	# to the engine default font and rendered as plain body text (Credits,
+	# M22 Phase 4 sweep). [b] = Germania display (headings), [i] = a
+	# synthetic-slant Baloo 2. InkRichTextLabel is the parchment variant.
+	var italic_font := FontVariation.new()
+	italic_font.base_font = body_font
+	italic_font.variation_transform = Transform2D(Vector2(1, 0), Vector2(0.2, 1), Vector2.ZERO)
+	# Set on BOTH types, not just the base: Theme.has_font()/has_font_size()
+	# return true for ANY type once the theme has a default_font/size, so a
+	# variation lookup stops at "InkRichTextLabel" and gets the default font
+	# instead of falling through to RichTextLabel's (probed, not assumed).
+	theme.set_type_variation("InkRichTextLabel", "RichTextLabel")
+	for rtl_type in ["RichTextLabel", "InkRichTextLabel"]:
+		theme.set_font("normal_font", rtl_type, body_font)
+		theme.set_font("bold_font", rtl_type, display_font)
+		theme.set_font("italics_font", rtl_type, italic_font)
+		theme.set_font_size("normal_font_size", rtl_type, roundi(UITokens.FONT_BODY * scale))
+		theme.set_font_size("bold_font_size", rtl_type, roundi(UITokens.FONT_TITLE * scale))
+		theme.set_font_size("italics_font_size", rtl_type, roundi(UITokens.FONT_BODY * scale))
+	theme.set_color("default_color", "RichTextLabel", pal.text_on_dark)
+	theme.set_color("default_color", "InkRichTextLabel", pal.text_on_parchment)
+
 	# ======================================================================
 	# Panels (design.md §6) — parchment 9-slice, wood frame + rope + studs,
 	# wood plaque 3-slice. Default Panel/PanelContainer = wood frame.
@@ -260,6 +306,21 @@ static func build() -> Theme:
 	theme.set_stylebox("panel", "PlaquePanel", plaque_style)
 
 	theme.set_stylebox("panel", "Panel", wood_frame_style)
+
+	# A faint ink-tinted inset card for grouping rows ON parchment (Settings'
+	# Controls/Account sections) — flat by design: a second textured frame
+	# nested inside the parchment page reads as noise at row scale.
+	var inset := StyleBoxFlat.new()
+	inset.bg_color = Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.07)
+	inset.set_border_width_all(2)
+	inset.border_color = Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.28)
+	inset.set_corner_radius_all(12)
+	inset.content_margin_left = 14.0
+	inset.content_margin_right = 14.0
+	inset.content_margin_top = 10.0
+	inset.content_margin_bottom = 10.0
+	theme.set_type_variation("InkInsetPanel", "PanelContainer")
+	theme.set_stylebox("panel", "InkInsetPanel", inset)
 	theme.set_stylebox("panel", "PanelContainer", wood_frame_style)
 
 	# ======================================================================
@@ -268,14 +329,14 @@ static func build() -> Theme:
 	# ======================================================================
 	var primary_idle := _texture_stylebox(TEX_BUTTON_PRIMARY_IDLE,
 			MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY,
-			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_V)
+			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_BOTTOM)
 	var primary_pressed := _texture_stylebox(TEX_BUTTON_PRIMARY_PRESSED,
 			MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY,
 			_BTN_CONTENT_H, _BTN_CONTENT_H,
-			_BTN_CONTENT_V + UITokens.PRESS_OFFSET_Y, _BTN_CONTENT_V - UITokens.PRESS_OFFSET_Y)
+			_BTN_CONTENT_V + UITokens.PRESS_OFFSET_Y, _BTN_CONTENT_BOTTOM - UITokens.PRESS_OFFSET_Y)
 	var primary_disabled := _texture_stylebox(TEX_BUTTON_PRIMARY_DISABLED,
 			MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY, MARGIN_BTN_PRIMARY,
-			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_V)
+			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_BOTTOM)
 	var primary_hover := primary_idle.duplicate() as StyleBoxTexture
 	primary_hover.modulate_color = _HOVER_BRIGHTEN
 
@@ -301,14 +362,14 @@ static func build() -> Theme:
 
 	var brass_idle := _texture_stylebox(TEX_BUTTON_BRASS_IDLE,
 			MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS,
-			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_V)
+			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_BOTTOM)
 	var brass_pressed := _texture_stylebox(TEX_BUTTON_BRASS_PRESSED,
 			MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS,
 			_BTN_CONTENT_H, _BTN_CONTENT_H,
-			_BTN_CONTENT_V + UITokens.PRESS_OFFSET_Y, _BTN_CONTENT_V - UITokens.PRESS_OFFSET_Y)
+			_BTN_CONTENT_V + UITokens.PRESS_OFFSET_Y, _BTN_CONTENT_BOTTOM - UITokens.PRESS_OFFSET_Y)
 	var brass_disabled := _texture_stylebox(TEX_BUTTON_BRASS_DISABLED,
 			MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS,
-			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_V)
+			_BTN_CONTENT_H, _BTN_CONTENT_H, _BTN_CONTENT_V, _BTN_CONTENT_BOTTOM)
 	var brass_hover := brass_idle.duplicate() as StyleBoxTexture
 	brass_hover.modulate_color = _HOVER_BRIGHTEN
 
@@ -357,8 +418,10 @@ static func build() -> Theme:
 	# since Slider has no child content) — 0/0 rendered a zero-height,
 	# invisible groove regardless of the texture's own pixel content; found
 	# by checking UIKitSheet's live SettingsMenu capture, not assumed.
-	var slider_groove := _texture_stylebox(TEX_ROPE_SLIDER_TRACK, 7.0, 7.0, 0.0, 0.0, 0, 0, 7.0, 7.0)
-	var slider_fill := _texture_stylebox(TEX_ROPE_SLIDER_FILL, 7.0, 7.0, 0.0, 0.0, 0, 0, 7.0, 7.0)
+	# Track is 28 canvas px tall (design 14): caps = 14 each side, thickness
+	# 14 + 14.
+	var slider_groove := _texture_stylebox(TEX_ROPE_SLIDER_TRACK, 14.0, 14.0, 0.0, 0.0, 0, 0, 14.0, 14.0)
+	var slider_fill := _texture_stylebox(TEX_ROPE_SLIDER_FILL, 14.0, 14.0, 0.0, 0.0, 0, 0, 14.0, 14.0)
 	theme.set_stylebox("slider", "HSlider", slider_groove)
 	theme.set_stylebox("grabber_area", "HSlider", slider_fill)
 	theme.set_stylebox("grabber_area_highlight", "HSlider", slider_fill)
@@ -373,10 +436,14 @@ static func build() -> Theme:
 	# ======================================================================
 	var toggle_on_tex := _load_texture(TEX_TOGGLE_ON)
 	var toggle_off_tex := _load_texture(TEX_TOGGLE_OFF)
-	theme.set_icon("on", "CheckButton", toggle_on_tex)
-	theme.set_icon("on_disabled", "CheckButton", toggle_on_tex)
-	theme.set_icon("off", "CheckButton", toggle_off_tex)
-	theme.set_icon("off_disabled", "CheckButton", toggle_off_tex)
+	# Godot 4 names — "on"/"off" (Godot 3's names, used here before) are
+	# silently ignored, so every toggle drew the engine's own tiny grey pill
+	# (M22 Phase 4 Settings sweep). The _mirrored set is what RTL layouts use.
+	for suffix in ["", "_mirrored"]:
+		theme.set_icon("checked" + suffix, "CheckButton", toggle_on_tex)
+		theme.set_icon("checked_disabled" + suffix, "CheckButton", toggle_on_tex)
+		theme.set_icon("unchecked" + suffix, "CheckButton", toggle_off_tex)
+		theme.set_icon("unchecked_disabled" + suffix, "CheckButton", toggle_off_tex)
 	theme.set_font("font", "CheckButton", display_font)
 	theme.set_font_size("font_size", "CheckButton", roundi(UITokens.FONT_BODY * scale))
 	theme.set_color("font_color", "CheckButton", pal.text_on_dark)
@@ -422,6 +489,9 @@ static func build() -> Theme:
 	theme.set_color("font_pressed_color", "OptionButton", pal.ink)
 	theme.set_color("font_focus_color", "OptionButton", pal.ink)
 	theme.set_color("font_disabled_color", "OptionButton", Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.55))
+	# Engine default arrow is a tiny light-grey chevron — invisible on brass.
+	theme.set_icon("arrow", "OptionButton", _load_texture(TEX_DROPDOWN_ARROW))
+	theme.set_constant("arrow_margin", "OptionButton", roundi(_BTN_CONTENT_H * 0.5))
 
 	var popup_panel_style := _texture_stylebox(TEX_DROPDOWN_SHEET, 12.0, 12.0, 12.0, 12.0, 16.0, 16.0, 10.0, 10.0)
 	theme.set_stylebox("panel", "PopupMenu", popup_panel_style)
@@ -485,8 +555,14 @@ static func build() -> Theme:
 	# ======================================================================
 	# ScrollBar — thin brass (design.md §7)
 	# ======================================================================
-	var scroll_track := _texture_stylebox(TEX_SCROLLBAR_TRACK, 2.0, 2.0, 0.0, 0.0, 0, 0, 0, 0)
-	var scroll_grabber := _texture_stylebox(TEX_SCROLLBAR_GRABBER, 2.0, 2.0, 0.0, 0.0, 0, 0, 0, 0)
+	# Same trap as Slider above: a ScrollBar's thickness IS its stylebox's
+	# minimum size (content margins), not the texture's width. 0 margins made
+	# every themed scrollbar 0px wide — visible=true but undrawn and
+	# undraggable (found via the Phase 4 Credits capture, confirmed by a
+	# measured size of (0, 100)). 4px each side = the kit's 8px track width,
+	# and works for both HScrollBar and VScrollBar since both share these.
+	var scroll_track := _texture_stylebox(TEX_SCROLLBAR_TRACK, 2.0, 2.0, 0.0, 0.0, 4.0, 4.0, 4.0, 4.0)
+	var scroll_grabber := _texture_stylebox(TEX_SCROLLBAR_GRABBER, 2.0, 2.0, 0.0, 0.0, 4.0, 4.0, 4.0, 4.0)
 	var scroll_grabber_hi := scroll_grabber.duplicate() as StyleBoxTexture
 	scroll_grabber_hi.modulate_color = _HOVER_BRIGHTEN
 	for scrollbar_type in ["HScrollBar", "VScrollBar"]:
@@ -580,6 +656,35 @@ static func _load_texture(path: String) -> Texture2D:
 		return res as Texture2D
 	push_warning("PirateThemeBuilder: could not load texture: " + path)
 	return null
+
+
+## M22 Phase 4.3 — a parchment page for a TabContainer (Settings), set as
+## that TabContainer's own `theme` ON TOP of build()'s. Holds ONLY the items
+## that differ on parchment (the page stylebox, ink text colours, no light-
+## text drop shadow); Godot's per-owner theme lookup falls through to build()'s
+## theme for everything it doesn't define, so fonts/sizes/button art are
+## untouched. Deliberately no default_font here: Theme.has_font() answers
+## true for every type once a default is set, which would shadow build()'s
+## fonts entirely. Covers rows built at runtime (Controls/Account tabs) with
+## no per-label colour overrides.
+static func build_parchment_page_theme() -> Theme:
+	var pal := UITokens.palette()
+	var page := Theme.new()
+	var page_style := _texture_stylebox(TEX_PARCHMENT_PANEL,
+			MARGIN_PARCHMENT, MARGIN_PARCHMENT, MARGIN_PARCHMENT, MARGIN_PARCHMENT,
+			40.0, 40.0, 32.0, 32.0)
+	page.set_stylebox("panel", "TabContainer", page_style)
+	page.set_color("font_color", "Label", pal.text_on_parchment)
+	page.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0))
+	for toggle_type in ["CheckButton", "CheckBox"]:
+		page.set_color("font_color", toggle_type, pal.text_on_parchment)
+		page.set_color("font_focus_color", toggle_type, pal.text_on_parchment)
+		page.set_color("font_hover_color", toggle_type, pal.driftwood)
+		page.set_color("font_pressed_color", toggle_type, pal.driftwood)
+	page.set_color("font_color", "LinkButton", pal.sunset_teal)
+	page.set_color("font_hover_color", "LinkButton", pal.driftwood)
+	page.set_color("font_focus_color", "LinkButton", pal.sunset_teal)
+	return page
 
 
 ## Wraps a kit SVG as a 9/3-slice StyleBoxTexture. `m*` are texture_margin

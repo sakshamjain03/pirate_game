@@ -143,8 +143,10 @@ func open(island: Node3D) -> void:
 	island_name_label.text = name_text
 		
 	# Configure Tabs
-	var has_shipyard = island.has_building("shipyard") if island.has_method("has_building") else false
-	var has_tavern = island.has_building("tavern") if island.has_method("has_building") else false
+	# has_building_type(): building ids are level-suffixed ("shipyard_l1"), so
+	# the exact has_building("shipyard") this used never matched real data.
+	var has_shipyard = island.has_building_type("shipyard") if island.has_method("has_building_type") else false
+	var has_tavern = island.has_building_type("tavern") if island.has_method("has_building_type") else false
 	
 	var can_build = type == IslandData.IslandType.FRIENDLY
 	
@@ -200,10 +202,10 @@ func _on_resources_changed(_res: Dictionary) -> void:
 	if not visible or not current_island:
 		return
 	_refresh_buildings()
-	if current_island.has_method("has_building"):
-		if current_island.has_building("shipyard"):
+	if current_island.has_method("has_building_type"):
+		if current_island.has_building_type("shipyard"):
 			_refresh_ships()
-		if current_island.has_building("tavern"):
+		if current_island.has_building_type("tavern"):
 			_refresh_captains()
 	_refresh_research()
 	_refresh_trade()

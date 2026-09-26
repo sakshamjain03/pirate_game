@@ -693,6 +693,15 @@ specifically to catch: `BuildingData.building_id` is **level-suffixed** (`"farm_
 `"farm"`), and a `BOARD_SHIPS` objective can target either a faction id or a dedicated boss
 `ship_id` — the registry-selection logic must union both id pools, not faction-only.
 
+The same level-suffix trap existed outside content, undetected until M22 Phase 6 (2026-09-27):
+`IslandMenu` (Shipyard/Tavern tab gating), `Island.has_shipyard()` (DockingSystem's shipyard offer)
+and `EmpireManager`'s raid defence (fortress/watchtower tiers) all called the *exact*
+`has_building("shipyard")`/`("fortress")`…, which no real `*_lN` id can satisfy — so none of those
+features could ever trigger in real play (the unit test passed only because it hand-built a bare
+`"fortress"` id). All now use `Island.has_building_type(base_id)` (any level); `has_building()`
+stays exact for `build_structure()`'s duplicate check. Guarded by `tests/test_building_type_lookup.gd`,
+which uses the real `.tres` files.
+
 ### `TutorialManager` reduced to a thin wrapper
 
 Kept (not retired outright) specifically so `tests/test_tutorial_manager.gd`'s coverage isn't

@@ -116,8 +116,11 @@ func _compute_defense_score() -> float:
 	if not target_island:
 		return 0.0
 		
-	var fortress_tier: float = 1.0 if target_island.has_building("fortress") else 0.0
-	var watchtower_tier: float = 1.0 if target_island.has_building("watchtower") else 0.0
+	# Any level counts (ids are level-suffixed: "fortress_l1" — see
+	# Island.has_building_type()); the exact has_building("fortress") this
+	# used never matched real data, so defence was always 0.
+	var fortress_tier: float = 1.0 if target_island.has_building_type("fortress") else 0.0
+	var watchtower_tier: float = 1.0 if target_island.has_building_type("watchtower") else 0.0
 	
 	var num_ships_defending_home: int = 0
 	# Task 18 will update num_ships_defending_home via FleetManager

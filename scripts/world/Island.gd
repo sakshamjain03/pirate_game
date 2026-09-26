@@ -227,8 +227,20 @@ func has_building(building_id: String) -> bool:
 			return true
 	return false
 
+## Is ANY level of this building type built? BuildingData.building_id is
+## level-suffixed ("shipyard_l1".."shipyard_l5" — docs/05_CURRENT_SYSTEMS.md),
+## so has_building("shipyard") — an exact match — could never be true for real
+## data: the Shipyard/Tavern menu tabs never unlocked, shipyard docking never
+## offered, raid defence never counted a fortress/watchtower. has_building()
+## stays exact on purpose (build_structure()'s duplicate check needs that).
+func has_building_type(base_id: String) -> bool:
+	for b in built_buildings:
+		if b.building_id == base_id or b.building_id.begins_with(base_id + "_l"):
+			return true
+	return false
+
 func has_shipyard() -> bool:
-	return has_building("shipyard")
+	return has_building_type("shipyard")
 
 func build_structure(building: BuildingData) -> bool:
 	if not island_data or not island_data.is_owned_by_player():

@@ -58,12 +58,16 @@ func _ready() -> void:
 	
 	# Apply theme
 	theme = PirateThemeBuilder.build()
+	# M22 Phase 6.1 — tab pages are parchment with ink text (v0.3 screen 02's
+	# parchment detail sheet), the same colour-only sub-theme Settings uses,
+	# so every runtime-built row gets ink without a per-label override.
+	tab_container.theme = PirateThemeBuilder.build_parchment_page_theme()
+	# Colonize is this screen's one hero action when it's shown (design §7).
+	PirateThemeBuilder.mark_primary(colonize_btn)
 
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
 		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
-		close_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(20))
-		island_name_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(32))
 		colonize_btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(colonize_btn.custom_minimum_size)
 
 func _load_building_data() -> void:
@@ -233,6 +237,7 @@ func _on_colonize_pressed() -> void:
 			open(current_island)
 
 func _refresh_buildings() -> void:
+	_restyle_page.call_deferred(buildings_container)
 	# Clear existing entries
 	for child in buildings_container.get_children():
 		child.queue_free()
@@ -345,6 +350,150 @@ func _create_building_entry(building: BuildingData) -> void:
 	var sep = HSeparator.new()
 	buildings_container.add_child(sep)
 
+# --- M22 Phase 6.1 restyle pass ---------------------------------------------
+# Every tab builds its rows the same way (a name label at 18px, a grey 12px
+# description, a "50 Gold  20 Wood" cost label coloured by affordability, an
+# HSeparator), across six refresh functions. Rather than re-author each, one
+# pass restyles whatever a refresh just built: rows become ink inset cards on
+# the parchment page, label roles map to kit variations, state colours map to
+# palette tokens readable on parchment, and plain cost text becomes icon cost
+# chips. Display-only: every button, signal and handler is left untouched.
+const _PORTRAIT_SIZE := 96.0
+## What an empty tab page says instead of rendering blank parchment.
+const _EMPTY_PAGE_TEXT := {
+	"FleetContainer": "No ships in your fleet yet. Buy one at a Shipyard.",
+	"ResearchContainer": "Nothing left to research here.",
+	"CaptainsContainer": "No captains are drinking here tonight.",
+	"ShipsContainer": "The shipyard has nothing for sale.",
+	"BuildingsContainer": "Nothing to build here.",
+	"TradeContainer": "No one here is buying.",
+}
+const _COST_RESOURCES := {"gold": "gold", "wood": "wood", "iron": "iron", "rum": "rum", "research": "research"}
+
+func _restyle_page(container: Container) -> void:
+	if not is_instance_valid(container):
+		return
+	for child in container.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is HSeparator:
+			child.visible = false  # cards separate rows now
+		elif child is BoxContainer and not child.get_parent() is PanelContainer:
+			var card := PanelContainer.new()
+			card.theme_type_variation = &"InkInsetPanel"
+			card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			container.add_child(card)
+			container.move_child(card, child.get_index())
+			child.reparent(card)
+			_restyle_subtree(child)
+		elif child is Label:
+			_restyle_label(child)
+	var has_content := false
+	for child in container.get_children():
+		if not child.is_queued_for_deletion() and child is Control and child.visible and child.name != "EmptyPage":
+			has_content = true
+			break
+	var empty := container.get_node_or_null("EmptyPage")
+	if has_content and empty:
+		empty.queue_free()
+	elif not has_content and not empty and _EMPTY_PAGE_TEXT.has(String(container.name)):
+		var note := Label.new()
+		note.name = "EmptyPage"
+		note.text = tr(_EMPTY_PAGE_TEXT[String(container.name)])
+		note.theme_type_variation = &"InkBodyLabel"
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.modulate = Color(1, 1, 1, 0.7)
+		container.add_child(note)
+
+
+func _restyle_subtree(node: Node) -> void:
+	for child in node.get_children():
+		if child is Button:
+			# Row children fill the card's height by default — a Hire/Build
+			# button beside a tall captain card stretched to 160px.
+			child.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		elif child is Label:
+			_restyle_label(child)
+		elif child is Container:
+			_restyle_subtree(child)
+
+
+func _restyle_label(label: Label) -> void:
+	var size := label.get_theme_font_size("font_size") if label.has_theme_font_size_override("font_size") else 0
+	if size >= 18:
+		label.remove_theme_font_size_override("font_size")
+		label.theme_type_variation = &"InkTitleLabel"
+		label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
+	elif size > 0:
+		label.remove_theme_font_size_override("font_size")
+		label.theme_type_variation = &"ChipLabel"
+		# Wrap rather than set the page's min width: an unwrapped long
+		# description made the whole modal change width tab to tab.
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var pal := UITokens.palette()
+	var unaffordable := false
+	if label.has_theme_color_override("font_color"):
+		var c := label.get_theme_color("font_color")
+		# The pre-M22 state colours were chosen for a dark navy page; on
+		# parchment grey and yellow vanish, so re-map by what they MEANT.
+		if c.r > 0.8 and c.g < 0.45:
+			unaffordable = true
+			label.add_theme_color_override("font_color", pal.brick)
+		elif c.g > 0.7 and c.r < 0.35:
+			label.add_theme_color_override("font_color", pal.hp_good.darkened(0.35))
+		elif c.b > 0.7 and c.r < 0.35:
+			label.add_theme_color_override("font_color", pal.sunset_teal)
+		else:
+			label.remove_theme_color_override("font_color")  # grey/yellow -> page ink
+	var chips := _cost_chips_for(label.text, unaffordable)
+	if chips:
+		var parent := label.get_parent()
+		parent.add_child(chips)
+		parent.move_child(chips, label.get_index())
+		label.visible = false
+
+
+## "50 Gold  20 Wood  " -> a row of icon cost chips; null for anything else
+## ("Requires Island Tier 2", names, descriptions).
+func _cost_chips_for(text: String, unaffordable: bool) -> Control:
+	var parts := text.strip_edges().split(" ", false)
+	if parts.is_empty() or parts.size() % 2 != 0:
+		return null
+	var pairs: Array = []
+	for i in range(0, parts.size(), 2):
+		var key := String(parts[i + 1]).to_lower()
+		if not parts[i].is_valid_int() or not _COST_RESOURCES.has(key):
+			return null
+		pairs.append([parts[i], key])
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for pair in pairs:
+		var chip := PanelContainer.new()
+		chip.theme_type_variation = &"CostChip"
+		var inner := HBoxContainer.new()
+		inner.add_theme_constant_override("separation", 4)
+		var icon := TextureRect.new()
+		icon.texture = UIIcons.get_icon(_COST_RESOURCES[pair[1]])
+		icon.custom_minimum_size = Vector2(32, 32)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		inner.add_child(icon)
+		var amount := Label.new()
+		amount.text = pair[0]
+		amount.theme_type_variation = &"ChipLabel"
+		amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		if unaffordable:
+			amount.add_theme_color_override("font_color", UITokens.palette().brick)
+		inner.add_child(amount)
+		chip.add_child(inner)
+		row.add_child(chip)
+	return row
+
+
 func _on_build_pressed(building: BuildingData) -> void:
 	if current_island and current_island.has_method("build_structure"):
 		if current_island.build_structure(building):
@@ -371,6 +520,7 @@ func _on_upgrade_pressed(old_id: String, next_upgrade: BuildingData) -> void:
 # --- SHIPYARD ---
 
 func _refresh_ships() -> void:
+	_restyle_page.call_deferred(ships_container)
 	for child in ships_container.get_children():
 		child.queue_free()
 	_create_repair_ship_entry()
@@ -475,6 +625,7 @@ func _on_buy_ship_pressed(ship: ShipStats, cost: Dictionary) -> void:
 # --- TAVERN ---
 
 func _refresh_captains() -> void:
+	_restyle_page.call_deferred(captains_container)
 	for child in captains_container.get_children():
 		child.queue_free()
 		
@@ -559,20 +710,28 @@ func _create_captain_entry(cap: CaptainData) -> void:
 	# M11 Requirement 9 — real portrait art (or the sanctioned flat-color
 	# icon-bust substitute) where it exists, falling back to the existing
 	# monogram treatment otherwise, via PortraitFallback's shared contract.
+	# M22 Phase 6.2 — v0.3 screen 03's roster card: a framed 96px portrait
+	# (was a bare 48px square). No rarity gem — CaptainData has no rarity
+	# field, and the spec forbids inventing one (plain frame instead).
+	var portrait_frame = PanelContainer.new()
+	portrait_frame.theme_type_variation = &"PortraitFrame"
+	portrait_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var portrait_slot = Control.new()
-	portrait_slot.custom_minimum_size = Vector2(48, 48)
+	portrait_slot.custom_minimum_size = Vector2(_PORTRAIT_SIZE, _PORTRAIT_SIZE)
+	portrait_frame.add_child(portrait_slot)
 	var portrait_rect = TextureRect.new()
-	portrait_rect.custom_minimum_size = Vector2(48, 48)
+	portrait_rect.custom_minimum_size = Vector2(_PORTRAIT_SIZE, _PORTRAIT_SIZE)
 	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	var portrait_fallback = Label.new()
-	portrait_fallback.custom_minimum_size = Vector2(48, 48)
+	portrait_fallback.custom_minimum_size = Vector2(_PORTRAIT_SIZE, _PORTRAIT_SIZE)
 	portrait_fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	portrait_fallback.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	portrait_slot.add_child(portrait_rect)
 	portrait_slot.add_child(portrait_fallback)
 	PortraitFallback.apply_to_texture_rect(portrait_rect, portrait_fallback, cap.portrait_path, cap.captain_name)
-	hbox.add_child(portrait_slot)
+	hbox.add_theme_constant_override("separation", 16)
+	hbox.add_child(portrait_frame)
 
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -582,12 +741,31 @@ func _create_captain_entry(cap: CaptainData) -> void:
 	name_lbl.add_theme_font_size_override("font_size", 18)
 	
 	var desc_lbl = Label.new()
-	desc_lbl.text = tr("%s (SPD x%.2f | TRN x%.2f | DMG x%.2f | HP x%.2f)") % [cap.background, cap.speed_modifier, cap.turn_rate_modifier, cap.damage_modifier, cap.health_modifier]
+	desc_lbl.text = cap.background
 	desc_lbl.add_theme_font_size_override("font_size", 12)
-	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	
+
 	info_vbox.add_child(name_lbl)
+	if cap.active_ability:
+		var ability_lbl := Label.new()
+		ability_lbl.text = tr("Ability: %s") % cap.active_ability.display_name
+		ability_lbl.theme_type_variation = &"ChipLabel"
+		ability_lbl.add_theme_color_override("font_color", UITokens.palette().sunset_teal)
+		info_vbox.add_child(ability_lbl)
 	info_vbox.add_child(desc_lbl)
+	# Stat chips (v0.3 "DMG 412 · HP 3.1k · SPD 88"), the same numbers the
+	# single "(SPD x1.00 | TRN x…)" line carried, one chip each.
+	var stats := HFlowContainer.new()
+	stats.add_theme_constant_override("h_separation", 8)
+	for stat in [[tr("SPD x%.2f"), cap.speed_modifier], [tr("TRN x%.2f"), cap.turn_rate_modifier],
+			[tr("DMG x%.2f"), cap.damage_modifier], [tr("HP x%.2f"), cap.health_modifier]]:
+		var chip := PanelContainer.new()
+		chip.theme_type_variation = &"CostChip"
+		var stat_lbl := Label.new()
+		stat_lbl.text = String(stat[0]) % float(stat[1])
+		stat_lbl.theme_type_variation = &"ChipLabel"
+		chip.add_child(stat_lbl)
+		stats.add_child(chip)
+	info_vbox.add_child(stats)
 	
 	# Cost - per-captain, ramps with roster depth
 	var cost_dict = {"gold": cap.hire_cost_gold}
@@ -626,6 +804,7 @@ func _on_hire_captain_pressed(cap: CaptainData, cost: Dictionary) -> void:
 # --- FLEET ---
 
 func _refresh_fleet() -> void:
+	_restyle_page.call_deferred(fleet_container)
 	if not fleet_container:
 		return
 	for child in fleet_container.get_children():
@@ -899,6 +1078,7 @@ func _on_make_active_pressed(index: int) -> void:
 # --- RESEARCH ---
 
 func _refresh_research() -> void:
+	_restyle_page.call_deferred(research_container)
 	if not research_container:
 		return
 	for child in research_container.get_children():
@@ -974,6 +1154,7 @@ func _on_unlock_tech_pressed(tech: TechData, cost: Dictionary) -> void:
 # --- TRADE ---
 
 func _refresh_trade() -> void:
+	_restyle_page.call_deferred(trade_container)
 	if not trade_container:
 		return
 	for child in trade_container.get_children():

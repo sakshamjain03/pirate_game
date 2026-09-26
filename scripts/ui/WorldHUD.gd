@@ -300,12 +300,40 @@ func _apply_mobile_safe_area() -> void:
 		mobile_utility_drawer.position = Vector2(safe.get_center().x - drawer_size.x * 0.5,
 				safe.end.y - drawer_size.y - 180.0)
 	_place_compass()
+	_fit_tutorial_between_thumb_clusters()
 	if _objective_card:
 		var action_scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
 		var card_width := 378.0 * action_scale
 		var action_x := safe.position.x + 16.0 if MobileLayoutManager.is_left_handed() else safe.end.x - card_width - 16.0
 		_objective_card.position = Vector2(action_x, safe.end.y - 510.0 * action_scale)
 		_objective_card.size = Vector2(card_width, 72.0 * action_scale)
+
+## Phone: hand TutorialDialogue the free band between the left-thumb and
+## right-thumb clusters (whichever side each is on — left-handed mirrors
+## them), from the real button rects, so the card can't cover a control.
+func _fit_tutorial_between_thumb_clusters() -> void:
+	var mc := get_node_or_null("MobileControls")
+	if not tutorial_dialogue or not mc or not tutorial_dialogue.has_method("set_mobile_band"):
+		return
+	var mid := get_viewport().get_visible_rect().size.x * 0.5
+	var left_edge := 0.0
+	var right_edge := get_viewport().get_visible_rect().size.x
+	for cluster_name in ["Movement", "Actions", "Combat"]:
+		var cluster: Control = mc.get_node_or_null(cluster_name)
+		if not cluster or not cluster.visible:
+			continue
+		for child in cluster.get_children():
+			if not (child is Control) or not child.visible:
+				continue
+			var r: Rect2 = child.get_global_rect()
+			if r.get_center().x < mid:
+				left_edge = maxf(left_edge, r.end.x)
+			else:
+				right_edge = minf(right_edge, r.position.x)
+	const GAP := 24.0
+	if right_edge - left_edge > 400.0:
+		tutorial_dialogue.set_mobile_band(left_edge + GAP, right_edge - GAP)
+
 
 func _check_whats_new() -> void:
 	## M14 Requirement 5.2 — one-time auto-show, same shape as
@@ -365,6 +393,18 @@ func _offer_offline_income_bonus() -> void:
 ## how the announcement toast shipped as a grey band (M22 Phase 5 sweep).
 ## Reused rather than rebuilt per toast: build() loads every font and kit SVG.
 var _hud_theme: Theme
+
+## Adds a runtime HUD widget (chips, readouts, the phone utility opener and
+## drawer) just after TopRightPanel in child order, not at the end: the modal
+## screens (IslandMenu, CaptainsLog, …) are instanced children of this same
+## CanvasLayer, so an appended widget drew ON TOP of an open modal (the
+## "Next Production" chip over IslandMenu — M22 Phase 6 sweep). Event
+## announcements deliberately still append (they're meant to be on top).
+func _add_hud_widget(widget: Control) -> void:
+	add_child(widget)
+	if top_right_panel and top_right_panel.get_parent() == self:
+		move_child(widget, top_right_panel.get_index() + 1)
+
 
 func _hud_owned_theme() -> Theme:
 	if not _hud_theme:
@@ -480,7 +520,7 @@ func _create_economy_label() -> void:
 	_economy_label.theme_type_variation = &"ChipLabel"
 	_economy_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_economy_chip.add_child(_economy_label)
-	add_child(_economy_chip)
+	_add_hud_widget(_economy_chip)
 	# Desktop: directly under the speed/sail plaque, from its measured edge
 	# (the mobile path re-places it in _apply_mobile_safe_area()).
 	call_deferred("_place_economy_chip")
@@ -672,7 +712,7 @@ func _create_mobile_utility_menu() -> void:
 	var opener: VBoxContainer = opener_parts.item
 	opener.name = "UtilityMenuOpener"
 	opener.theme = _hud_owned_theme()
-	add_child(opener)
+	_add_hud_widget(opener)
 	mobile_utility_badge = Label.new()
 	mobile_utility_badge.name = "UtilityAttentionBadge"
 	mobile_utility_badge.text = "!"
@@ -690,7 +730,7 @@ func _create_mobile_utility_menu() -> void:
 	mobile_utility_drawer.process_mode = Node.PROCESS_MODE_ALWAYS
 	mobile_utility_drawer.theme = _hud_owned_theme()
 	mobile_utility_drawer.visible = false
-	add_child(mobile_utility_drawer)
+	_add_hud_widget(mobile_utility_drawer)
 	# One row of round icon buttons (was a 2-column grid of brass text
 	# buttons) — the same five destinations, the same recipe as desktop.
 	var items := HBoxContainer.new()
@@ -1280,7 +1320,7 @@ func _create_objective_label() -> void:
 	_objective_label.offset_bottom = 90.0
 	_objective_label.visible = false
 	_objective_label.theme = _hud_owned_theme()
-	add_child(_objective_label)
+	_add_hud_widget(_objective_label)
 
 
 func _create_mobile_objective_card() -> void:
@@ -1290,7 +1330,7 @@ func _create_mobile_objective_card() -> void:
 	_objective_card.name = "ObjectiveCard"
 	_objective_card.theme = _hud_owned_theme()
 	_objective_card.visible = false
-	add_child(_objective_card)
+	_add_hud_widget(_objective_card)
 	_objective_label = Label.new()
 	_objective_label.name = "ObjectiveLabel"
 	_objective_label.theme_type_variation = &"HudNumLabel"
@@ -1447,6 +1487,7 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	# M22 Phase 5: the kit's wood frame + HudNum text (was a flat navy
 	# StyleBoxFlat with a black-outlined label — the pre-M22 look).
 	var panel := PanelContainer.new()
+	panel.name = "Announcement"
 	panel.theme_type_variation = &"WoodFramePanel"
 
 	var label = Label.new()

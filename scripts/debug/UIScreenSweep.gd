@@ -138,7 +138,28 @@ func _run_world_screens() -> void:
 		_hud.world_map_screen.open()
 		await _settle(4)
 		await _capture("02_world_map")
-		_hud.world_map_screen.close()
+		# M22 Phase 6.3 — a fresh game has discovered nothing, so the map was
+		# only ever captured empty. Discover every island IN MEMORY (restored
+		# below; never saved) and select one so the dossier is filled too —
+		# the same check 90fd46f's ring-label fix was made against.
+		var undiscovered: Array = []
+		var first_data: IslandData = null
+		for isl in get_tree().get_nodes_in_group("islands"):
+			if "island_data" in isl and isl.island_data:
+				if not isl.island_data.discovered:
+					undiscovered.append(isl.island_data)
+					isl.island_data.discovered = true
+				if not first_data:
+					first_data = isl.island_data
+		var map_screen = _hud.world_map_screen
+		map_screen._selected_island = first_data
+		map_screen._update_info_panel()
+		map_screen.map_display.queue_redraw()
+		await _settle(4)
+		await _capture("02_world_map_discovered")
+		for data in undiscovered:
+			data.discovered = false
+		map_screen.close()
 		await _settle(2)
 
 	if _hud and "codex_screen" in _hud and _hud.codex_screen:
@@ -172,6 +193,8 @@ func _run_world_screens() -> void:
 				await _settle(3)
 				await _capture("06_island_menu_tab%d" % tab)
 		_hud.island_menu.close()
+		await _settle(2)
+		await _capture_owned_island_menu(island)
 		await _settle(2)
 
 	var pause = _hud.get_node_or_null("PauseMenu") if _hud else null
@@ -250,8 +273,51 @@ The Spanish Empire is hunting you!")
 		SettingsManager.mobile_control_overrides = old_overrides
 		MobileLayoutManager.notify_layout_changed()
 		await _settle(2)
+	# The announcement toast fades over ~3.4s and would sit over the next
+	# several content shots; drop it now.
+	for child in _hud.get_children():
+		if child.name.begins_with("Announcement"):
+			child.queue_free()
+	# M22 Phase 6 — the first-run tutorial beat stays hidden for every later
+	# content-screen shot (it covered IslandMenu's lower half), and is
+	# captured once on its own instead (08_tutorial_dialogue, 6.4's surface).
 	if tutorial and tutorial_was_visible:
 		tutorial.show()
+		await _settle(4)
+		await _capture("08_tutorial_dialogue")
+		tutorial.hide()
+		await _settle(2)
+
+
+## M22 Phase 6 — a fresh game owns no island, so the sweep never reached the
+## Buildings/Shipyard/Tavern/Trade tabs. Present the same island as the
+## player's capital with a shipyard + tavern IN MEMORY ONLY (duplicated
+## IslandData, appended BuildingData), capture every tab, then restore both.
+## Nothing is saved; no building models are spawned.
+func _capture_owned_island_menu(island: Node3D) -> void:
+	if not ("island_data" in island) or not island.island_data or not ("built_buildings" in island):
+		return
+	var original_data: Resource = island.island_data
+	var original_buildings: Array = island.built_buildings.duplicate()
+	var owned: IslandData = original_data.duplicate()
+	owned.island_type = IslandData.IslandType.CAPITAL
+	island.island_data = owned
+	for path in ["res://resources/buildings/Shipyard_L1.tres", "res://resources/buildings/Tavern_L1.tres"]:
+		var b = load(path)
+		if b:
+			island.built_buildings.append(b)
+	_hud.island_menu.open(island)
+	await _settle(4)
+	await _capture("06_island_owned")
+	for tab in range(_hud.island_menu.tab_container.get_tab_count()):
+		if not _hud.island_menu.tab_container.is_tab_hidden(tab):
+			_hud.island_menu.tab_container.current_tab = tab
+			await _settle(3)
+			await _capture("06_island_owned_tab%d" % tab)
+	_hud.island_menu.close()
+	island.built_buildings.assign(original_buildings)
+	island.island_data = original_data
+	await _settle(2)
 
 
 func _run_standalone_menus() -> void:

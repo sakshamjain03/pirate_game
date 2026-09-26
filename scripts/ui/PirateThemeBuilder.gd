@@ -334,6 +334,43 @@ static func build() -> Theme:
 	inset.content_margin_bottom = 10.0
 	theme.set_type_variation("InkInsetPanel", "PanelContainer")
 	theme.set_stylebox("panel", "InkInsetPanel", inset)
+	# CostChip: v0.3's parchment cost pill ("4,200 gold") — a darker tan
+	# rounded pill ON parchment, icon + ink amount (IslandMenu and friends).
+	var cost_chip := StyleBoxFlat.new()
+	cost_chip.bg_color = Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.12)
+	cost_chip.set_corner_radius_all(22)
+	cost_chip.content_margin_left = 10.0
+	cost_chip.content_margin_right = 16.0
+	cost_chip.content_margin_top = 4.0
+	cost_chip.content_margin_bottom = 4.0
+	theme.set_type_variation("CostChip", "PanelContainer")
+	theme.set_stylebox("panel", "CostChip", cost_chip)
+	# PortraitFrame: a brass-rimmed dark inset around a captain portrait
+	# (v0.3 screen 03's roster card). Plain — no rarity (no data for it).
+	var portrait_frame := StyleBoxFlat.new()
+	portrait_frame.bg_color = pal.wood_dark
+	portrait_frame.set_border_width_all(4)
+	portrait_frame.border_color = pal.brass
+	portrait_frame.set_corner_radius_all(14)
+	portrait_frame.set_content_margin_all(4.0)
+	# TextLinkButton: a secondary text-only action (v0.3 "Skip") — no face,
+	# ink text, still a full-size touch target via its content margins.
+	var link_style := StyleBoxEmpty.new()
+	link_style.content_margin_left = 16.0
+	link_style.content_margin_right = 16.0
+	link_style.content_margin_top = 16.0
+	link_style.content_margin_bottom = 16.0
+	theme.set_type_variation("TextLinkButton", "Button")
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		theme.set_stylebox(state, "TextLinkButton", link_style)
+	theme.set_font("font", "TextLinkButton", body_font)
+	theme.set_font_size("font_size", "TextLinkButton", roundi(UITokens.FONT_BODY * scale))
+	theme.set_color("font_color", "TextLinkButton", Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.75))
+	theme.set_color("font_hover_color", "TextLinkButton", pal.ink)
+	theme.set_color("font_pressed_color", "TextLinkButton", pal.ink)
+	theme.set_color("font_focus_color", "TextLinkButton", pal.ink)
+	theme.set_type_variation("PortraitFrame", "PanelContainer")
+	theme.set_stylebox("panel", "PortraitFrame", portrait_frame)
 	theme.set_stylebox("panel", "PanelContainer", wood_frame_style)
 
 	# ======================================================================

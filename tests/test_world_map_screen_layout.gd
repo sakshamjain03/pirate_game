@@ -27,9 +27,12 @@ func _instantiate() -> void:
 
 func test_panel_and_map_display_are_wired_and_sized_on_pc():
 	_instantiate()
-	assert_eq(_screen.panel.custom_minimum_size, Vector2(560, 750),
-		"PC panel size must be untouched by the mobile pass (grown to fit the InfoPanel)")
-	assert_eq(_screen.map_display.custom_minimum_size, Vector2(500, 500),
+	# M22 Phase 6.3 — landscape v0.3 screen 01 composition (map left,
+	# parchment dossier right) replaced the 560x750 portrait box; these are
+	# the new authored PC sizes, which the mobile pass must still not touch.
+	assert_eq(_screen.panel.custom_minimum_size, Vector2(1200, 660),
+		"PC panel size must be untouched by the mobile pass")
+	assert_eq(_screen.map_display.custom_minimum_size, Vector2(560, 520),
 		"PC map display size must be untouched by the mobile pass")
 
 

@@ -27,6 +27,13 @@ const _COMPASS_MARGIN := 10.0
 const _COMPASS_RADIUS := 22.0
 ## How close a tap/click needs to land to an island marker to select it.
 const _TAP_HIT_RADIUS := 16.0
+## Dossier column width (scene) — the mobile sizing reserves it.
+const _DOSSIER_WIDTH := 460.0
+## Map text: the theme's Baloo at chip size with an ink outline so ring and
+## island names stay legible where they cross a ring line (was the engine
+## fallback font at 12-13px, unreadable on a phone).
+const _MAP_FONT_SIZE := 24
+const _MAP_OUTLINE := 6
 
 var _regions: Array[RegionData] = []
 var _world_radius: float = 1.0
@@ -57,8 +64,12 @@ func _apply_mobile_sizing() -> void:
 	# flat multiple of a small PC box) rather than capping it at its own
 	# separately-scaled minimum, which previously left a large blank
 	# region inside a still-too-small panel.
-	map_display.custom_minimum_size = panel.custom_minimum_size - Vector2(64.0, 270.0)
-	title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
+	# M22 Phase 6.3: map left, parchment dossier right (v0.3 screen 01), so
+	# the map gets the panel's height minus the title and the width left of
+	# the dossier column.
+	map_display.custom_minimum_size = Vector2(
+		maxf(320.0, panel.custom_minimum_size.x - _DOSSIER_WIDTH - 120.0),
+		maxf(320.0, panel.custom_minimum_size.y - 160.0))
 	for btn in [view_log_button, close_button]:
 		btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(140, 48))
 
@@ -145,6 +156,13 @@ func _get_visible_island_markers(display_radius: float) -> Array:
 func _on_map_display_draw() -> void:
 	var display_radius: float = max(0.0, min(map_display.size.x, map_display.size.y) * 0.5 - _DISPLAY_MARGIN)
 	var center := map_display.size * 0.5
+	var pal := UITokens.palette()
+	_placed_label_rects.clear()
+	# The sea: a teal disc under the rings (v0.3 screen 01's chart), shallow at
+	# the centre (home waters) darkening outward.
+	map_display.draw_circle(center, display_radius, pal.ocean_deep)
+	map_display.draw_circle(center, display_radius * 0.72, pal.ocean_deep.lerp(pal.sunset_teal, 0.5))
+	map_display.draw_circle(center, display_radius * 0.42, pal.sunset_teal)
 
 	# Concentric region rings, outermost first so inner rings draw on top.
 	# Each gets a name label at a tier-staggered bearing so a 3-5 region
@@ -165,8 +183,8 @@ func _on_map_display_draw() -> void:
 		# that real layout, not a blind formula.
 		var bearing_rad: float = deg_to_rad(fmod(float(r.tier - 1) * 72.0 + 200.0, 360.0))
 		var label_pos := center + Vector2(sin(bearing_rad), -cos(bearing_rad)) * radius * 1.08
-		map_display.draw_string(ThemeDB.fallback_font, label_pos, r.display_name,
-			HORIZONTAL_ALIGNMENT_CENTER, -1, 12, UITokens.palette().brass)
+		_draw_map_text(label_pos, r.display_name, HORIZONTAL_ALIGNMENT_CENTER, pal.horizon_gold)
+		_placed_label_rects.append(_text_rect(label_pos, r.display_name, true))
 
 	# Island markers. Undiscovered islands are omitted entirely rather than
 	# shown as a "?" — the milestone's own framing (docs/00_VISION.md's
@@ -179,9 +197,9 @@ func _on_map_display_draw() -> void:
 		if data == _selected_island:
 			map_display.draw_arc(pos, 10.0, 0.0, TAU, 24, UITokens.palette().text_on_dark, 2.0, true)
 		map_display.draw_circle(pos, 6.0, UITokens.palette().brass_light)
-		map_display.draw_string(ThemeDB.fallback_font, pos + Vector2(8, 4),
-			data.island_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
-			UITokens.palette().text_on_dark)
+		var at := _free_label_position(pos, data.island_name)
+		_draw_map_text(at, data.island_name, HORIZONTAL_ALIGNMENT_LEFT, pal.text_on_dark)
+		_placed_label_rects.append(_text_rect(at, data.island_name, false))
 
 	# Player position/heading marker — a small triangle pointing along yaw,
 	# reusing the same ship global_position/global_rotation_degrees.y data
@@ -214,8 +232,54 @@ func _draw_compass_rose() -> void:
 		map_display.draw_line(origin, origin + dir * (_COMPASS_RADIUS - 4.0),
 			UITokens.palette().brass, 1.5)
 		var text_pos := origin + dir * (_COMPASS_RADIUS + 11.0)
-		map_display.draw_string(ThemeDB.fallback_font, text_pos, label,
-			HORIZONTAL_ALIGNMENT_CENTER, -1, 13, UITokens.palette().text_on_dark)
+		_draw_map_text(text_pos + Vector2(-_MAP_FONT_SIZE * 0.5, _MAP_FONT_SIZE * 0.35), label,
+			HORIZONTAL_ALIGNMENT_CENTER, UITokens.palette().text_on_dark, _MAP_FONT_SIZE)
+
+
+## Labels already drawn this pass (ring names first, then islands), so an
+## island label can step aside instead of printing over its neighbour —
+## at the legible chip size, close islands (Blackwater Shoal / Frostbite Reef)
+## overprinted each other.
+var _placed_label_rects: Array[Rect2] = []
+
+func _text_rect(baseline_pos: Vector2, text: String, centred: bool) -> Rect2:
+	var font: Font = get_theme_font("font", "Label")
+	var sz := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _MAP_FONT_SIZE)
+	var x := baseline_pos.x - (sz.x * 0.5 if centred else 0.0)
+	return Rect2(x, baseline_pos.y - sz.y * 0.8, sz.x, sz.y).grow(2.0)
+
+
+## Right of the marker if free, else left, above, below (first that clears
+## every label placed so far); right if none does.
+func _free_label_position(marker: Vector2, text: String) -> Vector2:
+	var font: Font = get_theme_font("font", "Label")
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _MAP_FONT_SIZE).x
+	var candidates := [marker + Vector2(12, 8), marker + Vector2(-12 - w, 8),
+		marker + Vector2(-w * 0.5, -14), marker + Vector2(-w * 0.5, 32)]
+	for c in candidates:
+		var r := _text_rect(c, text, false)
+		var clear := true
+		for placed in _placed_label_rects:
+			if placed.intersects(r):
+				clear = false
+				break
+		if clear:
+			return c
+	return candidates[0]
+
+
+func _draw_map_text(pos: Vector2, text: String, align: HorizontalAlignment, color: Color,
+		width: float = -1) -> void:
+	var font: Font = get_theme_font("font", "Label")
+	var w := width
+	if align == HORIZONTAL_ALIGNMENT_CENTER and w < 0:
+		# draw_string centres within `width`; give it the text's own width and
+		# shift left by half so the text centres ON pos, like before.
+		w = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _MAP_FONT_SIZE).x
+		pos.x -= w * 0.5
+	map_display.draw_string_outline(font, pos, text, align, w, _MAP_FONT_SIZE, _MAP_OUTLINE,
+		UITokens.palette().ink)
+	map_display.draw_string(font, pos, text, align, w, _MAP_FONT_SIZE, color)
 
 
 func _on_map_display_gui_input(event: InputEvent) -> void:
@@ -256,7 +320,10 @@ func _update_info_panel() -> void:
 		if EmpireManager else null
 	var region_bit := ""
 	if region:
-		region_bit = " — %s (tier %d)" % [region.display_name, region.tier]
+		# Own line under the name: " — Region" after a title-size bold name
+		# wrapped, leaving a dangling "Port Royal —" heading.
+		region_bit = "
+%s (tier %d)" % [region.display_name, region.tier]
 	var distance := _selected_island.world_position.length()
 
 	var bbcode := "[b]%s[/b]%s\n%s" % [

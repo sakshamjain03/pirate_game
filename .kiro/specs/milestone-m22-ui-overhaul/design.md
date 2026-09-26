@@ -437,6 +437,35 @@ the comparison was against pixels rather than markup. Found by viewing the sweep
 is the phone model, and desktop needs the readout). They are restyled, balanced (ability readout
 moved to Starboard) and 320 wide.
 
+## 11d. Phase 6a findings (Island / roster / map / tutorial)
+
+- **Three real bugs, fixed outside the UI commit:**
+  - **Building-type checks** (`2abf6e7`): building ids are level-suffixed, so IslandMenu's
+    Shipyard/Tavern gating, `Island.has_shipyard()` and raid defence never matched real data.
+  - **Tutorial portrait**: the Label-only `PortraitFallback` path hid all 27 authored Higgins
+    portraits.
+  - **VFX cleanup lambdas** (`create_timer().timeout.connect(func(): …queue_free())` in six
+    ship/cannonball sites) printed "Lambda capture … was freed" whenever the World was torn down
+    within ~2s of a shot. The fix is a bound `connect(node.queue_free)`, which Godot disconnects
+    automatically; it is also the project's own bound-methods rule.
+- **HUD widget layering:** runtime HUD widgets appended to the CanvasLayer drew *over* the modal
+  screens instanced in the same layer (the "Next Production" chip over IslandMenu).
+  `WorldHUD._add_hud_widget()` inserts them after TopRightPanel instead; announcements still append
+  so they stay on top.
+- **Sweep coverage gaps closed:** an owned island (in-memory ownership plus a shipyard and tavern)
+  so all six IslandMenu tabs get captured; a map with every island discovered; the tutorial
+  captured on its own and hidden for the other content shots; toasts cleared before content shots.
+- **IslandMenu restyle mechanism:** one `_restyle_page()` pass after each tab refresh. It wraps rows
+  as ink inset cards, maps label roles by their legacy size to kit variations, remaps state colours
+  for parchment by meaning, and turns "N Resource" cost text into icon chips. It is display-only.
+  The legacy per-row `add_theme_*` calls stay in the source (remapped at runtime), which is why
+  §12's IslandMenu `gd` count went *up*. Re-authoring each row builder is the follow-up if the
+  tile-board composition (6.1's open decision) goes ahead.
+- **Settled layout rule:** a centred or floating panel on phone should take the free band
+  *measured* from the real thumb-cluster rects (`_fit_tutorial_between_thumb_clusters()`), never
+  a fixed offset. The first tutorial placement clipped the right steering arrow, and a mirrored
+  guess would have clipped left-handed layouts.
+
 ## 12. Screen inventory (baseline 2026-09-25)
 
 Override counts to burn down. `tscn` = `theme_override_*` lines in `scenes/ui/<name>.tscn`;
@@ -455,9 +484,9 @@ same greps after each phase and update the "now" columns.
 | WorldHUD | 39 | 32 | 5 | 11 | 24 |
 | MobileControls | 0 | 8 | 5 | 0 | 4 |
 | HudCustomizeOverlay (code-only) | – | 3 | 5 | – | 3 |
-| IslandMenu | 14 | 51 | 6a | | |
-| WorldMapScreen | 8 | 1 | 6a | | |
-| TutorialDialogue | 15 | 5 | 6a | | |
+| IslandMenu | 14 | 51 | 6a | 11 | 60 † |
+| WorldMapScreen | 8 | 1 | 6a | 4 | 0 |
+| TutorialDialogue | 15 | 5 | 6a | 4 | 2 |
 | CaptainsLog | 6 | 6 | 6b | | |
 | CodexScreen | 0 | 6 | 6b | | |
 | WhatsNewScreen | 7 | 4 | 6b | | |
@@ -474,3 +503,5 @@ same greps after each phase and update the "now" columns.
 | PirateThemeBuilder (code-only) | – | 1 | 3 | | |
 
 Captain drawer lives inside WorldHUD (not its own scene); it's restyled in 6a alongside the roster.
+† IslandMenu's `gd` count rose: the legacy row overrides remain in source and are remapped at
+runtime by `_restyle_page()` (§11d), plus that pass's own chip/card overrides.

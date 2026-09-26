@@ -380,21 +380,56 @@ independently re-verified.
 
 ### Phase 6 — Content screens (6a then 6b)
 
-- [ ] 6.1 (6a) IslandMenu → v0.3 screen 02 composition (right-docked detail panel, parchment cost
+- [x] 6.1 (6a) IslandMenu → v0.3 screen 02 composition (right-docked detail panel, parchment cost
         chips, one Primary Upgrade/Build).
-  - **Verify:** `test_island_menu_layout` passes; sweep shot vs. v0.3 02.
+  - **Verify:** `test_island_menu_layout` passes; sweep shot vs. v0.3 02. Done:
+    - tab pages are a parchment page with ink text (`build_parchment_page_theme()`, as in Settings);
+    - every row is an `InkInsetPanel` card and cost text became icon `CostChip`s;
+    - the title uses `TitleLabel`, and Colonize is the one coral Primary;
+    - wrapped descriptions stop the modal changing width tab to tab, and empty tabs say so.
+
+    All six tabs are restyled by one `_restyle_page()` pass rather than by re-authoring each row
+    builder, because a concurrent session is editing this file. The sweep now captures an owned
+    island (`06_island_owned_tab0..5`). **Deliberately not done, and a decision for the user:** v0.3's
+    tile board plus right-docked detail panel would redesign this gameplay screen's interaction
+    (select a tile, then act in the panel) across ~1,000 lines and six tabs, which goes well beyond
+    a restyle. Owned-island tab gating was also broken in real play (see the separate fix
+    `2abf6e7`).
   - _Requirements: 8.1, 8.2_
-- [ ] 6.2 (6a) Captain drawer/roster → screen 03 card style. Rarity gems only if the data already
+- [x] 6.2 (6a) Captain drawer/roster → screen 03 card style. Rarity gems only if the data already
         has rarity (check `CaptainData` first).
-  - **Verify:** sweep shot; `git diff resources/` shows no schema change.
+  - **Verify:** sweep shot; `git diff resources/` shows no schema change. Tavern captain rows are
+    roster cards: a 96px portrait in a `PortraitFrame`, the name, the ability line and SPD/TRN/DMG/HP
+    stat chips (`06_island_owned_tab2`). `CaptainData` has **no rarity field**, so there are no gems
+    and a plain frame, per the spec. No `resources/` or schema change from this phase (the only
+    `resources/world/*.tres` diffs belong to a concurrent session).
   - _Requirements: 8.1, 8.3_
-- [ ] 6.3 (6a) WorldMapScreen → screen 01 right-docked panel (keep 90fd46f's ring-label fix).
+- [x] 6.3 (6a) WorldMapScreen → screen 01 right-docked panel (keep 90fd46f's ring-label fix).
   - **Verify:** sweep shot.
+    - Landscape wood frame: the map is on the left as a teal sea disc under brass rings, and a
+      parchment dossier with View Log/Close is on the right.
+    - Map text uses the theme font with an ink outline (it was the engine fallback font at 12px).
+    - 90fd46f's ring-label bearings are unchanged. Island labels now step aside when they would
+      overprint a neighbour.
+    - The sweep adds `02_world_map_discovered`, which discovers every island in memory only and
+      selects one; `test_world_map_screen_layout`'s PC-size expectation changed deliberately.
   - _Requirements: 8.1, 8.2_
-- [ ] 6.4 (6a) TutorialDialogue → screen 06 toast (Higgins portrait, brass Next).
-  - **Verify:** sweep shot.
+- [x] 6.4 (6a) TutorialDialogue → screen 06 toast (Higgins portrait, brass Next).
+  - **Verify:** sweep shot (`08_tutorial_dialogue`):
+    - A parchment card with the Higgins portrait, an ink name, "N of M", progress dots, wrapped
+      body text, a text-link Skip and a brass Next.
+    - The portrait had **never** shown: 27 beats author `portrait_path`, but the Label-only fallback
+      returns early whenever art exists. It now uses the texture-rect contract.
+    - The card grows from its content (the fixed box overflowed below the screen). On phone it fits
+      the measured band between the thumb clusters.
   - _Requirements: 8.1_
-- [ ] 6.5 (6a) **Checkpoint — Phase 6a.**
+- [x] 6.5 (6a) **Checkpoint — Phase 6a.** `checkpoint-reviewer` independently re-verified: its own
+        GUT run (729/730), its own headful sweeps with zero ERROR lines, all 6a shots viewed, the
+        building-id and VFX-lambda fixes checked for behaviour preservation (test_ship_combat
+        unmodified, no fragile ship code touched), and the concurrent session's IslandMenu/Island hunks
+        confirmed as independent of this work: PASS. Pre-review status: GUT 729/730 (only the documented
+        StoreScreen failure) and 0 script errors in both sweeps (the lambda-capture error at World
+        teardown is fixed, design.md §11d).
 - [ ] 6.6 (6b) CaptainsLog, CodexScreen, WhatsNewScreen.
   - **Verify:** their layout tests pass; sweep shots.
   - _Requirements: 8.1_

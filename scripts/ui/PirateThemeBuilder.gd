@@ -369,6 +369,30 @@ static func build() -> Theme:
 	theme.set_color("font_hover_color", "TextLinkButton", pal.ink)
 	theme.set_color("font_pressed_color", "TextLinkButton", pal.ink)
 	theme.set_color("font_focus_color", "TextLinkButton", pal.ink)
+	# BoardTile: IslandMenu's selectable board tile (v0.3 screen 02) — a
+	# tan card with a brass rim on parchment; the SELECTED tile (toggle
+	# pressed) gets a heavy brass ring ("selected tile: brass ring").
+	var tile_normal := StyleBoxFlat.new()
+	tile_normal.bg_color = Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.08)
+	tile_normal.set_border_width_all(2)
+	tile_normal.border_color = Color(pal.brass.r, pal.brass.g, pal.brass.b, 0.7)
+	tile_normal.set_corner_radius_all(16)
+	tile_normal.set_content_margin_all(10.0)
+	var tile_hover := tile_normal.duplicate() as StyleBoxFlat
+	tile_hover.bg_color = Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.14)
+	var tile_selected := tile_normal.duplicate() as StyleBoxFlat
+	tile_selected.bg_color = Color(pal.brass_light.r, pal.brass_light.g, pal.brass_light.b, 0.45)
+	tile_selected.set_border_width_all(5)
+	tile_selected.border_color = pal.brass
+	theme.set_type_variation("BoardTile", "Button")
+	theme.set_stylebox("normal", "BoardTile", tile_normal)
+	theme.set_stylebox("hover", "BoardTile", tile_hover)
+	theme.set_stylebox("pressed", "BoardTile", tile_selected)
+	theme.set_stylebox("hover_pressed", "BoardTile", tile_selected)
+	theme.set_stylebox("disabled", "BoardTile", tile_normal)
+	theme.set_stylebox("focus", "BoardTile", _make_focus_outline(pal.brass_light, 16))
+	theme.set_font("font", "BoardTile", num_font)
+	theme.set_font_size("font_size", "BoardTile", roundi(UITokens.FONT_CHIP * scale))
 	theme.set_type_variation("PortraitFrame", "PanelContainer")
 	theme.set_stylebox("panel", "PortraitFrame", portrait_frame)
 	theme.set_stylebox("panel", "PanelContainer", wood_frame_style)

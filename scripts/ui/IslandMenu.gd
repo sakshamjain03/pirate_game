@@ -64,6 +64,8 @@ func _ready() -> void:
 	tab_container.theme = PirateThemeBuilder.build_parchment_page_theme()
 	# Colonize is this screen's one hero action when it's shown (design §7).
 	PirateThemeBuilder.mark_primary(colonize_btn)
+	_build_board_layouts()
+	_build_tier_pips()
 
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
@@ -145,6 +147,7 @@ func open(island: Node3D) -> void:
 			name_text = tr("%s (Enemy)") % name_text
 			
 	island_name_label.text = name_text
+	_refresh_tier_pips()
 		
 	# Configure Tabs
 	# has_building_type(): building ids are level-suffixed ("shipyard_l1"), so
@@ -251,6 +254,7 @@ func _refresh_buildings() -> void:
 
 func _create_building_entry(building: BuildingData) -> void:
 	var hbox = HBoxContainer.new()
+	hbox.set_meta("tile_icon", building.produces_resource)
 	
 	# Name & Desc
 	var info_vbox = VBoxContainer.new()
@@ -388,6 +392,8 @@ func _restyle_page(container: Container) -> void:
 			_restyle_subtree(child)
 		elif child is Label:
 			_restyle_label(child)
+	if _boards.has(container):
+		_layout_board(container)
 	var has_content := false
 	for child in container.get_children():
 		if not child.is_queued_for_deletion() and child is Control and child.visible and child.name != "EmptyPage":
@@ -494,6 +500,334 @@ func _cost_chips_for(text: String, unaffordable: bool) -> Control:
 	return row
 
 
+# --- M22 Phase 6.1: v0.3 screen 02 tile board + right-docked detail ----------
+# Construction/Shipyard/Tavern/Research are a board of selectable tiles with
+# the selected entry's full card docked on the right, its one enabled action
+# the Primary. Fleet and Trade stay card lists: a fleet ship's level,
+# component, module and mission rows belong together (a tile per row would
+# scatter them), and Trade is a handful of one-tap Sell actions.
+#
+# The existing row builders and every handler are untouched: _layout_board()
+# re-parents the SAME row nodes (their buttons, closures and signals intact)
+# from the page's list into the detail panel. Refreshes run on every economy
+# tick (_on_resources_changed), so the selection is restored by key rather
+# than reset.
+const _TILE_SIZE := Vector2(196, 200)
+const _DETAIL_WIDTH := 460.0
+const _BOARD_MIN_HEIGHT := 380.0
+const _TIER_PIP_COUNT := 5
+const _TIER_PIP_SIZE := 18.0
+## container (the VBox rows are built into) -> {detail, body, selected, group}
+var _boards: Dictionary = {}
+var _tier_label: Label
+var _tier_pips: HBoxContainer
+
+
+func _build_board_layouts() -> void:
+	for container in [buildings_container, ships_container, captains_container, research_container]:
+		var scroll: Control = container.get_parent()
+		var tab_name := String(scroll.name)
+		var idx := scroll.get_index()
+		var page := HBoxContainer.new()
+		# Same name + index as the ScrollContainer it replaces as the tab
+		# page, so tab titles and set_tab_hidden(index) are unchanged.
+		scroll.name = tab_name + "Board"
+		page.add_theme_constant_override("separation", 20)
+		tab_container.add_child(page)
+		tab_container.move_child(page, idx)
+		page.name = tab_name
+		scroll.reparent(page)
+		# It was a tab page: TabContainer hid it whenever it wasn't the current
+		# tab, and that `visible = false` survives the reparent — the board
+		# vanished and the detail slid to the left edge (found in the sweep's
+		# geometry dump; a headless probe happened to catch it visible).
+		scroll.visible = true
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.custom_minimum_size.y = _BOARD_MIN_HEIGHT
+		var detail := PanelContainer.new()
+		detail.name = "Detail"
+		detail.theme_type_variation = &"InkInsetPanel"
+		detail.custom_minimum_size = Vector2(_DETAIL_WIDTH, _BOARD_MIN_HEIGHT)
+		var body := VBoxContainer.new()
+		body.name = "DetailBody"
+		body.add_theme_constant_override("separation", 12)
+		detail.add_child(body)
+		page.add_child(detail)
+		_boards[container] = {"detail": detail, "body": body, "selected": "", "group": null}
+
+
+func _layout_board(container: Container) -> void:
+	var board: Dictionary = _boards[container]
+	var body: VBoxContainer = board.body
+	# The previous refresh's docked card is not a child of `container`, so
+	# the refresh's own clear-down never reached it.
+	for child in body.get_children():
+		child.queue_free()
+	var cards: Array[PanelContainer] = []
+	for child in container.get_children():
+		if child is PanelContainer and not child.is_queued_for_deletion() and child.visible:
+			cards.append(child)
+	if cards.is_empty():
+		board.detail.visible = false
+		return
+	board.detail.visible = true
+	# The previous refresh's flow is only queued for deletion here; while it
+	# still holds the name, the new one would silently be auto-renamed.
+	var stale := container.get_node_or_null("Tiles")
+	if stale:
+		stale.name = "TilesStale"
+	var flow := HFlowContainer.new()
+	flow.name = "Tiles"
+	flow.add_theme_constant_override("h_separation", 14)
+	flow.add_theme_constant_override("v_separation", 14)
+	container.add_child(flow)
+	container.move_child(flow, 0)
+	var group := ButtonGroup.new()
+	board.group = group
+	var first_key := ""
+	var tile_for_selected: Button = null
+	for i in cards.size():
+		var card := cards[i]
+		_stack_card_for_detail(card)
+		card.visible = false
+		var key := "%d:%s" % [i, _card_title(card)]
+		if first_key.is_empty():
+			first_key = key
+		var tile := _make_tile(card, key, group)
+		tile.pressed.connect(_select_card.bind(container, card, key))
+		flow.add_child(tile)
+		if key == board.selected:
+			tile_for_selected = tile
+	if not tile_for_selected:
+		tile_for_selected = flow.get_child(0) as Button
+		board.selected = first_key
+	tile_for_selected.set_pressed_no_signal(true)
+	tile_for_selected.emit_signal("pressed")
+
+
+func _select_card(container: Container, card: PanelContainer, key: String) -> void:
+	var board: Dictionary = _boards[container]
+	board.selected = key
+	var body: VBoxContainer = board.body
+	for child in body.get_children():
+		# Send the previously docked card back to the (hidden) list rather
+		# than freeing it — its tile can be selected again.
+		child.visible = false
+		child.reparent(container)
+	card.reparent(body)
+	card.visible = true
+	# One Primary per screen: the docked entry's first enabled action — unless
+	# Colonize is showing, which is then the screen's hero action.
+	var marked := false
+	for btn in card.find_children("*", "Button", true, false):
+		if btn.visible and not btn.disabled and not marked and not colonize_btn.visible:
+			PirateThemeBuilder.mark_primary(btn)
+			marked = true
+		else:
+			PirateThemeBuilder.unmark_primary(btn)
+
+
+## Re-flows a list row (portrait? | info | cost | buttons, side by side) into
+## the detail panel's stacked form: header (portrait + info), cost chips,
+## then the actions row right-aligned. Same nodes, new parents.
+func _stack_card_for_detail(card: PanelContainer) -> void:
+	if card.has_meta("stacked"):
+		return
+	card.set_meta("stacked", true)
+	var row := card.get_child(0) as BoxContainer
+	if not row:
+		return
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 14)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 16)
+	var costs := HFlowContainer.new()
+	costs.add_theme_constant_override("h_separation", 8)
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", 12)
+	for child in row.get_children():
+		if child is Button:
+			child.reparent(actions)
+			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		elif child is HBoxContainer and child.get_child_count() > 0 and child.get_child(0) is PanelContainer:
+			child.reparent(costs)  # a cost-chip row
+		elif child is Label and not child.visible:
+			child.reparent(costs)  # the hidden original cost label (kept for its text)
+		elif child is Label:
+			child.reparent(costs)  # "Requires Island Tier 3", "Crew Full", …
+			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		else:
+			child.reparent(header)
+	stack.add_child(header)
+	stack.add_child(costs)
+	stack.add_child(actions)
+	card.remove_child(row)
+	row.queue_free()
+	card.add_child(stack)
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.set_meta("tile_icon", row.get_meta("tile_icon", ""))
+	if row.has_meta("tile_title"):
+		card.set_meta("tile_title", row.get_meta("tile_title"))
+
+
+func _card_title(card: Node) -> String:
+	if card.has_meta("tile_title"):
+		return String(card.get_meta("tile_title"))
+	for lbl in card.find_children("*", "Label", true, false):
+		if lbl.theme_type_variation == &"InkTitleLabel" and not lbl.text.is_empty():
+			return lbl.text
+	for lbl in card.find_children("*", "Label", true, false):
+		if lbl.visible and not lbl.text.is_empty():
+			return lbl.text
+	return "?"
+
+
+## Tile caption: the entry's name without its " Level N" suffix — that reads
+## on the tile's status line instead ("Lv 1 · Build"). Long names wrapped to
+## 3+ lines inside the tile otherwise (a Label's autowrap minimum height
+## ignores max_lines_visible), overflowing it.
+func _tile_title(card: Node) -> String:
+	var t := _card_title(card)
+	var at := t.rfind(" Level ")
+	if at > 0:
+		t = t.substr(0, at)
+	# "Recruit Crew (Currently: 15/15)": the parenthetical is detail-panel
+	# information; on a tile it only truncated mid-phrase.
+	var paren := t.find(" (")
+	return t.substr(0, paren) if paren > 0 else t
+
+
+func _tile_level(card: Node) -> String:
+	var t := _card_title(card)
+	var at := t.rfind(" Level ")
+	return (tr("Lv %s") % t.substr(at + 7)) if at > 0 else ""
+
+
+func _make_tile(card: PanelContainer, key: String, group: ButtonGroup) -> Button:
+	var tile := Button.new()
+	tile.name = "Tile_" + key.validate_node_name()
+	tile.theme_type_variation = &"BoardTile"
+	tile.toggle_mode = true
+	tile.button_group = group
+	tile.custom_minimum_size = _TILE_SIZE
+	tile.tooltip_text = _card_title(card)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 10
+	v.offset_top = 10
+	v.offset_right = -10
+	v.offset_bottom = -10
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	var icon_tex := _tile_icon(card)
+	if icon_tex:
+		var icon := TextureRect.new()
+		icon.texture = icon_tex
+		icon.custom_minimum_size = Vector2(48, 48)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(icon)
+	var title := Label.new()
+	title.text = _tile_title(card)
+	title.theme_type_variation = &"ChipLabel"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.max_lines_visible = 2
+	title.custom_minimum_size.x = _TILE_SIZE.x - 20.0
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(title)
+	var status := _tile_status(card)
+	var status_lbl := Label.new()
+	var level := _tile_level(card)
+	status_lbl.text = status.text if level.is_empty() else "%s · %s" % [level, status.text]
+	status_lbl.theme_type_variation = &"ChipLabel"
+	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_lbl.add_theme_color_override("font_color", status.color)
+	status_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(status_lbl)
+	tile.add_child(v)
+	if status.dim:
+		tile.modulate = Color(1, 1, 1, 0.72)
+	return tile
+
+
+func _tile_icon(card: Node) -> Texture2D:
+	var key := String(card.get_meta("tile_icon", ""))
+	if not key.is_empty() and _COST_RESOURCES.has(key.to_lower()):
+		return UIIcons.get_icon(_COST_RESOURCES[key.to_lower()])
+	if key == "cannonball" or key == "research":
+		return UIIcons.get_icon(key)
+	for rect in card.find_children("*", "TextureRect", true, false):
+		if rect.visible and rect.texture:
+			return rect.texture  # captain portrait / first cost icon
+	return null
+
+
+## What the tile says under its name: the entry's own action state, never a
+## second, separately-derived rule (so tile and detail can't disagree).
+func _tile_status(card: Node) -> Dictionary:
+	var pal := UITokens.palette()
+	for lbl in card.find_children("*", "Label", true, false):
+		if lbl.visible and lbl.text.begins_with(tr("Requires")):
+			return {"text": tr("Locked"), "color": pal.brick, "dim": true}
+	for btn in card.find_children("*", "Button", true, false):
+		if not btn.visible:
+			continue
+		if btn.disabled:
+			return {"text": btn.text, "color": pal.ink, "dim": true}
+		return {"text": btn.text, "color": pal.hp_good.darkened(0.35), "dim": false}
+	# No action button (e.g. "Crew Full"): the entry's own state label — the
+	# one the restyle pass coloured by meaning.
+	for lbl in card.find_children("*", "Label", true, false):
+		if lbl.visible and lbl.has_theme_color_override("font_color") and lbl.text.length() <= 24:
+			return {"text": lbl.text, "color": lbl.get_theme_color("font_color"), "dim": true}
+	return {"text": "", "color": pal.ink, "dim": false}
+
+
+func _build_tier_pips() -> void:
+	var header := island_name_label.get_parent()
+	var box := HBoxContainer.new()
+	box.name = "TierBox"
+	box.add_theme_constant_override("separation", 8)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_tier_label = Label.new()
+	_tier_label.theme_type_variation = &"ChipLabel"
+	box.add_child(_tier_label)
+	_tier_pips = HBoxContainer.new()
+	_tier_pips.add_theme_constant_override("separation", 6)
+	_tier_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(_tier_pips)
+	header.add_child(box)
+	header.move_child(box, island_name_label.get_index() + 1)
+
+
+## v0.3 screen 02's island-tier track: "Tier N" + five pips, filled to N.
+func _refresh_tier_pips() -> void:
+	if not _tier_pips:
+		return
+	var tier := 0
+	if current_island and current_island.has_method("get_island_tier"):
+		tier = int(current_island.get_island_tier())
+	_tier_pips.get_parent().visible = tier > 0
+	_tier_label.text = tr("Tier %d") % tier
+	for child in _tier_pips.get_children():
+		child.queue_free()
+	var pal := UITokens.palette()
+	for i in _TIER_PIP_COUNT:
+		var pip := Panel.new()
+		pip.custom_minimum_size = Vector2(_TIER_PIP_SIZE, _TIER_PIP_SIZE)
+		var st := StyleBoxFlat.new()
+		st.set_corner_radius_all(int(_TIER_PIP_SIZE))
+		st.set_border_width_all(2)
+		st.border_color = pal.brass
+		st.bg_color = pal.brass_light if i < tier else Color(pal.wood_dark.r, pal.wood_dark.g, pal.wood_dark.b, 0.6)
+		pip.add_theme_stylebox_override("panel", st)
+		_tier_pips.add_child(pip)
+
+
 func _on_build_pressed(building: BuildingData) -> void:
 	if current_island and current_island.has_method("build_structure"):
 		if current_island.build_structure(building):
@@ -542,6 +876,8 @@ func _create_repair_ship_entry() -> void:
 	var sails: float = damage.get("sails")
 	var sails_max: float = damage.get_pool_maximum("sails")
 	var row := HBoxContainer.new()
+	row.set_meta("tile_icon", "cannonball")
+	row.set_meta("tile_title", tr("Repairs"))
 	var details := Label.new()
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	details.text = tr("Hull %d / %d  •  Rigging %d / %d") % [roundi(hull), roundi(hull_max), roundi(sails), roundi(sails_max)]
@@ -572,6 +908,7 @@ func _on_repair_ship_pressed(damage: Node) -> void:
 
 func _create_ship_entry(ship: ShipStats) -> void:
 	var hbox = HBoxContainer.new()
+	hbox.set_meta("tile_icon", "cannonball")
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
@@ -651,6 +988,7 @@ func _create_crew_recruitment_entry() -> void:
 	var missing = max_crew - current_crew
 	
 	var hbox = HBoxContainer.new()
+	hbox.set_meta("tile_icon", "rum")
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
@@ -1090,6 +1428,7 @@ func _refresh_research() -> void:
 
 func _create_research_entry(tech: TechData) -> void:
 	var hbox = HBoxContainer.new()
+	hbox.set_meta("tile_icon", "research")
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	

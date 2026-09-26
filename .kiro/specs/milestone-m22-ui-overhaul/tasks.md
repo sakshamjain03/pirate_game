@@ -390,11 +390,22 @@ independently re-verified.
 
     All six tabs are restyled by one `_restyle_page()` pass rather than by re-authoring each row
     builder, because a concurrent session is editing this file. The sweep now captures an owned
-    island (`06_island_owned_tab0..5`). **Deliberately not done, and a decision for the user:** v0.3's
-    tile board plus right-docked detail panel would redesign this gameplay screen's interaction
-    (select a tile, then act in the panel) across ~1,000 lines and six tabs, which goes well beyond
-    a restyle. Owned-island tab gating was also broken in real play (see the separate fix
-    `2abf6e7`).
+    island (`06_island_owned_tab0..5`). Owned-island tab gating was also broken in real play (see
+    the separate fix `2abf6e7`).
+  - **Follow-up, approved by the user 2026-09-27:** the full v0.3 tile board plus right-docked
+    detail panel.
+    - Construction, Shipyard, Tavern and Research are boards of selectable `BoardTile`s. Each tile
+      shows an icon or portrait, a name and a status such as "Lv 1 · Build", "Locked", "Hired" or
+      "Crew Full".
+    - The selected entry's full card is docked on the right. Its one enabled action is the Primary,
+      unless Colonize is showing.
+    - The header shows v0.3's island-tier pips.
+    - The board re-parents the builders' own row nodes, so every button, closure and handler is
+      unchanged.
+    - The selection survives the refresh on every economy tick. That is covered by the new
+      `tests/test_island_menu_board.gd` (5 tests), which caught a real bug: the rebuilt flow was
+      auto-renamed while the stale one was still queued.
+    - Fleet and Trade stay card lists by design (design.md §11d).
   - _Requirements: 8.1, 8.2_
 - [x] 6.2 (6a) Captain drawer/roster → screen 03 card style. Rarity gems only if the data already
         has rarity (check `CaptainData` first).

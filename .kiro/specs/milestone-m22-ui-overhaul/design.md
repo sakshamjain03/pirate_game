@@ -461,6 +461,16 @@ moved to Starboard) and 320 wide.
   The legacy per-row `add_theme_*` calls stay in the source (remapped at runtime), which is why
   §12's IslandMenu `gd` count went *up*. Re-authoring each row builder is the follow-up if the
   tile-board composition (6.1's open decision) goes ahead.
+- **Tile board (6.1 follow-up):** `_build_board_layouts()` wraps each of the Construction, Shipyard,
+  Tavern and Research ScrollContainers in a page HBox with a docked `Detail` panel, keeping the tab
+  name and index. After each refresh, `_layout_board()` hides the list cards, adds one `BoardTile`
+  per card (a ButtonGroup), stacks each card for the detail panel (header / cost chips / actions)
+  and docks the selected card. It uses the same nodes, so every handler is untouched. Two traps
+  found: a ScrollContainer that was a tab page keeps TabContainer's `visible = false` after being
+  reparented (the board vanished on non-first tabs; seen only in the headful geometry dump, since a
+  headless probe happened to catch it visible); and a new node can't take a name held by a sibling
+  that is only queued for deletion, because Godot silently auto-renames it. Fleet (ship + level +
+  components + modules + missions belong together) and Trade (one-tap sells) stay card lists.
 - **Settled layout rule:** a centred or floating panel on phone should take the free band
   *measured* from the real thumb-cluster rects (`_fit_tutorial_between_thumb_clusters()`), never
   a fixed offset. The first tutorial placement clipped the right steering arrow, and a mirrored

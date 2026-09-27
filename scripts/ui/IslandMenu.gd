@@ -58,6 +58,8 @@ func _ready() -> void:
 	
 	# Apply theme
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
+	UIMotion.fade_tabs(tab_container)  # M22 6c: pages fade in on tab change
 	# M22 Phase 6.1 — tab pages are parchment with ink text (v0.3 screen 02's
 	# parchment detail sheet), the same colour-only sub-theme Settings uses,
 	# so every runtime-built row gets ink without a per-label override.
@@ -196,6 +198,7 @@ func open(island: Node3D) -> void:
 	PirateThemeBuilder.apply_button_juice(self)
 
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 
 func close() -> void:
@@ -529,7 +532,9 @@ const _TILE_SIZE := Vector2(196, 200)
 const _DETAIL_WIDTH := 460.0
 const _BOARD_MIN_HEIGHT := 380.0
 const _TIER_PIP_COUNT := 5
-const _TIER_PIP_SIZE := 18.0
+## v0.3 tier nodes: 28 design px, the current one 36.
+const _TIER_NODE := 44.0
+const _TIER_NODE_CURRENT := 56.0
 ## container (the VBox rows are built into) -> {detail, body, selected, group}
 var _boards: Dictionary = {}
 var _tier_label: Label
@@ -788,20 +793,51 @@ func _refresh_tier_pips() -> void:
 	if current_island and current_island.has_method("get_island_tier"):
 		tier = int(current_island.get_island_tier())
 	_tier_pips.get_parent().visible = tier > 0
-	_tier_label.text = tr("Tier %d") % tier
+	# v0.3 caption ("ISLAND TIER") — the numbered nodes carry the number.
+	_tier_label.text = tr("ISLAND TIER")
+	_tier_label.add_theme_color_override("font_color", UITokens.palette().text_muted_dark)
 	for child in _tier_pips.get_children():
 		child.queue_free()
-	var pal := UITokens.palette()
+	# v0.3 screen 02 tier track: numbered nodes. Done = brass
+	# (radial #f7de98 -> #c29444), current = bigger, gold
+	# (#fffbe0 -> #ffd97a -> #c29444) with a breathing glow, locked = dark
+	# wood #2a1d12 with a #5a4632 rim and muted number.
 	for i in _TIER_PIP_COUNT:
-		var pip := Panel.new()
-		pip.custom_minimum_size = Vector2(_TIER_PIP_SIZE, _TIER_PIP_SIZE)
+		var n := i + 1
+		var state := "done" if n < tier else ("cur" if n == tier else "lock")
+		var d := _TIER_NODE_CURRENT if state == "cur" else _TIER_NODE
+		var node := PanelContainer.new()
+		node.custom_minimum_size = Vector2(d, d)
+		node.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var st := StyleBoxFlat.new()
-		st.set_corner_radius_all(int(_TIER_PIP_SIZE))
-		st.set_border_width_all(2)
-		st.border_color = pal.brass
-		st.bg_color = pal.brass_light if i < tier else Color(pal.wood_dark.r, pal.wood_dark.g, pal.wood_dark.b, 0.6)
-		pip.add_theme_stylebox_override("panel", st)
-		_tier_pips.add_child(pip)
+		st.set_corner_radius_all(int(d))
+		st.set_border_width_all(3)
+		st.anti_aliasing = true
+		match state:
+			"done":
+				st.bg_color = Color("#DDB870")
+				st.border_color = Color("#4A300F")
+			"cur":
+				st.bg_color = Color("#FFD97A")
+				st.border_color = Color("#4A300F")
+				st.shadow_color = Color(1.0, 217.0 / 255.0, 122.0 / 255.0, 0.7)
+				st.shadow_size = 14
+			_:
+				st.bg_color = Color("#2A1D12")
+				st.border_color = Color("#5A4632")
+		node.add_theme_stylebox_override("panel", st)
+		var num := Label.new()
+		num.text = str(n)
+		num.theme_type_variation = &"PillNumLabel"
+		num.add_theme_font_size_override("font_size", UITokens.FONT_CHIP if state != "cur" else UITokens.FONT_BODY)
+		num.add_theme_color_override("font_color", Color("#7A6650") if state == "lock" else Color("#3A2410"))
+		num.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		node.add_child(num)
+		_tier_pips.add_child(node)
+		if state == "cur":
+			UIMotion.idle_glow(node)
 
 
 func _on_build_pressed(building: BuildingData) -> void:

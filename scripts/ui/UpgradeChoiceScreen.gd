@@ -15,6 +15,8 @@ var _encounter_manager: Node = null
 var _cards_row: HBoxContainer
 var _subtitle: Label
 var _offered: Array = []
+var _panel: PanelContainer
+var _dim: ColorRect
 
 const _CARD_SIZE := Vector2(300, 330)
 
@@ -42,7 +44,8 @@ func _build() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.72)
+	PirateThemeBuilder.dress_modal_dim(dim)
+	_dim = dim
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT, true)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
@@ -54,6 +57,7 @@ func _build() -> void:
 	# M22 6b: kit frame + parchment page of BoardTile cards (was a flat
 	# navy StyleBoxFlat with hand-picked colours).
 	var panel := PanelContainer.new()
+	_panel = panel
 	panel.theme_type_variation = &"WoodFramePanel"
 	centre.add_child(panel)
 
@@ -99,6 +103,7 @@ func _on_offer(choices: Array, offer_index: int, total_offers: int) -> void:
 
 	PirateThemeBuilder.apply_button_juice(_cards_row)
 	show()
+	UIMotion.modal_enter(_panel, _dim)
 	get_tree().paused = true
 	if first:
 		first.grab_focus()

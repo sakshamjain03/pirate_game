@@ -501,6 +501,56 @@ moved to Starboard) and 320 wide.
 - **Moving to the real 800 weight widened every number and chip.** The full phone and desktop
   sweeps were re-run and viewed after the switch.
 
+## 13. v0.3 fidelity values (Phase 6c)
+
+These values were read directly from `claude design outputs/Pirate Empire UI System v0.3.html`
+(inline styles, the `@keyframes` block and the component JS). Canvas px = design px x2.
+
+- **Wood:** `repeating-linear-gradient(178deg, #5b3920 0 2px, #6d452a 2px 7px, #63401f 7px 9px,
+  #7a4e2e 9px 15px, #5f3b21 15px 17px)`, sheen `linear(180deg, rgba(255,215,150,.18),
+  rgba(0,0,0,.3))`, border 3px `#2e1a0c`, radius 18 (modal) / 12 (plaque), inset top
+  `rgba(255,220,170,.35)`, studs `radial(35% 30%, #fff3c4, #e2b75a 35%, #8a6224 75%, #4a3210)` 11px
+  at 8px.
+- **Parchment:** `radial(ellipse at 20% 10%, #fdf1d2, transparent 55%)` over `#ecd6a4`, inset
+  `0 0 24px rgba(110,70,25,.45)`. The toast adds a warm corner at 85% 95% `rgba(150,95,40,.35)`
+  and a rope border `repeating-linear(45deg, #c8a36a 0 4px, #8a6a3a 4px 8px)`.
+- **Brass button:** `linear(180deg, #f7de98 0, #d9ab52 40%, #a8772e 75%, #c99a48 100%)`, border
+  `#4a300f`, lip `0 5px 0 #5a3a12`, inset `0 2px 0 rgba(255,250,220,.7)`, label Baloo 800
+  `#3a2410`.
+- **Coral CTA:** `radial(ellipse 80% 60% at 50% 16%, #ffd6ae, #ff9d5e 30%, #f0602a 66%, #b83a14)`,
+  border `#4a1d08`, lip `#6a260c`, inset bottom `rgba(120,30,0,.3)`, label Germania `#fff8ec` with a
+  `#7a2a0a` drop and edge. Its glow is `radial(rgba(255,150,80,.85) → 0 at 68%)` on glowPulse 2.2s.
+- **Disabled:** `linear(#8a7a66, #5e5040)`, border `#3a2e22`. Round disabled wood uses grey planks.
+- **Toggle:** 62x30, off `#5a4632`, on `linear(#2a9a96, #17616a)`, 2px `#3a2410`, knob 24
+  `radial(#fff3c4, #e2b75a 40%, #8a6224)`.
+- **Slider:** track 14 `#3a2616` with a 2px `#4a300f` border, fill `linear(#8fe0d6, #1f8a8c 60%,
+  #17616a)`, knob 26.
+- **Resource pill:** `linear(#3d2616, #1f1209)`, 2px `#c29444`, gloss span, number Baloo 800
+  `#fff4d6`.
+- **HUD card:** `rgba(18,10,5,.7)` with a 2px `#8a6a3a` border. Bounty slip
+  `rgba(236,214,164,.94)`.
+- **Notoriety:** `linear(90deg, #3fbf8f, #f2c66d 30%, #f06a3a 60%, #d8322a 80%, #7a1010)` sized to
+  the whole bar, a bone skull marker, and threshold ticks.
+- **Text:** title `#fff1d0` with `0 2px 0 #1a0e06`; on-wood body `#e6d4b0`; captions `#cdb690`;
+  ink `#3a2616`; ink captions `#8a6a3a` (Baloo 500); good `#1d7a58`; notoriety accent `#ffb199`.
+- **Modal dim:** `rgba(6,14,18,.62)`. The sea shows through, never flat grey.
+- **Motion** (`@keyframes`):
+  - popIn: .6 → 1.06 → 1, 450ms.
+  - glowPulse: opacity .45 ↔ 1, scale .96 ↔ 1.07, 2.2s.
+  - stamp: −8°, 2.2 → .92 → 1.
+  - floatUp: +20 → −70px with a fade.
+  - Other v0.3 keyframes: breathe, bob, nudge, spin, coinFly, sinkShip, splash, ignite, fall,
+    twinkle.
+  - Toast text types at 30 cps; the current tier node glows and flickers; the selected tile gets
+    a brass ring and a lift.
+
+  Phase 6c implements pop, glow, tick, shine, typewrite, idle glow, lift, tab fade and the skull
+  shake. The remaining keyframes (coinFly, sinkShip, splash, ignite, fall and twinkle) belong to
+  the Phase 8 moments.
+- **Found while doing this:** GDScript's warnings-as-errors fails a typed `var x :=` inferred from
+  a Variant (`Array.back()`) at load time in headful runs. GUT happened to load the script without
+  it, so only the sweep caught it.
+
 ## 12. Screen inventory (baseline 2026-09-25)
 
 Override counts to burn down. `tscn` = `theme_override_*` lines in `scenes/ui/<name>.tscn`;

@@ -49,6 +49,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	PirateThemeBuilder.dress_parchment_page(page)
 	# Equip is the screen's one Primary (v0.3); Store/Close stay brass.
 	PirateThemeBuilder.mark_primary(equip_button)
@@ -70,6 +71,7 @@ func open() -> void:
 	detail_label.text = tr("Tap a design to preview it on your ship.")
 	_select_slot(_SLOTS[0])
 	show()
+	UIMotion.modal_enter($Panel, $ColorRect)
 	get_tree().paused = true
 
 

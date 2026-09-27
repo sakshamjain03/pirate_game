@@ -45,6 +45,10 @@ func _ready() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(_dir)
 	_apply_profile(PROFILES[_profile])
+	# M22 6c: modals pop in and text types out now. Content shots want each
+	# screen's settled state, so motion is collapsed for them; the motion
+	# section below turns it back on and captures mid-animation on purpose.
+	UIMotion.force_reduced_motion_for_test = true
 	print("[sweep] profile=%s writing to %s" % [_profile, _dir])
 	await _run()
 	print("[sweep] done")
@@ -211,8 +215,42 @@ func _run_world_screens() -> void:
 			pause.visible = false
 		await _settle(2)
 
+	await _run_motion_states()
 	_world.queue_free()
 	await _settle(3)
+
+
+## M22 Phase 6c/7 — motion captured MID-animation on purpose: a modal
+## ~0.12 s into its pop-in, a resource pill mid tick + shine, and the
+## tutorial line mid-typewriter. Only this section runs with motion on.
+func _run_motion_states() -> void:
+	if not _hud:
+		return
+	UIMotion.force_reduced_motion_for_test = false
+	if "captains_log" in _hud and _hud.captains_log:
+		_hud.captains_log.open()
+		await _wait_seconds(0.12)
+		await _capture("30_motion_modal_pop")
+		_hud.captains_log.close()
+		await _settle(2)
+	if _hud.has_method("_on_resources_changed"):
+		var res: Dictionary = ResourceManager.current_resources.duplicate()
+		var bumped := res.duplicate()
+		bumped["gold"] = int(res.get("gold", 0)) + 850
+		_hud._on_resources_changed(bumped)
+		await _wait_seconds(UITokens.SHINE_SEC * 0.45)
+		await _capture("31_motion_pill_shine_tick")
+		_hud._on_resources_changed(res)  # display only — ResourceManager untouched
+		await _wait_seconds(0.7)
+	var tutorial: Control = _hud.get("tutorial_dialogue")
+	if tutorial and tutorial.has_method("_render_current_beat") and not tutorial._queue.is_empty():
+		tutorial.show()
+		tutorial._queue_index = 0
+		tutorial._render_current_beat()
+		await _wait_seconds(0.8)
+		await _capture("32_motion_typewriter")
+		tutorial.hide()
+	UIMotion.force_reduced_motion_for_test = true
 
 
 ## M22 Phase 5 verification states (tasks.md 5.2/5.4/5.5/5.6): the HUD with

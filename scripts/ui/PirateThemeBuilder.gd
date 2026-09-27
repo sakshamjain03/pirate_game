@@ -30,6 +30,7 @@ const KIT := "res://assets/ui/kit/"
 const TEX_PARCHMENT_PANEL := KIT + "parchment_panel.svg"
 const TEX_WOOD_FRAME      := KIT + "wood_frame.svg"
 const TEX_WOOD_PLAQUE     := KIT + "wood_plaque.svg"
+const TEX_ROPE_PARCHMENT  := KIT + "rope_parchment.svg"
 const TEX_BUTTON_PRIMARY_IDLE     := KIT + "button_primary_idle.svg"
 const TEX_BUTTON_PRIMARY_PRESSED  := KIT + "button_primary_pressed.svg"
 const TEX_BUTTON_PRIMARY_DISABLED := KIT + "button_primary_disabled.svg"
@@ -65,8 +66,9 @@ const _ROUND_CONTENT := 28.0
 ## per-asset docstrings for the source dpx() math). Button margins equal
 ## their own corner radius (UITokens.RADIUS_PRIMARY/SECONDARY), the standard
 ## rounded-rect 9-slice convention.
-const MARGIN_PARCHMENT   := 80.0
-const MARGIN_WOOD_FRAME  := 24.0
+const MARGIN_PARCHMENT   := 56.0   ## M22 6c: v0.3 radius-12 page + its inset shadow
+const MARGIN_WOOD_FRAME  := 56.0   ## radius 18 + 3px border + corner studs
+const MARGIN_ROPE        := 56.0
 const MARGIN_PLAQUE_END  := 64.0
 const MARGIN_BTN_PRIMARY := 36.0
 const MARGIN_BTN_BRASS   := 28.0
@@ -224,22 +226,31 @@ static func build() -> Theme:
 	for label_type in ["Label", "BodyLabel"]:
 		theme.set_font("font", label_type, body_font)
 		theme.set_font_size("font_size", label_type, roundi(UITokens.FONT_BODY * scale))
-		theme.set_color("font_color", label_type, pal.text_on_dark)
+		theme.set_color("font_color", label_type, pal.text_on_dark_soft)
 		theme.set_color("font_shadow_color", label_type, pal.ink)
 		theme.set_constant("shadow_offset_x", label_type, 1)
 		theme.set_constant("shadow_offset_y", label_type, 1)
 
 	theme.set_font("font", "ChipLabel", num_font)
 	theme.set_font_size("font_size", "ChipLabel", roundi(UITokens.FONT_CHIP * scale))
-	theme.set_color("font_color", "ChipLabel", pal.text_on_dark)
+	theme.set_color("font_color", "ChipLabel", pal.text_on_dark_soft)
 	theme.set_color("font_shadow_color", "ChipLabel", pal.ink)
 	theme.set_constant("shadow_offset_x", "ChipLabel", 1)
 	theme.set_constant("shadow_offset_y", "ChipLabel", 1)
 	theme.set_constant("line_spacing", "ChipLabel", roundi(UITokens.BODY_LINE_SPACING * scale))
 
+	# PillNumLabel: the number inside a v0.3 resource pill (14 design px of
+	# a 30px pill), a size down from the free-standing HudNum.
+	theme.set_type_variation("PillNumLabel", "Label")
+	theme.set_font("font", "PillNumLabel", num_font)
+	theme.set_font_size("font_size", "PillNumLabel", roundi(UITokens.FONT_PILL_NUM * scale))
+	theme.set_color("font_color", "PillNumLabel", pal.hud_number)
+	theme.set_color("font_shadow_color", "PillNumLabel", Color(0, 0, 0, 0.5))
+	theme.set_constant("shadow_offset_x", "PillNumLabel", 0)
+	theme.set_constant("shadow_offset_y", "PillNumLabel", 2)
 	theme.set_font("font", "HudNumLabel", num_font)
 	theme.set_font_size("font_size", "HudNumLabel", roundi(UITokens.FONT_HUD_NUM * scale))
-	theme.set_color("font_color", "HudNumLabel", pal.text_on_dark)
+	theme.set_color("font_color", "HudNumLabel", pal.hud_number)
 	theme.set_color("font_shadow_color", "HudNumLabel", pal.ink)
 	theme.set_constant("shadow_offset_x", "HudNumLabel", 1)
 	theme.set_constant("shadow_offset_y", "HudNumLabel", 1)
@@ -250,12 +261,14 @@ static func build() -> Theme:
 		var size := UITokens.FONT_DISPLAY if label_type == "DisplayLabel" else UITokens.FONT_TITLE
 		theme.set_font("font", label_type, display_font)
 		theme.set_font_size("font_size", label_type, roundi(size * scale))
-		theme.set_color("font_color", label_type, pal.text_on_dark)
-		theme.set_color("font_shadow_color", label_type, pal.ink)
+		# v0.3: #fff1d0 with a hard 0 2px #1a0e06 drop and no outline; the
+		# drop alone reads crisper on wood and over the sea.
+		theme.set_color("font_color", label_type, pal.title_on_wood)
+		theme.set_color("font_shadow_color", label_type, pal.title_shadow)
 		theme.set_constant("shadow_offset_x", label_type, 0)
 		theme.set_constant("shadow_offset_y", label_type, UITokens.TEXT_SHADOW_OFFSET)
-		theme.set_color("font_outline_color", label_type, pal.ink)
-		theme.set_constant("outline_size", label_type, UITokens.TEXT_OUTLINE_SIZE)
+		theme.set_color("font_outline_color", label_type, pal.title_shadow)
+		theme.set_constant("outline_size", label_type, 0)
 
 	# Ink-on-parchment variants — every label above is light-on-dark (wood,
 	# ocean), which is unreadable on a ParchmentPanel. Modals that sit on
@@ -267,8 +280,13 @@ static func build() -> Theme:
 	theme.set_font("font", "InkBodyLabel", body_font)
 	theme.set_font_size("font_size", "InkBodyLabel", roundi(UITokens.FONT_BODY * scale))
 	theme.set_constant("line_spacing", "InkBodyLabel", roundi(UITokens.BODY_LINE_SPACING * scale))
-	for label_type in ["InkTitleLabel", "InkBodyLabel"]:
-		theme.set_color("font_color", label_type, pal.text_on_parchment)
+	# v0.3 settings-row caption ("High needs a recent device"): Baloo 500
+	# at chip size in the soft brown ink.
+	theme.set_type_variation("InkSubLabel", "Label")
+	theme.set_font("font", "InkSubLabel", _load_baloo2_variation(500))
+	theme.set_font_size("font_size", "InkSubLabel", roundi(UITokens.FONT_CHIP * scale))
+	for label_type in ["InkTitleLabel", "InkBodyLabel", "InkSubLabel"]:
+		theme.set_color("font_color", label_type, pal.ink_soft if label_type == "InkSubLabel" else pal.text_on_parchment)
 		theme.set_color("font_shadow_color", label_type, Color(0, 0, 0, 0))
 		theme.set_constant("shadow_offset_x", label_type, 0)
 		theme.set_constant("shadow_offset_y", label_type, 0)
@@ -305,7 +323,10 @@ static func build() -> Theme:
 			40.0, 40.0, 40.0, 40.0)
 	var wood_frame_style := _texture_stylebox(TEX_WOOD_FRAME,
 			MARGIN_WOOD_FRAME, MARGIN_WOOD_FRAME, MARGIN_WOOD_FRAME, MARGIN_WOOD_FRAME,
-			32.0, 32.0, 32.0, 32.0)
+			40.0, 40.0, 32.0, 36.0)
+	# The texture centre is exactly two plank periods: tile it vertically so
+	# a tall frame keeps v0.3 plank scale instead of stretching the planks.
+	wood_frame_style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
 	# Content inset 48 clears the carved end caps' brass studs (drawn at
 	# 32±8 px in each 64px end, gen_kit.py) — 24 let the HUD's speed text and
 	# compass disc sit on top of them (M22 Phase 5 sweep).
@@ -319,6 +340,14 @@ static func build() -> Theme:
 	theme.set_stylebox("panel", "WoodFramePanel", wood_frame_style)
 	theme.set_type_variation("PlaquePanel", "PanelContainer")
 	theme.set_stylebox("panel", "PlaquePanel", plaque_style)
+	# RopeParchmentPanel: the v0.3 tutorial-toast card (rope border, studs,
+	# parchment with the warm burn). The rope stripes tile on both axes.
+	var rope_style := _texture_stylebox(TEX_ROPE_PARCHMENT,
+			MARGIN_ROPE, MARGIN_ROPE, MARGIN_ROPE, MARGIN_ROPE, 40.0, 40.0, 32.0, 28.0)
+	rope_style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+	rope_style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+	theme.set_type_variation("RopeParchmentPanel", "PanelContainer")
+	theme.set_stylebox("panel", "RopeParchmentPanel", rope_style)
 
 	theme.set_stylebox("panel", "Panel", wood_frame_style)
 
@@ -422,19 +451,21 @@ static func build() -> Theme:
 	theme.set_stylebox("pressed", "PrimaryButton", primary_pressed)
 	theme.set_stylebox("disabled", "PrimaryButton", primary_disabled)
 	theme.set_stylebox("focus", "PrimaryButton", _make_focus_outline(pal.brass_light, UITokens.RADIUS_PRIMARY))
+	# v0.3 coral label: Germania #fff8ec, text-shadow 0 2px 0 #7a2a0a plus a
+	# 1px #7a2a0a side edge (an outline here), a size up from brass labels.
 	theme.set_font("font", "PrimaryButton", display_font)
-	theme.set_font_size("font_size", "PrimaryButton", roundi(UITokens.FONT_BODY * scale))
-	theme.set_color("font_color", "PrimaryButton", pal.text_on_dark)
-	theme.set_color("font_hover_color", "PrimaryButton", pal.text_on_dark)
-	theme.set_color("font_pressed_color", "PrimaryButton", pal.text_on_dark)
-	theme.set_color("font_focus_color", "PrimaryButton", pal.text_on_dark)
+	theme.set_font_size("font_size", "PrimaryButton", roundi(UITokens.FONT_HUD_NUM * scale))
+	theme.set_color("font_color", "PrimaryButton", pal.coral_text)
+	theme.set_color("font_hover_color", "PrimaryButton", pal.coral_text)
+	theme.set_color("font_pressed_color", "PrimaryButton", pal.coral_text)
+	theme.set_color("font_focus_color", "PrimaryButton", pal.coral_text)
 	theme.set_color("font_disabled_color", "PrimaryButton",
-			Color(pal.text_on_dark.r, pal.text_on_dark.g, pal.text_on_dark.b, 0.55))
-	theme.set_color("font_outline_color", "PrimaryButton", pal.ink)
-	theme.set_constant("outline_size", "PrimaryButton", UITokens.TEXT_OUTLINE_SIZE)
+			Color(pal.coral_text.r, pal.coral_text.g, pal.coral_text.b, 0.6))
+	theme.set_color("font_outline_color", "PrimaryButton", pal.coral_text_shadow)
+	theme.set_constant("outline_size", "PrimaryButton", 2)
 	theme.set_constant("shadow_offset_x", "PrimaryButton", 0)
 	theme.set_constant("shadow_offset_y", "PrimaryButton", UITokens.TEXT_SHADOW_OFFSET)
-	theme.set_color("font_shadow_color", "PrimaryButton", pal.ink)
+	theme.set_color("font_shadow_color", "PrimaryButton", pal.coral_text_shadow)
 
 	var brass_idle := _texture_stylebox(TEX_BUTTON_BRASS_IDLE,
 			MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS, MARGIN_BTN_BRASS,
@@ -454,15 +485,15 @@ static func build() -> Theme:
 	theme.set_stylebox("pressed", "Button", brass_pressed)
 	theme.set_stylebox("disabled", "Button", brass_disabled)
 	theme.set_stylebox("focus", "Button", _make_focus_outline(pal.brass_light, UITokens.RADIUS_SECONDARY))
-	theme.set_font("font", "Button", display_font)
+	# v0.3 brass label: Baloo 2 800 in #3a2410. Germania is reserved for
+	# titles and the coral CTA; on every brass button it read as shouting.
+	theme.set_font("font", "Button", num_font)
 	theme.set_font_size("font_size", "Button", roundi(UITokens.FONT_BODY * scale))
-	# Brass face is a light metal gradient — ink reads best on it (unlike the
-	# old dark-navy Kenney button art this replaces, which needed gold text).
-	theme.set_color("font_color", "Button", pal.ink)
-	theme.set_color("font_hover_color", "Button", pal.ink)
-	theme.set_color("font_pressed_color", "Button", pal.ink)
-	theme.set_color("font_focus_color", "Button", pal.ink)
-	theme.set_color("font_disabled_color", "Button", Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.55))
+	theme.set_color("font_color", "Button", pal.brass_text)
+	theme.set_color("font_hover_color", "Button", pal.brass_text)
+	theme.set_color("font_pressed_color", "Button", pal.brass_text)
+	theme.set_color("font_focus_color", "Button", pal.brass_text)
+	theme.set_color("font_disabled_color", "Button", pal.text_on_dark_soft)
 
 	# Symmetric margins centre content on the face (the art centres it on the
 	# canvas, M22 Phase 5) at ANY button size — margins are rect px, not
@@ -481,7 +512,7 @@ static func build() -> Theme:
 	theme.set_stylebox("pressed", "WoodRoundButton", wood_pressed)
 	theme.set_stylebox("disabled", "WoodRoundButton", wood_disabled)
 	theme.set_stylebox("focus", "WoodRoundButton", _make_focus_outline(pal.brass_light, UITokens.RADIUS_SECONDARY))
-	theme.set_font("font", "WoodRoundButton", display_font)
+	theme.set_font("font", "WoodRoundButton", num_font)
 	theme.set_font_size("font_size", "WoodRoundButton", roundi(UITokens.FONT_CHIP * scale))
 	theme.set_color("font_color", "WoodRoundButton", pal.text_on_dark)
 	theme.set_color("font_hover_color", "WoodRoundButton", pal.text_on_dark)
@@ -524,7 +555,7 @@ static func build() -> Theme:
 		theme.set_icon("checked_disabled" + suffix, "CheckButton", toggle_on_tex)
 		theme.set_icon("unchecked" + suffix, "CheckButton", toggle_off_tex)
 		theme.set_icon("unchecked_disabled" + suffix, "CheckButton", toggle_off_tex)
-	theme.set_font("font", "CheckButton", display_font)
+	theme.set_font("font", "CheckButton", num_font)
 	theme.set_font_size("font_size", "CheckButton", roundi(UITokens.FONT_BODY * scale))
 	theme.set_color("font_color", "CheckButton", pal.text_on_dark)
 	theme.set_color("font_hover_color", "CheckButton", pal.brass_light)
@@ -545,7 +576,7 @@ static func build() -> Theme:
 	theme.set_icon("unchecked",          "CheckBox", chk_off)
 	theme.set_icon("checked_disabled",   "CheckBox", chk_on)
 	theme.set_icon("unchecked_disabled", "CheckBox", chk_off)
-	theme.set_font("font", "CheckBox", display_font)
+	theme.set_font("font", "CheckBox", num_font)
 	theme.set_font_size("font_size", "CheckBox", roundi(UITokens.FONT_BODY * scale))
 	theme.set_color("font_color", "CheckBox", pal.text_on_dark)
 	theme.set_color("font_hover_color", "CheckBox", pal.brass_light)
@@ -562,7 +593,7 @@ static func build() -> Theme:
 	theme.set_stylebox("pressed", "OptionButton", brass_pressed)
 	theme.set_stylebox("disabled", "OptionButton", brass_disabled)
 	theme.set_stylebox("focus", "OptionButton", _make_focus_outline(pal.brass_light, UITokens.RADIUS_SECONDARY))
-	theme.set_font("font", "OptionButton", display_font)
+	theme.set_font("font", "OptionButton", num_font)
 	theme.set_font_size("font_size", "OptionButton", roundi(UITokens.FONT_BODY * scale))
 	theme.set_color("font_color", "OptionButton", pal.ink)
 	theme.set_color("font_hover_color", "OptionButton", pal.ink)
@@ -599,17 +630,17 @@ static func build() -> Theme:
 	theme.set_stylebox("tab_unselected", "TabBar", tab_unselected)
 	theme.set_stylebox("tab_hovered",    "TabBar", tab_hovered)
 	theme.set_stylebox("panel",          "TabContainer", tab_panel_style)
-	theme.set_font("font",       "TabContainer", display_font)
-	theme.set_font("font",       "TabBar", display_font)
+	theme.set_font("font",       "TabContainer", num_font)
+	theme.set_font("font",       "TabBar", num_font)
 	theme.set_font_size("font_size", "TabContainer", roundi(UITokens.FONT_BODY * scale))
 	theme.set_font_size("font_size", "TabBar", roundi(UITokens.FONT_BODY * scale))
 	# Selected tab bleeds into the parchment page (design.md); its label
 	# reads best in the same ink/parchment pairing the page itself uses.
 	theme.set_color("font_selected_color",   "TabContainer", pal.text_on_parchment)
-	theme.set_color("font_unselected_color", "TabContainer", pal.text_on_dark)
+	theme.set_color("font_unselected_color", "TabContainer", pal.text_on_dark_soft)
 	theme.set_color("font_hovered_color",    "TabContainer", pal.brass_light)
 	theme.set_color("font_selected_color",   "TabBar", pal.text_on_parchment)
-	theme.set_color("font_unselected_color", "TabBar", pal.text_on_dark)
+	theme.set_color("font_unselected_color", "TabBar", pal.text_on_dark_soft)
 	theme.set_color("font_hovered_color",    "TabBar", pal.brass_light)
 	theme.set_constant("h_separation", "TabContainer", 8)
 	theme.set_constant("h_separation", "TabBar", 8)
@@ -623,9 +654,9 @@ static func build() -> Theme:
 	theme.set_stylebox("hover_pressed", "RailTab", tab_selected)
 	theme.set_stylebox("disabled", "RailTab", tab_unselected)
 	theme.set_stylebox("focus", "RailTab", _make_focus_outline(pal.brass_light, 12))
-	theme.set_font("font", "RailTab", display_font)
+	theme.set_font("font", "RailTab", num_font)
 	theme.set_font_size("font_size", "RailTab", roundi(UITokens.FONT_BODY * scale))
-	theme.set_color("font_color", "RailTab", pal.text_on_dark)
+	theme.set_color("font_color", "RailTab", pal.text_on_dark_soft)
 	theme.set_color("font_hover_color", "RailTab", pal.brass_light)
 	theme.set_color("font_focus_color", "RailTab", pal.text_on_dark)
 	theme.set_color("font_pressed_color", "RailTab", pal.text_on_parchment)
@@ -666,6 +697,38 @@ static func build() -> Theme:
 	var badge := _texture_stylebox(TEX_RESOURCE_PILL, 30.0, 30.0, 30.0, 30.0, 8.0, 8.0, 8.0, 8.0)
 	theme.set_type_variation("RoundBadge", "PanelContainer")
 	theme.set_stylebox("panel", "RoundBadge", badge)
+	# HudCard: v0.3 HUD info card (notoriety, captain chip, cannon readouts)
+	# — translucent dark rgba(18,10,5,.7), 2px #8a6a3a border, radius 14.
+	# Lighter than a wood frame so the sea still reads through the HUD.
+	var hud_card := StyleBoxFlat.new()
+	hud_card.bg_color = pal.hud_panel
+	hud_card.set_border_width_all(4)
+	hud_card.border_color = pal.hud_panel_border
+	hud_card.set_corner_radius_all(28)
+	hud_card.content_margin_left = 24.0
+	hud_card.content_margin_right = 24.0
+	hud_card.content_margin_top = 12.0
+	hud_card.content_margin_bottom = 14.0
+	hud_card.anti_aliasing = true
+	theme.set_type_variation("HudCard", "PanelContainer")
+	theme.set_stylebox("panel", "HudCard", hud_card)
+	# BountyCard: the v0.3 HUD objective slip — parchment rgba(236,214,164,
+	# .94), radius 10, inset rgba(110,70,25,.4) edge, 0 4px 10px drop.
+	var bounty := StyleBoxFlat.new()
+	bounty.bg_color = Color(pal.parchment.r, pal.parchment.g, pal.parchment.b, 0.94)
+	bounty.set_corner_radius_all(20)
+	bounty.set_border_width_all(3)
+	bounty.border_color = Color(110.0 / 255.0, 70.0 / 255.0, 25.0 / 255.0, 0.4)
+	bounty.shadow_color = Color(0, 0, 0, 0.4)
+	bounty.shadow_size = 10
+	bounty.shadow_offset = Vector2(0, 8)
+	bounty.content_margin_left = 20.0
+	bounty.content_margin_right = 20.0
+	bounty.content_margin_top = 14.0
+	bounty.content_margin_bottom = 14.0
+	bounty.anti_aliasing = true
+	theme.set_type_variation("BountyCard", "PanelContainer")
+	theme.set_stylebox("panel", "BountyCard", bounty)
 	theme.set_type_variation("ClearPanel", "PanelContainer")
 	theme.set_stylebox("panel", "ClearPanel", StyleBoxEmpty.new())
 	# HullBar: the same dark pill as the track, a rounded hp-green fill with
@@ -909,7 +972,15 @@ static func make_board_tile(tile_size: Vector2, icon_tex: Texture2D, title_text:
 	status_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(status_lbl)
 	tile.add_child(v)
+	tile.toggled.connect(UIMotion.tile_lift.bind(tile))
 	return tile
+
+
+## The v0.3 modal backdrop: a teal-black wash (UIPalette.modal_dim) so the
+## sea still reads behind a modal, instead of each scene's own flat grey.
+static func dress_modal_dim(dim: ColorRect) -> void:
+	if dim:
+		dim.color = UITokens.palette().modal_dim
 
 
 ## Ink colour for "done / good" state text on parchment — build()'s hp_good

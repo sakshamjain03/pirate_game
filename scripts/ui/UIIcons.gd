@@ -41,6 +41,8 @@ const _PATHS := {
 	"codex":    "res://assets/ui/icons/codex.svg",
 	"new":      "res://assets/ui/icons/new.svg",
 	"wardrobe": "res://assets/ui/icons/wardrobe.svg",
+	# M22 Phase 6c — the v0.3 notoriety-bar marker (bone disc + skull).
+	"skull": "res://assets/ui/icons/skull.svg",
 }
 
 static func get_icon(key: String) -> Texture2D:

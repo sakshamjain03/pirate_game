@@ -136,6 +136,11 @@ var _last_reported_health: float = -1.0
 ## fix) — pooled per ship instance ID so a widget persists across frames
 ## rather than being torn down and rebuilt each tick.
 var _enemy_bar_pool: Dictionary = {}
+var _notoriety_next_label: Label
+var _notoriety_bar: NotorietyBar
+## v0.3 notoriety bar; the card hugs header + bar, well short of the pill
+## row (test_notoriety_chip_shrinks_to_content_width).
+const _NOTORIETY_BAR_WIDTH := 440.0
 
 func _ready() -> void:
 	# Island.gd (capture announcements) and EncounterManager (encounter/boss
@@ -292,6 +297,14 @@ func _apply_mobile_safe_area() -> void:
 		var top_y := (top_right_panel.get_global_rect().end.y + 12.0) if top_right_panel \
 			else safe.position.y + safe.size.y * 0.48 - button_size.y * 0.5
 		opener.position = Vector2(safe.end.x - button_size.x - 16.0, top_y)
+		# M22 6c: the v0.3 notoriety card (with its bar) made the stack tall
+		# enough that "below it" landed on the right thumb cluster. The card
+		# hugs the right edge, so seat the opener in the free space beside it.
+		var noto_chip: Control = top_right_panel.get_node_or_null("NotorietyChip") if top_right_panel else null
+		if noto_chip:
+			var chip_rect := noto_chip.get_global_rect()
+			opener.position = Vector2(chip_rect.position.x - button_size.x - 16.0,
+				chip_rect.position.y + (chip_rect.size.y - button_size.y) * 0.5)
 	if mobile_utility_drawer:
 		# Sized from its own content (one row of five round buttons + captions)
 		# rather than a fixed 420x276 box sized for the old 2x3 text grid.
@@ -513,7 +526,7 @@ var _economy_chip: PanelContainer
 func _create_economy_label() -> void:
 	_economy_chip = PanelContainer.new()
 	_economy_chip.name = "EconomyChip"
-	_economy_chip.theme_type_variation = &"ResourcePill"
+	_economy_chip.theme_type_variation = &"HudCard"
 	_economy_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_economy_chip.theme = _hud_owned_theme()
 	_economy_label = Label.new()
@@ -792,25 +805,45 @@ func _open_mobile_utility(destination: String) -> void:
 
 
 func _create_notoriety_label() -> void:
+	# M22 Phase 6c — the v0.3 notoriety card (screen 04): a translucent HUD
+	# card with a Germania "Notoriety" title, the value, the next escalation
+	# in the coral accent, and the gradient NotorietyBar with its skull.
+	var pal := UITokens.palette()
 	notoriety_label = Label.new()
 	notoriety_label.name = "NotorietyLabel"
-	# M22 Phase 5.1 — ChipLabel (Baloo 800) in the horizon-gold the palette
-	# uses for "attention, not alarm"; was 14px orange on a brown chip.
-	notoriety_label.theme_type_variation = &"ChipLabel"
-	notoriety_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
-	notoriety_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	notoriety_label.theme_type_variation = &"HudNumLabel"
 	notoriety_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_notoriety_next_label = Label.new()
+	_notoriety_next_label.name = "NotorietyNext"
+	_notoriety_next_label.theme_type_variation = &"ChipLabel"
+	_notoriety_next_label.add_theme_color_override("font_color", pal.notoriety_accent)
+	_notoriety_next_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_notoriety_next_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var title := Label.new()
+	title.text = tr("Notoriety")
+	title.theme_type_variation = &"TitleLabel"
+	title.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
+	title.add_theme_color_override("font_color", pal.text_on_dark)
 
-	# M15.5 Requirement 3.4 — same rounded chip treatment as the resource
-	# counters, instead of bare floating text (now literally the same pill).
 	var chip := PanelContainer.new()
 	chip.name = "NotorietyChip"
-	chip.theme_type_variation = &"ResourcePill"
+	chip.theme_type_variation = &"HudCard"
 	# Shrink-to-content rather than the VBoxContainer default of filling
-	# TopRightPanel's full width — a full-width tinted panel behind a short
-	# "Notoriety: 0.0" readout rendered as a large mostly-empty bar.
+	# TopRightPanel's full width (test_notoriety_chip_shrinks_to_content_width).
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_END
-	chip.add_child(notoriety_label)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	chip.add_child(col)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 14)
+	header.add_child(title)
+	header.add_child(notoriety_label)
+	header.add_child(_notoriety_next_label)
+	col.add_child(header)
+	_notoriety_bar = NotorietyBar.new()
+	_notoriety_bar.name = "NotorietyBar"
+	_notoriety_bar.custom_minimum_size.x = _NOTORIETY_BAR_WIDTH
+	col.add_child(_notoriety_bar)
 
 	# Added as a sibling of ResourceBar inside TopRightPanel (a VBoxContainer)
 	# rather than given its own independently-anchored rect — the previous
@@ -942,22 +975,21 @@ func _check_objective_stall(delta: float) -> void:
 func _on_notoriety_changed(new_val: float) -> void:
 	if not notoriety_label:
 		return
-		
-	var text = tr("Notoriety: %.1f") % new_val
-	var next_threshold = -1.0
-	
+	notoriety_label.text = "%d" % roundi(new_val) if absf(new_val - roundf(new_val)) < 0.05 else "%.1f" % new_val
+	var next_threshold := -1.0
+	var thresholds: Array[float] = []
 	var emp = get_tree().root.get_node_or_null("EmpireManager")
 	if emp:
 		for region in emp._regions:
+			if region.activation_notoriety_threshold > 0.0:
+				thresholds.append(region.activation_notoriety_threshold)
 			if not emp.is_region_active(region.id):
 				if next_threshold < 0 or region.activation_notoriety_threshold < next_threshold:
 					next_threshold = region.activation_notoriety_threshold
-					
-	if next_threshold >= 0:
-		var remaining = max(0.0, next_threshold - new_val)
-		text += "   ·   " + (tr("Next escalation in: %.1f") % remaining)
-		
-	notoriety_label.text = text
+	if _notoriety_next_label:
+		_notoriety_next_label.text = (tr("Next escalation: %d") % roundi(next_threshold)) if next_threshold >= 0 else tr("Hunted everywhere")
+	if _notoriety_bar:
+		_notoriety_bar.set_state(new_val, thresholds, next_threshold)
 
 func _on_region_activated(region_id: String) -> void:
 	var region_name = region_id
@@ -1023,10 +1055,36 @@ func _tint_label(lbl: Label, current: int, maximum: int) -> void:
 
 func _set_resource_pill(value_label: Label, cap_label: Label, current: int, maximum: int) -> void:
 	if value_label:
-		value_label.text = str(current)
+		# M22 6c (v0.3 screen 04): numbers tick to their new value, and a gain
+		# shines the pill once ("pill shine sweeps on +value").
+		var prev: int = _pill_values.get(value_label, -1)
+		_pill_values[value_label] = current
+		if _pill_ticks.has(value_label) and _pill_ticks[value_label].is_valid():
+			_pill_ticks[value_label].kill()
+		if prev < 0 or prev == current or not value_label.is_inside_tree():
+			value_label.text = UIMotion.group_digits(current)
+		else:
+			_pill_ticks[value_label] = UIMotion.tick_number(value_label, prev, current, "%d", UIMotion.group_digits)
+			if current > prev:
+				var pill := _resource_pill_of(value_label)
+				if pill:
+					UIMotion.shine(pill)
 		_tint_label(value_label, current, maximum)
 	if cap_label:
-		cap_label.text = "/%s" % str(maximum)
+		cap_label.text = "/%s" % UIMotion.group_digits(maximum)
+
+
+var _pill_values: Dictionary = {}
+var _pill_ticks: Dictionary = {}
+
+
+func _resource_pill_of(node: Node) -> Control:
+	var n := node.get_parent()
+	while n and n != self:
+		if n is PanelContainer and (n as PanelContainer).theme_type_variation == &"ResourcePill":
+			return n
+		n = n.get_parent()
+	return null
 
 
 func _on_resources_changed(res: Dictionary) -> void:
@@ -1329,12 +1387,15 @@ func _create_mobile_objective_card() -> void:
 	_objective_card = PanelContainer.new()
 	_objective_card.name = "ObjectiveCard"
 	_objective_card.theme = _hud_owned_theme()
+	# v0.3 "BOUNTY" card: a parchment slip in the HUD, ink text.
+	_objective_card.theme_type_variation = &"BountyCard"
 	_objective_card.visible = false
 	_add_hud_widget(_objective_card)
 	_objective_label = Label.new()
 	_objective_label.name = "ObjectiveLabel"
 	_objective_label.theme_type_variation = &"HudNumLabel"
-	_objective_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
+	_objective_label.add_theme_color_override("font_color", UITokens.palette().ink)
+	_objective_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_objective_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

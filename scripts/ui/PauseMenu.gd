@@ -27,6 +27,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	PirateThemeBuilder.apply_button_juice(self)
 	resume_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_PRIMARY_SIZE)
 	PirateThemeBuilder.mark_primary(resume_button)
@@ -45,6 +46,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func open() -> void:
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 	resume_button.grab_focus()
 

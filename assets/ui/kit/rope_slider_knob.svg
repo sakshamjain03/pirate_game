@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="58" viewBox="0 0 56 58">
 <defs>
-<radialGradient id="knob" cx="0.35" cy="0.3" r="0.9"><stop offset="0" stop-color="#F7DE98" stop-opacity="1"/><stop offset="1" stop-color="#C29444" stop-opacity="1"/></radialGradient>
-</defs>
-<circle cx="26" cy="26" r="26" fill="url(#knob)"/>
-<circle cx="26" cy="26" r="24.5" fill="none" stroke="#3A2616" stroke-width="1.5"/>
+<radialGradient id="sknob" cx="0.35" cy="0.3" r="0.75"><stop offset="0" stop-color="#FFF3C4" stop-opacity="1"/><stop offset="0.4" stop-color="#E2B75A" stop-opacity="1"/><stop offset="1" stop-color="#8A6224" stop-opacity="1"/></radialGradient>
+</defs><circle cx="28" cy="30" r="25" fill="#000000" opacity="0.35"/><circle cx="28" cy="27" r="25" fill="url(#sknob)"/><circle cx="28" cy="27" r="23.5" fill="none" stroke="#3A2410" stroke-width="3"/>
 </svg>

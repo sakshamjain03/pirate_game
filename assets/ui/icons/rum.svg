@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
 <defs>
-<linearGradient id="rum_staves" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B87A45" stop-opacity="1"/><stop offset="1" stop-color="#6D452A" stop-opacity="1"/></linearGradient>
+<linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4F2C14" stop-opacity="1"/><stop offset="0.32" stop-color="#9C6436" stop-opacity="1"/><stop offset="0.46" stop-color="#C68A50" stop-opacity="1"/><stop offset="0.78" stop-color="#7D4B25" stop-opacity="1"/><stop offset="1" stop-color="#45260F" stop-opacity="1"/></linearGradient>
+<clipPath id="barc"><rect x="6" y="2" width="36" height="44" rx="12"/></clipPath>
 </defs>
-<path d="M 10 6 Q 5 24 10 42 L 38 42 Q 43 24 38 6 Z" fill="url(#rum_staves)"/>
-<rect x="7" y="13" width="34" height="4" fill="#C29444"/>
-<rect x="7" y="31" width="34" height="4" fill="#C29444"/>
-<path d="M 10 6 Q 5 24 10 42 L 38 42 Q 43 24 38 6 Z" fill="none" stroke="#2E1A0C" stroke-width="2.5"/>
-<rect x="14" y="10" width="3" height="10" fill="#FFFFFF" opacity="0.4"/>
+<rect x="6" y="2" width="36" height="44" rx="12" fill="url(#bar)"/>
+<g clip-path="url(#barc)"><rect x="6" y="10.8" width="36" height="3.52" fill="#35271A"/><rect x="6" y="33.68" width="36" height="3.52" fill="#35271A"/></g>
+<rect x="6" y="2" width="36" height="44" rx="12" fill="none" stroke="#2A1608" stroke-width="3"/>
 </svg>

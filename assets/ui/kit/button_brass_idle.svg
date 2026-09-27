@@ -1,9 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="76" viewBox="0 0 240 76">
 <defs>
-<linearGradient id="g_F7DE98_C29444_i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7DE98" stop-opacity="1"/><stop offset="1" stop-color="#C29444" stop-opacity="1"/></linearGradient>
+<linearGradient id="face_brass_i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7DE98" stop-opacity="1"/><stop offset="0.4" stop-color="#D9AB52" stop-opacity="1"/><stop offset="0.75" stop-color="#A8772E" stop-opacity="1"/><stop offset="1" stop-color="#C99A48" stop-opacity="1"/></linearGradient>
+<clipPath id="cface_brass_i"><rect x="0" y="0" width="240" height="64" rx="28"/></clipPath>
 </defs>
-<rect x="0" y="52.8" width="240" height="23.2" rx="14" fill="#3A2616" opacity="0.9"/>
-<rect x="0" y="0" width="240" height="64" rx="28" fill="url(#g_F7DE98_C29444_i)" opacity="1"/>
-<rect x="3" y="3" width="234" height="58" rx="25" fill="none" stroke="#3A2616" stroke-width="6" opacity="1"/>
-<rect x="28" y="7" width="184" height="17.92" rx="11.2" fill="#FFFFFF" opacity="0.14"/>
+<rect x="0" y="36" width="240" height="40" rx="28" fill="#5A3A12"/>
+<rect x="0" y="0" width="240" height="64" rx="28" fill="url(#face_brass_i)"/>
+<g clip-path="url(#cface_brass_i)">
+<rect x="0" y="6" width="240" height="4" fill="#FFFADC" opacity="0.7"/>
+</g>
+<rect x="3" y="3" width="234" height="58" rx="25" fill="none" stroke="#4A300F" stroke-width="6"/>
 </svg>

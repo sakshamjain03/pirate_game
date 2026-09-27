@@ -20,6 +20,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	PirateThemeBuilder.dress_parchment_page(page)  # M22 6b: same journal page as the Log
 	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
@@ -35,6 +36,7 @@ func _ready() -> void:
 func open() -> void:
 	_refresh()
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 
 

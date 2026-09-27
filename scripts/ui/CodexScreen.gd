@@ -11,6 +11,7 @@ class_name CodexScreen
 
 var _panel: PanelContainer
 var _entries: VBoxContainer
+var _dim: ColorRect
 
 
 func _ready() -> void:
@@ -23,6 +24,7 @@ func toggle() -> void:
 	visible = not visible
 	if visible:
 		_refresh()
+		UIMotion.modal_enter(_panel, _dim)
 
 
 func close() -> void:
@@ -34,7 +36,8 @@ func _build_ui() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(root)
 	var dim := ColorRect.new()
-	dim.color = Color(0.0, 0.0, 0.0, 0.7)
+	PirateThemeBuilder.dress_modal_dim(dim)
+	_dim = dim
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(dim)
 	_panel = PanelContainer.new()

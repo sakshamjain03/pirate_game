@@ -27,6 +27,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	# M22 6b: Watch and No Thanks are the same brass, side by side — an
 	# optional ad is never the coral "go" action (AGENTS.md never-list).
 	PirateThemeBuilder.dress_parchment_page(page)
@@ -48,6 +49,7 @@ func present(surface: StringName, offer_text: String, on_bonus_granted: Callable
 	offer_label.text = offer_text
 	watch_button.disabled = false
 	show()
+	UIMotion.modal_enter($CenterContainer/Panel, $ColorRect)
 	get_tree().paused = true
 
 

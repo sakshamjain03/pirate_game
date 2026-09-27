@@ -31,6 +31,30 @@ class_name UIPalette extends Resource
 @export var hp_good := Color("#3FBF8F")
 @export var hp_low := Color("#D6453A")
 
+## M22 Phase 6c — the v0.3 doc's finer text/material swatches, lifted
+## verbatim from its component CSS (design.md §13). The two text_on_* tokens
+## above stay as the broad roles; these are the specific shades v0.3 uses.
+@export var title_on_wood := Color("#FFF1D0")      # Germania titles on wood
+@export var title_shadow := Color("#1A0E06")       # their 0 2px drop shadow
+@export var text_on_dark_soft := Color("#E6D4B0")  # tab/body text on wood
+@export var text_muted_dark := Color("#CDB690")    # captions under round buttons
+@export var hud_number := Color("#FFF4D6")         # pill + HUD numbers
+@export var ink_soft := Color("#8A6A3A")           # sub-labels on parchment
+@export var ink_good := Color("#1D7A58")           # "2 / 3", done states on parchment
+@export var brass_text := Color("#3A2410")         # brass-button label ink
+@export var coral_text := Color("#FFF8EC")         # coral-button label
+@export var coral_text_shadow := Color("#7A2A0A")
+@export var wood_border := Color("#2E1A0C")
+@export var teal_fill_top := Color("#8FE0D6")      # slider/progress teal gradient
+@export var teal_fill := Color("#1F8A8C")
+@export var teal_fill_bottom := Color("#17616A")
+@export var notoriety_accent := Color("#FFB199")
+@export var hud_panel := Color(18.0 / 255.0, 10.0 / 255.0, 5.0 / 255.0, 0.7)  # translucent dark HUD card
+@export var hud_panel_border := Color("#8A6A3A")
+## Modal backdrop: a teal-black wash so the sea still reads through, never
+## a flat grey (v0.3: rgba(6,14,18,.62)).
+@export var modal_dim := Color(6.0 / 255.0, 14.0 / 255.0, 18.0 / 255.0, 0.62)
+
 ## Rarity ramp — "not in the game yet" per v0.3's own component sheet
 ## (introduced there for captain acquisition/chest-loot quality). This is
 ## palette scaffolding only; M22 adds no rarity system (requirements.md Out

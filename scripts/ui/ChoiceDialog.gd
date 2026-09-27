@@ -21,13 +21,17 @@ signal choice_selected(index: int)
 
 var _panel: PanelContainer
 
+var _dim: ColorRect
+
+
 func _init(title_text: String, body_text: String, button_labels: PackedStringArray) -> void:
 	layer = 100 # Above WorldHUD and every other CanvasLayer.
 
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	PirateThemeBuilder.dress_modal_dim(dim)
 	add_child(dim)
+	_dim = dim
 
 	# Centred by a full-rect CenterContainer, not set_anchors_and_offsets_preset():
 	# that call ran here in _init(), before the panel had any size, so KEEP_SIZE
@@ -81,6 +85,7 @@ func _init(title_text: String, body_text: String, button_labels: PackedStringArr
 ## resolves this dialog's theme once it's actually parented (design.md §11a).
 func _ready() -> void:
 	PirateThemeBuilder.apply_button_juice(_panel)
+	UIMotion.modal_enter(_panel, _dim)
 	# Pull keyboard/gamepad focus into the modal — otherwise it stays on the
 	# screen behind it, where Enter would activate a button the dim overlay
 	# is visually covering. The first button, never a later one: callers put

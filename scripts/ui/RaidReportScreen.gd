@@ -17,6 +17,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	PirateThemeBuilder.dress_parchment_page(page)
 	PirateThemeBuilder.apply_button_juice(self)
 
@@ -50,6 +51,7 @@ func open(report: Dictionary) -> void:
 		details_label.text = stolen_text
 		
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	# Reward pulse fires once, when the result is first presented — not per
 	# label refresh. Both repelled and raid-hit outcomes are a meaningful,
 	# player-facing event. Gateway is no-op on PC / when toggle is off.

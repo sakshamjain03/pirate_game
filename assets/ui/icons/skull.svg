@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
+<defs>
+<radialGradient id="bone" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFFDF2" stop-opacity="1"/><stop offset="0.55" stop-color="#E8DCC0" stop-opacity="1"/><stop offset="1" stop-color="#9A8A6A" stop-opacity="1"/></radialGradient>
+</defs>
+<circle cx="30" cy="32" r="28" fill="#000000" opacity="0.45"/>
+<circle cx="30" cy="30" r="28" fill="url(#bone)"/>
+<circle cx="30" cy="30" r="26" fill="none" stroke="#2A1608" stroke-width="4"/>
+<g transform="translate(12 12) scale(1.8)"><path d="M10 2C5.6 2 3 5 3 8.5c0 2.2 1 3.6 2.4 4.4V16h9.2v-3.1C16 12.1 17 10.7 17 8.5 17 5 14.4 2 10 2z" fill="#2A1608"/><circle cx="7.2" cy="9" r="1.9" fill="#F4EAD4"/><circle cx="12.8" cy="9" r="1.9" fill="#F4EAD4"/><path d="M8 16v2M10 16v2M12 16v2" stroke="#2A1608" stroke-width="1.4" fill="none"/></g>
+</svg>

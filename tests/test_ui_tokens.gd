@@ -67,13 +67,17 @@ func test_radii_and_lip_are_design_px_times_two():
 	assert_eq(UITokens.PRESS_OFFSET_Y, 4 * 2)
 
 
-func test_build_uses_germania_for_the_button_font():
+# M22 6c (deliberate): v0.3 brass buttons are Baloo 2 800 in #3a2410;
+# Germania One is kept for titles and the single coral PrimaryButton.
+func test_build_uses_baloo_800_for_brass_buttons_and_germania_for_the_primary():
 	var theme := PirateThemeBuilder.build()
 	var button_font := theme.get_font("font", "Button")
-	assert_not_null(button_font)
-	# Germania One is a static font, loaded directly (not a FontVariation
-	# wrapper like the Baloo 2 body font below).
-	assert_true(button_font is FontFile, "Button font should be the Germania One FontFile directly")
+	assert_true(button_font is FontVariation, "Brass Button font should be the Baloo 2 variation")
+	var wght := TextServerManager.get_primary_interface().name_to_tag("wght")
+	assert_eq((button_font as FontVariation).variation_opentype.get(wght), 800)
+	assert_eq(theme.get_color("font_color", "Button"), UITokens.palette().brass_text)
+	assert_true(theme.get_font("font", "PrimaryButton") is FontFile,
+		"The coral PrimaryButton keeps the Germania One FontFile")
 
 
 func test_build_uses_baloo2_for_the_default_body_font_when_ui_font_is_default():

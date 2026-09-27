@@ -168,6 +168,7 @@ func _apply_settings_visual_language() -> void:
 	# TabContainer, so runtime-built Controls/Account rows get ink too
 	# without a per-label colour override each.
 	tab_container.theme = PirateThemeBuilder.build_parchment_page_theme()
+	UIMotion.fade_tabs(tab_container)  # M22 6c: pages fade in on tab change
 	# The frame intentionally leaves an even margin around all pages.
 	tab_container.offset_left = 100.0
 	tab_container.offset_top = 104.0

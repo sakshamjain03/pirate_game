@@ -54,12 +54,17 @@ func test_label_type_scale_matches_ui_tokens():
 	assert_eq(_theme.get_font_size("font_size", "Label"), UITokens.FONT_BODY)
 
 
-func test_display_and_title_labels_use_germania_with_shadow_and_outline():
+# M22 6c (deliberate): v0.3 titles are #fff1d0 with a hard `0 2px 0 #1a0e06`
+# drop shadow and NO outline (was a 4px ink outline too) — design.md §13.
+func test_display_and_title_labels_use_germania_with_the_v03_drop_shadow():
+	var pal := UITokens.palette()
 	for variation in ["DisplayLabel", "TitleLabel"]:
 		assert_true(_theme.get_font("font", variation) is FontFile,
 			"%s should use the Germania One FontFile" % variation)
 		assert_eq(_theme.get_constant("shadow_offset_y", variation), UITokens.TEXT_SHADOW_OFFSET)
-		assert_eq(_theme.get_constant("outline_size", variation), UITokens.TEXT_OUTLINE_SIZE)
+		assert_eq(_theme.get_constant("outline_size", variation), 0)
+		assert_eq(_theme.get_color("font_color", variation), pal.title_on_wood)
+		assert_eq(_theme.get_color("font_shadow_color", variation), pal.title_shadow)
 
 
 # Slider and ScrollBar both size their track from the stylebox's own

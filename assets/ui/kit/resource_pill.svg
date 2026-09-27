@@ -1,7 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="160" height="60" viewBox="0 0 160 60">
 <defs>
-<linearGradient id="rp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#152A33" stop-opacity="1"/><stop offset="1" stop-color="#0A2C33" stop-opacity="1"/></linearGradient>
+<linearGradient id="rp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3D2616" stop-opacity="1"/><stop offset="1" stop-color="#1F1209" stop-opacity="1"/></linearGradient>
+<linearGradient id="rgl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<clipPath id="rpc"><rect x="0" y="0" width="160" height="60" rx="30"/></clipPath>
 </defs>
 <rect x="0" y="0" width="160" height="60" rx="30" fill="url(#rp)"/>
-<rect x="1" y="1" width="158" height="58" rx="29" fill="none" stroke="#C29444" stroke-width="2" opacity="0.8"/>
+<g clip-path="url(#rpc)">
+<rect x="16" y="0" width="64" height="24" rx="20" fill="url(#rgl)"/>
+<rect x="30" y="4" width="100" height="2" fill="#FFE6AA" opacity="0.35"/>
+</g>
+<rect x="2" y="2" width="156" height="56" rx="28" fill="none" stroke="#C29444" stroke-width="4"/>
 </svg>

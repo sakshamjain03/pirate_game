@@ -47,6 +47,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
 	view_log_button.pressed.connect(_on_view_log_pressed)
@@ -98,6 +99,7 @@ func open() -> void:
 	_selected_island = null
 	_update_info_panel()
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 	map_display.queue_redraw()
 

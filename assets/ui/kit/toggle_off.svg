@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="124" height="60" viewBox="0 0 124 60">
-<rect x="0" y="0" width="124" height="60" rx="30" fill="#2E1A0C"/>
-<rect x="1" y="1" width="122" height="58" rx="29" fill="none" stroke="#3A2616" stroke-width="2" opacity="0.6"/>
-<circle cx="30" cy="30" r="27" fill="#F7DFA6"/>
-<circle cx="30" cy="30" r="27" fill="none" stroke="#3A2616" stroke-width="1.5" opacity="0.5"/>
+<defs>
+<linearGradient id="ton" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A9A96" stop-opacity="1"/><stop offset="1" stop-color="#17616A" stop-opacity="1"/></linearGradient>
+<linearGradient id="tin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000000" stop-opacity="0.45"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></linearGradient>
+<clipPath id="tclip"><rect x="0" y="0" width="124" height="60" rx="30"/></clipPath>
+</defs>
+<rect x="0" y="0" width="124" height="60" rx="30" fill="#5A4632"/>
+<g clip-path="url(#tclip)">
+<rect x="0" y="4" width="124" height="8" fill="url(#tin)"/>
+</g>
+<rect x="2" y="2" width="120" height="56" rx="28" fill="none" stroke="#3A2410" stroke-width="4"/>
+<defs>
+<radialGradient id="tknob" cx="0.35" cy="0.3" r="0.75"><stop offset="0" stop-color="#FFF3C4" stop-opacity="1"/><stop offset="0.4" stop-color="#E2B75A" stop-opacity="1"/><stop offset="1" stop-color="#8A6224" stop-opacity="1"/></radialGradient>
+</defs><circle cx="32" cy="33" r="24" fill="#000000" opacity="0.35"/><circle cx="32" cy="30" r="24" fill="url(#tknob)"/><circle cx="32" cy="30" r="22.5" fill="none" stroke="#3A2410" stroke-width="3"/>
 </svg>

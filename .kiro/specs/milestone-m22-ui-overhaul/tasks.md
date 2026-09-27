@@ -541,21 +541,106 @@ independently re-verified.
 
         Result: PASS. Not verifiable here: touch feel, haptics, on-device fps and notch safe area.
 
+### Phase 6c — v0.3 fidelity pass (user request 2026-09-27)
+
+Requested after 6b: "the colour combination of the original plan is better … pretty animation and
+slight movements … text, colours, everything more proportionate … learn from the images and the
+html". This pass matches the kit, typography and motion to the v0.3 doc's own CSS. Every value is
+lifted from `Pirate Empire UI System v0.3.html` (design.md §13) rather than eyeballed, and the
+Phase 7 motion foundation is folded in, since the user asked for the movement now.
+
+- [x] 6c.1 Extract the v0.3 material/type/motion values from the HTML (inline styles, `@keyframes`,
+        component JS) and record them in design.md §13.
+- [x] 6c.2 Regenerate the kit to those values (`tools/ui_kit/gen_kit.py`):
+        - **Wood frame:** v0.3 plank bands (period 17), a warm top sheen and a dark foot, radius 18
+          with a 3px `#2e1a0c` border, and round brass studs. The rope edge and triangle corners
+          are gone, and the centre is exactly two plank periods, so the theme tiles it
+          (`AXIS_STRETCH_MODE_TILE_FIT`).
+        - **Parchment:** clean `#ecd6a4` paper with the `#fdf1d2` top-left glow and a warm inset
+          edge. The deckle and dirt are gone, and the grain was dropped because the stretched page
+          turned hairlines into bands.
+        - **Rope-parchment:** a new tutorial-toast card.
+        - **Buttons:**
+          - brass, with the 4-stop gradient, `#4a300f` border, `#5a3a12` lip and top light;
+          - coral, with the ellipse radial `#ffd6ae → #b83a14`, `#6a260c` lip and bottom shade;
+          - greyed disabled faces;
+          - plank round buttons.
+        - **Controls:**
+          - the toggle is `#5a4632` off and `#2a9a96 → #17616a` on, with a brass knob;
+          - the slider has a dark track, a teal `#8fe0d6 → #17616a` fill and a brass knob;
+          - the resource pill is a dark `#3d2616 → #1f1209` gradient with a brass border and gloss.
+        - **Icons:** the v0.3 coin, ringed log end, steel ingot, barrel, research scroll and a
+          notoriety skull.
+- [x] 6c.3 Typography and colour tokens (`UIPalette`: title `#fff1d0`/`#1a0e06`, soft body text
+        `#e6d4b0`, HUD numbers `#fff4d6`, ink-soft `#8a6a3a`, brass text `#3a2410`, coral text
+        `#fff8ec`/`#7a2a0a`, teal fill, and the modal dim `rgba(6,14,18,.62)`):
+        - brass buttons, tabs, toggles and dropdowns are Baloo 800, and Germania is kept for titles
+          and the coral CTA;
+        - titles lose the outline and keep the hard drop;
+        - new `InkSubLabel`, `PillNumLabel`, `HudCard` and `BountyCard` variations;
+        - every modal backdrop is the teal-black dim via `dress_modal_dim()`.
+- [x] 6c.4 HUD to v0.3 screen 04:
+        - notoriety becomes a `HudCard` with a Germania title, the value, "Next escalation" in the
+          coral accent, and the new `NotorietyBar` (gradient fill, threshold ticks, and a skull
+          that shakes near the next escalation);
+        - the cannon readouts and the production chip become translucent `HudCard`s;
+        - the phone objective card becomes a parchment `BountyCard`;
+        - pill numbers are grouped ("5,000");
+        - the plaque studs no longer sit under the speed text;
+        - the phone utility opener sits beside the notoriety card.
+- [x] 6c.5 Motion ("slight animations and simple transitions"), all through `UIMotion` and all
+        collapsing to still states under `reduced_motion()`:
+        - **Modals:** every modal enters with `modal_enter()` (dim fade 0.18s plus a 450ms pop).
+        - **Tutorial:** the toast pops in and types at 30 cps; the first Next tap reveals the line.
+        - **Resource pills:** numbers tick and a gain shines the pill.
+        - **Tiles and tabs:** the selected board tile lifts, and tab pages fade in.
+        - **IslandMenu:** the tier track is numbered v0.3 nodes, and the current node breathes a
+          glow.
+        - **Notoriety:** the skull shakes near a threshold.
+        - **Sweep:** the new `30_motion_modal_pop`, `31_motion_pill_shine_tick` and
+          `32_motion_typewriter` shots capture motion mid-animation. Every other shot runs with
+          motion collapsed, so it shows the settled state.
+- [x] 6c.6 Tests updated on purpose (each commented): `test_theme_variations` (the title outline
+        is 0 now, with the v0.3 colours asserted) and `test_ui_tokens` (brass is Baloo 800 and the
+        Primary is Germania). The layout regression the phone opener caused was fixed, not the test.
+- [x] 6c.7 **Checkpoint — Phase 6c** (with 7.1–7.3). `checkpoint-reviewer` independently re-verified:
+        - its own GUT run: **748/748** (4245 asserts);
+        - its own phone and desktop sweeps with zero ERROR lines, with the §13 values checked in
+          the 00b/11/06/08 shots and the three motion shots;
+        - `gen_kit.py` producing byte-identical output across two runs;
+        - that the test changes are deliberate and non-loosening (`test_world_hud_layout` untouched);
+        - that reduced motion is gated in the sweep, and that the CelebrationQueue fix is sound;
+        - that no fragile ship code was touched.
+
+        Result: PASS. Not verifiable here: touch feel, haptics, on-device fps with the textures and
+        notch safe area.
+
 ### Phase 7 — Motion foundation
 
-- [ ] 7.1 `UIMotion.gd` helpers + `reduced_motion()` hook (design §10).
-  - **Verify:** `tests/test_ui_motion.gd`: each helper returns a valid Tween, and with reduced motion
-    forced on, durations collapse to 0.
+- [x] 7.1 `UIMotion.gd` helpers + `reduced_motion()` hook (design §10).
+  - **Verify:** `tests/test_ui_motion.gd` (7 tests):
+    - each helper returns a valid Tween;
+    - pop_in starts at 0.6 and settles at 1 about its centre;
+    - tick reaches its target and typewrite reveals the whole line;
+    - shine is a single pulse that returns to white (below 3 Hz);
+    - with reduced motion forced on, every helper jumps to its final state;
+    - the query defaults to off while `SettingsManager` has no `reduce_motion`, since M19 adds it.
+    Helpers: `pop_in`, `shine`, `tick_number` (+`group_digits`), `stamp`, `float_up`, `typewrite`,
+    `modal_enter`, `idle_glow`, `tile_lift`, `fade_tabs`.
   - _Requirements: 9.1, 9.4_
-- [ ] 7.2 `CelebrationQueue.gd` tier rules.
-  - **Verify:** test: two Large plays → the second waits until the first CTA `pressed`; Small plays
-    immediately during a Large.
+- [x] 7.2 `CelebrationQueue.gd` tier rules.
+  - **Verify:** `tests/test_celebration_queue.gd` (3 tests): two Large plays → the second waits until
+    the first CTA `pressed`; Small and Medium play immediately during a Large; and a Large that
+    leaves the tree without its CTA still releases the queue. That last test found a real bug:
+    starting the next moment from the finished moment's own `tree_exiting` was refused by the
+    host, and the start is now deferred.
   - _Requirements: 9.2_
-- [ ] 7.3 Apply Small-tier juice: resource pill shine + number tick on change, pop-in on
+- [x] 7.3 Apply Small-tier juice: resource pill shine + number tick on change, pop-in on
         modal open, tutorial typewriter.
-  - **Verify:** sweep sequence shots mid-animation.
+  - **Verify:** sweep sequence shots mid-animation (`30_`/`31_`/`32_motion_*`, both profiles), done
+    as part of 6c.5.
   - _Requirements: 9.1_
-- [ ] 7.4 **Checkpoint — Phase 7.**
+- [x] 7.4 **Checkpoint — Phase 7.** Covered by 6c.7 above (7.1–7.3 shipped inside the 6c pass).
 
 ### Phase 8 — Gameplay moments
 

@@ -31,6 +31,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	# M22 6b: the shared journal page. Buy buttons stay brass on purpose —
 	# a coral glowing "buy" is exactly the pressure AGENTS.md forbids.
 	PirateThemeBuilder.dress_parchment_page(page)
@@ -50,6 +51,7 @@ func open() -> void:
 	_refresh()
 	StoreManager.refresh_products()
 	show()
+	UIMotion.modal_enter($Panel, $ColorRect)
 	get_tree().paused = true
 
 

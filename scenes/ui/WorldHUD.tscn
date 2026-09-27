@@ -153,6 +153,7 @@ alignment = 1
 [node name="PortPanel" type="PanelContainer" parent="CannonsContainer"]
 custom_minimum_size = Vector2(320, 120)
 layout_mode = 2
+theme_type_variation = &"HudCard"
 
 [node name="VBox" type="VBoxContainer" parent="CannonsContainer/PortPanel"]
 layout_mode = 2
@@ -192,6 +193,7 @@ stretch_mode = 5
 [node name="StbdPanel" type="PanelContainer" parent="CannonsContainer"]
 custom_minimum_size = Vector2(320, 120)
 layout_mode = 2
+theme_type_variation = &"HudCard"
 
 [node name="VBox" type="VBoxContainer" parent="CannonsContainer/StbdPanel"]
 layout_mode = 2
@@ -424,7 +426,7 @@ stretch_mode = 5
 [node name="GoldLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"HudNumLabel"
+theme_type_variation = &"PillNumLabel"
 text = "0"
 
 [node name="GoldCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/GoldChip/Row"]
@@ -455,7 +457,7 @@ stretch_mode = 5
 [node name="WoodLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"HudNumLabel"
+theme_type_variation = &"PillNumLabel"
 text = "0"
 
 [node name="WoodCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/WoodChip/Row"]
@@ -486,7 +488,7 @@ stretch_mode = 5
 [node name="IronLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"HudNumLabel"
+theme_type_variation = &"PillNumLabel"
 text = "0"
 
 [node name="IronCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/IronChip/Row"]
@@ -517,7 +519,7 @@ stretch_mode = 5
 [node name="RumLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"HudNumLabel"
+theme_type_variation = &"PillNumLabel"
 text = "0"
 
 [node name="RumCapLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/RumChip/Row"]
@@ -548,7 +550,7 @@ stretch_mode = 5
 [node name="ResearchLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/ResearchChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"HudNumLabel"
+theme_type_variation = &"PillNumLabel"
 text = "0"
 
 [node name="IslandMenu" parent="." instance=ExtResource("2_island_menu")]

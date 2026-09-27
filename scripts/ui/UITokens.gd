@@ -14,6 +14,7 @@ class_name UITokens extends RefCounted
 const FONT_DISPLAY := 88   ## design 44 — headline moments ("Legendary Haul!")
 const FONT_TITLE   := 56   ## design 28 — screen/panel titles ("Captain's Roster")
 const FONT_SECTION := 44   ## design 22 — a section heading inside a page ("Completed Chapters")
+const FONT_PILL_NUM := 30  ## design 15 — the number inside a 30px resource pill
 const FONT_HUD_NUM := 36   ## design 18 — HUD numeric readouts ("24,860 / 312")
 const FONT_BODY    := 32   ## design 16 — body text; default Label/Button size
 const FONT_CHIP    := 24   ## design 12 — small chip labels ("DMG 412")
@@ -41,6 +42,27 @@ const GLOW_OPACITY_MIN := 0.45
 const GLOW_OPACITY_MAX := 1.0
 const GLOW_SCALE_MIN   := 0.96
 const GLOW_SCALE_MAX   := 1.07
+
+# --- M22 Phase 7 motion vocabulary (design.md §10, v0.3 motion spec) ---
+const POP_IN_SEC        := 0.45  ## modal/panel pop: scale .6 -> 1.06 -> 1
+const POP_IN_FROM       := 0.6
+const POP_IN_OVERSHOOT  := 1.06
+const SHINE_SEC         := 0.4   ## pill brightness sweep on value change
+const SHINE_PEAK        := 1.35  ## self_modulate peak (one pulse: far under 3 Hz)
+const TICK_SEC          := 0.6   ## number tick-up
+const STAMP_SEC         := 0.5   ## "SUNK!" stamp: scale 2.2 -> .92 -> 1, -8 deg
+const STAMP_FROM        := 2.2
+const STAMP_UNDERSHOOT  := 0.92
+const STAMP_ROTATION_DEG := -8.0
+const FLOAT_UP_SEC      := 0.9
+const FLOAT_UP_PX       := 80    ## design 40
+const TYPEWRITER_CPS    := 30.0  ## characters per second
+const DIM_FADE_SEC      := 0.18  ## modal backdrop fade-in under the pop
+const IDLE_GLOW_SEC     := 1.6   ## current-tier node breath
+const IDLE_GLOW_PEAK    := 1.3
+const TILE_LIFT_SCALE   := 1.05  ## selected board tile
+const TILE_LIFT_SEC     := 0.14
+const TAB_FADE_SEC      := 0.15
 
 # --- Display/Title/Button text legibility over busy art (design.md §5) ---
 const TEXT_SHADOW_OFFSET := 4   ## design 2

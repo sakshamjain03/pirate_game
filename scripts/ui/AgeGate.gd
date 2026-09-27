@@ -21,6 +21,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	over_button.pressed.connect(_on_answered.bind(false))
 	under_button.pressed.connect(_on_answered.bind(true))
 	AdManager.state_changed.connect(_on_ad_state_changed)

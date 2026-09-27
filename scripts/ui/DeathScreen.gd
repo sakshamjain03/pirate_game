@@ -21,6 +21,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	# M22 6b — defeat is somber (design.md §10): the kit frame and page, a
 	# brick-red title, and ONE brass way forward. Deliberately no coral
 	# Primary — a pulsing "go!" glow reads as celebration on a loss.
@@ -42,6 +43,7 @@ func open(ship: ShipController) -> void:
 	penalty_label.text = tr("Your crew salvaged the ship, but %d Gold was lost to the sea.") % _penalty_amount
 	
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 	respawn_button.grab_focus()
 

@@ -42,6 +42,7 @@ func set_mobile_band(left: float, right: float) -> void:
 	_mobile_band = Vector2(left, right)
 	_fit_to_content()
 
+var _typing: Tween
 var _queue: Array[DialogueBeatData] = []
 var _queue_index: int = -1
 
@@ -114,6 +115,7 @@ func _show_queue(beats: Array[DialogueBeatData]) -> void:
 	_queue_index = 0
 	_render_current_beat()
 	show()
+	UIMotion.pop_in($Panel)  # v0.3: "card pops in 450ms"
 
 
 func _render_current_beat() -> void:
@@ -127,6 +129,9 @@ func _render_current_beat() -> void:
 	beat_counter_label.text = tr("%d of %d") % [_queue_index + 1, _queue.size()]
 	_render_dots()
 	_fit_to_content.call_deferred()
+	if _typing:
+		_typing.kill()
+	_typing = UIMotion.typewrite(text_label)
 
 
 func _render_dots() -> void:
@@ -147,6 +152,12 @@ func _render_dots() -> void:
 
 
 func _on_next_pressed() -> void:
+	# v0.3: text types at 30 cps; the first tap mid-line reveals the whole
+	# line instead of skipping a beat the player hasn't read yet.
+	if _typing and _typing.is_valid() and _typing.is_running():
+		_typing.kill()
+		text_label.visible_ratio = 1.0
+		return
 	_queue_index += 1
 	if _queue_index >= _queue.size():
 		hide()

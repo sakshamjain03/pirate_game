@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="140" height="48" viewBox="0 0 140 48">
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="68" viewBox="0 0 140 68">
 <defs>
-<linearGradient id="tabg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ECD6A4" stop-opacity="1"/><stop offset="1" stop-color="#DFC287" stop-opacity="1"/></linearGradient>
+<radialGradient id="tabhi" cx="0.25" cy="0.2" r="0.8"><stop offset="0" stop-color="#FDF1D2" stop-opacity="1"/><stop offset="0.6" stop-color="#FDF1D2" stop-opacity="0"/></radialGradient>
 </defs>
-<rect x="0" y="0" width="140" height="48" rx="12" fill="url(#tabg)"/>
-<rect x="0" y="45" width="140" height="3" fill="#C29444"/>
+<path d="M 0 68 L 0 20 Q 0 0 20 0 L 120 0 Q 140 0 140 20 L 140 68 Z" fill="#ECD6A4"/>
+<path d="M 0 68 L 0 20 Q 0 0 20 0 L 120 0 Q 140 0 140 20 L 140 68 Z" fill="url(#tabhi)"/>
+<rect x="12" y="0" width="116" height="6" rx="3" fill="#C29444"/>
 </svg>

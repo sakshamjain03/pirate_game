@@ -211,346 +211,419 @@ def seeded_wood_planks(seed: str, w: float, h: float, plank_h: float,
 
 
 def brass_stud(cx, cy, r) -> str:
-    gid = f"stud_{cx:g}_{cy:g}"
+    """v0.3 corner stud: radial-gradient(circle at 35% 30%, #fff3c4 0,
+    #e2b75a 35%, #8a6224 75%, #4a3210 100%) + a 1px drop shadow."""
+    gid = f"stud_{cx:g}_{cy:g}".replace(".", "_")
     return (
-        defs(radial_gradient(gid, [(0, PALETTE["brass_light"], 1), (0.6, PALETTE["brass"], 1),
-                                     (1, PALETTE["ink"], 1)], cx=0.35, cy=0.3, r=0.9))
+        defs(radial_gradient(gid, [(0, "#FFF3C4", 1), (0.35, "#E2B75A", 1), (0.75, "#8A6224", 1),
+                                     (1, "#4A3210", 1)], cx=0.35, cy=0.3, r=0.75))
+        + circle(cx, cy + dpx(1), r, fill="#000000", opacity=0.35)
         + circle(cx, cy, r, fill=f"url(#{gid})")
-        + circle(cx - r * 0.3, cy - r * 0.3, r * 0.22, fill="#FFFFFF", opacity=0.55)
     )
 
 
-def rope_tile(x, y, length, thickness, *, vertical=False) -> str:
-    """A short run of a rope-stitch pattern — alternating dark/light twist
-    segments — used as the frame's rope-stitched edge (design.md's "rope
-    4px tile" note, canvas px here)."""
+# --------------------------------------------------------------------------
+# M22 Phase 6c — v0.3 materials, lifted verbatim from the doc's component CSS
+# (design.md §13). Every colour/stop below is the doc's own value; sizes are
+# design px x2 via dpx().
+# --------------------------------------------------------------------------
+
+# repeating-linear-gradient(178deg, #5b3920 0 2px, #6d452a 2px 7px,
+#   #63401f 7px 9px, #7a4e2e 9px 15px, #5f3b21 15px 17px) — the v0.3 plank.
+PLANK_BANDS = [(0, 2, "#5B3920"), (2, 7, "#6D452A"), (7, 9, "#63401F"), (9, 15, "#7A4E2E"), (15, 17, "#5F3B21")]
+PLANK_PERIOD = dpx(17)
+# Disabled / greyed wood (v0.3 "Board — no target in range").
+PLANK_BANDS_GREY = [(0, 2, "#554B42"), (2, 7, "#62574C"), (7, 9, "#5A5048"), (9, 15, "#685D52"), (15, 17, "#5A5048")]
+
+
+def plank_rects(x, y, w, h, bands=PLANK_BANDS) -> str:
+    """Horizontal plank bands filling (x,y,w,h), period dpx(17), starting at
+    band 0 on y — so a 9-slice centre that is a whole number of periods
+    tiles seamlessly (StyleBoxTexture axis_stretch TILE)."""
     out = []
-    seg = thickness * 1.6
-    n = max(1, int(length / seg))
-    for i in range(n):
-        t = i * seg
-        c1, c2 = (PALETTE["driftwood"], PALETTE["wood_dark"]) if i % 2 == 0 else (PALETTE["wood_dark"], PALETTE["driftwood"])
-        if vertical:
-            out.append(rect(x - thickness / 2, y + t, thickness, seg, rx=thickness / 2, fill=c1))
-            out.append(rect(x - thickness / 4, y + t, thickness / 2, seg, rx=thickness / 4, fill=c2, opacity=0.6))
-        else:
-            out.append(rect(x + t, y - thickness / 2, seg, thickness, rx=thickness / 2, fill=c1))
-            out.append(rect(x + t, y - thickness / 4, seg, thickness / 2, rx=thickness / 4, fill=c2, opacity=0.6))
+    period = dpx(17)
+    yy = y
+    while yy < y + h:
+        for a, b, col in bands:
+            top = yy + dpx(a)
+            bot = min(yy + dpx(b), y + h)
+            if top >= y + h:
+                break
+            out.append(rect(x, top, w, bot - top, fill=col))
+        yy += period
     return "\n".join(out)
 
 
-# --------------------------------------------------------------------------
-# 2.1 — Panels: parchment 9-slice, wood frame + rope + studs, wood plaque
-# --------------------------------------------------------------------------
+def clip_rrect(cid, x, y, w, h, r) -> str:
+    return f'<clipPath id="{cid}"><rect x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}" rx="{r:g}"/></clipPath>'
 
-def gen_parchment_panel() -> tuple[str, str]:
-    """9-slice margin dpx(40)=80 canvas px (design.md §6). Warm top-left
-    highlight, burnt lower-right edge, fibre grain, deckle in the alpha
-    channel (an irregular seeded outline — the panel's own edge, not a
-    separate stroke, so the alpha itself is uneven)."""
-    w, h = 320, 320
-    margin = dpx(40)
-    body = []
-    body.append(defs(
-        linear_gradient("bg", [(0, PALETTE["parchment"], 1), (1, "#C9A96E", 1)], x1=0, y1=0, x2=1, y2=1),
-        radial_gradient("burn", [(0, PALETTE["ink"], 0), (0.72, PALETTE["ink"], 0), (1, PALETTE["ink"], 0.45)],
-                         cx=0.5, cy=0.5, r=0.75),
-    ))
-    # Deckled (irregular) outline: a seeded wobble around the rect edge.
-    rng = random.Random("parchment-deckle")
-    deckle_pts = []
-    steps = 40
-    for i in range(steps + 1):
+
+def clip_circle(cid, cx, cy, r) -> str:
+    return f'<clipPath id="{cid}"><circle cx="{cx:g}" cy="{cy:g}" r="{r:g}"/></clipPath>'
+
+
+def inset_shadow(x, y, w, h, r, colour, strength, depth, steps=12) -> str:
+    """No SVG filters under ThorVG, so v0.3's `box-shadow: inset 0 0 Npx`
+    is built from nested rounded-rect strokes fading inward."""
+    out = []
+    step = depth / steps
+    for i in range(steps):
         t = i / steps
-        # Walk the rectangle perimeter, wobbling the inward offset.
-        if t < 0.25:
-            x = w * (t / 0.25)
-            y = 0
-        elif t < 0.5:
-            x = w
-            y = h * ((t - 0.25) / 0.25)
-        elif t < 0.75:
-            x = w * (1 - (t - 0.5) / 0.25)
-            y = h
-        else:
-            x = 0
-            y = h * (1 - (t - 0.75) / 0.25)
-        wob = rng.uniform(-3.0, 3.0)
-        nx = -1 if x <= 0 else (1 if x >= w else 0)
-        ny = -1 if y <= 0 else (1 if y >= h else 0)
-        deckle_pts.append((x + nx * wob, y + ny * wob))
-    d = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in deckle_pts) + " Z"
-    body.append(path(d, fill="url(#bg)"))
-    body.append(path(d, fill="url(#burn)"))
-    # Warm top-left highlight — a soft radial glow, not a flat rect (an
-    # earlier flat-rect version left a visible hard-edged seam at its own
-    # boundary; caught by rendering this at full size, not judging it from
-    # the kit sheet's small thumbnail).
-    body.append(defs(radial_gradient("hi", [(0, PALETTE["brass_light"], 0.22), (1, PALETTE["brass_light"], 0)],
-                                       cx=0.22, cy=0.2, r=0.65)))
-    body.append(rect(0, 0, w, h, fill="url(#hi)"))
-    # Fibre grain.
-    body.append(seeded_grain_strokes("parchment-grain", w, h, 340, PALETTE["ink"],
-                                      min_len=4, max_len=16, min_op=0.03, max_op=0.08, stroke_w=0.9))
-    # Deckle edge line itself (subtle ink rim).
-    body.append(path(d, fill="none", stroke=PALETTE["ink"], stroke_width=2, opacity=0.5))
-    svg = svg_doc(w, h, "\n".join(body))
-    meta = f"parchment_panel: {w:g}x{h:g}, 9-slice margin {margin:g}px"
-    return svg, meta
+        op = strength * (1.0 - t) ** 1.8 / 2.2
+        inset = step * i + step / 2
+        out.append(rect(x + inset, y + inset, w - 2 * inset, h - 2 * inset,
+                        rx=max(0.0, r - inset), fill="none", stroke=colour,
+                        stroke_width=step, opacity=op))
+    return "\n".join(out)
+
+
+WOOD_FRAME_MARGIN = 56   # radius 36 + border 6 + stud room; theme MARGIN_WOOD_FRAME
+WOOD_FRAME_CENTRE = 2 * PLANK_PERIOD
 
 
 def gen_wood_frame() -> tuple[str, str]:
-    """9-slice margin dpx(12)=24 canvas px. Wood body, rope-stitched inner
-    edge, brass studs at the corners (design.md's "rope 4px tile · studs
-    10px @7px inset", here scaled: rope thickness dpx(4)=8, stud radius
-    dpx(10)=20, inset dpx(7)=14)."""
-    w, h = 240, 240
-    margin = dpx(12)
-    rope_th = dpx(4)
-    stud_r = dpx(10)
-    inset = dpx(7)
-    body = [seeded_wood_planks("frame-wood", w, h, 28, PALETTE["driftwood"], PALETTE["wood_dark"])]
-    # Inner rope border (a rounded rect outline built from 4 straight runs).
-    ropes = []
-    ropes.append(rope_tile(margin, margin, w - 2 * margin, rope_th))
-    ropes.append(rope_tile(margin, h - margin, w - 2 * margin, rope_th))
-    ropes.append(rope_tile(margin, margin, h - 2 * margin, rope_th, vertical=True))
-    ropes.append(rope_tile(w - margin, margin, h - 2 * margin, rope_th, vertical=True))
-    body.append(group("\n".join(ropes)))
-    # Corner brass studs.
+    """v0.3 modal frame: border-radius 18, 3px #2e1a0c border, plank wood,
+    a warm top sheen / dark foot (linear 180deg rgba(255,215,150,.18) ->
+    rgba(0,0,0,.3)), inset 0 2px 0 rgba(255,220,170,.35) top light and 11px
+    brass studs 8px in from each corner. The centre is exactly two plank
+    periods so the theme can TILE it vertically without stretching planks."""
+    m = WOOD_FRAME_MARGIN
+    w = h = 2 * m + WOOD_FRAME_CENTRE
+    r = dpx(18)
+    bw = dpx(3)
+    body = [defs(
+        clip_rrect("fclip", 0, 0, w, h, r),
+        linear_gradient("fsheen", [(0, "#FFD796", 0.18), (1, "#FFD796", 0)], x1=0, y1=0, x2=0, y2=1),
+        linear_gradient("ffoot", [(0, "#000000", 0), (1, "#000000", 0.3)], x1=0, y1=0, x2=0, y2=1),
+    )]
+    body.append(f'<g clip-path="url(#fclip)">')
+    body.append(plank_rects(0, 0, w, h))
+    body.append(rect(0, 0, w, m, fill="url(#fsheen)"))
+    body.append(rect(0, h - m, w, m, fill="url(#ffoot)"))
+    body.append(rect(r, bw, w - 2 * r, dpx(2), fill="#FFDCAA", opacity=0.35))
+    body.append("</g>")
+    body.append(rect(bw / 2, bw / 2, w - bw, h - bw, rx=r - bw / 2, fill="none",
+                     stroke=PALETTE["wood_dark"], stroke_width=bw))
+    stud_r = dpx(5.5)
+    inset = dpx(8) + stud_r
     for cx, cy in [(inset, inset), (w - inset, inset), (inset, h - inset), (w - inset, h - inset)]:
         body.append(brass_stud(cx, cy, stud_r))
-    # Outer dark-ink border.
-    body.append(rect(1.5, 1.5, w - 3, h - 3, stroke=PALETTE["ink"], stroke_width=3, fill="none"))
-    svg = svg_doc(w, h, "\n".join(body))
-    meta = f"wood_frame: {w:g}x{h:g}, 9-slice margin {margin:g}px"
-    return svg, meta
+    return svg_doc(w, h, "\n".join(body)), f"wood_frame: {w:g}x{h:g}, 9-slice margin {m:g}px, centre {WOOD_FRAME_CENTRE:g} (tile)"
 
 
 def gen_wood_plaque() -> tuple[str, str]:
-    """3-slice HORIZONTAL, titles only. Ends dpx(32)=64 canvas px (design.md
-    §6's "plaque ends 64")."""
+    """v0.3 title plaque ("Port Royal"): radius 12, 3px border, the same
+    planks + sheen, a brass stud centred in each end cap."""
     w, h = 400, 120
     end = dpx(32)
-    body = [seeded_wood_planks("plaque-wood", w, h, 40, PALETTE["driftwood"], PALETTE["wood_dark"])]
-    # Carved end-caps: a darker inset band at each end, brass rivets.
-    for ex in (0, w - end):
-        body.append(rect(ex, 0, end, h, fill=PALETTE["wood_dark"], opacity=0.35))
-        body.append(brass_stud(ex + end * 0.5, h * 0.25, dpx(4)))
-        body.append(brass_stud(ex + end * 0.5, h * 0.75, dpx(4)))
-    body.append(rect(1.5, 1.5, w - 3, h - 3, stroke=PALETTE["ink"], stroke_width=3, fill="none"))
-    svg = svg_doc(w, h, "\n".join(body))
-    meta = f"wood_plaque: {w:g}x{h:g}, 3-slice ends {end:g}px (horizontal)"
-    return svg, meta
+    r = dpx(12)
+    bw = dpx(3)
+    body = [defs(
+        clip_rrect("pclip", 0, 0, w, h, r),
+        linear_gradient("psheen", [(0, "#FFD796", 0.22), (1, "#000000", 0.25)], x1=0, y1=0, x2=0, y2=1),
+    )]
+    body.append('<g clip-path="url(#pclip)">')
+    body.append(plank_rects(0, 0, w, h))
+    body.append(rect(0, 0, w, h, fill="url(#psheen)"))
+    body.append(rect(r, bw, w - 2 * r, dpx(2), fill="#FFDCAA", opacity=0.35))
+    body.append("</g>")
+    body.append(rect(bw / 2, bw / 2, w - bw, h - bw, rx=r - bw / 2, fill="none",
+                     stroke=PALETTE["wood_dark"], stroke_width=bw))
+    # Studs hug the ends (dpx(10) in) so the 48px content inset never
+    # reaches them — at end*0.5 they sat under the HUD speed text.
+    for ex in (dpx(10), w - dpx(10)):
+        body.append(brass_stud(ex, h / 2, dpx(5)))
+    return svg_doc(w, h, "\n".join(body)), f"wood_plaque: {w:g}x{h:g}, 3-slice ends {end:g}px (horizontal)"
+
+
+PARCHMENT_MARGIN = 56
+
+
+def _parchment_body(x, y, w, h, r, *, with_grain=True, burn=False) -> list[str]:
+    """v0.3 parchment page: radial-gradient(ellipse at 20% 10%, #fdf1d2 0%,
+    transparent 55%), repeating-linear-gradient(8deg, rgba(120,80,30,.05)
+    0 2px, transparent 2px 7px), #ecd6a4; inset 0 0 24px rgba(110,70,25,.45).
+    `burn` adds the toast's warm lower-right (radial at 85% 95%,
+    rgba(150,95,40,.35))."""
+    body = [defs(
+        clip_rrect(f"pc{int(w)}_{int(h)}", x, y, w, h, r),
+        radial_gradient("phi", [(0, "#FDF1D2", 1), (0.55, "#FDF1D2", 0)], cx=0.2, cy=0.1, r=0.7),
+        radial_gradient("pburn", [(0, "#965F28", 0.35), (0.5, "#965F28", 0)], cx=0.85, cy=0.95, r=0.6),
+    )]
+    body.append(rect(x, y, w, h, rx=r, fill=PALETTE["parchment"]))
+    body.append(f'<g clip-path="url(#pc{int(w)}_{int(h)})">')
+    body.append(rect(x, y, w, h, fill="url(#phi)"))
+    if burn:
+        body.append(rect(x, y, w, h, fill="url(#pburn)"))
+    if with_grain:
+        # 8deg hairlines every 7 design px
+        yy = y - dpx(10)
+        while yy < y + h + dpx(10):
+            body.append(line(x, yy, x + w, yy + w * math.tan(math.radians(8)) * 0.15,
+                             stroke="#78501E", stroke_width=dpx(2) * 0.5, opacity=0.05, cap="butt"))
+            yy += dpx(7)
+    body.append(inset_shadow(x, y, w, h, r, "#6E4619", 0.45, dpx(24) * 0.9))
+    body.append("</g>")
+    return body
+
+
+def gen_parchment_panel() -> tuple[str, str]:
+    """9-slice page (Settings/Log/Codex …): radius 12, no deckle or dirt —
+    v0.3's page is clean warm paper; the highlight/grain are all it has."""
+    w = h = 240
+    # No grain here: the page centre stretches to screen size and a 1px
+    # hairline became a thick visible band (M22 6c sweep).
+    body = _parchment_body(0, 0, w, h, dpx(12), with_grain=False)
+    return svg_doc(w, h, "\n".join(body)), f"parchment_panel: {w:g}x{h:g}, 9-slice margin {PARCHMENT_MARGIN:g}px"
+
+
+ROPE_MARGIN = 56
+ROPE_STRIPE = dpx(4)       # 45deg stripes, 4px each colour (v0.3)
+
+
+def gen_rope_parchment() -> tuple[str, str]:
+    """v0.3 tutorial-toast card: a 3px rope border
+    (repeating-linear-gradient(45deg, #c8a36a 0 4px, #8a6a3a 4px 8px),
+    radius 18) around a radius-15 parchment with the warm burn, plus 10px
+    studs. Rope stripes tile: the canvas period is 2*ROPE_STRIPE*sqrt2 on
+    both axes and the theme sets axis_stretch TILE_FIT."""
+    period = 2 * ROPE_STRIPE * math.sqrt(2)          # horizontal period of 45deg stripes
+    n_centre = 3
+    w = h = round(2 * ROPE_MARGIN + period * n_centre)
+    r_out = dpx(18)
+    pad = dpx(3)
+    body = [defs(clip_rrect("rclip", 0, 0, w, h, r_out))]
+    body.append(rect(0, 0, w, h, rx=r_out, fill="#8A6A3A"))
+    body.append('<g clip-path="url(#rclip)">')
+    k = -h
+    while k < w + h:
+        # a 45deg light stripe: band between lines x - y = k and x - y = k + stripe*sqrt2
+        s = ROPE_STRIPE * math.sqrt(2)
+        body.append(path(f"M {k:g} 0 L {k + s:g} 0 L {k + s + h:g} {h:g} L {k + h:g} {h:g} Z", fill="#C8A36A"))
+        k += period
+    body.append("</g>")
+    body.extend(_parchment_body(pad, pad, w - 2 * pad, h - 2 * pad, dpx(15), burn=True))
+    for cx, cy in [(dpx(12), dpx(12)), (w - dpx(12), dpx(12)), (dpx(12), h - dpx(12)), (w - dpx(12), h - dpx(12))]:
+        body.append(brass_stud(cx, cy, dpx(5)))
+    return svg_doc(w, h, "\n".join(body)), f"rope_parchment: {w:g}x{h:g}, 9-slice margin {ROPE_MARGIN:g}px (tile)"
 
 
 # --------------------------------------------------------------------------
-# 2.2 — Buttons: Primary (coral) / Brass / Wood-round x idle/pressed/disabled
+# Buttons — v0.3 brass / coral / disabled faces, round wood
 # --------------------------------------------------------------------------
 
-_BTN_FACE_H = 64          # design 32 — the visible button face height
-_LIP_IDLE = dpx(6)        # design 6 -> canvas 12 (UITokens.LIP_IDLE)
-_LIP_PRESSED = dpx(2)     # design 2 -> canvas 4 (UITokens.LIP_PRESSED)
-_PRESS_DROP = dpx(4)      # design 4 -> canvas 8 (UITokens.PRESS_OFFSET_Y)
-_BORDER = dpx(3)          # design 3 -> canvas 6 (UITokens.BORDER_WIDTH)
-# Shared rectangular-button canvas: wide enough for a real label, and
-# EXACTLY face + idle lip tall (== press drop + face + pressed lip) — no
-# transparent padding below. The 9-slice stretches the whole canvas over
-# the Button's rect, so any empty band here became an empty band at the
-# bottom of every button, pushing the face up while the label stayed
-# centred on the full rect — every label rendered half off its face (M22
-# Phase 4 sweep, visible on every brass/primary button).
+_BTN_FACE_H = 64          # the visible face in the texture (stretched to the button)
+_LIP_IDLE = dpx(6)        # UITokens.LIP_IDLE
+_LIP_PRESSED = dpx(2)     # UITokens.LIP_PRESSED
+_PRESS_DROP = dpx(4)      # UITokens.PRESS_OFFSET_Y
+_BORDER = dpx(3)          # UITokens.BORDER_WIDTH
+# Canvas is EXACTLY face + idle lip tall (see the Phase 4 note in git
+# history): any empty band here shows as an empty band under every button.
 _BTN_W, _BTN_H = 240, _BTN_FACE_H + _LIP_IDLE
 assert _BTN_H == _PRESS_DROP + _BTN_FACE_H + _LIP_PRESSED
 
+BTN_FAMILIES = {
+    # v0.3 brass: linear-gradient(180deg,#f7de98 0%,#d9ab52 40%,#a8772e 75%,
+    # #c99a48 100%), border #4a300f, lip 0 5px 0 #5a3a12, inset 0 2px 0
+    # rgba(255,250,220,.7).
+    "brass": {"kind": "linear", "stops": [(0, "#F7DE98"), (0.4, "#D9AB52"), (0.75, "#A8772E"), (1, "#C99A48")],
+              "border": "#4A300F", "lip": "#5A3A12", "hi": ("#FFFADC", 0.7), "foot": None, "radius": dpx(14)},
+    # v0.3 coral: radial-gradient(ellipse 80% 60% at 50% 16%, #ffd6ae 0%,
+    # #ff9d5e 30%, #f0602a 66%, #b83a14 100%), border #4a1d08, lip #6a260c,
+    # inset top rgba(255,255,255,.6), inset 0 -5px 0 rgba(120,30,0,.3).
+    "primary": {"kind": "radial", "stops": [(0, "#FFD6AE"), (0.3, "#FF9D5E"), (0.66, "#F0602A"), (1, "#B83A14")],
+                "border": "#4A1D08", "lip": "#6A260C", "hi": ("#FFFFFF", 0.6), "foot": ("#781E00", 0.3),
+                "radius": dpx(18)},
+    # v0.3 greyed: linear-gradient(180deg,#8a7a66,#5e5040), border #3a2e22.
+    "disabled": {"kind": "linear", "stops": [(0, "#8A7A66"), (1, "#5E5040")],
+                 "border": "#3A2E22", "lip": "#2A241E", "hi": ("#FFFFFF", 0.12), "foot": None, "radius": dpx(14)},
+}
 
-def _button_face(fill_top, fill_bot, radius, *, desaturated=False) -> tuple[str, str]:
-    gid = f"face_{fill_top.strip('#')}_{fill_bot.strip('#')}"
-    op = 0.45 if desaturated else 1.0
-    grad = linear_gradient(gid, [(0, fill_top, 1), (1, fill_bot, 1)], x1=0, y1=0, x2=0, y2=1)
-    return grad, op
+
+def _face_gradient(gid, fam) -> str:
+    stops = [(o, c, 1) for o, c in fam["stops"]]
+    if fam["kind"] == "linear":
+        return linear_gradient(gid, stops, x1=0, y1=0, x2=0, y2=1)
+    body = "".join(f'<stop offset="{o:g}" stop-color="{c}" stop-opacity="1"/>' for o, c, _ in stops)
+    # ellipse 80% x 60% of the box, centred at (50%, 16%)
+    return (f'<radialGradient id="{gid}" cx="0.5" cy="0.16" r="1" '
+            f'gradientTransform="translate(0.5 0.16) scale(0.8 0.6) translate(-0.5 -0.16)">{body}</radialGradient>')
 
 
-def _rounded_button_svg(radius: float, top_fill: str, bot_fill: str, *, pressed: bool,
-                         disabled: bool = False) -> str:
+def _rounded_button_svg(fam_name: str, *, pressed: bool, radius: float | None = None) -> str:
+    fam = BTN_FAMILIES[fam_name]
+    r = radius if radius is not None else fam["radius"]
     face_y = _PRESS_DROP if pressed else 0
     lip_h = _LIP_PRESSED if pressed else _LIP_IDLE
-    grad, op = _button_face(top_fill, bot_fill, radius, desaturated=disabled)
-    # A plain descriptive id, not a hash of the inputs — Python's built-in
-    # hash() is salted per-process (PYTHONHASHSEED) unless explicitly fixed,
-    # which would silently break this generator's own determinism guarantee
-    # (found by actually diffing two runs, not assumed).
-    gid = f"g_{top_fill.strip('#')}_{bot_fill.strip('#')}_{'p' if pressed else 'i'}"
-    grad = grad.replace('id="' + grad.split('id="')[1].split('"')[0] + '"', f'id="{gid}"', 1)
-    body = [defs(grad)]
-    # Lip (solid shadow slab) sits directly under the face, full width.
-    body.append(rect(0, face_y + _BTN_FACE_H - radius * 0.4, _BTN_W, lip_h + radius * 0.4,
-                      rx=radius * 0.5, fill=PALETTE["ink"], opacity=0.9))
-    # Face.
-    body.append(rect(0, face_y, _BTN_W, _BTN_FACE_H, rx=radius, fill=f"url(#{gid})", opacity=op))
+    gid = f"face_{fam_name}_{'p' if pressed else 'i'}"
+    body = [defs(_face_gradient(gid, fam), clip_rrect(f"c{gid}", 0, face_y, _BTN_W, _BTN_FACE_H, r))]
+    # solid lip slab directly under the face
+    body.append(rect(0, face_y + _BTN_FACE_H - r, _BTN_W, lip_h + r, rx=r, fill=fam["lip"]))
+    body.append(rect(0, face_y, _BTN_W, _BTN_FACE_H, rx=r, fill=f"url(#{gid})"))
+    body.append(f'<g clip-path="url(#c{gid})">')
+    hi_col, hi_op = fam["hi"]
+    body.append(rect(0, face_y + _BORDER, _BTN_W, dpx(2), fill=hi_col, opacity=hi_op if not pressed else hi_op * 0.6))
+    if fam["foot"]:
+        f_col, f_op = fam["foot"]
+        body.append(rect(0, face_y + _BTN_FACE_H - _BORDER - dpx(5), _BTN_W, dpx(5), fill=f_col, opacity=f_op))
+    body.append("</g>")
     body.append(rect(_BORDER / 2, face_y + _BORDER / 2, _BTN_W - _BORDER, _BTN_FACE_H - _BORDER,
-                      rx=max(0, radius - _BORDER / 2), fill="none", stroke=PALETTE["ink"],
-                      stroke_width=_BORDER, opacity=op))
-    # Gloss highlight along the top edge.
-    if not disabled:
-        body.append(rect(radius, face_y + radius * 0.25, _BTN_W - radius * 2, _BTN_FACE_H * 0.28,
-                          rx=radius * 0.4, fill="#FFFFFF", opacity=0.14))
+                     rx=max(0, r - _BORDER / 2), fill="none", stroke=fam["border"], stroke_width=_BORDER))
     return svg_doc(_BTN_W, _BTN_H, "\n".join(body))
 
 
-def gen_buttons() -> list[tuple[str, str, str]]:
-    """Returns (filename_stem, svg, meta) for all 9 rectangular states plus
-    the 3 wood-round states (below)."""
-    out = []
-    radius_primary = dpx(18)   # requirements.md: Radius 18 (primary)
-    radius_brass = dpx(14)     # Radius 14 (secondary/brass)
-
-    families = {
-        "button_primary": (radius_primary, PALETTE["coral_bloom"], PALETTE["coral"]),
-        "button_brass": (radius_brass, PALETTE["brass_light"], PALETTE["brass"]),
-    }
-    for name, (radius, top, bot) in families.items():
-        out.append((f"{name}_idle", _rounded_button_svg(radius, top, bot, pressed=False),
-                     f"{name}_idle: {_BTN_W:g}x{_BTN_H:g}, radius {radius:g}"))
-        out.append((f"{name}_pressed", _rounded_button_svg(radius, top, bot, pressed=True),
-                     f"{name}_pressed: {_BTN_W:g}x{_BTN_H:g}, radius {radius:g}, body dropped {_PRESS_DROP:g}px"))
-        out.append((f"{name}_disabled", _rounded_button_svg(radius, "#B9AFA0", "#8C8378", pressed=False, disabled=True),
-                     f"{name}_disabled: {_BTN_W:g}x{_BTN_H:g}, radius {radius:g}"))
-
-    # Wood-round: nav/abilities, design 56-58px -> canvas ~112-116px. Uses
-    # the larger end (58 design px) per requirements.md's own range.
+def _round_button_svg(state: str, *, coral: bool = False) -> tuple[str, float, float]:
+    """v0.3 round buttons. Wood: planks + radial-gradient(circle at 35% 25%,
+    rgba(255,220,160,.35), transparent 55%), 3px #2e1a0c, lip 0 6px 0
+    #24140a, inset top light. Disabled: grey planks, #3a2e22 border."""
+    pressed = state == "pressed"
+    disabled = state == "disabled"
     diam = dpx(58)
     canvas_w = diam + dpx(6)
     canvas_h = diam + _LIP_IDLE + dpx(10)
-    for state, pressed, disabled in (("idle", False, False), ("pressed", True, False), ("disabled", False, True)):
-        cx = canvas_w / 2
-        # Face centred on the canvas (M22 Phase 5): the canvas is stretched
-        # over the whole Button rect, so a face sitting high in it (the
-        # original diam/2 + 3 = 43% down) put every centred icon/label low and
-        # onto the lip at any button size. The transparent band above is the
-        # price of symmetric content margins that work at every size.
-        face_y = (_PRESS_DROP if pressed else 0) + canvas_h / 2
-        lip_h = _LIP_PRESSED if pressed else _LIP_IDLE
-        top, bot = (PALETTE["driftwood"], PALETTE["wood_dark"]) if not disabled else ("#8C8378", "#665F55")
-        gid = f"wood_round_{state}"
-        body = [defs(radial_gradient(gid, [(0, top, 1), (1, bot, 1)], cx=0.35, cy=0.3, r=0.85))]
-        # Lip: a stadium-shaped slab from the circle's vertical centre down
-        # to `lip_h` past its bottom edge, drawn UNDER the face circle so
-        # only the exposed strip below shows — same idle/pressed geometry
-        # trick as the rectangular buttons (a same-radius circle offset by
-        # a few px, tried first, only ever shows a razor-thin sliver;
-        # caught by actually looking at UIKitSheet's own capture).
-        lip_total_h = diam / 2 + lip_h
-        body.append(rect(cx - diam / 2, face_y, diam, lip_total_h, rx=diam / 2,
-                          fill=PALETTE["ink"], opacity=0.85))
-        body.append(circle(cx, face_y, diam / 2, fill=f"url(#{gid})"))
-        body.append(circle(cx, face_y, diam / 2 - _BORDER / 2, fill="none", stroke=PALETTE["ink"], stroke_width=_BORDER))
-        if not disabled:
-            body.append(circle(cx - diam * 0.18, face_y - diam * 0.18, diam * 0.14, fill="#FFFFFF", opacity=0.18))
-        svg = svg_doc(canvas_w, canvas_h, "\n".join(body))
-        out.append((f"button_wood_round_{state}", svg,
-                     f"button_wood_round_{state}: {canvas_w:g}x{canvas_h:g}, diameter {diam:g}"))
+    cx = canvas_w / 2
+    face_cy = (_PRESS_DROP if pressed else 0) + canvas_h / 2
+    lip_h = _LIP_PRESSED if pressed else _LIP_IDLE
+    border = "#3A2E22" if disabled else PALETTE["wood_dark"]
+    lip = "#2A241E" if disabled else "#24140A"
+    gid = f"rw_{state}"
+    body = [defs(clip_circle(f"c{gid}", cx, face_cy, diam / 2),
+                 radial_gradient(f"h{gid}", [(0, "#FFDCA0", 0.35), (0.55, "#FFDCA0", 0)], cx=0.35, cy=0.25, r=0.75))]
+    body.append(rect(cx - diam / 2, face_cy, diam, diam / 2 + lip_h, rx=diam / 2, fill=lip))
+    body.append(f'<g clip-path="url(#c{gid})">')
+    body.append(plank_rects(cx - diam / 2, face_cy - diam / 2, diam, diam,
+                            bands=PLANK_BANDS_GREY if disabled else PLANK_BANDS))
+    if not disabled:
+        body.append(circle(cx, face_cy, diam / 2, fill=f"url(#h{gid})"))
+        body.append(rect(cx - diam / 2, face_cy - diam / 2 + _BORDER, diam, dpx(2), fill="#FFDCAA", opacity=0.35))
+    body.append("</g>")
+    body.append(circle(cx, face_cy, diam / 2 - _BORDER / 2, fill="none", stroke=border, stroke_width=_BORDER))
+    return svg_doc(canvas_w, canvas_h, "\n".join(body)), canvas_w, canvas_h
+
+
+def gen_buttons() -> list[tuple[str, str, str]]:
+    out = []
+    for name, fam in (("button_primary", "primary"), ("button_brass", "brass")):
+        r = BTN_FAMILIES[fam]["radius"]
+        out.append((f"{name}_idle", _rounded_button_svg(fam, pressed=False), f"{name}_idle: {_BTN_W}x{_BTN_H}, radius {r:g}"))
+        out.append((f"{name}_pressed", _rounded_button_svg(fam, pressed=True), f"{name}_pressed: {_BTN_W}x{_BTN_H}, radius {r:g}"))
+        out.append((f"{name}_disabled", _rounded_button_svg("disabled", pressed=False, radius=r),
+                    f"{name}_disabled: {_BTN_W}x{_BTN_H}, radius {r:g}"))
+    for state in ("idle", "pressed", "disabled"):
+        svg, cw, ch = _round_button_svg(state)
+        out.append((f"button_wood_round_{state}", svg, f"button_wood_round_{state}: {cw:g}x{ch:g}"))
     return out
 
 
 # --------------------------------------------------------------------------
-# 2.3 — Controls: toggle, rope slider, segmented, tab, dropdown, scrollbar
+# Controls — v0.3 toggle, slider, segmented, tabs, dropdown, scrollbar
 # --------------------------------------------------------------------------
 
+def _knob(cx, cy, r, gid) -> str:
+    """Brass knob: radial-gradient(circle at 35% 30%, #fff3c4 0, #e2b75a 40%,
+    #8a6224 100%), 1.5-2px #3a2410 border, 0 2px 2px rgba(0,0,0,.4)."""
+    return (defs(radial_gradient(gid, [(0, "#FFF3C4", 1), (0.4, "#E2B75A", 1), (1, "#8A6224", 1)], cx=0.35, cy=0.3, r=0.75))
+            + circle(cx, cy + dpx(1.5), r, fill="#000000", opacity=0.35)
+            + circle(cx, cy, r, fill=f"url(#{gid})")
+            + circle(cx, cy, r - dpx(0.75), fill="none", stroke="#3A2410", stroke_width=dpx(1.5)))
+
+
 def gen_toggle(is_on: bool) -> tuple[str, str]:
-    """62x30 design px per requirements.md -> canvas 124x60. On = teal ocean
-    fill + brass knob; off = dark wood."""
-    # Was dpx(31)/dpx(15) — half the spec, so the rendered toggle was a
-    # 31x15-design sliver (M22 Phase 4 Settings sweep).
+    """62x30, radius 15, 2px #3a2410 border, inset 0 2px 4px rgba(0,0,0,.45);
+    off #5a4632, on linear-gradient(180deg,#2a9a96,#17616a); 24px knob."""
     w, h = dpx(62), dpx(30)
     r = h / 2
-    track = PALETTE["sunset_teal"] if is_on else PALETTE["wood_dark"]
-    knob = PALETTE["brass_light"] if is_on else PALETTE["text_on_dark"]
-    knob_cx = w - r if is_on else r
-    body = [rect(0, 0, w, h, rx=r, fill=track)]
-    body.append(rect(1, 1, w - 2, h - 2, rx=r - 1, fill="none", stroke=PALETTE["ink"], stroke_width=2, opacity=0.6))
-    body.append(circle(knob_cx, r, r - dpx(1.5), fill=knob))
-    body.append(circle(knob_cx, r, r - dpx(1.5), fill="none", stroke=PALETTE["ink"], stroke_width=1.5, opacity=0.5))
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"toggle_{'on' if is_on else 'off'}: {w:g}x{h:g}"
+    bw = dpx(2)
+    body = [defs(linear_gradient("ton", [(0, "#2A9A96", 1), (1, "#17616A", 1)], x1=0, y1=0, x2=0, y2=1),
+                 linear_gradient("tin", [(0, "#000000", 0.45), (1, "#000000", 0)], x1=0, y1=0, x2=0, y2=1),
+                 clip_rrect("tclip", 0, 0, w, h, r))]
+    body.append(rect(0, 0, w, h, rx=r, fill="url(#ton)" if is_on else "#5A4632"))
+    body.append('<g clip-path="url(#tclip)">')
+    body.append(rect(0, bw, w, dpx(4), fill="url(#tin)"))
+    body.append("</g>")
+    body.append(rect(bw / 2, bw / 2, w - bw, h - bw, rx=r - bw / 2, fill="none", stroke="#3A2410", stroke_width=bw))
+    kr = dpx(12)
+    kcx = (w - bw - dpx(2) - kr) if is_on else (bw + dpx(2) + kr)
+    body.append(_knob(kcx, h / 2, kr, "tknob"))
+    return svg_doc(w, h, "\n".join(body)), f"toggle_{'on' if is_on else 'off'}: {w:g}x{h:g}"
 
 
 def gen_rope_slider() -> list[tuple[str, str, str]]:
-    """Track 14px design -> 28 canvas; knob 26 design -> 52 canvas
-    (44px design hit-area handled by the Control node in Phase 3, not the
-    texture)."""
+    """Track: 14px tall, radius 7, #3a2616, 2px #4a300f border, inset shadow.
+    Fill: linear-gradient(180deg,#8fe0d6,#1f8a8c 60%,#17616a) inside the
+    border. Knob: 26px brass."""
     out = []
-    track_h = dpx(14)     # was dpx(7) — half the spec (M22 Phase 4 sweep)
+    th = dpx(14)
     w = 200
-    body = [rect(0, 0, w, track_h, rx=track_h / 2, fill=PALETTE["wood_dark"])]
-    body.append(seeded_grain_strokes("rope-slider-track", w, track_h, 30, PALETTE["ink"], min_len=3, max_len=8,
-                                      min_op=0.15, max_op=0.3, stroke_w=1.2))
-    body.append(rect(0.5, 0.5, w - 1, track_h - 1, rx=track_h / 2 - 0.5, fill="none", stroke=PALETTE["ink"],
-                      stroke_width=1.5, opacity=0.7))
-    out.append(("rope_slider_track", svg_doc(w, track_h, "\n".join(body)), f"rope_slider_track: {w:g}x{track_h:g}"))
+    bw = dpx(2)
+    track = [defs(linear_gradient("sin", [(0, "#000000", 0.5), (1, "#000000", 0)], x1=0, y1=0, x2=0, y2=1),
+                  clip_rrect("sclip", 0, 0, w, th, th / 2))]
+    track.append(rect(0, 0, w, th, rx=th / 2, fill="#3A2616"))
+    track.append('<g clip-path="url(#sclip)">' + rect(0, bw, w, dpx(3), fill="url(#sin)") + "</g>")
+    track.append(rect(bw / 2, bw / 2, w - bw, th - bw, rx=th / 2 - bw / 2, fill="none", stroke="#4A300F", stroke_width=bw))
+    out.append(("rope_slider_track", svg_doc(w, th, "\n".join(track)), f"rope_slider_track: {w:g}x{th:g}"))
 
-    fill_body = [rect(0, 0, w, track_h, rx=track_h / 2, fill=PALETTE["brass"])]
-    fill_body.append(rect(0, 0, w, track_h * 0.45, rx=track_h * 0.3, fill=PALETTE["brass_light"], opacity=0.6))
-    out.append(("rope_slider_fill", svg_doc(w, track_h, "\n".join(fill_body)), f"rope_slider_fill: {w:g}x{track_h:g}"))
+    fill = [defs(linear_gradient("sfill", [(0, "#8FE0D6", 1), (0.6, "#1F8A8C", 1), (1, "#17616A", 1)], x1=0, y1=0, x2=0, y2=1))]
+    fill.append(rect(bw, bw, w - 2 * bw, th - 2 * bw, rx=dpx(5), fill="url(#sfill)"))
+    out.append(("rope_slider_fill", svg_doc(w, th, "\n".join(fill)), f"rope_slider_fill: {w:g}x{th:g}"))
 
-    knob_d = dpx(26)      # was dpx(13) — half the spec
-    kb = [defs(radial_gradient("knob", [(0, PALETTE["brass_light"], 1), (1, PALETTE["brass"], 1)], cx=0.35, cy=0.3, r=0.9))]
-    kb.append(circle(knob_d / 2, knob_d / 2, knob_d / 2, fill="url(#knob)"))
-    kb.append(circle(knob_d / 2, knob_d / 2, knob_d / 2 - 1.5, fill="none", stroke=PALETTE["ink"], stroke_width=1.5))
-    out.append(("rope_slider_knob", svg_doc(knob_d, knob_d, "\n".join(kb)), f"rope_slider_knob: {knob_d:g}x{knob_d:g}"))
+    kd = dpx(26)
+    kw, kh = kd + dpx(2), kd + dpx(3)
+    out.append(("rope_slider_knob", svg_doc(kw, kh, _knob(kw / 2, kd / 2 + dpx(0.5), kd / 2 - dpx(0.5), "sknob")),
+                f"rope_slider_knob: {kw:g}x{kh:g}"))
     return out
 
 
 def gen_segmented() -> list[tuple[str, str, str]]:
+    """Well: #3a2616, radius 12, inset 0 2px 3px rgba(0,0,0,.5). Selected
+    pill: linear-gradient(180deg,#f7de98,#c89a45), radius 9."""
     out = []
-    w, h = 160, dpx(15)
-    well = [rect(0, 0, w, h, rx=h / 2, fill=PALETTE["ink"], opacity=0.55)]
-    well.append(rect(1, 1, w - 2, h - 2, rx=h / 2 - 1, fill="none", stroke=PALETTE["brass"], stroke_width=1.5, opacity=0.5))
+    w, h = 160, dpx(30)
+    well = [defs(linear_gradient("win", [(0, "#000000", 0.5), (1, "#000000", 0)], x1=0, y1=0, x2=0, y2=1),
+                 clip_rrect("wclip", 0, 0, w, h, dpx(12)))]
+    well.append(rect(0, 0, w, h, rx=dpx(12), fill="#3A2616"))
+    well.append('<g clip-path="url(#wclip)">' + rect(0, 0, w, dpx(4), fill="url(#win)") + "</g>")
     out.append(("segmented_well", svg_doc(w, h, "\n".join(well)), f"segmented_well: {w:g}x{h:g}"))
-
-    pill = [defs(linear_gradient("pill", [(0, PALETTE["brass_light"], 1), (1, PALETTE["brass"], 1)], x1=0, y1=0, x2=0, y2=1))]
-    pill.append(rect(0, 0, w, h, rx=h / 2, fill="url(#pill)"))
-    out.append(("segmented_pill", svg_doc(w, h, "\n".join(pill)), f"segmented_pill: {w:g}x{h:g}"))
+    pill = [defs(linear_gradient("pill", [(0, "#F7DE98", 1), (1, "#C89A45", 1)], x1=0, y1=0, x2=0, y2=1))]
+    pill.append(rect(0, 0, w, h - dpx(6), rx=dpx(9), fill="url(#pill)"))
+    out.append(("segmented_pill", svg_doc(w, h - dpx(6), "\n".join(pill)), f"segmented_pill: {w:g}x{h - dpx(6):g}"))
     return out
 
 
 def gen_tabs() -> list[tuple[str, str, str]]:
+    """v0.3 tab rail. Idle: rgba(0,0,0,.28), radius 10. Active: the page's
+    own #ecd6a4 with its highlight, square where it meets the page, and a
+    3px brass edge (v0.3's inset 3px #c29444, on the top for a horizontal
+    rail)."""
     out = []
-    w, h = 140, dpx(24)
-    idle = [rect(0, 0, w, h, rx=dpx(6), fill=PALETTE["ink"], opacity=0.35)]
-    idle.append(rect(0, h - 3, w, 3, fill=PALETTE["brass"], opacity=0.4))
+    w, h = 140, dpx(34)
+    r = dpx(10)
+    idle = [path(f"M 0 {h:g} L 0 {r:g} Q 0 0 {r:g} 0 L {w - r:g} 0 Q {w:g} 0 {w:g} {r:g} L {w:g} {h:g} Z",
+                 fill="#000000", opacity=0.28)]
     out.append(("tab_idle", svg_doc(w, h, "\n".join(idle)), f"tab_idle: {w:g}x{h:g}"))
-
-    active = [defs(linear_gradient("tabg", [(0, PALETTE["parchment"], 1), (1, "#DFC287", 1)], x1=0, y1=0, x2=0, y2=1))]
-    active.append(rect(0, 0, w, h, rx=dpx(6), fill="url(#tabg)"))
-    active.append(rect(0, h - 3, w, 3, fill=PALETTE["brass"]))
+    active = [defs(radial_gradient("tabhi", [(0, "#FDF1D2", 1), (0.6, "#FDF1D2", 0)], cx=0.25, cy=0.2, r=0.8))]
+    shape = f"M 0 {h:g} L 0 {r:g} Q 0 0 {r:g} 0 L {w - r:g} 0 Q {w:g} 0 {w:g} {r:g} L {w:g} {h:g} Z"
+    active.append(path(shape, fill=PALETTE["parchment"]))
+    active.append(path(shape, fill="url(#tabhi)"))
+    active.append(rect(r * 0.6, 0, w - r * 1.2, dpx(3), rx=dpx(1.5), fill=PALETTE["brass"]))
     out.append(("tab_active", svg_doc(w, h, "\n".join(active)), f"tab_active: {w:g}x{h:g}"))
     return out
 
 
 def gen_dropdown_sheet() -> tuple[str, str]:
-    """A compact parchment sheet for a popup option list — same family as
-    the parchment panel but a smaller, simpler variant (no deckle needed at
-    typical popup sizes)."""
+    """Popup list sheet — the same clean parchment as the page, with an ink
+    rim so it reads as a separate sheet over the page."""
     w, h = 220, 160
-    body = [defs(linear_gradient("dd", [(0, PALETTE["parchment"], 1), (1, "#D2B478", 1)], x1=0, y1=0, x2=1, y2=1))]
-    body.append(rect(0, 0, w, h, rx=dpx(6), fill="url(#dd)"))
-    body.append(seeded_grain_strokes("dropdown-grain", w, h, 90, PALETTE["ink"], min_len=4, max_len=14,
-                                      min_op=0.02, max_op=0.05, stroke_w=0.8))
-    body.append(rect(1.5, 1.5, w - 3, h - 3, rx=dpx(6) - 1.5, fill="none", stroke=PALETTE["ink"], stroke_width=3, opacity=0.8))
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"dropdown_sheet: {w:g}x{h:g}"
+    body = _parchment_body(0, 0, w, h, dpx(10), with_grain=False)
+    body.append(rect(1.5, 1.5, w - 3, h - 3, rx=dpx(10) - 1.5, fill="none", stroke="#4A300F", stroke_width=3))
+    return svg_doc(w, h, "\n".join(body)), f"dropdown_sheet: {w:g}x{h:g}"
 
 
 def gen_dropdown_arrow() -> tuple[str, str]:
-    """M22 Phase 4.3 — OptionButton's "arrow" icon. The engine default is a
-    tiny light-grey chevron that vanishes on the brass button face; this is
-    an ink chevron sized for a 32-canvas-px label (design 10x6 -> 20x12,
-    plus stroke room)."""
     w, h = dpx(12), dpx(8)
     sw = dpx(1.5)
     pts = f"{sw:g},{sw:g} {w / 2:g},{h - sw:g} {w - sw:g},{sw:g}"
-    body = (f'<polyline points="{pts}" fill="none" stroke="{PALETTE["ink"]}" '
+    body = (f'<polyline points="{pts}" fill="none" stroke="#3A2410" '
             f'stroke-width="{sw * 1.4:g}" stroke-linecap="round" stroke-linejoin="round"/>')
     return svg_doc(w, h, body), f"dropdown_arrow: {w:g}x{h:g}"
 
@@ -558,36 +631,39 @@ def gen_dropdown_arrow() -> tuple[str, str]:
 def gen_scrollbar() -> list[tuple[str, str, str]]:
     out = []
     w, h = dpx(4), 200
-    track = [rect(0, 0, w, h, rx=w / 2, fill=PALETTE["ink"], opacity=0.35)]
-    out.append(("scrollbar_track", svg_doc(w, h, "\n".join(track)), f"scrollbar_track: {w:g}x{h:g}"))
-
+    out.append(("scrollbar_track", svg_doc(w, h, rect(0, 0, w, h, rx=w / 2, fill="#3A2616", opacity=0.3)),
+                f"scrollbar_track: {w:g}x{h:g}"))
     gw, gh = dpx(4), 60
-    grabber = [defs(linear_gradient("sg", [(0, PALETTE["brass_light"], 1), (1, PALETTE["brass"], 1)], x1=0, y1=0, x2=1, y2=0))]
+    grabber = [defs(linear_gradient("sg", [(0, "#F7DE98", 1), (1, "#C89A45", 1)], x1=0, y1=0, x2=1, y2=0))]
     grabber.append(rect(0, 0, gw, gh, rx=gw / 2, fill="url(#sg)"))
     out.append(("scrollbar_grabber", svg_doc(gw, gh, "\n".join(grabber)), f"scrollbar_grabber: {gw:g}x{gh:g}"))
     return out
 
 
 # --------------------------------------------------------------------------
-# 2.4 — Misc: resource pill, rarity gem borders, cooldown ring mask, glow
+# Misc — resource pill, rarity gem borders, cooldown ring mask, glow
 # --------------------------------------------------------------------------
 
 def gen_resource_pill() -> tuple[str, str]:
-    # design 30 tall (v0.3 HUD pills) -> 60 canvas; was dpx(18), sized before
-    # any screen used it — too short for a 36px HudNum + 48px icon row.
+    """v0.3 HUD pill: linear-gradient(180deg,#3d2616,#1f1209), 2px #c29444
+    border, inset 0 1px 0 rgba(255,230,170,.35), and the gloss span
+    (top 0, left 10%, 40% x 40%, white .18 -> 0)."""
     w, h = 160, dpx(30)
-    body = [defs(linear_gradient("rp", [(0, "#152A33", 1), (1, PALETTE["ocean_deep"], 1)], x1=0, y1=0, x2=0, y2=1))]
-    body.append(rect(0, 0, w, h, rx=h / 2, fill="url(#rp)"))
-    body.append(rect(1, 1, w - 2, h - 2, rx=h / 2 - 1, fill="none", stroke=PALETTE["brass"], stroke_width=2, opacity=0.8))
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"resource_pill: {w:g}x{h:g}"
+    r = h / 2
+    bw = dpx(2)
+    body = [defs(linear_gradient("rp", [(0, "#3D2616", 1), (1, "#1F1209", 1)], x1=0, y1=0, x2=0, y2=1),
+                 linear_gradient("rgl", [(0, "#FFFFFF", 0.18), (1, "#FFFFFF", 0)], x1=0, y1=0, x2=0, y2=1),
+                 clip_rrect("rpc", 0, 0, w, h, r))]
+    body.append(rect(0, 0, w, h, rx=r, fill="url(#rp)"))
+    body.append('<g clip-path="url(#rpc)">')
+    body.append(rect(w * 0.1, 0, w * 0.4, h * 0.4, rx=dpx(10), fill="url(#rgl)"))
+    body.append(rect(r, bw, w - 2 * r, dpx(1), fill="#FFE6AA", opacity=0.35))
+    body.append("</g>")
+    body.append(rect(bw / 2, bw / 2, w - bw, h - bw, rx=r - bw / 2, fill="none", stroke=PALETTE["brass"], stroke_width=bw))
+    return svg_doc(w, h, "\n".join(body)), f"resource_pill: {w:g}x{h:g}"
 
 
 def gen_rarity_gem(name: str) -> tuple[str, str]:
-    """3px 160deg gradient (hi -> base -> dark) border; facet split 34/60%;
-    specular at upper-left. Epic/Legendary get an outer glow ring baked in
-    as a soft radial (the *animated* shimmer sweep is a runtime effect —
-    Phase 7/8 — not part of this static texture)."""
     info = RARITY[name]
     glow = info["glow"]
     pad = glow + 6
@@ -602,29 +678,23 @@ def gen_rarity_gem(name: str) -> tuple[str, str]:
                                                        (1, info["dk"], 1)], x1=0.15, y1=0.1, x2=0.85, y2=0.9)))
     body.append(circle(cx, cy, r, fill="none", stroke=f"url(#gem_{name})", stroke_width=dpx(1.5)))
     body.append(circle(cx - r * 0.35, cy - r * 0.35, r * 0.16, fill="#FFFFFF", opacity=0.6))
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"rarity_gem_{name}: {w:g}x{h:g}, glow {glow:g}"
+    return svg_doc(w, h, "\n".join(body)), f"rarity_gem_{name}: {w:g}x{h:g}, glow {glow:g}"
 
 
 def gen_cooldown_ring_mask() -> tuple[str, str]:
-    """A plain white ring on transparent — used as a TextureProgressBar
-    radial-fill texture over a round button in Phase 5 (design.md §7)."""
     w = h = 128
     cx = cy = w / 2
     body = [circle(cx, cy, w / 2 - 4, fill="none", stroke="#FFFFFF", stroke_width=8)]
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"cooldown_ring_mask: {w:g}x{h:g}"
+    return svg_doc(w, h, "\n".join(body)), f"cooldown_ring_mask: {w:g}x{h:g}"
 
 
 def gen_glow_sprite() -> tuple[str, str]:
-    """Soft radial glow blob — PrimaryGlow.gd (Phase 3) drives its
-    opacity/scale via tween; this texture is just the static soft shape."""
+    """v0.3 Primary glow: radial-gradient(circle, rgba(255,150,80,.85),
+    rgba(255,120,60,0) 68%) — animated by PrimaryGlow (glowPulse 2.2s)."""
     w = h = 160
-    cx = cy = w / 2
-    body = [defs(radial_gradient("glow", [(0, PALETTE["coral"], 0.55), (0.6, PALETTE["coral"], 0.22), (1, PALETTE["coral"], 0)]))]
-    body.append(circle(cx, cy, w / 2, fill="url(#glow)"))
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"glow_sprite: {w:g}x{h:g}"
+    body = [defs(radial_gradient("glow", [(0, "#FF9650", 0.85), (0.68, "#FF783C", 0), (1, "#FF783C", 0)]))]
+    body.append(circle(w / 2, h / 2, w / 2, fill="url(#glow)"))
+    return svg_doc(w, h, "\n".join(body)), f"glow_sprite: {w:g}x{h:g}"
 
 
 # --------------------------------------------------------------------------
@@ -640,20 +710,6 @@ def _resource_icon_base(cx, cy, r, hi, base, dk, *, outline=None) -> list[str]:
     body.append(circle(cx, cy, r - dpx(0.75), fill="none", stroke=outline, stroke_width=dpx(1.25)))
     body.append(circle(cx - r * 0.3, cy - r * 0.3, r * 0.16, fill="#FFFFFF", opacity=0.7))
     return body
-
-
-def gen_icon_research() -> tuple[str, str]:
-    """48 design px canonical size (icon spec: outline 2.5px@48). A compass/
-    astrolabe-style disc — reads as "research/navigation knowledge"."""
-    w = h = dpx(24)
-    cx = cy = w / 2
-    r = w / 2 - dpx(1)
-    body = _resource_icon_base(cx, cy, r, PALETTE["brass_light"], PALETTE["brass"], PALETTE["ink"])
-    # A simple 4-point compass star on top.
-    star = f"M {cx} {cy-r*0.55} L {cx+r*0.14} {cy-r*0.14} L {cx+r*0.55} {cy} L {cx+r*0.14} {cy+r*0.14} L {cx} {cy+r*0.55} L {cx-r*0.14} {cy+r*0.14} L {cx-r*0.55} {cy} L {cx-r*0.14} {cy-r*0.14} Z"
-    body.append(path(star, fill=PALETTE["ink"], opacity=0.85))
-    svg = svg_doc(w, h, "\n".join(body))
-    return svg, f"research icon: {w:g}x{h:g}"
 
 
 def gen_icon_cannonball() -> tuple[str, str]:
@@ -707,60 +763,92 @@ def gen_icon_gear() -> tuple[str, str]:
 # --------------------------------------------------------------------------
 
 def gen_icon_gold() -> tuple[str, str]:
-    """A struck gold coin: gradient disc, inner rim ring, a stamped cross."""
+    """v0.3 coin: radial-gradient(circle at 34% 30%, #fffbe0 0 10%, #ffd75e
+    28%, #e0a023 62%, #8a5a0c 100%), 1.5px #3e2604 rim, inset -2px -2px 0
+    rgba(120,70,0,.45) lower-right shade."""
     w = h = dpx(24)
-    cx = cy = w / 2
-    r = w / 2 - dpx(1)
-    body = _resource_icon_base(cx, cy, r, "#FFF1B8", PALETTE["horizon_gold"], "#9A6A1E")
-    body.append(circle(cx, cy, r * 0.68, fill="none", stroke="#9A6A1E", stroke_width=dpx(1.0), opacity=0.8))
-    arm = r * 0.34
-    body.append(path(f"M {cx:g} {cy - arm:g} L {cx:g} {cy + arm:g} M {cx - arm:g} {cy:g} L {cx + arm:g} {cy:g}",
-                     stroke="#9A6A1E", stroke_width=dpx(1.2)))
+    c = w / 2
+    r = dpx(11) - dpx(0.75)
+    body = [defs(radial_gradient("coin", [(0, "#FFFBE0", 1), (0.1, "#FFFBE0", 1), (0.28, "#FFD75E", 1),
+                                          (0.62, "#E0A023", 1), (1, "#8A5A0C", 1)], cx=0.34, cy=0.3, r=0.8),
+                 clip_circle("coinc", c, c, r))]
+    body.append(circle(c, c, r, fill="url(#coin)"))
+    body.append('<g clip-path="url(#coinc)">'
+                + path(f"M {c - r:g} {c:g} A {r:g} {r:g} 0 0 0 {c + r:g} {c:g} "
+                       f"A {r - dpx(2):g} {r - dpx(2):g} 0 0 1 {c - r:g} {c:g} Z", fill="#784600", opacity=0.45)
+                + "</g>")
+    body.append(circle(c, c, r, fill="none", stroke="#3E2604", stroke_width=dpx(1.5)))
     return svg_doc(w, h, "\n".join(body)), f"gold icon: {w:g}x{h:g}"
 
 
 def gen_icon_wood() -> tuple[str, str]:
-    """A sawn log end: bark ring + pale heartwood with growth rings."""
+    """v0.3 log end: radial rings #6b4428 0 8%, #e2b884 9-22%, #c8955a
+    23-34%, #e2b884 35-48%, #b8834a 49-60%, #6b4428 61-72%, #4a2c14 73%+,
+    1.5px #2a1608 rim."""
     w = h = dpx(24)
-    cx = cy = w / 2
-    r = w / 2 - dpx(1)
-    body = [circle(cx, cy, r, fill=PALETTE["driftwood"])]
-    body.append(circle(cx, cy, r * 0.8, fill="#D9A866"))
-    for k in (0.58, 0.38, 0.18):
-        body.append(circle(cx + r * 0.04, cy + r * 0.03, r * k, fill="none", stroke="#9C6A36", stroke_width=dpx(0.8)))
-    body.append(circle(cx, cy, r - dpx(0.75), fill="none", stroke=PALETTE["wood_dark"], stroke_width=dpx(1.25)))
-    body.append(circle(cx - r * 0.35, cy - r * 0.35, r * 0.12, fill="#FFFFFF", opacity=0.45))
+    c = w / 2
+    r = dpx(11) - dpx(0.75)
+    rings = [(0.08, "#6B4428"), (0.22, "#E2B884"), (0.34, "#C8955A"), (0.48, "#E2B884"),
+             (0.60, "#B8834A"), (0.72, "#6B4428"), (1.0, "#4A2C14")]
+    body = []
+    for frac, col in reversed(rings):
+        body.append(circle(c, c, r * frac, fill=col))
+    body.append(circle(c, c, r, fill="none", stroke="#2A1608", stroke_width=dpx(1.5)))
     return svg_doc(w, h, "\n".join(body)), f"wood icon: {w:g}x{h:g}"
 
 
 def gen_icon_iron() -> tuple[str, str]:
-    """A cast ingot: lit top face + darker front face, cool grey-blue."""
+    """v0.3 ingot: trapezoid polygon(18% 0,82% 0,100% 100%,0 100%), 22x14,
+    linear-gradient(180deg,#f7f9fb 0 12%,#b4bcc6 30%,#6c7480 72%,#3a4048
+    100%), 1px #1a1c20 outline."""
     w = h = dpx(24)
-    m = dpx(2)
-    top = f"M {m + dpx(4):g} {dpx(7):g} L {w - m - dpx(4):g} {dpx(7):g} L {w - m:g} {dpx(12):g} L {m:g} {dpx(12):g} Z"
-    front = f"M {m:g} {dpx(12):g} L {w - m:g} {dpx(12):g} L {w - m:g} {dpx(18):g} L {m:g} {dpx(18):g} Z"
-    body = [path(front, fill="#5E6B78"), path(top, fill="#B9C6D2")]
-    body.append(path(f"M {m:g} {dpx(12):g} L {m + dpx(4):g} {dpx(7):g} L {w - m - dpx(4):g} {dpx(7):g} "
-                     f"L {w - m:g} {dpx(12):g} L {w - m:g} {dpx(18):g} L {m:g} {dpx(18):g} Z",
-                     stroke="#2A323B", stroke_width=dpx(1.25)))
-    body.append(rect(m + dpx(5), dpx(8), dpx(6), dpx(1.2), fill="#FFFFFF", opacity=0.55))
+    iw, ih = dpx(22), dpx(14)
+    x0, y0 = (w - iw) / 2, (h - ih) / 2
+    d = (f"M {x0 + iw * 0.18:g} {y0:g} L {x0 + iw * 0.82:g} {y0:g} L {x0 + iw:g} {y0 + ih:g} "
+         f"L {x0:g} {y0 + ih:g} Z")
+    body = [defs(linear_gradient("ing", [(0, "#F7F9FB", 1), (0.12, "#F7F9FB", 1), (0.3, "#B4BCC6", 1),
+                                         (0.72, "#6C7480", 1), (1, "#3A4048", 1)], x1=0, y1=0, x2=0, y2=1))]
+    body.append(path(d, fill="url(#ing)", stroke="#1A1C20", stroke_width=dpx(1)))
     return svg_doc(w, h, "\n".join(body)), f"iron icon: {w:g}x{h:g}"
 
 
 def gen_icon_rum() -> tuple[str, str]:
-    """A rum barrel: bulged staves + two brass hoops."""
+    """v0.3 barrel: 18x22, radius 6/9, linear-gradient(90deg,#4f2c14,#9c6436
+    32%,#c68a50 46%,#7d4b25 78%,#45260f), #35271a hoops at 20-28% and
+    72-80%, 1.5px #2a1608 rim."""
     w = h = dpx(24)
-    x0, x1, y0, y1 = dpx(5), w - dpx(5), dpx(3), h - dpx(3)
-    bulge = dpx(2.5)
-    d = (f"M {x0:g} {y0:g} Q {x0 - bulge:g} {h / 2:g} {x0:g} {y1:g} L {x1:g} {y1:g} "
-         f"Q {x1 + bulge:g} {h / 2:g} {x1:g} {y0:g} Z")
-    body = [defs(linear_gradient("rum_staves", [(0, "#B87A45", 1), (1, "#6D452A", 1)], x1=0, y1=0, x2=1, y2=0))]
-    body.append(path(d, fill="url(#rum_staves)"))
-    for yy in (dpx(7.5), h - dpx(7.5)):
-        body.append(rect(x0 - bulge * 0.6, yy - dpx(1), (x1 - x0) + bulge * 1.2, dpx(2), fill=PALETTE["brass"]))
-    body.append(path(d, stroke=PALETTE["wood_dark"], stroke_width=dpx(1.25)))
-    body.append(rect(x0 + dpx(2), y0 + dpx(2), dpx(1.5), dpx(5), fill="#FFFFFF", opacity=0.4))
+    bw_, bh = dpx(18), dpx(22)
+    x0, y0 = (w - bw_) / 2, (h - bh) / 2
+    body = [defs(linear_gradient("bar", [(0, "#4F2C14", 1), (0.32, "#9C6436", 1), (0.46, "#C68A50", 1),
+                                         (0.78, "#7D4B25", 1), (1, "#45260F", 1)], x1=0, y1=0, x2=1, y2=0),
+                 clip_rrect("barc", x0, y0, bw_, bh, dpx(6)))]
+    body.append(rect(x0, y0, bw_, bh, rx=dpx(6), fill="url(#bar)"))
+    body.append('<g clip-path="url(#barc)">'
+                + rect(x0, y0 + bh * 0.2, bw_, bh * 0.08, fill="#35271A")
+                + rect(x0, y0 + bh * 0.72, bw_, bh * 0.08, fill="#35271A") + "</g>")
+    body.append(rect(x0, y0, bw_, bh, rx=dpx(6), fill="none", stroke="#2A1608", stroke_width=dpx(1.5)))
     return svg_doc(w, h, "\n".join(body)), f"rum icon: {w:g}x{h:g}"
+
+
+def gen_icon_research() -> tuple[str, str]:
+    """v0.3 research scroll: 22x20 radius 3, linear-gradient(180deg,#fbeecb,
+    #dcc08b), #8a6224 rods at each 12% edge, ruled lines rgba(58,38,22,.4),
+    a #2f6fd6 seal at 72% 74%, 1.5px #3a2616 rim."""
+    w = h = dpx(24)
+    sw, sh = dpx(22), dpx(20)
+    x0, y0 = (w - sw) / 2, (h - sh) / 2
+    body = [defs(linear_gradient("scr", [(0, "#FBEECB", 1), (1, "#DCC08B", 1)], x1=0, y1=0, x2=0, y2=1),
+                 clip_rrect("scrc", x0, y0, sw, sh, dpx(3)))]
+    body.append(rect(x0, y0, sw, sh, rx=dpx(3), fill="url(#scr)"))
+    inner = [rect(x0, y0, sw * 0.12, sh, fill="#8A6224"), rect(x0 + sw * 0.88, y0, sw * 0.12, sh, fill="#8A6224")]
+    yy = y0 + dpx(4)
+    while yy < y0 + sh - dpx(2):
+        inner.append(rect(x0 + sw * 0.18, yy, sw * 0.64, dpx(1), fill="#3A2616", opacity=0.4))
+        yy += dpx(5)
+    inner.append(circle(x0 + sw * 0.72, y0 + sh * 0.74, sw * 0.13, fill="#2F6FD6"))
+    body.append('<g clip-path="url(#scrc)">' + "".join(inner) + "</g>")
+    body.append(rect(x0, y0, sw, sh, rx=dpx(3), fill="none", stroke="#3A2616", stroke_width=dpx(1.5)))
+    return svg_doc(w, h, "\n".join(body)), f"research icon: {w:g}x{h:g}"
 
 
 _GLYPH = PALETTE["text_on_dark"]
@@ -823,6 +911,26 @@ def gen_icon_wardrobe() -> tuple[str, str]:
     return svg_doc(w, h, "\n".join(body)), f"wardrobe icon: {w:g}x{h:g}"
 
 
+def gen_icon_skull() -> tuple[str, str]:
+    """v0.3 notoriety marker: a 30px bone disc (radial-gradient(circle at 35%
+    30%, #fffdf2, #e8dcc0 55%, #9a8a6a), 2px #2a1608 border) holding the
+    doc's own 20x20 skull path at 18px."""
+    d = dpx(30)
+    c = d / 2
+    body = [defs(radial_gradient("bone", [(0, "#FFFDF2", 1), (0.55, "#E8DCC0", 1), (1, "#9A8A6A", 1)], cx=0.35, cy=0.3, r=0.8))]
+    body.append(circle(c, c + dpx(1), c - dpx(1), fill="#000000", opacity=0.45))
+    body.append(circle(c, c, c - dpx(1), fill="url(#bone)"))
+    body.append(circle(c, c, c - dpx(2), fill="none", stroke="#2A1608", stroke_width=dpx(2)))
+    k = dpx(18) / 20.0
+    ox = oy = c - dpx(9)
+    skull = ("M10 2C5.6 2 3 5 3 8.5c0 2.2 1 3.6 2.4 4.4V16h9.2v-3.1C16 12.1 17 10.7 17 8.5 17 5 14.4 2 10 2z")
+    body.append(f'<g transform="translate({ox:g} {oy:g}) scale({k:g})">'
+                f'<path d="{skull}" fill="#2A1608"/>'
+                f'<circle cx="7.2" cy="9" r="1.9" fill="#F4EAD4"/><circle cx="12.8" cy="9" r="1.9" fill="#F4EAD4"/>'
+                f'<path d="M8 16v2M10 16v2M12 16v2" stroke="#2A1608" stroke-width="1.4" fill="none"/></g>')
+    return svg_doc(d, d, "\n".join(body)), f"skull marker: {d:g}x{d:g}"
+
+
 def gen_cooldown_disc() -> tuple[str, str]:
     """M22 Phase 5.4 — the fill texture for a round button's clockwise
     cooldown sweep (TextureProgressBar FILL_CLOCKWISE). Solid white so the
@@ -852,6 +960,7 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     svg, meta = gen_parchment_panel(); emit("parchment_panel", svg, meta)
     svg, meta = gen_wood_frame(); emit("wood_frame", svg, meta)
     svg, meta = gen_wood_plaque(); emit("wood_plaque", svg, meta)
+    svg, meta = gen_rope_parchment(); emit("rope_parchment", svg, meta)
 
     for stem, svg, meta in gen_buttons():
         emit(stem, svg, meta)
@@ -888,7 +997,8 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     manifest.append(meta)
     for stem, fn in (("gold", gen_icon_gold), ("wood", gen_icon_wood), ("iron", gen_icon_iron),
                      ("rum", gen_icon_rum), ("log", gen_icon_log), ("map", gen_icon_map),
-                     ("codex", gen_icon_codex), ("new", gen_icon_new), ("wardrobe", gen_icon_wardrobe)):
+                     ("codex", gen_icon_codex), ("new", gen_icon_new), ("wardrobe", gen_icon_wardrobe),
+                     ("skull", gen_icon_skull)):
         svg, meta = fn()
         _write(icons_dir / f"{stem}.svg", svg)
         manifest.append(meta)

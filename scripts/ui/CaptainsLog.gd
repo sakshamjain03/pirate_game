@@ -18,6 +18,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	# M22 6b: wood frame + parchment journal page (v0.3), ink text from the
 	# page theme rather than per-label colours.
 	PirateThemeBuilder.dress_parchment_page(page)
@@ -38,6 +39,7 @@ func _ready() -> void:
 func open() -> void:
 	_refresh()
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 
 

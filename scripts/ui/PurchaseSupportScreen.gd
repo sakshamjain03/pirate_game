@@ -22,6 +22,7 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_modal_dim($ColorRect)  # M22 6c: v0.3 teal-black backdrop
 	PirateThemeBuilder.dress_parchment_page(page)
 	close_button.pressed.connect(close)
 	contact_button.pressed.connect(_on_contact_pressed)
@@ -36,6 +37,7 @@ func _ready() -> void:
 func open() -> void:
 	_refresh()
 	show()
+	UIMotion.modal_enter(panel, $ColorRect)
 	get_tree().paused = true
 
 

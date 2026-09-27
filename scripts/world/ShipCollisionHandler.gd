@@ -330,6 +330,14 @@ func _apply_impact(ship: Node, amount: float, zone: int) -> void:
 	var dmg = ship.get_node_or_null("ShipDamage")
 	if not dmg or not dmg.has_method("apply_impact"):
 		return
+	# M25 heat - ramming a passive ambient hull provokes it. Gated on the rammer
+	# being the player so two AI ships colliding never drags either into a fight
+	# with the player they were both ignoring.
+	var owner_ship := get_parent()
+	if owner_ship and owner_ship.is_in_group("player_ship"):
+		var victim_ai = ship.get_node_or_null("EnemyAI")
+		if victim_ai and victim_ai.has_method("provoke"):
+			victim_ai.provoke()
 	var stern := zone == RamConfigData.Zone.STERN
 	dmg.apply_impact(amount, config.crew_damage_fraction,
 		config.stern_speed_penalty if stern else 0.0,

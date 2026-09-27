@@ -12,6 +12,22 @@ extends Node
 signal notoriety_changed(new_value: float)
 signal region_activated(region_id: String)
 signal island_captured(island_id: String)
+## M25 — emitted only when the band changes, not on every notoriety tick. The
+## HUD and EnemySpawner both react to this rather than polling.
+signal heat_tier_changed(tier: HeatTierData)
+
+## M25 "Heat" is the player's wanted level: a BAND over `notoriety`, not a second
+## stat. Nothing may write a `heat` variable -- if something starts to, the design
+## has been lost (see .kiro/specs/milestone-m25-heat-and-combat-feel/design.md).
+## Heat governs how many ambient enemies exist and whether they engage first. It
+## must NEVER gate sailing, combat or boarding: that line is what keeps it a
+## pressure system rather than the energy meter docs/00_VISION.md §19.2 forbids.
+const HEAT_CURVE_PATH := "res://resources/balance/HeatCurve.tres"
+var heat_config: HeatConfigData
+var _current_tier: HeatTierData = null
+## Set by WorldManager from DockingSystem. Docked at an owned island = "lying
+## low", where heat bleeds off faster.
+var _lying_low: bool = false
 
 var notoriety: float = 0.0
 var _last_gain_unix: int = 0
@@ -26,6 +42,10 @@ signal raid_resolved(report: Dictionary)
 func _ready() -> void:
 	set_process(true)
 	_last_gain_unix = int(Time.get_unix_time_from_system())
+
+	heat_config = load(HEAT_CURVE_PATH) as HeatConfigData
+	if not heat_config:
+		push_error("EmpireManager: could not load the heat curve at %s. Ambient danger will not scale." % HEAT_CURVE_PATH)
 	
 	var dir = DirAccess.open("res://resources/world/regions/")
 	if dir:
@@ -44,6 +64,7 @@ func _ready() -> void:
 			file_name = dir.get_next()
 			
 	notoriety_changed.connect(_check_region_activation)
+	_refresh_heat_tier(false)
 
 func is_region_active(region_id: String) -> bool:
 	return _region_active.get(region_id, false)
@@ -62,22 +83,28 @@ func _check_region_activation(new_notoriety: float) -> void:
 				region_activated.emit(region.id)
 
 func _process(delta: float) -> void:
-	if notoriety <= 0.0:
-		return
-		
 	var now = int(Time.get_unix_time_from_system())
-	# Decay if more than 10 minutes have passed since last gain
-	if now - _last_gain_unix > 600:
-		var old = notoriety
-		notoriety -= (1.0 / 60.0) * delta
-		if notoriety < 0.0:
-			notoriety = 0.0
-			
-		# To avoid spamming signals every frame with micro-changes, 
-		# We'll emit the signal, but in a real game we might throttle this.
-		# The prompt says "decreases at a slow rate ... clamped to 0.0" 
-		# so emitting is fine since UI lerps anyway.
-		notoriety_changed.emit(notoriety)
+
+	# M25 — cooling off. Pre-M25 this was a flat 1.0/60 per second after a 600s
+	# grace, which meant a player had to stop playing for ten minutes to observe
+	# any change at all; heat never read as something they could manage. Rate and
+	# grace are now authored per tier, and doubled while lying low in port.
+	#
+	# Free decay must always be able to reach tier 0 unaided. The paid clear is a
+	# shortcut, never the only way down -- docs/00_VISION.md §19.2 forbids a timer
+	# whose removal is only for sale. tests/test_heat_system.gd pins that every
+	# tier authors a non-zero decay.
+	if notoriety > 0.0 and heat_config:
+		var grace: float = heat_config.decay_grace_seconds
+		if float(now - _last_gain_unix) > grace:
+			var tier := get_heat_tier()
+			var per_minute: float = tier.decay_per_minute if tier else 0.0
+			if _lying_low:
+				per_minute *= heat_config.lying_low_multiplier
+			if per_minute > 0.0:
+				notoriety = maxf(0.0, notoriety - (per_minute / 60.0) * delta)
+				notoriety_changed.emit(notoriety)
+				_refresh_heat_tier()
 
 	# Also check raid periodically
 	if _last_raid_check_unix == 0:
@@ -102,6 +129,90 @@ func add_notoriety(amount: float) -> void:
 	if notoriety < 0.0:
 		notoriety = 0.0
 	notoriety_changed.emit(notoriety)
+	_refresh_heat_tier()
+
+
+# ---------------------------------------------------------------------- Heat
+# M25. Heat is a read-only band over `notoriety`. Everything that wants to know
+# how dangerous the sea currently is asks here, so the thresholds live in exactly
+# one authored place (resources/balance/HeatCurve.tres).
+
+func get_heat_tier() -> HeatTierData:
+	if not heat_config:
+		return null
+	if _current_tier == null:
+		_current_tier = heat_config.tier_for(notoriety)
+	return _current_tier
+
+
+func get_heat_level() -> int:
+	var tier := get_heat_tier()
+	return tier.tier if tier else 0
+
+
+func get_heat_name() -> String:
+	var tier := get_heat_tier()
+	return tier.display_name if tier else ""
+
+
+## True when ambient ships attack without being provoked. Below this, an enemy
+## patrols and ignores the player until that specific ship is shot, rammed or
+## boarded -- which is what stops a new player being farmed before they can steer.
+func enemies_engage_unprovoked() -> bool:
+	var tier := get_heat_tier()
+	return tier.engages_unprovoked if tier else true
+
+
+## Set by WorldManager off DockingSystem. Signals over direct references: the
+## docking system lives on the player ship and is created at runtime, so it
+## cannot be reached from an autoload without a fragile lookup chain.
+func set_lying_low(value: bool) -> void:
+	_lying_low = value
+
+
+func is_lying_low() -> bool:
+	return _lying_low
+
+
+## Optional relief, never the only way down (docs/00_VISION.md §19.2 -- free decay
+## always reaches tier 0 unaided). Drops exactly ONE tier per purchase, so clearing
+## from Nemesis is a repeated deliberate choice rather than one button that erases
+## every consequence.
+##
+## Returns false and changes nothing when there is no tier below, the tier is not
+## purchasable, or the player cannot afford it.
+func spend_to_reduce_heat() -> bool:
+	if not heat_config:
+		return false
+	var tier := get_heat_tier()
+	if tier == null or tier.clear_cost_eights <= 0:
+		return false
+	var below := heat_config.tier_below(tier)
+	if below == null:
+		return false   # already at the bottom band
+	var cost := {ResourceManager.PREMIUM_CURRENCY: tier.clear_cost_eights}
+	if not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
+		return false
+
+	# Land just inside the tier below rather than at its floor, so one purchase is
+	# one band -- not a slide to zero.
+	notoriety = maxf(below.min_notoriety, tier.min_notoriety - 1.0)
+	notoriety_changed.emit(notoriety)
+	_refresh_heat_tier()
+	return true
+
+
+## Re-resolves the band and emits only on an actual crossing, so the HUD is not
+## spammed once per frame during decay.
+func _refresh_heat_tier(allow_emit: bool = true) -> void:
+	if not heat_config:
+		return
+	var resolved := heat_config.tier_for(notoriety)
+	if resolved == _current_tier:
+		return
+	_current_tier = resolved
+	if allow_emit:
+		heat_tier_changed.emit(_current_tier)
 
 func _compute_defense_score() -> float:
 	if home_island_id.is_empty():
@@ -235,3 +346,6 @@ func load_save_data(data: Dictionary) -> void:
 		pending_raid_report = data["pending_raid_report"]
 		
 	notoriety_changed.emit(notoriety)
+	# Heat is derived, so it needs no save section of its own -- but the band must
+	# be re-resolved after a load or the world keeps the tier it booted with.
+	_refresh_heat_tier()

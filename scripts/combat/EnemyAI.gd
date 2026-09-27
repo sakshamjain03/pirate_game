@@ -606,6 +606,46 @@ func _probe(space: PhysicsDirectSpaceState3D, origin: Vector3, dir: Vector3) -> 
 
 # === UTILITY ===
 
+## M25 heat - per-ship provocation. An AMBIENT ship at low heat patrols and
+## ignores the player entirely until this is called on it: the player shot it,
+## rammed it, or tried to board it. Provocation never expires - a ship you shot
+## does not forgive you - and it is deliberately per-ship, so firing on one hull
+## does not turn its neighbours hostile.
+##
+## Scripted content is exempt: only ships in the "ambient_enemy" group (set by
+## EnemySpawner) can be passive. Bosses, encounter spawns and siege attackers
+## must always engage, or a scripted fight would silently never start.
+var _provoked: bool = false
+
+
+func provoke() -> void:
+	_provoked = true
+
+
+func is_provoked() -> bool:
+	return _provoked
+
+
+## Whether this ship may start a fight on its own. Gates ONLY the engage
+## decision - patrol, waypointing and obstacle avoidance are untouched, so a
+## passive ship still runs the full beaching-prevention path.
+func _may_engage_player() -> bool:
+	if _provoked:
+		return true
+	if not ship_controller or not ship_controller.is_in_group("ambient_enemy"):
+		return true   # scripted hull - always engages
+	if ship_controller.is_in_group("friendly_ship"):
+		return true
+	# A faction the player has already wrecked relations with attacks at any
+	# heat: heat governs the ambient world, not diplomacy.
+	if "faction" in ship_controller and ship_controller.faction and FactionManager:
+		if FactionManager.is_hostile(ship_controller.faction.faction_id):
+			return true
+	if EmpireManager and EmpireManager.has_method("enemies_engage_unprovoked"):
+		return EmpireManager.enemies_engage_unprovoked()
+	return true
+
+
 func _is_hostile_to_player() -> bool:
 	if ship_controller and ship_controller.is_in_group("friendly_ship"):
 		# _find_player() only ever assigns a hostile hull from "enemy_ship" for
@@ -623,7 +663,13 @@ func _can_detect_player() -> bool:
 		
 	if not _is_hostile_to_player():
 		return false
-		
+
+	# M25 - the single heat gate. Placed here because every IDLE/PATROL -> CHASE
+	# transition already funnels through this one function, so passivity needs no
+	# changes anywhere in the state machine or the avoidance code.
+	if not _may_engage_player():
+		return false
+
 	var dist = _flat_distance_to(player_ship.global_position)
 	return dist < detection_range * _difficulty_detection_mult()
 

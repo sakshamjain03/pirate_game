@@ -79,6 +79,16 @@ func _on_body_entered(body: Node) -> void:
 		var hit_damage: float = damage * get_impact_angle_multiplier(body, hit_dir)
 
 		# Check if body has a ShipDamage component directly or through ShipCombat
+		# M25 heat - being shot provokes that specific hull, so a passive ambient
+		# ship fights back but its neighbours stay out of it. Done before the
+		# damage is applied so a one-shot kill still reads as provocation for any
+		# listener, and only when the PLAYER fired: enemies shooting each other
+		# (support fire, stray volleys) must not recruit them against the player.
+		if source_ship and is_instance_valid(source_ship) and source_ship.is_in_group("player_ship"):
+			var victim_ai = body.get_node_or_null("EnemyAI")
+			if victim_ai and victim_ai.has_method("provoke"):
+				victim_ai.provoke()
+
 		var dmg = body.get_node_or_null("ShipDamage")
 		if dmg:
 			dmg.apply_hit(hit_damage, hit_ammo, hit_dir)

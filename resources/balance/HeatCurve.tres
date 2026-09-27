@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="HeatConfigData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/HeatConfigData.gd" id="1_cfg"]
+[ext_resource type="Resource" path="res://resources/balance/heat_tiers/T0_Unknown.tres" id="2_t0"]
+[ext_resource type="Resource" path="res://resources/balance/heat_tiers/T1_Noticed.tres" id="3_t1"]
+[ext_resource type="Resource" path="res://resources/balance/heat_tiers/T2_Wanted.tres" id="4_t2"]
+[ext_resource type="Resource" path="res://resources/balance/heat_tiers/T3_Hunted.tres" id="5_t3"]
+[ext_resource type="Resource" path="res://resources/balance/heat_tiers/T4_Scourge.tres" id="6_t4"]
+[ext_resource type="Resource" path="res://resources/balance/heat_tiers/T5_Nemesis.tres" id="7_t5"]
+
+; M25 — the ambient-danger curve, and the game's single source of encounter
+; escalation (it absorbs the DifficultyCurve deferred from M24).
+;
+; Tier boundaries are pinned to the region-activation thresholds authored in
+; resources/world/regions/*.tres — Contested opens at 60, Imperial at 150 — so
+; "the sea got harder" and "a new region opened" land together instead of at
+; unrelated offsets.
+;
+; Tiers 0 and 1 set engages_unprovoked = false: below Wanted, ambient ships
+; patrol and ignore the player until that specific ship is shot, rammed or
+; boarded. That is what stops a new player being farmed before they can steer,
+; and it makes the first unprovoked attack a real beat.
+[resource]
+script = ExtResource("1_cfg")
+tiers = Array[HeatTierData]([ExtResource("2_t0"), ExtResource("3_t1"), ExtResource("4_t2"), ExtResource("5_t3"), ExtResource("6_t4"), ExtResource("7_t5")])
+decay_grace_seconds = 120.0
+lying_low_multiplier = 2.0

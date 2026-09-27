@@ -212,6 +212,17 @@ func on_economy_tick() -> void:
 			_produce_resource(building.produces_resource, building.production_amount)
 
 func _produce_resource(type: String, amount: int) -> void:
+	# docs/00_VISION.md §19.2 — production may never mint the premium currency.
+	# A building authored to produce Eights is a data bug that would quietly break
+	# the entire monetization model, so it fails loudly and grants nothing rather
+	# than being silently skipped (this repo has a standing rule against silent
+	# skips on unresolvable ids, for the same reason).
+	if ResourceManager.has_method("is_premium_currency") and ResourceManager.is_premium_currency(type):
+		push_error(
+			"Island '%s': building authored to produce premium currency '%s'. Eights are only granted by purchase, chapters, achievements, sieges and Maelstrom runs."
+			% [get_island_id(), type]
+		)
+		return
 	if ResourceManager.has_method("add_resource"):
 		ResourceManager.add_resource(type, amount)
 

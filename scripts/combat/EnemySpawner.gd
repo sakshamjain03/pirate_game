@@ -17,6 +17,11 @@ signal enemy_spawned(enemy: Node3D)
 signal enemy_destroyed(enemy: Node3D)
 
 @export_group("Population")
+## M25 - FALLBACKS ONLY. The live cap and cadence come from the current heat tier
+## (resources/balance/HeatCurve.tres, via EmpireManager), so ambient danger tracks
+## the trouble the player has caused instead of sitting at a flat 5 forever. These
+## are used only when the heat curve is unavailable: a spawner instanced outside
+## the world, or a failed resource load.
 @export var max_enemies: int = 5
 @export var initial_enemies: int = 3
 
@@ -76,7 +81,10 @@ func _initialize() -> void:
 			_track_enemy(child)
 	
 	# Spawn initial enemies if we don't have enough
-	var to_spawn = initial_enemies - _active_enemies.size()
+	# Clamped to the heat cap so a brand-new player (tier 0, cap 2) does not open
+	# the game surrounded by three hostiles - the initial burst must never exceed
+	# what the current tier allows.
+	var to_spawn = mini(initial_enemies, get_active_max_enemies()) - _active_enemies.size()
 	for i in range(to_spawn):
 		_spawn_enemy()
 
@@ -92,14 +100,14 @@ func _process(delta: float) -> void:
 	if not spawning_enabled:
 		return
 
-	if _active_enemies.size() < max_enemies:
+	if _active_enemies.size() < get_active_max_enemies():
 		_spawn_timer += delta
-		if _spawn_timer >= spawn_interval:
+		if _spawn_timer >= get_active_spawn_interval():
 			_spawn_timer = 0.0
 			_spawn_enemy()
 
 func _spawn_enemy() -> void:
-	if _active_enemies.size() >= max_enemies:
+	if _active_enemies.size() >= get_active_max_enemies():
 		return
 		
 	if not enemy_scene:
@@ -176,7 +184,13 @@ func _place_upright(enemy: Node3D, spawn_pos: Vector3, yaw: float) -> void:
 		enemy.linear_velocity = Vector3.ZERO
 		enemy.angular_velocity = Vector3.ZERO
 
-func _track_enemy(enemy: Node3D) -> void:
+## `ambient` marks a hull as part of the background population, which is the only
+## kind that heat is allowed to make passive (EnemyAI._may_engage_player). Hunters
+## dispatched at the player, boss hulls and encounter/siege spawns are scripted and
+## must always engage, or a fight the game promised would silently never start.
+func _track_enemy(enemy: Node3D, ambient: bool = true) -> void:
+	if ambient:
+		enemy.add_to_group("ambient_enemy")
 	_active_enemies.append(enemy)
 	
 	# Connect to ship_destroyed signal if available
@@ -260,11 +274,38 @@ func _get_region_tier_for_position(pos: Vector3) -> int:
 		return region.tier
 	return 1
 
+## M25 - the current heat tier, or null outside the world / if the curve failed
+## to load. Every caller must handle null by falling back to its @export.
+func _heat_tier() -> HeatTierData:
+	if EmpireManager and EmpireManager.has_method("get_heat_tier"):
+		return EmpireManager.get_heat_tier()
+	return null
+
+
+## Live ambient cap - the heart of the wanted-level feel: 2 hulls when the player
+## is unknown, 8 when they are a Nemesis.
+func get_active_max_enemies() -> int:
+	var tier := _heat_tier()
+	return tier.max_ambient_enemies if tier else max_enemies
+
+
+func get_active_spawn_interval() -> float:
+	var tier := _heat_tier()
+	return tier.spawn_interval_seconds if tier else spawn_interval
+
+
 func compute_spawn_multiplier(region_tier: int) -> float:
 	var current_notoriety = 0.0
 	if EmpireManager:
 		current_notoriety = EmpireManager.notoriety
-	return 1.0 + max(0, region_tier - 1) * 0.3 + current_notoriety * 0.002
+	var base: float = 1.0 + max(0, region_tier - 1) * 0.3 + current_notoriety * 0.002
+	# Heat composes with the existing region/notoriety scaling rather than
+	# replacing it: region tier says "these waters are dangerous", heat says
+	# "and they are hunting YOU".
+	var tier := _heat_tier()
+	if tier:
+		base *= tier.enemy_strength_multiplier
+	return base
 
 func get_active_enemy_count() -> int:
 	return _active_enemies.size()
@@ -300,7 +341,7 @@ func spawn_hunter(faction: Resource) -> void:
 	_enemies_container.add_child(enemy)
 	_place_upright(enemy, spawn_pos, randf() * TAU)
 
-	_track_enemy(enemy)
+	_track_enemy(enemy, false)   # a hunter is dispatched at the player, never passive
 	enemy_spawned.emit(enemy)
 
 	# Force targeting player

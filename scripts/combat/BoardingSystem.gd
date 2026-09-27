@@ -80,6 +80,12 @@ func attempt_boarding() -> bool:
 		_eligible_enemy = null
 		return false
 
+	# M25 heat — grappling a passive ambient hull provokes it, so a failed boarding
+	# leaves you in a real fight rather than beside a ship that keeps ignoring you.
+	var target_ai = _eligible_enemy.get_node_or_null("EnemyAI")
+	if target_ai and target_ai.has_method("provoke"):
+		target_ai.provoke()
+
 	if AudioManager: AudioManager.play_sound("boarding_start")
 
 	var captain_mod = 1.0

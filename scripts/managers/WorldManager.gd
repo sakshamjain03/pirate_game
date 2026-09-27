@@ -52,6 +52,11 @@ func _ready() -> void:
 
 	if _docking_system:
 		_docking_system.dock_completed.connect(_on_dock_completed)
+		# M25 "lying low" — heat bleeds off faster while docked at an island the
+		# player owns. Wired here because DockingSystem lives on the player ship
+		# and is created at runtime, so an autoload cannot reach it directly.
+		if _docking_system.has_signal("undock_completed"):
+			_docking_system.undock_completed.connect(_on_undock_completed)
 
 func _process(delta: float) -> void:
 	if is_world_loaded:
@@ -178,6 +183,24 @@ func _on_dock_completed(island_id: String) -> void:
 	on_player_docked(island_id)
 	if EventManager.has_method("handle_docking_event"):
 		EventManager.handle_docking_event(island_id)
+	_update_lying_low(island_id)
+
+
+func _on_undock_completed() -> void:
+	_update_lying_low("")
+
+
+## Only a port the player OWNS counts as lying low — hiding in an enemy harbour
+## should not cool the Admiralty off.
+func _update_lying_low(island_id: String) -> void:
+	if not EmpireManager.has_method("set_lying_low"):
+		return
+	var owned := false
+	if not island_id.is_empty():
+		var island = active_islands.get(island_id)
+		if island and island.island_data and island.island_data.is_owned_by_player():
+			owned = true
+	EmpireManager.set_lying_low(owned)
 
 func initialize_world(ship: Node3D, islands: Array) -> void:
 	player_ship = ship

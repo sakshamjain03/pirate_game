@@ -15,11 +15,21 @@ func before_each():
 func after_each():
 	ResourceManager.current_resources = _saved_resources.duplicate()
 
+## Both decay tests derive the grace window from the authored heat curve rather
+## than hardcoding it. They previously baked in the pre-M25 600s constant, so
+## shortening the grace to an authored 120s broke them for no behavioural reason.
+## The thing worth guarding is "there IS a grace period, and decay starts after
+## it" — not the specific number, which is balance data.
+func _grace_seconds() -> float:
+	if empire_manager.heat_config:
+		return empire_manager.heat_config.decay_grace_seconds
+	return 120.0
+
 func test_notoriety_decays_after_idle():
 	empire_manager.add_notoriety(50.0)
 	assert_eq(empire_manager.notoriety, 50.0, "Should have 50 notoriety initially")
 	
-	empire_manager._last_gain_unix = int(Time.get_unix_time_from_system()) - 660 
+	empire_manager._last_gain_unix = int(Time.get_unix_time_from_system()) - int(_grace_seconds() + 60.0)
 	
 	await wait_process_frames(5)
 	
@@ -28,7 +38,7 @@ func test_notoriety_decays_after_idle():
 func test_notoriety_does_not_decay_before_idle():
 	empire_manager.add_notoriety(50.0)
 	
-	empire_manager._last_gain_unix = int(Time.get_unix_time_from_system()) - 300 
+	empire_manager._last_gain_unix = int(Time.get_unix_time_from_system()) - int(_grace_seconds() * 0.5)
 	
 	await wait_process_frames(5)
 	

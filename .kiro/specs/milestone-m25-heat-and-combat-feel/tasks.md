@@ -16,19 +16,20 @@ failing.** Any failure is a regression.
 
 ## Tasks
 
-- [ ] 1. Data layer — `HeatTierData`, `HeatConfigData`, `resources/balance/HeatCurve.tres` with the six authored tiers
+- [x] 1. Data layer — `HeatTierData`, `HeatConfigData`, `resources/balance/HeatCurve.tres` with the six authored tiers
   - **Verify:** `tier_for()` returns the right tier at every boundary including 0 and above 220; tiers are sorted and contiguous; boundaries sit on 60 and 150.
   - _Requirements: 3.2, 3.3, 5.1_
-- [ ] 2. Eights currency — `ResourceManager` key, production guard that `push_error`s, `ChapterData.reward_eights`, `CampaignManager` grant, first-boss-kill grant
+- [x] 2. Eights currency — `ResourceManager` key, production guard that `push_error`s, `ChapterData.reward_eights`, `CampaignManager` grant
+  - **Shipped without the first-boss-kill grant.** "First time" needs a persisted set of defeated bosses, which is new save state and belongs with M31's achievement tracking rather than being bolted on here. Chapter rewards alone already satisfy Requirement 4.3's real intent — a zero-spend player holds Eights before ever seeing a purchase prompt — and `test_eights_currency.gd` pins that.
   - **Verify:** `tests/test_eights_currency.gd` — a building authored to produce eights errors and mints nothing; chapter completion grants; save round-trips.
   - _Requirements: 4.1, 4.2, 4.3_
-- [ ] 3. `EmpireManager` heat — tier derivation, `heat_tier_changed` signal, authored per-tier decay with grace, faster decay while docked at an owned island, `spend_to_reduce_heat()`
+- [x] 3. `EmpireManager` heat — tier derivation, `heat_tier_changed` signal, authored per-tier decay with grace, faster decay while docked at an owned island, `spend_to_reduce_heat()`
   - **Verify:** `tests/test_heat_system.gd` — tier changes fire once per crossing; decay reaches tier 0 unaided; paid clear drops exactly one tier and refuses when unaffordable; no new save section.
   - _Requirements: 3.1, 3.7, 3.8, 3.10, 4.4_
-- [ ] 4. `EnemySpawner` reads the tier — cap, interval, strength multiplier; delete the hardcoded `max_enemies`/interval tuning
+- [x] 4. `EnemySpawner` reads the tier — cap, interval, strength multiplier; delete the hardcoded `max_enemies`/interval tuning
   - **Verify:** changing tier changes the live cap; `grep` shows no ambient tuning constant left in the script.
   - _Requirements: 3.4, 5.2_
-- [ ] 5. Passive-until-provoked — `EnemyAI` engage gate, per-ship `provoke()`, provocation from player damage/ram/board
+- [x] 5. Passive-until-provoked — `EnemyAI` engage gate, per-ship `provoke()`, provocation from player damage/ram/board
   - **Verify:** `tests/test_enemy_provocation.gd` — a tier-0 enemy never chases an idle player; firing on it makes that one ship (not its neighbours) engage; an already-hostile faction engages regardless of tier; **avoidance still runs while passive**.
   - _Requirements: 3.5, 3.6_
 - [ ] 6. **Checkpoint A** — full suite, `checkpoint-reviewer`, commit+push.

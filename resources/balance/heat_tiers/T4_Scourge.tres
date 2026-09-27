@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeatTierData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
+
+[resource]
+script = ExtResource("1_heat")
+tier = 4
+display_name = "Scourge"
+min_notoriety = 150.0
+max_ambient_enemies = 6
+spawn_interval_seconds = 20.0
+enemy_strength_multiplier = 1.5
+engages_unprovoked = true
+decay_per_minute = 5.0
+clear_cost_eights = 35

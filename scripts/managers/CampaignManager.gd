@@ -407,6 +407,8 @@ func _on_raid_resolved(_report: Dictionary) -> void:
 func _grant_rewards(chapter: ChapterData) -> void:
 	if chapter.reward_gold > 0 and ResourceManager:
 		ResourceManager.add_resource("gold", chapter.reward_gold)
+	if chapter.reward_eights > 0 and ResourceManager:
+		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, chapter.reward_eights)
 	if not chapter.reward_captain_id.is_empty():
 		var cap := _find_by_id("res://resources/captains/", "captain_id", chapter.reward_captain_id)
 		if cap and FleetManager.has_method("add_captain"):

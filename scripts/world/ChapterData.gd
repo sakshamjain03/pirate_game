@@ -38,6 +38,11 @@ class_name ChapterData extends Resource
 
 @export_group("Rewards")
 @export var reward_gold: int = 0
+## M25 — Pieces of Eight granted on completion. Chapters are one of the few
+## sanctioned sources of the premium currency (docs/00_VISION.md §19.2), and the
+## reason a zero-spend player holds Eights at all: the heat clear needs a sink
+## the player already has before the store exists.
+@export var reward_eights: int = 0
 @export var reward_captain_id: String = ""
 @export var reward_ship_id: String = ""
 @export var reward_tech_id: String = ""

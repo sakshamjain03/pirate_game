@@ -1,8 +1,16 @@
 extends Node
 
 ## Purpose: Global manager for player resources (Economy).
-## Responsibilities: Tracks Gold, Wood, Iron, Rum. Handles adding/spending.
+## Responsibilities: Tracks Gold, Wood, Iron, Rum, Research and Eights. Handles
+##   adding/spending.
 ## Dependencies: None
+##
+## M25 — "eights" (Pieces of Eight) is the single premium currency. It lives here
+## like any other resource so one wallet, one save path, one UI idiom -- but it is
+## NOT an economy resource: `docs/00_VISION.md` §19.2 forbids it being granted by
+## production or the economy tick. `PREMIUM_CURRENCY` + `is_premium_currency()`
+## exist so that rule can be enforced in code (see `Island._produce_resource()`)
+## rather than relying on nobody authoring a building that mints it.
 
 signal resources_changed(resources: Dictionary)
 signal global_economy_tick
@@ -10,12 +18,16 @@ signal global_economy_tick
 var _economy_timer: float = 0.0
 const ECONOMY_TICK_INTERVAL: float = 10.0
 
+## The one premium currency. Never a second (AGENTS.md).
+const PREMIUM_CURRENCY := "eights"
+
 var current_resources: Dictionary = {
 	"gold": 200,
 	"wood": 50,
 	"iron": 20,
 	"rum": 10,
-	"research": 0
+	"research": 0,
+	"eights": 0
 }
 
 var max_storage: Dictionary = {
@@ -23,7 +35,11 @@ var max_storage: Dictionary = {
 	"wood": 200,
 	"iron": 100,
 	"rum": 50,
-	"research": 9999
+	"research": 9999,
+	# Purchased currency must never be silently destroyed by a storage cap, so
+	# this is a practical ceiling rather than a balance lever. Warehouses do not
+	# raise it.
+	"eights": 999999
 }
 
 func _ready() -> void:
@@ -114,7 +130,8 @@ func recalculate_storage_capacity() -> void:
 		"wood": 200,
 		"iron": 100,
 		"rum": 50,
-		"research": 9999
+		"research": 9999,
+		"eights": 999999
 	}
 
 	max_storage = base_storage.duplicate()
@@ -154,3 +171,11 @@ func recalculate_storage_capacity() -> void:
 	if changed:
 		resources_changed.emit(current_resources)
 
+
+
+## docs/00_VISION.md §19.2 — Eights are only ever granted by purchase, chapters,
+## achievements, sieges and Maelstrom runs. Callers on an economy path check this
+## and refuse, so a building authored to produce them fails loudly instead of
+## quietly minting premium currency.
+func is_premium_currency(type: String) -> bool:
+	return type.to_lower() == PREMIUM_CURRENCY

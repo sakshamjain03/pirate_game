@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeatTierData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
+
+[resource]
+script = ExtResource("1_heat")
+tier = 1
+display_name = "Noticed"
+min_notoriety = 20.0
+max_ambient_enemies = 3
+spawn_interval_seconds = 40.0
+enemy_strength_multiplier = 1.0
+engages_unprovoked = false
+decay_per_minute = 2.0
+clear_cost_eights = 5

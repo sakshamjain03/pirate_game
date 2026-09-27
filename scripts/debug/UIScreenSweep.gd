@@ -153,11 +153,15 @@ func _run_world_screens() -> void:
 				if not isl.island_data.discovered:
 					undiscovered.append(isl.island_data)
 					isl.island_data.discovered = true
-				if not first_data:
+				# 6d: target the farthest island that is NOT ours, so the
+				# route, ring and a hostile dossier are all on the shot.
+				if not isl.island_data.is_owned_by_player() and (not first_data
+						or isl.island_data.world_position.length() > first_data.world_position.length()):
 					first_data = isl.island_data
 		var map_screen = _hud.world_map_screen
 		map_screen._selected_island = first_data
 		map_screen._update_info_panel()
+		map_screen._build_legend()
 		map_screen.map_display.queue_redraw()
 		await _settle(4)
 		await _capture("02_world_map_discovered")
@@ -165,6 +169,13 @@ func _run_world_screens() -> void:
 			data.discovered = false
 		map_screen.close()
 		await _settle(2)
+		# 6d: the HUD after "Set Course" — chip + compass-rim marker.
+		if _hud.has_method("set_course") and first_data:
+			_hud.set_course(first_data)
+			await _wait_seconds(0.3)
+			await _capture("02b_course_set")
+			_hud.clear_course()
+			await _settle(2)
 
 	if _hud and "codex_screen" in _hud and _hud.codex_screen:
 		_hud.codex_screen.toggle()

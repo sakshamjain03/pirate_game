@@ -60,6 +60,21 @@ const DEFAULT_MOBILE_TILT_AXIS: int = 1
 ## (PirataOne, the original blackletter-style face), 2: Times New Roman (an
 ## OS-resolved SystemFont, not a bundled asset).
 const DEFAULT_UI_FONT: int = 0
+## M22 Phase 6e/6f — Display tab. Every one of these has a real consumer:
+## hud_detail -> HudAutoHide, show_fps -> WorldHUD, max_fps -> Engine.max_fps,
+## reduce_motion -> UIMotion (no "weather" toggle: region weather scales real
+## wave height, which feeds ship buoyancy — not a cosmetic switch),
+## text_size -> PirateThemeBuilder font scale, mute_in_background -> this
+## node's focus notifications, notify_raids -> LocalNotificationManager.
+const DEFAULT_HUD_DETAIL: int = 0          # 0 Auto-hide, 1 Always show
+const DEFAULT_SHOW_FPS: bool = false
+const DEFAULT_MAX_FPS: int = 60            # 30, 60, 0 = unlimited
+const MAX_FPS_CHOICES: Array[int] = [30, 60, 0]
+const DEFAULT_REDUCE_MOTION: bool = false
+const DEFAULT_TEXT_SIZE: int = 0           # 0 Normal, 1 Large, 2 Largest
+const TEXT_SIZE_SCALES: Array[float] = [1.0, 1.12, 1.25]
+const DEFAULT_MUTE_IN_BACKGROUND: bool = true
+const DEFAULT_NOTIFY_RAIDS: bool = true
 ## M23 Requirement 6 — player-selected enemy difficulty. Index into
 ## AI_DIFFICULTY_PATHS: 0 Relaxed, 1 Normal (default), 2 Hard (the authored
 ## enemy stats unscaled), 3 Brutal. Applied at use time by ShipCombat/EnemyAI
@@ -112,6 +127,13 @@ var mobile_advanced_combat_controls: bool = DEFAULT_MOBILE_ADVANCED_COMBAT_CONTR
 var mobile_tilt_steering_enabled: bool = DEFAULT_MOBILE_TILT_STEERING_ENABLED
 var mobile_tilt_axis: int = DEFAULT_MOBILE_TILT_AXIS
 var ui_font: int = DEFAULT_UI_FONT
+var hud_detail: int = DEFAULT_HUD_DETAIL
+var show_fps: bool = DEFAULT_SHOW_FPS
+var max_fps: int = DEFAULT_MAX_FPS
+var reduce_motion: bool = DEFAULT_REDUCE_MOTION
+var text_size: int = DEFAULT_TEXT_SIZE
+var mute_in_background: bool = DEFAULT_MUTE_IN_BACKGROUND
+var notify_raids: bool = DEFAULT_NOTIFY_RAIDS
 var ai_difficulty: int = DEFAULT_AI_DIFFICULTY:
 	set(value):
 		ai_difficulty = clampi(value, 0, AI_DIFFICULTY_PATHS.size() - 1)
@@ -249,6 +271,15 @@ func load_settings() -> void:
 	_migrate_hud_layout_if_needed()
 	var _ui_font = config.get_value("display", "ui_font", DEFAULT_UI_FONT)
 	ui_font = _ui_font if typeof(_ui_font) == TYPE_INT else DEFAULT_UI_FONT
+	hud_detail = _read_int(config, "display", "hud_detail", DEFAULT_HUD_DETAIL)
+	show_fps = _read_bool(config, "display", "show_fps", DEFAULT_SHOW_FPS)
+	max_fps = _read_int(config, "display", "max_fps", DEFAULT_MAX_FPS)
+	if not max_fps in MAX_FPS_CHOICES:
+		max_fps = DEFAULT_MAX_FPS
+	reduce_motion = _read_bool(config, "accessibility", "reduce_motion", DEFAULT_REDUCE_MOTION)
+	text_size = clampi(_read_int(config, "accessibility", "text_size", DEFAULT_TEXT_SIZE), 0, TEXT_SIZE_SCALES.size() - 1)
+	mute_in_background = _read_bool(config, "audio", "mute_in_background", DEFAULT_MUTE_IN_BACKGROUND)
+	notify_raids = _read_bool(config, "notifications", "raids", DEFAULT_NOTIFY_RAIDS)
 	var _ai_difficulty = config.get_value("gameplay", "ai_difficulty", DEFAULT_AI_DIFFICULTY)
 	ai_difficulty = _ai_difficulty if typeof(_ai_difficulty) == TYPE_INT else DEFAULT_AI_DIFFICULTY
 
@@ -275,6 +306,13 @@ func save_settings() -> void:
 	config.set_value("display", "quality", graphics_quality)
 	config.set_value("display", "ui_font", ui_font)
 	config.set_value("gameplay", "ai_difficulty", ai_difficulty)
+	config.set_value("display", "hud_detail", hud_detail)
+	config.set_value("display", "show_fps", show_fps)
+	config.set_value("display", "max_fps", max_fps)
+	config.set_value("accessibility", "reduce_motion", reduce_motion)
+	config.set_value("accessibility", "text_size", text_size)
+	config.set_value("audio", "mute_in_background", mute_in_background)
+	config.set_value("notifications", "raids", notify_raids)
 
 	config.set_value("input", "sensitivity", input_sensitivity)
 	config.set_value("input", "dead_zone", input_dead_zone)
@@ -331,6 +369,7 @@ func apply_display_settings() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2(width, height))
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = max_fps
 
 
 func apply_audio_settings() -> void:
@@ -395,6 +434,40 @@ func _apply_defaults() -> void:
 	hud_layout_version = HUD_LAYOUT_VERSION_CURRENT
 	ui_font = DEFAULT_UI_FONT
 	ai_difficulty = DEFAULT_AI_DIFFICULTY
+	hud_detail = DEFAULT_HUD_DETAIL
+	show_fps = DEFAULT_SHOW_FPS
+	max_fps = DEFAULT_MAX_FPS
+	reduce_motion = DEFAULT_REDUCE_MOTION
+	text_size = DEFAULT_TEXT_SIZE
+	mute_in_background = DEFAULT_MUTE_IN_BACKGROUND
+	notify_raids = DEFAULT_NOTIFY_RAIDS
+
+
+func _read_int(config: ConfigFile, section: String, key: String, fallback: int) -> int:
+	var v = config.get_value(section, key, fallback)
+	return v if typeof(v) == TYPE_INT else fallback
+
+
+func _read_bool(config: ConfigFile, section: String, key: String, fallback: bool) -> bool:
+	var v = config.get_value(section, key, fallback)
+	return v if typeof(v) == TYPE_BOOL else fallback
+
+
+## "Mute in background" — silence the Master bus while the app is not in
+## front (phone home-button / alt-tab), restore on return.
+func _notification(what: int) -> void:
+	var master := AudioServer.get_bus_index("Master")
+	if master < 0:
+		return
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and mute_in_background:
+		AudioServer.set_bus_mute(master, true)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		AudioServer.set_bus_mute(master, false)
+
+
+## Font multiplier for "Text size" (Accessibility), read by PirateThemeBuilder.
+func text_scale() -> float:
+	return TEXT_SIZE_SCALES[clampi(text_size, 0, TEXT_SIZE_SCALES.size() - 1)]
 
 
 ## M23 — the active enemy difficulty profile (cached until ai_difficulty changes).

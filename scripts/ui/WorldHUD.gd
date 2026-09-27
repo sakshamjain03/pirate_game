@@ -148,6 +148,11 @@ func _ready() -> void:
 	# path/name, since the WorldHUD instance is actually named "WorldUI" in
 	# World.tscn — a name-based lookup for "WorldHUD" always missed.
 	add_to_group("hud")
+	_auto_hide = HudAutoHide.new()
+	_auto_hide.name = "HudAutoHide"
+	add_child(_auto_hide)
+	if SettingsManager and SettingsManager.has_signal("settings_changed"):
+		SettingsManager.settings_changed.connect(_apply_hud_settings)
 	_apply_theme()
 	_find_ship()
 	# SaveManager.load_game() runs deferred and finishes after this _ready(), so
@@ -539,6 +544,108 @@ func _create_economy_label() -> void:
 	call_deferred("_place_economy_chip")
 
 
+# ---------------------------------------------------------------------------
+# M22 Phase 6d — "Set Course" from the world map: a HUD waypoint. UI only —
+# no autopilot, no gameplay system; the player still sails. A gold marker
+# rides the compass rim at the target's bearing and a chip shows the name
+# and distance; arriving clears it with a short announcement.
+# ---------------------------------------------------------------------------
+const _COURSE_ARRIVE_RADIUS := 70.0
+var _course_target: IslandData
+var _course_chip: PanelContainer
+var _course_label: Label
+var _course_marker: Label
+
+
+func set_course(island: IslandData) -> void:
+	if island == null:
+		clear_course()
+		return
+	_course_target = island
+	if not _course_chip:
+		_create_course_widgets()
+	_course_chip.visible = true
+	_course_marker.visible = true
+	_update_course()
+	_place_course_chip.call_deferred()
+	UIMotion.pop_in(_course_chip)
+	announce_event(tr("Course set for %s") % island.island_name)
+
+
+func clear_course() -> void:
+	_course_target = null
+	if _course_chip:
+		_course_chip.visible = false
+	if _course_marker:
+		_course_marker.visible = false
+
+
+func get_course_target() -> IslandData:
+	return _course_target
+
+
+func _create_course_widgets() -> void:
+	_course_chip = PanelContainer.new()
+	_course_chip.name = "CourseChip"
+	_course_chip.theme_type_variation = &"HudCard"
+	_course_chip.theme = _hud_owned_theme()
+	_course_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_course_label = Label.new()
+	_course_label.theme_type_variation = &"ChipLabel"
+	_course_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
+	_course_chip.add_child(_course_label)
+	_add_hud_widget(_course_chip)
+	_course_marker = Label.new()
+	_course_marker.name = "CourseMarker"
+	_course_marker.text = "◆"
+	_course_marker.theme = _hud_owned_theme()
+	_course_marker.theme_type_variation = &"ChipLabel"
+	_course_marker.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
+	_course_marker.add_theme_color_override("font_outline_color", UITokens.palette().ink)
+	_course_marker.add_theme_constant_override("outline_size", 6)
+	_course_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if compass_needle:
+		compass_needle.add_child(_course_marker)
+
+
+func _place_course_chip() -> void:
+	if not _course_chip:
+		return
+	var top_bar: Control = %TopBar
+	var top_rect := top_bar.get_global_rect() if top_bar else Rect2(12, 12, 0, 40)
+	var y := top_rect.end.y + 10.0
+	if _economy_chip and _economy_chip.visible:
+		y = _economy_chip.get_global_rect().end.y + 8.0
+	_course_chip.position = Vector2(top_rect.position.x, y)
+
+
+## `ship_xz` defaults to the live player ship; tests pass one explicitly.
+func _update_course(ship_xz := Vector2.INF) -> void:
+	if not _course_target:
+		return
+	if ship_xz == Vector2.INF:
+		if not _ship_controller or not is_instance_valid(_ship_controller):
+			return
+		ship_xz = Vector2(_ship_controller.global_position.x, _ship_controller.global_position.z)
+	var d := _course_target.world_position - ship_xz
+	var dist := d.length()
+	if dist <= _COURSE_ARRIVE_RADIUS:
+		var name_now := _course_target.island_name
+		clear_course()
+		announce_event(tr("Arrived at %s") % name_now)
+		return
+	_course_label.text = "⚑ %s · %s u" % [_course_target.island_name, UIMotion.group_digits(roundi(dist))]
+	if _course_marker and compass_needle:
+		# Needle-local frame: it already turns with the ship's yaw, and its
+		# top is world north (+X east, +Z south, docs/11_WORLD_MAP.md §2).
+		var bearing := atan2(d.x, -d.y)
+		var centre := compass_needle.pivot_offset
+		var r := centre.x * 0.82
+		_course_marker.reset_size()
+		_course_marker.position = centre + Vector2(sin(bearing), -cos(bearing)) * r - _course_marker.size * 0.5
+		_course_marker.rotation = -compass_needle.rotation  # keep the glyph upright
+
+
 func _place_economy_chip() -> void:
 	_place_compass()
 	if not _economy_chip or PirateThemeBuilder.is_mobile() or _uses_mobile_utility_menu():
@@ -598,10 +705,9 @@ func _create_fps_label() -> void:
 	_fps_label.position = Vector2(8, -20)
 	_fps_label.theme = _hud_owned_theme()
 	add_child(_fps_label)
-	if not OS.has_feature("pc"):
-		# Frame telemetry is useful in desktop development, not as persistent
-		# player-facing phone HUD noise.
-		_fps_label.hide()
+	# M22 6f: player-facing via Settings > Display > "FPS counter" (off by
+	# default on every platform — it was always-on desktop HUD noise).
+	_fps_label.visible = bool(SettingsManager.show_fps) if SettingsManager and "show_fps" in SettingsManager else false
 
 var notoriety_label: Label
 var captains_log_button: Button
@@ -844,6 +950,9 @@ func _create_notoriety_label() -> void:
 	_notoriety_bar.name = "NotorietyBar"
 	_notoriety_bar.custom_minimum_size.x = _NOTORIETY_BAR_WIDTH
 	col.add_child(_notoriety_bar)
+	chip.mouse_filter = Control.MOUSE_FILTER_STOP
+	chip.gui_input.connect(_on_notoriety_card_input)
+	_notoriety_bar.visible = HudAutoHide.always_show()
 
 	# Added as a sibling of ResourceBar inside TopRightPanel (a VBoxContainer)
 	# rather than given its own independently-anchored rect — the previous
@@ -990,6 +1099,9 @@ func _on_notoriety_changed(new_val: float) -> void:
 		_notoriety_next_label.text = (tr("Next escalation: %d") % roundi(next_threshold)) if next_threshold >= 0 else tr("Hunted everywhere")
 	if _notoriety_bar:
 		_notoriety_bar.set_state(new_val, thresholds, next_threshold)
+		if _auto_hide and _last_notoriety >= 0.0 and not is_equal_approx(new_val, _last_notoriety):
+			_auto_hide.wake(_notoriety_bar, _NOTORIETY_PEEK_SEC)
+	_last_notoriety = new_val
 
 func _on_region_activated(region_id: String) -> void:
 	var region_name = region_id
@@ -1252,7 +1364,98 @@ func _on_health_changed(current: float, maximum: float) -> void:
 	_last_reported_health = current
 	set_health(current, maximum)
 
+# ---------------------------------------------------------------------------
+# M22 Phase 6e — declutter. Only what the moment needs stays on screen:
+# cannon readouts near an enemy or while reloading; the notoriety meter for
+# a few seconds after it moves (tap the card to peek); the objective for a
+# while after it changes; no production countdown (the resource pills tick
+# and shine when production lands); captions under the rail only while
+# learning (Always-show). Settings > Display > "HUD details" turns it off.
+# ---------------------------------------------------------------------------
+const _DECLUTTER_TICK_SEC := 0.2
+const _NOTORIETY_PEEK_SEC := 6.0
+const _OBJECTIVE_PEEK_SEC := 8.0
+var _auto_hide: HudAutoHide
+var _declutter_accum := 0.0
+var _last_notoriety := -1.0
+var _rail_captions: Array = []
+
+
+func _apply_hud_settings() -> void:
+	if _fps_label:
+		_fps_label.visible = bool(SettingsManager.show_fps) if SettingsManager and "show_fps" in SettingsManager else false
+	_declutter_tick(true)
+
+
+func _in_combat_range() -> bool:
+	if not _ship_controller or not is_instance_valid(_ship_controller):
+		return false
+	for ship in get_tree().get_nodes_in_group("enemy_ship"):
+		if ship is Node3D and is_instance_valid(ship) \
+				and ship.global_position.distance_to(_ship_controller.global_position) <= ENEMY_BAR_DISPLAY_RANGE:
+			return true
+	return false
+
+
+func _reloading() -> bool:
+	var now := Time.get_ticks_msec()
+	return (_port_cooldown_total > 0.0 and now - _port_cooldown_start_ms < int(_port_cooldown_total * 1000.0)) \
+		or (_stbd_cooldown_total > 0.0 and now - _stbd_cooldown_start_ms < int(_stbd_cooldown_total * 1000.0))
+
+
+func _declutter_tick(force := false) -> void:
+	if not _auto_hide:
+		return
+	var always := HudAutoHide.always_show()
+	if cannons_container and not _uses_mobile_utility_menu():
+		_auto_hide.set_wanted(cannons_container, _in_combat_range() or _reloading())
+	if _economy_chip:
+		_auto_hide.set_wanted(_economy_chip, false)
+	if _objective_label and not _objective_card:
+		_auto_hide.set_wanted(_objective_label, false)
+	elif _objective_card:
+		_auto_hide.set_wanted(_objective_card, false)
+	if _notoriety_bar:
+		var show_bar := always or _auto_hide.is_awake(_notoriety_bar)
+		if _notoriety_bar.visible != show_bar or force:
+			_notoriety_bar.visible = show_bar
+			if show_bar and not force:
+				UIMotion.pop_in(_notoriety_bar)
+			if _uses_mobile_utility_menu():
+				_apply_mobile_safe_area.call_deferred()
+	# Desktop rail only — the phone drawer is opened on purpose and keeps its
+	# captions. Cached: the rail is rebuilt only on layout changes.
+	if not _uses_mobile_utility_menu():
+		if force or _rail_captions.is_empty() or not is_instance_valid(_rail_captions[0]):
+			_rail_captions = []
+			for caption in find_children("Caption", "Label", true, false):
+				if mobile_utility_drawer == null or not mobile_utility_drawer.is_ancestor_of(caption):
+					_rail_captions.append(caption)
+		for caption in _rail_captions:
+			if is_instance_valid(caption):
+				caption.visible = always
+
+
+func _peek_objective() -> void:
+	if not _auto_hide:
+		return
+	var target: Control = _objective_card if _objective_card else _objective_label
+	if target:
+		_auto_hide.wake(target, _OBJECTIVE_PEEK_SEC)
+
+
+func _on_notoriety_card_input(event: InputEvent) -> void:
+	var tapped: bool = (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+	if tapped and _auto_hide and _notoriety_bar:
+		_auto_hide.wake(_notoriety_bar, _NOTORIETY_PEEK_SEC)
+		_declutter_tick()
+
+
 func _process(_delta: float) -> void:
+	_declutter_accum += _delta
+	if _declutter_accum >= _DECLUTTER_TICK_SEC:
+		_declutter_accum = 0.0
+		_declutter_tick()
 	_update_cannon_cooldown_display("port", _port_cooldown_total, _port_cooldown_start_ms)
 	_update_cannon_cooldown_display("starboard", _stbd_cooldown_total, _stbd_cooldown_start_ms)
 	_update_alignment_previews()
@@ -1270,6 +1473,8 @@ func _process(_delta: float) -> void:
 	if _ship_controller and compass_needle:
 		var yaw = fmod(_ship_controller.global_rotation_degrees.y, 360.0)
 		compass_needle.rotation_degrees = yaw
+	if _course_target:
+		_update_course()
 
 	## M11 Requirement 2.3 — wind indicator. WindArrow is nested inside
 	## CompassNeedle so it inherits the same +yaw rotation the N/S/E/W labels
@@ -1409,6 +1614,7 @@ func _on_encounter_started(data) -> void:
 	if _objective_card:
 		_objective_card.visible = true
 	_objective_label.text = tr("%s — %s") % [data.get_kind_name(), data.display_name]
+	_peek_objective()
 
 func _on_objective_progress(current: int, total: int) -> void:
 	if not _objective_label or not _objective_label.visible:
@@ -1416,6 +1622,7 @@ func _on_objective_progress(current: int, total: int) -> void:
 	if total > 0:
 		_objective_label.text = "%s  [%d / %d]" % [
 			_objective_label.text.split("  [")[0], current, total]
+		_peek_objective()
 
 func _on_encounter_ended(victory: bool, rewards: Dictionary) -> void:
 	if _objective_label:

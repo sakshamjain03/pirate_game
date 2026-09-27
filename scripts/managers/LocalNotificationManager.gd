@@ -27,6 +27,9 @@ func _on_raid_resolved(report: Dictionary) -> void:
 	## Raid resolution is the only real completion event in the current data
 	## model. Construction is instant and fleet missions recur, so scheduling
 	## either as a fake delayed completion would violate the no-waiting rule.
+	# M22 6f — Settings > Display > "Raid alerts".
+	if SettingsManager and not SettingsManager.notify_raids:
+		return
 	schedule_completion("raid_resolved", tr("Empire report"), get_raid_notification_body(report))
 
 

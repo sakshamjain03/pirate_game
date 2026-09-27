@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="208" height="176" viewBox="0 0 208 176">
+<defs>
+<clipPath id="tclip"><path d="M 0.0 2.4 L 12.0 3.2 L 24.0 8.2 L 36.0 4.6 L 48.0 8.6 L 60.0 3.0 L 72.0 3.4 L 84.0 7.1 L 96.0 2.4 L 108.0 3.2 L 120.0 8.2 L 132.0 4.6 L 144.0 8.6 L 156.0 3.0 L 168.0 3.4 L 180.0 7.1 L 192.0 2.4 L 204.0 3.2 L 208.0 52.8 L 208.0 123.2 L 204.0 171.4 L 192.0 175.4 L 180.0 171.8 L 168.0 173.9 L 156.0 169.6 L 144.0 174.6 L 132.0 170.4 L 120.0 173.3 L 108.0 171.4 L 96.0 175.4 L 84.0 171.8 L 72.0 173.9 L 60.0 169.6 L 48.0 174.6 L 36.0 170.4 L 24.0 173.3 L 12.0 171.4 L 0.0 175.4 Z"/></clipPath>
+<radialGradient id="thi" cx="0.25" cy="0.15" r="0.7"><stop offset="0" stop-color="#FDF1D2" stop-opacity="1"/><stop offset="0.55" stop-color="#FDF1D2" stop-opacity="0"/></radialGradient>
+<radialGradient id="tburn" cx="0.85" cy="0.95" r="0.6"><stop offset="0" stop-color="#965F28" stop-opacity="0.4"/><stop offset="0.5" stop-color="#965F28" stop-opacity="0"/></radialGradient>
+</defs>
+<path d="M 0.0 2.4 L 12.0 3.2 L 24.0 8.2 L 36.0 4.6 L 48.0 8.6 L 60.0 3.0 L 72.0 3.4 L 84.0 7.1 L 96.0 2.4 L 108.0 3.2 L 120.0 8.2 L 132.0 4.6 L 144.0 8.6 L 156.0 3.0 L 168.0 3.4 L 180.0 7.1 L 192.0 2.4 L 204.0 3.2 L 208.0 52.8 L 208.0 123.2 L 204.0 171.4 L 192.0 175.4 L 180.0 171.8 L 168.0 173.9 L 156.0 169.6 L 144.0 174.6 L 132.0 170.4 L 120.0 173.3 L 108.0 171.4 L 96.0 175.4 L 84.0 171.8 L 72.0 173.9 L 60.0 169.6 L 48.0 174.6 L 36.0 170.4 L 24.0 173.3 L 12.0 171.4 L 0.0 175.4 Z" fill="#ECD6A4"/>
+<g clip-path="url(#tclip)">
+<rect x="0" y="0" width="208" height="176" fill="url(#thi)"/>
+<rect x="0" y="0" width="208" height="176" fill="url(#tburn)"/>
+<rect x="2.1" y="2.1" width="203.8" height="171.8" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.227273"/>
+<rect x="6.3" y="6.3" width="195.4" height="163.4" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.194325"/>
+<rect x="10.5" y="10.5" width="187" height="155" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.16369"/>
+<rect x="14.7" y="14.7" width="178.6" height="146.6" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.135412"/>
+<rect x="18.9" y="18.9" width="170.2" height="138.2" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.109543"/>
+<rect x="23.1" y="23.1" width="161.8" height="129.8" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.0861385"/>
+<rect x="27.3" y="27.3" width="153.4" height="121.4" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.065267"/>
+<rect x="31.5" y="31.5" width="145" height="113" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.0470075"/>
+<rect x="35.7" y="35.7" width="136.6" height="104.6" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.0314579"/>
+<rect x="39.9" y="39.9" width="128.2" height="96.2" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.018743"/>
+<rect x="44.1" y="44.1" width="119.8" height="87.8" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.0090339"/>
+<rect x="48.3" y="48.3" width="111.4" height="79.4" fill="none" stroke="#6E4619" stroke-width="4.2" opacity="0.00259431"/>
+</g>
+<path d="M 0.0 2.4 L 12.0 3.2 L 24.0 8.2 L 36.0 4.6 L 48.0 8.6 L 60.0 3.0 L 72.0 3.4 L 84.0 7.1 L 96.0 2.4 L 108.0 3.2 L 120.0 8.2 L 132.0 4.6 L 144.0 8.6 L 156.0 3.0 L 168.0 3.4 L 180.0 7.1 L 192.0 2.4 L 204.0 3.2 L 208.0 52.8 L 208.0 123.2 L 204.0 171.4 L 192.0 175.4 L 180.0 171.8 L 168.0 173.9 L 156.0 169.6 L 144.0 174.6 L 132.0 170.4 L 120.0 173.3 L 108.0 171.4 L 96.0 175.4 L 84.0 171.8 L 72.0 173.9 L 60.0 169.6 L 48.0 174.6 L 36.0 170.4 L 24.0 173.3 L 12.0 171.4 L 0.0 175.4 Z" fill="none" stroke="#6E4619" stroke-width="1.5" opacity="0.35"/>
+</svg>

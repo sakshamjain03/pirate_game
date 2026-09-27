@@ -132,6 +132,7 @@ func _ready() -> void:
 	# Set focus on first slider for keyboard/gamepad navigation
 	master_slider.grab_focus()
 	_populate_controls()
+	_build_display_tab()
 	_populate_account_tab()
 	PirateThemeBuilder.apply_button_juice(root_control)
 
@@ -570,6 +571,139 @@ func _add_section_card(parent: VBoxContainer) -> VBoxContainer:
 	parent.add_child(panel)
 	parent.add_child(HSeparator.new())
 	return vbox
+
+
+# ---------------------------------------------------------------------------
+# M22 Phase 6f — Display tab (v0.3 Settings 07b/07c/07a/07d, trimmed to what
+# this game can actually honour; every row writes a SettingsManager field
+# that a real system reads — see SettingsManager's DEFAULT_HUD_DETAIL note).
+# Rows use v0.3's layout: a bold label with a soft caption on the left, the
+# control on the right, one row per setting.
+# ---------------------------------------------------------------------------
+var display_vbox: VBoxContainer
+
+
+func _setting(key: String, fallback):
+	var v = settings_manager.get(key) if settings_manager else null
+	return fallback if v == null else v
+
+
+func _commit_setting(key: String, value) -> void:
+	settings_manager.set(key, value)
+	settings_manager.save_settings()
+	if key == "max_fps" and settings_manager.has_method("apply_display_settings"):
+		Engine.max_fps = int(value)
+
+
+func _build_display_tab() -> void:
+	var page := Control.new()
+	page.name = "Display"
+	var scroll := ScrollContainer.new()
+	scroll.name = "ScrollContainer"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.add_child(scroll)
+	display_vbox = VBoxContainer.new()
+	display_vbox.name = "DisplayVBox"
+	display_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	display_vbox.add_theme_constant_override("separation", 10)
+	scroll.add_child(display_vbox)
+	tab_container.add_child(page)
+	var account := tab_container.get_node_or_null("Account")
+	if account:
+		tab_container.move_child(page, account.get_index())
+	tab_container.set_tab_title(page.get_index(), tr("Display"))
+
+	_add_section_header(display_vbox, tr("Screen & HUD"))
+	var hud_card := _add_section_card(display_vbox)
+	_add_segment_row(hud_card, tr("HUD details"), tr("Auto-hide shows panels only when they matter"),
+		[tr("Auto-hide"), tr("Always")], int(_setting("hud_detail", 0)),
+		func(i: int): _commit_setting("hud_detail", i))
+	var fps_values: Array = [30, 60, 0]
+	_add_segment_row(hud_card, tr("Frame rate"), tr("60 fps uses more battery"),
+		["30", "60", tr("Max")], maxi(0, fps_values.find(int(_setting("max_fps", 60)))),
+		func(i: int): _commit_setting("max_fps", fps_values[i]))
+	_add_toggle_row(hud_card, tr("FPS counter"), "", bool(_setting("show_fps", false)),
+		func(on: bool): _commit_setting("show_fps", on))
+
+	_add_section_header(display_vbox, tr("Accessibility"))
+	var access_card := _add_section_card(display_vbox)
+	_add_segment_row(access_card, tr("Text size"), tr("Applies to every screen"),
+		[tr("Normal"), tr("Large"), tr("Largest")], int(_setting("text_size", 0)),
+		func(i: int):
+			_commit_setting("text_size", i)
+			root_control.theme = PirateThemeBuilder.build())
+	_add_toggle_row(access_card, tr("Reduce motion"), tr("No pops, glows, ticking numbers or typing"),
+		bool(_setting("reduce_motion", false)),
+		func(on: bool): _commit_setting("reduce_motion", on))
+
+	_add_section_header(display_vbox, tr("Sound & Alerts"))
+	var alert_card := _add_section_card(display_vbox)
+	_add_toggle_row(alert_card, tr("Mute in background"), tr("Silence the game when you switch away"),
+		bool(_setting("mute_in_background", true)),
+		func(on: bool): _commit_setting("mute_in_background", on))
+	_add_toggle_row(alert_card, tr("Raid alerts"), tr("A note from Higgins when a raid on your island ends"),
+		bool(_setting("notify_raids", true)),
+		func(on: bool): _commit_setting("notify_raids", on))
+
+	PirateThemeBuilder.apply_mobile_control_scaling(display_vbox)
+	if _uses_mobile_layout():
+		_style_mobile_scroll_content(display_vbox)
+
+
+## v0.3 row: title (+ soft caption) on the left, the control on the right.
+func _setting_row(card: VBoxContainer, title: String, caption: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	var text := VBoxContainer.new()
+	text.add_theme_constant_override("separation", 0)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var t := _make_row_label(title)
+	text.add_child(t)
+	if not caption.is_empty():
+		var c := Label.new()
+		c.text = caption
+		c.theme_type_variation = &"InkSubLabel"
+		c.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.add_child(c)
+	row.add_child(text)
+	card.add_child(row)
+	return row
+
+
+func _add_toggle_row(card: VBoxContainer, title: String, caption: String, value: bool, on_toggled: Callable) -> CheckButton:
+	var row := _setting_row(card, title, caption)
+	var toggle := CheckButton.new()
+	toggle.button_pressed = value
+	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	toggle.tooltip_text = title
+	toggle.toggled.connect(on_toggled)
+	row.add_child(toggle)
+	return toggle
+
+
+func _add_segment_row(card: VBoxContainer, title: String, caption: String, options: Array,
+		selected: int, on_selected: Callable) -> HBoxContainer:
+	var row := _setting_row(card, title, caption)
+	var well := PanelContainer.new()
+	well.theme_type_variation = &"SegmentWell"
+	well.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var seg := HBoxContainer.new()
+	seg.add_theme_constant_override("separation", 4)
+	well.add_child(seg)
+	var group := ButtonGroup.new()
+	for i in options.size():
+		var b := Button.new()
+		b.text = str(options[i])
+		b.theme_type_variation = &"SegmentButton"
+		b.toggle_mode = true
+		b.button_group = group
+		b.button_pressed = i == selected
+		b.pressed.connect(on_selected.bind(i))
+		seg.add_child(b)
+	row.add_child(well)
+	return seg
 
 
 func _on_rebind_pressed(action: String, btn: Button) -> void:

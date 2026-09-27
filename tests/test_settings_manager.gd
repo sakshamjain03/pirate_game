@@ -260,3 +260,39 @@ func test_ui_font_round_trips():
 
 func test_ui_font_defaults_when_absent():
 	assert_eq(sm.ui_font, SettingsManagerClass.DEFAULT_UI_FONT)
+
+
+# M22 Phase 6f — the Display tab's settings persist and reload, and a bad
+# stored value falls back to its default instead of breaking the game.
+func test_display_tab_settings_round_trip():
+	sm.hud_detail = 1
+	sm.show_fps = true
+	sm.max_fps = 30
+	sm.reduce_motion = true
+	sm.text_size = 2
+	sm.mute_in_background = false
+	sm.notify_raids = false
+	sm.save_settings()
+	var fresh := TestableSettingsManager.new()
+	fresh._settings_path = temp_cfg_path
+	fresh.audio_manager = mock_am
+	add_child_autofree(fresh)
+	fresh.load_settings()
+	assert_eq(fresh.hud_detail, 1)
+	assert_true(fresh.show_fps)
+	assert_eq(fresh.max_fps, 30)
+	assert_true(fresh.reduce_motion)
+	assert_eq(fresh.text_size, 2)
+	assert_almost_eq(fresh.text_scale(), 1.25, 0.001)
+	assert_false(fresh.mute_in_background)
+	assert_false(fresh.notify_raids)
+
+
+func test_an_unsupported_frame_cap_falls_back_to_the_default():
+	var cfg := ConfigFile.new()
+	cfg.set_value("display", "max_fps", 45)
+	cfg.set_value("accessibility", "text_size", 9)
+	cfg.save(temp_cfg_path)
+	sm.load_settings()
+	assert_eq(sm.max_fps, SettingsManagerClass.DEFAULT_MAX_FPS)
+	assert_eq(sm.text_size, SettingsManagerClass.TEXT_SIZE_SCALES.size() - 1, "clamped, not out of range")

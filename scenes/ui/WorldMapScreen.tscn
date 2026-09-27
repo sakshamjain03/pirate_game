@@ -18,74 +18,166 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.02, 0.04, 0.1, 0.72)
+mouse_filter = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="Sea" type="TextureRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
 
-[node name="Panel" type="PanelContainer" parent="CenterContainer"]
+[node name="SeaLines" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 24
+
+[node name="Panel" type="PanelContainer" parent="Margin"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(1200, 660)
 layout_mode = 2
-theme_type_variation = &"WoodFramePanel"
+theme_type_variation = &"ClearPanel"
 
-[node name="HBox" type="HBoxContainer" parent="CenterContainer/Panel"]
+[node name="HBox" type="HBoxContainer" parent="Margin/Panel"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 28
 
-[node name="MapColumn" type="VBoxContainer" parent="CenterContainer/Panel/HBox"]
+[node name="MapColumn" type="VBoxContainer" parent="Margin/Panel/HBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/HBox/MapColumn"]
+[node name="TopRow" type="HBoxContainer" parent="Margin/Panel/HBox/MapColumn"]
+layout_mode = 2
+
+[node name="TitlePlaque" type="PanelContainer" parent="Margin/Panel/HBox/MapColumn/TopRow"]
+layout_mode = 2
+theme_type_variation = &"PlaquePanel"
+
+[node name="TitleLabel" type="Label" parent="Margin/Panel/HBox/MapColumn/TopRow/TitlePlaque"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"TitleLabel"
 text = "World Map"
-horizontal_alignment = 1
 
-[node name="MapDisplay" type="Control" parent="CenterContainer/Panel/HBox/MapColumn"]
+[node name="MapDisplay" type="Control" parent="Margin/Panel/HBox/MapColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(560, 520)
+clip_contents = true
+custom_minimum_size = Vector2(620, 520)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Dossier" type="PanelContainer" parent="CenterContainer/Panel/HBox"]
+[node name="Legend" type="PanelContainer" parent="Margin/Panel/HBox/MapColumn/MapDisplay"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -40.0
+offset_right = 40.0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"HudCard"
+
+[node name="LegendGrid" type="GridContainer" parent="Margin/Panel/HBox/MapColumn/MapDisplay/Legend"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/v_separation = 4
+columns = 2
+
+[node name="Dossier" type="PanelContainer" parent="Margin/Panel/HBox"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(460, 0)
 layout_mode = 2
-theme_type_variation = &"ParchmentPanel"
+theme_type_variation = &"TornParchmentPanel"
 
-[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/HBox/Dossier"]
+[node name="VBox" type="VBoxContainer" parent="Margin/Panel/HBox/Dossier"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 10
 
-[node name="InfoPanel" type="RichTextLabel" parent="CenterContainer/Panel/HBox/Dossier/VBox"]
+[node name="DossierTitle" type="Label" parent="Margin/Panel/HBox/Dossier/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+theme_type_variation = &"InkTitleLabel"
+text = "Chart"
+autowrap_mode = 3
+
+[node name="FactionRow" type="HBoxContainer" parent="Margin/Panel/HBox/Dossier/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="FactionChip" type="Panel" parent="Margin/Panel/HBox/Dossier/VBox/FactionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="FactionLabel" type="Label" parent="Margin/Panel/HBox/Dossier/VBox/FactionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"InkBodyLabel"
+
+[node name="Rows" type="GridContainer" parent="Margin/Panel/HBox/Dossier/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="InfoPanel" type="RichTextLabel" parent="Margin/Panel/HBox/Dossier/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 size_flags_vertical = 3
 theme_type_variation = &"InkRichTextLabel"
 bbcode_enabled = true
 text = "Tap an island for its dossier."
-fit_content = false
 scroll_active = true
 
-[node name="ButtonRow" type="VBoxContainer" parent="CenterContainer/Panel/HBox/Dossier/VBox"]
+[node name="SetCourseButton" type="Button" parent="Margin/Panel/HBox/Dossier/VBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+text = "Set Course"
+
+[node name="ButtonRow" type="HBoxContainer" parent="Margin/Panel/HBox/Dossier/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="ViewLogButton" type="Button" parent="CenterContainer/Panel/HBox/Dossier/VBox/ButtonRow"]
+[node name="ViewLogButton" type="Button" parent="Margin/Panel/HBox/Dossier/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "View Log"
 
-[node name="CloseButton" type="Button" parent="CenterContainer/Panel/HBox/Dossier/VBox/ButtonRow"]
+[node name="CloseButton" type="Button" parent="Margin/Panel/HBox/Dossier/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Close"

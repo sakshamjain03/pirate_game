@@ -32,7 +32,9 @@ func test_panel_and_map_display_are_wired_and_sized_on_pc():
 	# the new authored PC sizes, which the mobile pass must still not touch.
 	assert_eq(_screen.panel.custom_minimum_size, Vector2(1200, 660),
 		"PC panel size must be untouched by the mobile pass")
-	assert_eq(_screen.map_display.custom_minimum_size, Vector2(560, 520),
+	# M22 6d (deliberate): the chart is now full-screen (v0.3 screen 01), so
+	# the map column's floor grew 560 -> 620 wide.
+	assert_eq(_screen.map_display.custom_minimum_size, Vector2(620, 520),
 		"PC map display size must be untouched by the mobile pass")
 
 
@@ -113,3 +115,30 @@ func test_tapping_open_water_deselects() -> void:
 
 	assert_null(_screen._selected_island, "Tapping open water must deselect")
 	assert_true(_screen.info_panel.text.contains("Tap an island"), "...and reset the info panel")
+
+
+# M22 6d — the dossier's one coral action. With no player ship (GUT) there is
+# nothing to steer, so "Set Course" must not be offered; the selected island
+# still fills the dossier title, faction line and rows.
+func test_dossier_fills_for_a_selection_and_hides_set_course_without_a_ship() -> void:
+	_instantiate()
+	await wait_seconds(0.1)
+	var island: Node = load("res://scripts/world/Island.gd").new()
+	var data := IslandData.new()
+	data.island_id = "test_isle"
+	data.island_name = "Test Isle"
+	data.discovered = true
+	data.world_position = Vector2(100, 0)
+	island.island_data = data
+	add_child_autofree(island)
+	await wait_process_frames(1)
+	assert_false(_screen.set_course_button.visible, "no selection, no course")
+	_screen._selected_island = data
+	_screen._update_info_panel()
+	await wait_process_frames(1)
+	assert_eq(_screen.dossier_title.text, "Test Isle")
+	assert_true(_screen.faction_row.visible)
+	assert_gt(_screen.rows.get_child_count(), 0, "status / distance / risk rows")
+	assert_false(_screen.set_course_button.visible, "no player ship in GUT -> nothing to steer")
+	assert_eq(_screen.set_course_button.theme_type_variation, &"PrimaryButton",
+		"Set Course is the chart's one coral action")

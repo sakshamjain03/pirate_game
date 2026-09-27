@@ -408,6 +408,63 @@ def gen_rope_parchment() -> tuple[str, str]:
     return svg_doc(w, h, "\n".join(body)), f"rope_parchment: {w:g}x{h:g}, 9-slice margin {ROPE_MARGIN:g}px (tile)"
 
 
+TORN_MARGIN = 56
+TORN_PERIOD = 96          # the jag pattern repeats exactly every TORN_PERIOD px
+
+
+def _torn_edge_offsets(seed: str, n: int, amp: float) -> list[float]:
+    rng = random.Random(seed)
+    return [rng.uniform(0.0, amp) for _ in range(n)]
+
+
+def gen_torn_parchment() -> tuple[str, str]:
+    """v0.3 dossier sheet (screen 01/02 detail panel): the page parchment with
+    a torn top and bottom edge (the doc's clip-path polygon of ~2-3% jags) and
+    a stronger burn (inset 0 0 28px rgba(110,70,25,.5)). The jag pattern is
+    periodic in TORN_PERIOD so the theme can TILE the width seamlessly."""
+    m = TORN_MARGIN
+    w = 2 * m + TORN_PERIOD
+    h = 2 * m + 64
+    amp = dpx(5)
+    steps = 8                       # jag points per period
+    top = _torn_edge_offsets("torn-top", steps, amp)
+    bot = _torn_edge_offsets("torn-bot", steps, amp)
+    pts = []
+    x = 0.0
+    i = 0
+    while x <= w + 0.01:
+        pts.append((x, top[i % steps]))
+        x += TORN_PERIOD / steps
+        i += 1
+    right = [(w, h * t) for t in (0.3, 0.7)]
+    bpts = []
+    x = w
+    i = 0
+    # walk the bottom right-to-left with the SAME periodic phase as left-to-right
+    xs = []
+    x = 0.0
+    while x <= w + 0.01:
+        xs.append(x)
+        x += TORN_PERIOD / steps
+    for k, xx in enumerate(reversed(xs)):
+        idx = (len(xs) - 1 - k) % steps
+        bpts.append((xx, h - bot[idx]))
+    d = "M " + " L ".join(f"{px:.1f} {py:.1f}" for px, py in pts + right + bpts) + " Z"
+    body = [defs(
+        f'<clipPath id="tclip"><path d="{d}"/></clipPath>',
+        radial_gradient("thi", [(0, "#FDF1D2", 1), (0.55, "#FDF1D2", 0)], cx=0.25, cy=0.15, r=0.7),
+        radial_gradient("tburn", [(0, "#965F28", 0.4), (0.5, "#965F28", 0)], cx=0.85, cy=0.95, r=0.6),
+    )]
+    body.append(path(d, fill=PALETTE["parchment"]))
+    body.append('<g clip-path="url(#tclip)">')
+    body.append(rect(0, 0, w, h, fill="url(#thi)"))
+    body.append(rect(0, 0, w, h, fill="url(#tburn)"))
+    body.append(inset_shadow(0, 0, w, h, 0, "#6E4619", 0.5, dpx(28) * 0.9))
+    body.append("</g>")
+    body.append(path(d, fill="none", stroke="#6E4619", stroke_width=1.5, opacity=0.35))
+    return svg_doc(w, h, "\n".join(body)), f"torn_parchment: {w:g}x{h:g}, 9-slice margin {m:g}px, tile x"
+
+
 # --------------------------------------------------------------------------
 # Buttons — v0.3 brass / coral / disabled faces, round wood
 # --------------------------------------------------------------------------
@@ -961,6 +1018,7 @@ def generate(out_dir: Path, icons_dir: Path) -> list[str]:
     svg, meta = gen_wood_frame(); emit("wood_frame", svg, meta)
     svg, meta = gen_wood_plaque(); emit("wood_plaque", svg, meta)
     svg, meta = gen_rope_parchment(); emit("rope_parchment", svg, meta)
+    svg, meta = gen_torn_parchment(); emit("torn_parchment", svg, meta)
 
     for stem, svg, meta in gen_buttons():
         emit(stem, svg, meta)

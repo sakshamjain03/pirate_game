@@ -31,6 +31,7 @@ const TEX_PARCHMENT_PANEL := KIT + "parchment_panel.svg"
 const TEX_WOOD_FRAME      := KIT + "wood_frame.svg"
 const TEX_WOOD_PLAQUE     := KIT + "wood_plaque.svg"
 const TEX_ROPE_PARCHMENT  := KIT + "rope_parchment.svg"
+const TEX_TORN_PARCHMENT  := KIT + "torn_parchment.svg"
 const TEX_BUTTON_PRIMARY_IDLE     := KIT + "button_primary_idle.svg"
 const TEX_BUTTON_PRIMARY_PRESSED  := KIT + "button_primary_pressed.svg"
 const TEX_BUTTON_PRIMARY_DISABLED := KIT + "button_primary_disabled.svg"
@@ -131,6 +132,11 @@ static func font_scale() -> float:
 		return 1.0
 	return TABLET_FONT_SCALE if MobileLayoutManager.is_tablet() else MOBILE_FONT_SCALE
 
+static func _text_setting_scale() -> float:
+	if SettingsManager and SettingsManager.has_method("text_scale"):
+		return SettingsManager.text_scale()
+	return 1.0
+
 static func _min_touch_target() -> Vector2:
 	return TABLET_MIN_TOUCH_TARGET if MobileLayoutManager.is_tablet() else MOBILE_MIN_TOUCH_TARGET
 
@@ -202,7 +208,9 @@ static func apply_mobile_control_scaling(root: Node) -> void:
 
 static func build() -> Theme:
 	var theme := Theme.new()
-	var scale := _font_scale()
+	# Accessibility "Text size" scales every themed font (not control
+	# geometry — buttons/rows already grow from their text).
+	var scale := _font_scale() * _text_setting_scale()
 	var pal := UITokens.palette()
 
 	var display_font := _load_font(FONT_GERMANIA, 18)
@@ -348,6 +356,13 @@ static func build() -> Theme:
 	rope_style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
 	theme.set_type_variation("RopeParchmentPanel", "PanelContainer")
 	theme.set_stylebox("panel", "RopeParchmentPanel", rope_style)
+	# TornParchmentPanel: the v0.3 dossier sheet (world map / detail panels)
+	# with torn top and bottom edges; the jag pattern tiles horizontally.
+	var torn_style := _texture_stylebox(TEX_TORN_PARCHMENT,
+			MARGIN_ROPE, MARGIN_ROPE, MARGIN_ROPE, MARGIN_ROPE, 36.0, 36.0, 40.0, 36.0)
+	torn_style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+	theme.set_type_variation("TornParchmentPanel", "PanelContainer")
+	theme.set_stylebox("panel", "TornParchmentPanel", torn_style)
 
 	theme.set_stylebox("panel", "Panel", wood_frame_style)
 
@@ -729,6 +744,42 @@ static func build() -> Theme:
 	bounty.anti_aliasing = true
 	theme.set_type_variation("BountyCard", "PanelContainer")
 	theme.set_stylebox("panel", "BountyCard", bounty)
+	# SegmentWell + SegmentButton: v0.3 segmented control ("Low | Medium |
+	# High"): a dark #3a2616 well, the picked option a brass pill.
+	var seg_well := StyleBoxFlat.new()
+	seg_well.bg_color = Color("#3A2616")
+	seg_well.set_corner_radius_all(24)
+	seg_well.set_content_margin_all(6.0)
+	seg_well.anti_aliasing = true
+	theme.set_type_variation("SegmentWell", "PanelContainer")
+	theme.set_stylebox("panel", "SegmentWell", seg_well)
+	var seg_off := StyleBoxEmpty.new()
+	seg_off.content_margin_left = 24.0
+	seg_off.content_margin_right = 24.0
+	seg_off.content_margin_top = 8.0
+	seg_off.content_margin_bottom = 8.0
+	var seg_on := StyleBoxFlat.new()
+	seg_on.bg_color = Color("#DDB060")
+	seg_on.border_width_top = 3
+	seg_on.border_color = Color("#F7DE98")
+	seg_on.set_corner_radius_all(18)
+	seg_on.content_margin_left = 24.0
+	seg_on.content_margin_right = 24.0
+	seg_on.content_margin_top = 8.0
+	seg_on.content_margin_bottom = 8.0
+	seg_on.anti_aliasing = true
+	theme.set_type_variation("SegmentButton", "Button")
+	for st in ["normal", "hover", "disabled", "focus"]:
+		theme.set_stylebox(st, "SegmentButton", seg_off)
+	theme.set_stylebox("pressed", "SegmentButton", seg_on)
+	theme.set_stylebox("hover_pressed", "SegmentButton", seg_on)
+	theme.set_font("font", "SegmentButton", num_font)
+	theme.set_font_size("font_size", "SegmentButton", roundi(UITokens.FONT_CHIP * scale) + 2)
+	theme.set_color("font_color", "SegmentButton", Color("#D9C4A0"))
+	theme.set_color("font_hover_color", "SegmentButton", pal.brass_light)
+	theme.set_color("font_pressed_color", "SegmentButton", pal.brass_text)
+	theme.set_color("font_hover_pressed_color", "SegmentButton", pal.brass_text)
+	theme.set_color("font_focus_color", "SegmentButton", Color("#D9C4A0"))
 	theme.set_type_variation("ClearPanel", "PanelContainer")
 	theme.set_stylebox("panel", "ClearPanel", StyleBoxEmpty.new())
 	# HullBar: the same dark pill as the track, a rounded hp-green fill with

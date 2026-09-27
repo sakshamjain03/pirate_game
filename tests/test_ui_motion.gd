@@ -5,6 +5,8 @@ extends GutTest
 # returns a live Tween, animates from its documented start state, and with
 # reduced motion forced on jumps straight to its final state (duration 0).
 
+const SettingsManagerClassDefaults = preload("res://scripts/managers/SettingsManager.gd")
+
 var _root: Control
 
 
@@ -106,8 +108,17 @@ func test_reduced_motion_collapses_every_helper_to_its_final_state():
 	assert_eq(shone.self_modulate, Color.WHITE, "no flash at all")
 
 
-func test_reduced_motion_defaults_off_without_a_setting():
-	# SettingsManager has no reduce_motion yet (M19 adds it) — the query point
-	# must default to full motion rather than erroring.
-	assert_false("reduce_motion" in SettingsManager)
+# M22 6f (deliberate): SettingsManager now HAS reduce_motion (Settings >
+# Display > Reduce motion) — this used to assert the field's absence. It
+# defaults off, and flipping it is all it takes to still every helper.
+func test_reduced_motion_follows_the_settings_toggle():
+	var saved: bool = SettingsManager.reduce_motion
+	assert_false(SettingsManagerClassDefaults.DEFAULT_REDUCE_MOTION, "defaults to full motion")
+	SettingsManager.reduce_motion = false
 	assert_false(UIMotion.reduced_motion())
+	SettingsManager.reduce_motion = true
+	assert_true(UIMotion.reduced_motion(), "the Settings toggle is the one query point")
+	var c := _panel()
+	UIMotion.pop_in(c)
+	assert_eq(c.scale, Vector2.ONE, "...and it really stills the helpers")
+	SettingsManager.reduce_motion = saved

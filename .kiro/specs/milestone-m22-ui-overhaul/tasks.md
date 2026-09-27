@@ -615,6 +615,75 @@ Phase 7 motion foundation is folded in, since the user asked for the movement no
         Result: PASS. Not verifiable here: touch feel, haptics, on-device fps with the textures and
         notch safe area.
 
+### Phase 6d/6e/6f — World map rebuild, HUD declutter, Settings Display tab (user request 2026-09-27)
+
+Requested after 6c: "the world map needs a complete rebuild … more interactable, more beautiful
+like [v0.3 screen 01]"; "way too much information on the main gameplay screen … collapsible or
+appear only for some time"; and "add more options and features in the settings".
+
+- [x] 6d.1 **World map, rebuilt to v0.3 screen 01** (`WorldMapScreen.gd/.tscn`).
+        - **Chart:** a full-screen chart over the doc's sunset-to-sea gradient, with a slowly
+          drifting swell. The islands are **medallions** in their `TerrainTheme` colours, with an
+          irregular rim, a faction-colour glow and a drop shadow. Each has a **name plaque**
+          ("Port Royal · You", "Skull Cove · T3") with a faction chip; the selected plaque is brass.
+        - **Motion:** the player's ship **bobs** (2.6s) with a heading wake. A **dashed route**
+          scrolls (1s) from the ship to the picked island, which sits inside a **gold target ring**
+          turning once every 14s.
+        - **Legend and dossier:** a faction legend is built from the discovered islands. The torn
+          parchment dossier (new `TornParchmentPanel` kit piece) shows the faction and tier, then
+          Status, Waters, Distance and Risk (by tier) and the codex text.
+        - **Projection:** fitted to the whole archipelago's bounds, with radial compression about
+          home, so the distance order and ring bands still read as danger. The old outermost-ring
+          scale left every island in a mid-chart clump and clipped the northernmost off the top.
+        - **Label collisions:** medallions shrink to 42% of the gap to their nearest neighbour, and
+          plaques step around other plaques, the medallions and the legend.
+        - Undiscovered islands stay hidden (fog of war unchanged).
+- [x] 6d.2 **Set Course**, the chart's one coral action. It hands the target to the new
+        `WorldHUD.set_course()`, a HUD waypoint that is UI only (no autopilot and no gameplay
+        system). A gold ◆ rides the compass rim at the bearing, and a chip shows
+        "⚑ Fogbound Cay · 1,250 u". Arriving within 70u clears it with "Arrived at …". It is offered
+        only when there is a ship and the target is not where you already are. Tests:
+        `test_world_hud_course` (2), plus a dossier/Set Course test in
+        `test_world_map_screen_layout`, whose map-size expectation changed on purpose (620 wide).
+- [x] 6e.1 **HUD declutter** via the new `HudAutoHide` component (composition; it fades with alpha
+        and mouse passthrough, never `visible`, so layout and its tests never shift):
+        - cannon readouts show only near an enemy (150u) or while reloading;
+        - the notoriety card folds to its header and peeks the bar for 6s when notoriety moves (or
+          on tap);
+        - the "Next Production" timer is gone, since the pills tick and shine when production lands;
+        - the desktop rail shows icons only;
+        - the objective peeks for 8s on start and progress;
+        - the FPS counter is off by default.
+
+        Settings > Display > **HUD details: Always** restores everything. Test:
+        `test_hud_auto_hide` (3).
+- [x] 6f.1 **Settings > Display tab** (v0.3 07a–d rows: label + soft caption left, control right;
+        new `SegmentWell`/`SegmentButton` variations). Every option has a real consumer:
+        | Option | What it does |
+        |---|---|
+        | HUD details (Auto-hide / Always) | HudAutoHide |
+        | Frame rate (30 / 60 / Max) | `Engine.max_fps` |
+        | FPS counter | WorldHUD |
+        | Text size (Normal / Large / Largest) | every themed font, via `PirateThemeBuilder` |
+        | Reduce motion | every UIMotion animation (the M19 hook, now wired) |
+        | Mute in background | Master bus on focus loss |
+        | Raid alerts | LocalNotificationManager |
+
+        **Deliberately not added:** a "Weather effects" toggle. Region weather scales real wave
+        height, which feeds ship buoyancy (a CLAUDE.md fragile area), so it is not cosmetic.
+        `test_settings_manager` gains 2 tests (round-trip, bad-value fallback).
+- [x] 6f.2 **Checkpoint — Phase 6d/6e/6f.** `checkpoint-reviewer` independently re-verified:
+        - its own GUT run: **756/756** (4293 asserts);
+        - its own phone and desktop sweeps plus CombatCaptureHarness, with zero ERROR lines;
+        - the map, course, HUD and Display-tab shots, viewed;
+        - that Set Course is UI-only and that HudAutoHide never toggles `visible` and restores
+          filters;
+        - that every new setting has a real consumer and falls back on bad values;
+        - that no wave, buoyancy or fragile ship code was touched.
+
+        Result: PASS. Not verifiable here: touch feel, on-device fps, notch safe area, real
+        mute-on-background, and notification delivery.
+
 ### Phase 7 — Motion foundation
 
 - [x] 7.1 `UIMotion.gd` helpers + `reduced_motion()` hook (design §10).

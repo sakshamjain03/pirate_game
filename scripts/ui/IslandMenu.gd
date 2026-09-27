@@ -110,7 +110,9 @@ func _load_building_data() -> void:
 		"Selene", "Barnaby", "Constance", "Yusuf", "Ophelia"]
 	for c in cap_names:
 		var cap = load("res://resources/captains/" + c + ".tres")
-		if cap: available_captains.append(cap)
+		# MVP scope gate — eight captains are authored but not shipped.
+		if cap and ResourceLookup.is_content_enabled(cap):
+			available_captains.append(cap)
 
 	# Load Modules (M8 §13: ship level + modules)
 	var module_names = ["ReinforcedPlanking", "IronHull", "HeavyCannons", "SwiftLoaders",

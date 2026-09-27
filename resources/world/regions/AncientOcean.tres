@@ -18,3 +18,4 @@ fog_density_multiplier = 1.6
 enemy_ship_pool = Array[ShipStats]([ExtResource("2_galleon"), ExtResource("3_manowar")])
 wind_strength = 0.9
 wind_direction_degrees = 270.0
+content_enabled = false

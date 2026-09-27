@@ -12,3 +12,4 @@ world_position = Vector2(480, 380)
 region_id = "imperial_waters"
 codex_summary = "Active volcano; Spain mines sulphur and iron with convict labour. The game's only high-tier iron, unlocking the best cannon tech line. Chapter 5's first objective."
 real_world_echo = "Real volcanic islands of the Lesser Antilles sit south-east"
+content_enabled = false

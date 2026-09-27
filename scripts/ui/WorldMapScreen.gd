@@ -138,7 +138,8 @@ func _load_regions() -> void:
 		while file_name != "":
 			if not dir.current_is_dir() and file_name.ends_with(".tres"):
 				var region := load("res://resources/world/regions/" + file_name) as RegionData
-				if region:
+				# MVP scope gate — regions 4-5 are authored but not shipped.
+				if region and ResourceLookup.is_content_enabled(region):
 					_regions.append(region)
 			file_name = dir.get_next()
 	for region in _regions:

@@ -44,6 +44,23 @@ recurring.
 
 ## 4. Export
 
+**Before exporting, confirm the dev-tools exclusion (added 2026-09-28).**
+`export_presets.cfg` is gitignored, so this is a **per-machine / per-CI-runner** setting and a
+fresh clone will not have it. Check that the Android preset carries:
+
+```
+exclude_filter="scripts/debug/*, scenes/debug/*"
+```
+
+That keeps `DevConsole.gd` (unlimited resources, chapter jumps, ship downgrades, island capture)
+physically out of the package. Two further guarantees do survive a clone, so a missed filter is
+not on its own a shipped cheat console:
+
+- No shipping script references the debug folders, and nothing autoloads them — the console is
+  reachable only by launching `scenes/debug/DevHarness.tscn` explicitly. Enforced by
+  `tests/test_no_shipping_reference_to_debug.gd`.
+- `DevConsole._ready()` frees itself when `OS.is_debug_build()` is false.
+
 Produce a release AAB/APK from the current, GUT-green, capture-reviewed state:
 
 ```

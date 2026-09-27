@@ -54,3 +54,10 @@ enum TerrainTheme { TROPICAL, VOLCANIC, FROZEN, DROWNED_RUIN, FORTIFIED, CALDERA
 ## The real Golden Age of Piracy geography this island's bearing echoes
 ## (docs/11_WORLD_MAP.md §4c/§6). Empty when there is no real-world anchor.
 @export var real_world_echo: String = ""
+
+@export_group("Content Gating")
+## MVP scope gate (2026-09-28). False keeps the authored resource in the repo
+## but out of the shipping game. Loaders filter via
+## `ResourceLookup.is_content_enabled()`. Defaults true so every existing
+## `.tres` is unaffected until explicitly disabled.
+@export var content_enabled: bool = true

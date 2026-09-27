@@ -42,3 +42,10 @@ class_name RegionData
 ## already established for wave_intensity_multiplier/fog_density_multiplier.
 @export_range(0.0, 1.0) var wind_strength: float = 0.0
 @export_range(0.0, 360.0) var wind_direction_degrees: float = 0.0
+
+@export_group("Content Gating")
+## MVP scope gate (2026-09-28). False keeps the authored resource in the repo
+## but out of the shipping game. Loaders filter via
+## `ResourceLookup.is_content_enabled()`. Defaults true so every existing
+## `.tres` is unaffected until explicitly disabled.
+@export var content_enabled: bool = true

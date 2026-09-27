@@ -192,19 +192,32 @@ func test_world_position_matches_the_scene_transform() -> void:
 	# IslandData.world_position is a mirror of World.tscn's authored transform. If the
 	# two drift, every distance calculation in code silently disagrees with what the
 	# player actually sails through.
-	var world: Node3D = load("res://scenes/world/World.tscn").instantiate()
-	add_child_autoqfree(world)
-	await wait_process_frames(2)
-
-	var islands_node := world.get_node_or_null("Islands")
-	assert_not_null(islands_node, "World.tscn should have an Islands node")
+	#
+	# Reads the AUTHORED scene state rather than instantiating the world. Since the MVP
+	# scope cut (2026-09-28) `Island._ready()` frees any island whose IslandData carries
+	# `content_enabled = false`, so a live tree only ever holds the shipping islands --
+	# but a deferred island's layout still has to be correct for the day its level ships,
+	# and that is exactly what this test exists to guard. SceneState sees all eleven.
+	var packed: PackedScene = load("res://scenes/world/World.tscn")
+	assert_not_null(packed, "World.tscn should load")
+	var state := packed.get_state()
 
 	var seen := 0
-	for child in islands_node.get_children():
-		var data = child.get("island_data")
+	for i in state.get_node_count():
+		if str(state.get_node_path(i, true)) != "./Islands":
+			continue   # not a direct child of the Islands node
+		var props := {}
+		for j in state.get_node_property_count(i):
+			props[str(state.get_node_property_name(i, j))] = state.get_node_property_value(i, j)
+		var data = props.get("island_data")
 		if data == null:
 			continue
-		var authored := Vector2(child.transform.origin.x, child.transform.origin.z)
+		assert_true(
+			props.has("transform"),
+			"Island '%s' has no authored transform in World.tscn" % data.island_id
+		)
+		var origin: Vector3 = props["transform"].origin
+		var authored := Vector2(origin.x, origin.z)
 		assert_almost_eq(
 			authored, data.world_position, Vector2(0.5, 0.5),
 			"Island '%s' sits at %s in World.tscn but declares world_position %s"
@@ -213,6 +226,19 @@ func test_world_position_matches_the_scene_transform() -> void:
 		seen += 1
 
 	assert_eq(seen, ISLAND_PATHS.size(), "Expected every authored island to be checked")
+
+
+func test_deferred_islands_are_gated_and_shipping_islands_are_not() -> void:
+	# The MVP scope cut (2026-09-28) ships five islands and defers six. This pins which
+	# is which, so re-enabling one is a deliberate edit rather than an accident, and so a
+	# newly authored island cannot quietly default its way into the shipping build.
+	const SHIPPING := ["port_royal", "tortuga", "pelican_cay", "cartagena_outpost", "skull_cove"]
+	for id in _islands:
+		var enabled: bool = ResourceLookup.is_content_enabled(_islands[id])
+		if SHIPPING.has(id):
+			assert_true(enabled, "MVP island '%s' must be content_enabled" % id)
+		else:
+			assert_false(enabled, "Deferred island '%s' must not be content_enabled" % id)
 
 
 func test_authored_player_spawn_is_clear_of_every_island() -> void:

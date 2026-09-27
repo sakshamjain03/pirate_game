@@ -757,18 +757,32 @@ Never remove public APIs without migration.
 
 Never hardcode balance values.
 
-No paid feature ships before the M13 launch build. After M13, monetization is permitted only
-within the bounds of `docs/00_VISION.md` §19 and `docs/17_MONETIZATION.md`. The §19 never-list
-— pay-to-win, energy systems, forced advertisements, artificial waiting — is absolute and
-unamendable.
+Monetization follows `docs/00_VISION.md` §19.1 (the committed free-to-play model) and its §19.2
+limits, with the SKU detail in `docs/17_MONETIZATION.md`. **Rewritten 2026-09-28**: the previous
+rules here banned premium currency and sellable timers outright and called the never-list
+"unamendable". The game is now a freemium mobile title and those two bans are lifted. The
+replacements below are not softer — they are narrower and testable.
+
+The game has exactly one premium currency, **Pieces of Eight**. Never introduce a second. It is
+never granted by production or the economy tick — only by purchase, chapters, achievements, sieges
+and Maelstrom runs.
+
+Never build an energy, stamina or fuel meter. Sailing, combat, boarding and encounters are
+unlimited. Only the empire layer — build, repair and operation queues — may be time-gated.
+
+Never make a timer that can only be shortened by paying. Every timer must also be reducible by
+playing (building levels), and skip cost is priced off remaining time, never total time.
+
+Never put campaign progression behind money or an advertisement. Every chapter, island, hull, tech
+and story captain must be earnable. Premium captains may be stronger, but Chapters 1-5 must be
+completable with earnable content only — that is a release gate, not an aspiration.
+
+Never ship a forced, interstitial or unskippable advertisement. Every ad is opt-in and every ad
+reward has an earnable equivalent.
+
+Never ship a randomized purchase without disclosed odds.
 
 Never introduce multiplayer.
-
-Never introduce a hard or premium currency. Cosmetic entitlements are one-time, non-tradeable,
-non-consumable, and never purchasable with gameplay-affecting power.
-
-Never gate campaign progression, islands, captains, ships, or any gameplay-affecting stat behind
-money or an advertisement.
 
 Never break save compatibility.
 
@@ -800,8 +814,14 @@ Before submitting code
 
 ✓ Clean architecture
 
-✓ Monetization gate — does this change put anything gameplay-affecting behind a purchase or an
-advertisement? If yes, reject it.
+✓ Monetization gate — check against `docs/00_VISION.md` §19.2. Reject if the change: gates any
+campaign progression, island, hull, tech or story captain behind money or an ad; adds an energy
+meter or any gate on sailing/combat; adds a second premium currency; grants Eights from production;
+creates a timer that only money can shorten; ships a forced or unskippable ad; or ships a
+randomized purchase without disclosed odds.
+
+✓ Dev-tools gate — no shipping script may reference anything in `scripts/debug/` or
+`scenes/debug/`, and no gameplay file may contain a dev-mode branch.
 
 ---
 

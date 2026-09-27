@@ -34,7 +34,8 @@ func _ready() -> void:
 		while file_name != "":
 			if not dir.current_is_dir() and file_name.ends_with(".tres"):
 				var region = load("res://resources/world/regions/" + file_name) as RegionData
-				if region:
+				# MVP scope gate — regions 4-5 are authored but not shipped.
+				if region and ResourceLookup.is_content_enabled(region):
 					if region.tier <= 0:
 						push_error("EmpireManager: RegionData %s has no authored tier (got %d) - raid difficulty for this region will be wrong." % [file_name, region.tier])
 					_regions.append(region)

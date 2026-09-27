@@ -17,3 +17,4 @@ region_id = "ghost_reaches"
 terrain_theme = 2
 codex_summary = "A reef permanently wrapped in fog, held by the Ghost Fleet. On capture, the deepest-water resource yield in the game — and the hardest ambient combat before it."
 real_world_echo = ""
+content_enabled = false

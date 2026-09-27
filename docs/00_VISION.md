@@ -532,48 +532,71 @@ Decorations
 
 Rewarded Ads
 
+Premium currency (Pieces of Eight) and timer finishes, within the limits of §19.2
+
 Expansion Packs
 
 Never:
 
-Pay-to-win
-
-Energy systems
+Pay-to-win in any competitive context
 
 Forced advertisements
 
-Artificial waiting
+Deceptive or hidden pricing
+
+Gating the campaign behind money
 
 Gameplay should remain fair.
 
-## 19.1 The committed model (decided 2026-08-27)
+## 19.1 The committed model (decided 2026-09-28, supersedes 2026-08-27)
 
-The philosophy above lists what *may* be acceptable. This is what the game actually commits to.
+> **This section was rewritten on 2026-09-28.** The previous model committed to a cosmetics-only
+> game with no premium currency and no sellable timers, and described its never-list as
+> "unamendable". The project owner has since locked the game's identity as a **freemium mobile
+> title**, and that model is no longer the one being built. The change is recorded here
+> deliberately rather than being worked around in code. The limits in §19.2 are what survive.
 
-Pirate Empire is **free to play in full**. The entire campaign, every island, captain, ship,
-tech and region is reachable without spending a rupee. Revenue comes from three places only:
+Pirate Empire is a **free-to-play mobile game**. The entire five-chapter campaign is completable
+without spending anything.
 
-1. **Cosmetics** — ship skins, sail patterns, flags, figureheads, island decorations. Purely
-   visual. Never a stat.
-2. **The Pirate King Supporter Pack** — a single one-time purchase: permanently ad-free, a
-   cosmetic bundle, and extra save slots.
-3. **Opt-in rewarded advertisements** — the player chooses to watch one, in exchange for a
-   convenience bonus (for example, doubling already-earned offline income, or rerolling a world
-   event). Never interstitial, never on a timer, never nagged.
+**One premium currency: "Pieces of Eight"** (UI short form *Eights*). It is deliberately silver, so
+it never reads as the `gold` gameplay resource. It is the only thing purchasable with money, and it
+is also **earnable in play** — chapter completion, achievements, first boss kills, repelled sieges,
+Maelstrom runs — so free players hold it and understand its value.
 
-**Deferred, and not committed:** Battle Pass and Premium Account. Both remain listed above as
-philosophically acceptable, but neither is planned. A Battle Pass would require live operations
-(M14) and the backend (M15) to be running first, and would be reconsidered only after launch
-data exists.
+Eights buy exactly four things:
 
-**Not permitted under any circumstances**, restating the never-list as testable rules:
+1. **Finishing a timer** — construction, ship repair, or a fleet operation, priced off *remaining*
+   time so it is a finisher rather than a bypass.
+2. **Covering a resource shortfall** on an upgrade the player has already chosen.
+3. **Cosmetics** — sail patterns, hull paint, flags, figureheads, island decorations.
+4. **Premium captains** — see the PvE ceiling in §19.2.
 
-- No hard or premium currency of any kind.
-- No purchase or advertisement may grant, accelerate, or unlock anything that affects gameplay.
-- No energy, stamina, or fuel meter that gates play.
-- No forced, interstitial, or unskippable advertisement.
-- No artificial timer whose only purpose is to sell the removal of that timer.
-- No cosmetic may be sold that was previously earnable, without keeping the earnable path.
+Revenue also comes from **opt-in rewarded advertisements** (a Maelstrom revive, a doubled payout,
+an offline-income bonus) and the **Pirate King Supporter Pack** (one-time: permanently ad-free, a
+cosmetic bundle, extra save slots).
+
+## 19.2 The limits that survive
+
+These are testable rules, and the PR checklist in `AGENTS.md` enforces them.
+
+- **No energy, stamina or fuel meter.** Sailing, combat, boarding and encounters are unlimited
+  forever. Monetization pressure lives only in the empire layer — build, repair and operation
+  queues. The core loop is never gated.
+- **No paid-exclusive campaign content.** Every chapter, island, hull, tech and story captain is
+  earnable. Nothing that advances the campaign is behind money or an advertisement.
+- **PvE-only power ceiling.** Premium captains may be stronger than earnable ones, but
+  **Chapters 1–5 must be completable using only earnable content**, verified by a balance pass
+  before release. There is no PvP, so paid power never disadvantages another player.
+- **No forced, interstitial or unskippable advertisement.** Every ad is opt-in, and every ad reward
+  has an earnable equivalent.
+- **No deceptive pricing.** Any randomized purchase discloses its odds, per Google Play and App
+  Store policy.
+- **Timers must also be shortenable by playing** — building levels reduce durations — so progress
+  is never purely a function of waiting.
+- **No cosmetic may be sold that was previously earnable**, without keeping the earnable path.
+- **Eights are never granted by production or the economy tick** — only by purchase, chapters,
+  achievements, sieges and Maelstrom runs.
 
 The engineering constraints derived from this section live in `AGENTS.md`; the SKU list, price
 points and entitlement model live in `docs/17_MONETIZATION.md`.

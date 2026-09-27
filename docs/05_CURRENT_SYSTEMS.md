@@ -2754,3 +2754,89 @@ Ram *feel* (knockback strength, splinters, HUD text timing), how hull-sliding re
 whether 5–10 s reloads feel right, and the IslandMenu/Settings rows on a real phone. The GUT suite
 covers the math, gating, persistence, and real-physics separation/ram outcomes
 (`test_ship_collision.gd`).
+
+---
+
+## Wave 0 — MVP scope lock, constitution amendment, dev tools (2026-09-28)
+
+Foundation pass for the freemium-mobile MVP. No gameplay behaviour changed; this wave decides
+*what ships*, rewrites the rules that forbade the new business model, and adds the tooling every
+later wave needs.
+
+### Test baseline correction
+Measured on a clean run before any change: **115 scripts, 756 tests, 756 passing, 0 failing.**
+The "one accepted failure" (`test_property_21_lod_distance_transitions`) referenced in
+`AGENTS.md`/`CLAUDE.md` remains stale — §0 already flagged this. **Any failure is now a
+regression.** Post-wave count is higher by the tests listed below.
+
+### Constitution amended — premium currency is now permitted
+`AGENTS.md`, `docs/00_VISION.md` §19 and `docs/17_MONETIZATION.md` previously banned hard currency
+and sellable timers outright, and §19's never-list called itself "absolute and unamendable". The
+owner locked the game as a **freemium mobile** title, so those two bans are lifted **on the record**
+rather than worked around. What replaced them is narrower and testable — see `00_VISION.md` §19.2:
+
+- One premium currency, **Pieces of Eight**; never a second, and never granted by production.
+- **No energy meter.** Sailing, combat and boarding are never gated; only the empire layer
+  (build / repair / operation queues) is time-gated.
+- No timer that *only* money can shorten; skip cost is priced off remaining time.
+- Nothing in the campaign behind money or an ad. **Chapters 1-5 completable with zero spend is a
+  release gate**, verified by a balance pass.
+- No forced/unskippable ads; disclosed odds on any randomized purchase.
+
+`AGENTS.md`'s PR checklist gained a rewritten monetization gate and a new **dev-tools gate**.
+
+### MVP scope cut — `content_enabled`
+New `@export var content_enabled: bool = true` on `ChapterData`, `CaptainData`, `RegionData`,
+`IslandData`, with one shared filter, `ResourceLookup.is_content_enabled()` (defaults **true** for
+any resource lacking the field, so untouched resource types are unaffected).
+
+| | Ships | Gated off (authored, preserved, tracked tech debt) |
+|---|---|---|
+| Chapters | 1-5 | 6, 7, 9, 10 |
+| Regions | Beginner, Contested, Imperial | Ancient Ocean, Ghost Reaches |
+| Islands | Port Royal, Tortuga, Pelican Cay, Cartagena Outpost, Skull Cove | Volcano, Frozen, Blackwater Shoal, Isla del Rey, Widow's Reach, Fogbound Cay |
+| Captains | 12 | Mary, Bartholomew, Cutlass, Fiona, Grace, Rook, Barnaby, Yusuf |
+
+Filters wired into `CampaignManager._load_chapters()`, `EmpireManager` region load,
+`WorldMapScreen`, `CodexScreen`, and `IslandMenu`'s tavern list. `Island._ready()` frees a gated
+island **before `add_to_group("islands")`**, so docking, defenders, the economy tick and the world
+map never see it — and `World.tscn` is left untouched, making re-enable a one-bool edit.
+
+Two findings worth recording:
+- **No chapter grants a captain.** All 20 are tavern hires gated by `CaptainData.unlock_chapter_id`;
+  there is no `reward_captain_id` set anywhere in Ch1-5. Any plan assuming "story captains are
+  chapter rewards" is wrong about this codebase.
+- **Marguerite stays enabled** although her own chapter (Ch7) is deferred — she is a
+  `speaker_id` in Chapter 3's closing beats, so gating her would break a shipping chapter.
+
+`tests/test_world_map_layout.gd`'s `test_world_position_matches_the_scene_transform` now reads
+World.tscn's **authored `SceneState`** instead of instantiating the world. Runtime gating means a
+live tree only holds the five shipping islands, but a deferred island's layout must stay correct
+for the day it ships — SceneState sees all eleven. New sibling test
+`test_deferred_islands_are_gated_and_shipping_islands_are_not` pins which is which.
+
+### Dev console (`scripts/debug/DevConsole.gd`)
+Developer cheat console: resources (fill/empty/max), notoriety and chapter jumps, unlock-all-techs,
+ship level **up and down** (`set_all_components()` keeps components legal on a downgrade), captain
+levels, grant-all hulls/captains, island capture/release/sail-to, heal, god mode, kill/cripple
+enemies. Timer and siege tabs land with `ScheduleManager` and `SiegeManager`.
+
+**Safety contract — it must be impossible for this to bug the real game:**
+1. **One-way dependency.** It calls only public manager APIs and public fields. **No shipping script
+   references it, and no gameplay file has an `if dev_mode` branch.** If a cheat would need a new
+   manager hook, that hook must be an API the game itself uses — otherwise the cheat isn't built.
+2. **Reachable only via `scenes/debug/DevHarness.tscn`** (World instance + console overlay), the
+   same pattern `CaptureHarness.tscn` already uses. No autoload, no `project.godot` change.
+3. `DevConsole._ready()` frees itself when `OS.is_debug_build()` is false.
+4. `export_presets.cfg` excludes `scripts/debug/*` and `scenes/debug/*` — **but that file is
+   gitignored**, so the filter is per-machine and a fresh clone will not have it. It is now a step
+   in `RELEASE_CHECKLIST.md` §4. Points 1-3 are the guarantees that survive a clone.
+
+`tests/test_no_shipping_reference_to_debug.gd` enforces 1 and 2, and — because nothing imports the
+console, so the suite would never notice it failing to parse — also asserts `DevConsole.gd` loads
+and `DevHarness.tscn` opens.
+
+### Deferred from this wave
+`resources/balance/DifficultyCurve.tres` (per-chapter escalation) was planned here but **not
+built**: it would have had no reader until combat consumes it, and `AGENTS.md` forbids dead code.
+It moves to the combat wave, which is what actually reads it.

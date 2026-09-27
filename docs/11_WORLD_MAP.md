@@ -9,6 +9,31 @@
 
 ---
 
+# 0. What ships in the MVP (locked 2026-09-28)
+
+This document specifies the **full eleven-island map**. The MVP ships **five of them**; the other
+six are authored, gated off with `content_enabled = false`, and are **tracked tech debt** to be
+built out one at a time as each new level launches. The scope decision and the per-island design
+brief live in `docs/13_CAMPAIGN_LEVELS_1-5.md` §0 — that is the source of truth for scope; this
+document remains the source of truth for geography.
+
+| | Islands |
+|---|---|
+| **Ships** | Port Royal, Tortuga, Pelican Cay, Cartagena Outpost, Skull Cove |
+| **Deferred** | Volcano Island, Frozen Island, Blackwater Shoal, Isla del Rey, Widow's Reach, Fogbound Cay |
+| **Regions shipping** | Beginner Waters, Contested Waters, Imperial Waters |
+| **Regions deferred** | Ancient Ocean, Ghost Reaches |
+
+Ring bands, spacing and the island↔region two-way link in §4 still apply to **every** island,
+shipping or not. `Island._ready()` frees a gated island at runtime, so a live world holds only the
+five; `tests/test_world_map_layout.gd` therefore reads World.tscn's **authored scene state**
+instead of the live tree, so a deferred island's geometry cannot silently rot while it waits.
+
+Each shipping island is also getting a hand-authored scene drawn from its real-world namesake
+(`docs/13` §0.2), replacing the single shared `Island.tscn` prefab all eleven currently instance.
+
+---
+
 # 1. Design principles for the map
 
 1. **The map is a set of rings, not a grid.** The home port is the origin. Distance from home

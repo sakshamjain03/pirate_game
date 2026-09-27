@@ -25,6 +25,16 @@ var _spawned_models: Dictionary = {}
 @onready var dock_area: Area3D = get_node_or_null("DockArea")
 
 func _ready() -> void:
+	# MVP scope gate (2026-09-28). World.tscn places all 11 authored islands;
+	# the MVP ships 5. A disabled island removes itself here rather than being
+	# deleted from the scene, so re-enabling one when its level ships is a
+	# single bool in its .tres and no scene surgery. Done before add_to_group()
+	# so nothing — docking, defenders, the economy tick, the world map — ever
+	# sees it.
+	if island_data and not ResourceLookup.is_content_enabled(island_data):
+		queue_free()
+		return
+
 	var had_authored_data := island_data != null
 	if not island_data:
 		island_data = IslandData.new()

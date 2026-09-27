@@ -188,7 +188,8 @@ func _load_captains() -> Array[CaptainData]:
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(".tres"):
 			var captain := load("res://resources/captains/" + file_name) as CaptainData
-			if captain:
+			# MVP scope gate — eight captains are authored but not shipped.
+			if captain and ResourceLookup.is_content_enabled(captain):
 				result.append(captain)
 		file_name = dir.get_next()
 	dir.list_dir_end()

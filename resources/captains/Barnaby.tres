@@ -19,3 +19,4 @@ base_damage_modifier = 1.5
 base_health_modifier = 1.2
 base_boarding_modifier = 1.35
 active_ability = ExtResource("2_ability")
+content_enabled = false

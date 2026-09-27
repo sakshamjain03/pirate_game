@@ -41,3 +41,10 @@ class_name ChapterData extends Resource
 @export var reward_captain_id: String = ""
 @export var reward_ship_id: String = ""
 @export var reward_tech_id: String = ""
+
+@export_group("Content Gating")
+## MVP scope gate (2026-09-28). False keeps the authored resource in the repo
+## but out of the shipping game. Loaders filter via
+## `ResourceLookup.is_content_enabled()`. Defaults true so every existing
+## `.tres` is unaffected until explicitly disabled.
+@export var content_enabled: bool = true

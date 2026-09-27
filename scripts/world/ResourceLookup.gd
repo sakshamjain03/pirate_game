@@ -22,3 +22,20 @@ static func find_by_id(dir_path: String, id_field: String, id_value: String) -> 
 		file_name = dir.get_next()
 	dir.list_dir_end()
 	return null
+
+
+## MVP scope gate (2026-09-28). The repo carries more authored content than the
+## five-chapter / five-island MVP ships: chapters 6-10, regions 4-5, eight extra
+## captains and nine extra islands. Rather than delete authored work, each of
+## those resources carries `content_enabled = false` and every loader filters
+## through here.
+##
+## Defaults to TRUE for any resource that has no such field, so a resource type
+## that was never gated keeps loading unchanged.
+static func is_content_enabled(res: Resource) -> bool:
+	if res == null:
+		return false
+	var value: Variant = res.get("content_enabled")
+	if value == null:
+		return true
+	return bool(value)

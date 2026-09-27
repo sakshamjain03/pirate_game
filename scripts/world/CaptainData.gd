@@ -53,6 +53,13 @@ var health_modifier: float:
 var boarding_modifier: float:
 	get: return base_boarding_modifier + (level - 1) * 0.1
 
+@export_group("Content Gating")
+## MVP scope gate (2026-09-28). False keeps the authored resource in the repo
+## but out of the shipping game. Loaders filter via
+## `ResourceLookup.is_content_enabled()`. Defaults true so every existing
+## `.tres` is unaffected until explicitly disabled.
+@export var content_enabled: bool = true
+
 func add_xp(amount: int) -> void:
 	current_xp += amount
 	var xp_needed = level * 100

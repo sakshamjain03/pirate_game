@@ -18,3 +18,4 @@ base_turn_rate_modifier = 0.9
 base_health_modifier = 1.3
 base_boarding_modifier = 1.1
 active_ability = ExtResource("2_ability")
+content_enabled = false

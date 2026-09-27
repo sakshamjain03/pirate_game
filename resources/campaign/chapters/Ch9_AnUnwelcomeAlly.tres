@@ -83,3 +83,4 @@ opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Ope
 objectives = Array[ObjectiveData]([SubResource("Obj_9_1"), SubResource("Obj_9_2"), SubResource("Obj_9_3")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
 reward_gold = 12000
+content_enabled = false

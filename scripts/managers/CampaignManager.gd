@@ -46,7 +46,8 @@ func _load_chapters() -> void:
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(".tres"):
 			var chapter := load(CHAPTERS_DIR + file_name) as ChapterData
-			if chapter:
+			# MVP scope gate — chapters 6-10 are authored but not shipped.
+			if chapter and ResourceLookup.is_content_enabled(chapter):
 				chapters.append(chapter)
 		file_name = dir.get_next()
 	dir.list_dir_end()

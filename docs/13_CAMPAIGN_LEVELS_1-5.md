@@ -9,6 +9,59 @@
 
 ---
 
+# 0. MVP scope — this document is the source of truth (locked 2026-09-28)
+
+The game ships as a **freemium mobile** title with a **five-chapter, five-island MVP**. The repo
+carries more authored content than that; everything outside this scope is gated off with
+`content_enabled = false` and is **tracked tech debt**, to be built properly one island at a time
+as each new level ships. Nothing is deleted.
+
+**Chapters 1-5 ship** (this document). Chapters 6, 7, 9, 10 are deferred.
+**Regions 1-3 ship** (Beginner / Contested / Imperial). Ancient Ocean and Ghost Reaches deferred.
+**Twelve captains ship**; eight deferred (Mary, Bartholomew, Cutlass, Fiona, Grace, Rook, Barnaby,
+Yusuf). Marguerite stays enabled despite her own chapter being deferred — she speaks in Chapter 3's
+closing beats.
+
+## 0.1 The five islands
+
+| Island | Held at start | How the player gets it | Role |
+|---|---|---|---|
+| **Port Royal** | Spanish Empire | Tutorial capture by force | The main base. Chapter 1. |
+| **Tortuga** | Pirate Clans | Never ownable | Free port hub — tavern, contracts, market. |
+| **Pelican Cay** | Neutral | Colonize with gold (`colonize_cost_gold`) | Teaches peaceful expansion. |
+| **Cartagena Outpost** | Spanish Empire | Capture by force | Spain's stronghold. Chapter 4. |
+| **Skull Cove** | Royal Navy | Capture by force | Britain's stronghold — the Navy took the old pirate cove; the player takes it back. |
+
+`royal_navy` and `spanish_empire` already exist as `is_empire = true` factions, so the escalation
+and raid machinery needs no new factions.
+
+Deferred islands: Volcano Island, Frozen Island, Blackwater Shoal, Isla del Rey, Widow's Reach,
+Fogbound Cay. Their layout data is still guarded by `tests/test_world_map_layout.gd`, which reads
+the authored scene state rather than the live tree precisely so deferred islands stay correct for
+the day they are re-enabled.
+
+## 0.2 Island terrain draws on the real places
+
+Each island's art references its real-world namesake, staying creative where the game needs it.
+`IslandData.real_world_echo` (previously authored but unused) carries this to the player as codex
+text.
+
+- **Port Royal** (Jamaica) — a low sand spit closing a deep natural harbour, the drowned quarter of
+  the 1692 earthquake still visible as ruins under the shallows. Chapter 1's title already leans on
+  this.
+- **Tortuga** (Île de la Tortue, Haiti) — turtle-backed silhouette, sheer rocky north face, one
+  sheltered south-facing anchorage holding everything.
+- **Pelican Cay** (Bahamian cay) — flat, barely above sea level, mangrove fringe, turquoise shallows
+  and reef heads that punish a careless approach.
+- **Cartagena Outpost** (Cartagena de Indias, Colombia) — stone curtain walls, a hilltop castillo,
+  a narrow fortified harbour mouth the player must run under the guns to enter.
+- **Skull Cove** (invented) — a breached volcanic caldera forming a hidden circular basin with one
+  entrance; black rock, a Navy garrison bolted onto pirate-built structures.
+
+Reef and shallow hazards and narrow harbour mouths are **gameplay**, not decoration.
+
+---
+
 # 1. What a "level" is in this game
 
 There are no levels in the arcade sense. A **chapter** is a bundle of objectives with a gate in

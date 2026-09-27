@@ -20,13 +20,25 @@
 
 # 1. The one-sentence model
 
-**Pirate Empire is free to play in full, and earns money from cosmetics, a single one-time
-Supporter Pack, and advertisements the player chooses to watch.**
+> **Rewritten 2026-09-28.** This document was written on 2026-08-27 against a cosmetics-only
+> model. The project owner has since locked the game as a **freemium mobile title**. See
+> `docs/00_VISION.md` §19.1 for the decision and §19.2 for the limits that survive it. Sections
+> 1, 3 and 7 here are rewritten; sections 2, 4, 5 and 6 (SKUs, entitlements, compliance, targets)
+> still stand and are extended rather than replaced.
 
-Nothing that affects gameplay is ever sold. There is no premium currency. There is no energy
-meter. There is no timer whose removal is for sale.
+**Pirate Empire's five-chapter campaign is free to play in full, and the game earns money from a
+single premium currency — Pieces of Eight — plus cosmetics, a one-time Supporter Pack, and
+advertisements the player chooses to watch.**
+
+Eights finish timers, cover a shortfall on an upgrade the player already chose, and buy cosmetics
+and premium captains. They are **also earnable in play**, so free players hold them.
+
+The hard line: **no energy meter, nothing in the campaign behind a paywall, no forced ads, and
+Chapters 1-5 completable with zero spend** — that last one is a release gate, verified by a balance
+pass, not a preference.
 
 ---
+
 
 # 2. What is sold
 
@@ -142,17 +154,22 @@ always in exchange for a bonus on something they have already earned.
 
 # 3. What is never sold
 
-Restating the `00_VISION.md` §19 never-list as rules a reviewer can check:
+**Rewritten 2026-09-28.** The previous table banned premium currency, speed-ups and randomized
+rewards outright. The free-to-play model in `00_VISION.md` §19.1 permits all three under
+conditions; what remains banned is narrower and sharper.
 
 | Banned | Because |
 |---|---|
-| Hard / premium currency ("Doubloons") | Obscures real price, invites pay-to-win drift, and is banned outright in `AGENTS.md` |
-| Any stat, ship, captain, island, tech, region or chapter | Pay-to-win |
-| Speed-ups on building, research, or repair | Artificial waiting, monetized |
-| Energy / stamina / fuel that gates play | Explicit §19 never |
-| Loot boxes, gacha, randomized paid rewards | Gambling mechanics, and a regulatory problem in several markets |
-| Forced, interstitial, or unskippable advertisements | Explicit §19 never |
-| Timers introduced in order to sell their removal | Explicit §19 never |
+| A **second** premium currency beyond Pieces of Eight | One wallet, one mental model; multiple currencies exist to obscure real price |
+| Eights granted by production or the economy tick | Would make the currency a farmable resource and collapse its value |
+| Any chapter, island, hull, tech, or story captain behind money or an ad | The campaign is free in full — a release gate, not a preference |
+| A timer with no gameplay path to shortening it | A timer must be reducible by building levels too; money only finishes what play can also finish |
+| Skip pricing based on total duration | Skips are finishers, not bypasses — price off remaining time |
+| Energy / stamina / fuel that gates sailing, combat or boarding | The core loop is never gated; only the empire layer is time-gated |
+| Forced, interstitial, or unskippable advertisements | Every ad is opt-in, and every ad reward has an earnable equivalent |
+| Randomized paid rewards **without disclosed odds** | Google Play and App Store policy, and a regulatory problem in several markets |
+| Paid power in any competitive context | There is no PvP; if one is ever added, premium captains must be excluded from it |
+| Removing an earnable path to something now sold | Players must never lose access by a monetization change |
 | Selling player data, or sharing advertising IDs beyond what the ad SDK requires with consent | Privacy |
 
 ---
@@ -255,17 +272,25 @@ means in practice.
 
 # 7. The reviewer's checklist
 
-Any pull request touching monetization must answer "no" to all of these:
+**Rewritten 2026-09-28** for the free-to-play model. Any pull request touching monetization must
+answer "no" to all of these:
 
-1. Does it put a stat, ship, captain, island, tech, region, or chapter behind money or an ad?
-2. Does it introduce a currency, a wallet, or a balance the player can spend?
-3. Does an advertisement play without the player pressing a button that said it would?
-4. Is the player worse off for declining a purchase or an ad than they were before it was offered?
-5. Does it introduce a timer whose removal is for sale?
-6. Does it randomize a paid reward?
-7. Does it remove an existing earnable path to something now sold?
-8. Does it store an entitlement inside a save slot, where a new game would erase it?
-9. Does it request an advertisement before the age gate and consent flow have resolved?
-10. Does it hardcode a price, SKU, or cosmetic definition in a script instead of a Resource?
+1. Does it gate a chapter, island, hull, tech, or story captain behind money or an ad?
+2. Does it introduce a **second** premium currency alongside Pieces of Eight?
+3. Can Eights be earned from production, the economy tick, or any passive income source?
+4. Does it add an energy, stamina or fuel meter, or otherwise gate sailing, combat or boarding?
+5. Does it create a timer that **only** money can shorten — i.e. with no building-level or
+   gameplay path to reducing it?
+6. Is a skip priced off total duration rather than remaining time?
+7. Does an advertisement play without the player pressing a button that said it would?
+8. Is the player worse off for declining a purchase or an ad than before it was offered?
+9. Does it randomize a paid reward **without disclosing the odds** in-product?
+10. Does it remove an existing earnable path to something now sold?
+11. Does it store an entitlement or an Eights balance inside a save slot, where a new game would
+    erase it?
+12. Does it request an advertisement before the age gate and consent flow have resolved?
+13. Does it hardcode a price, SKU, timer duration, skip cost, or cosmetic definition in a script
+    instead of a Resource?
+14. Does it break the release gate that **Chapters 1-5 are completable with zero spend**?
 
 Any "yes" is a rejection.

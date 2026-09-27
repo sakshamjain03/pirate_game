@@ -16,3 +16,4 @@ world_position = Vector2(-50, -430)
 region_id = "contested_waters"
 codex_summary = "A Navy resupply waystation on a reef too shallow for their larger hulls. On capture, thins the Navy's Contested-ring presence — a region-filling target, no chapter hook yet."
 real_world_echo = ""
+content_enabled = false

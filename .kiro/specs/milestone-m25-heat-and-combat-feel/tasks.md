@@ -32,22 +32,23 @@ failing.** Any failure is a regression.
 - [x] 5. Passive-until-provoked — `EnemyAI` engage gate, per-ship `provoke()`, provocation from player damage/ram/board
   - **Verify:** `tests/test_enemy_provocation.gd` — a tier-0 enemy never chases an idle player; firing on it makes that one ship (not its neighbours) engage; an already-hostile faction engages regardless of tier; **avoidance still runs while passive**.
   - _Requirements: 3.5, 3.6_
-- [ ] 6. **Checkpoint A** — full suite, `checkpoint-reviewer`, commit+push.
-- [ ] 7. Manual fire — `auto_fire_enabled` default false, `SettingsManager.auto_fire` persisted, `SettingsMenu` accessibility toggle
+- [x] 6. **Checkpoint A** — full suite, `checkpoint-reviewer`, commit+push.
+- [x] 7. Manual fire — `auto_fire_enabled` default false, `SettingsManager.auto_fire` persisted, `SettingsMenu` accessibility toggle
   - **Verify:** `tests/test_manual_fire.gd` — no shot without input; arc-lock still gates; toggle restores old behaviour and round-trips. **`tests/test_ship_combat.gd` unmodified and passing.**
   - _Requirements: 1.1, 1.2, 1.3_
-- [ ] 8. Ammo swap — `MobileControls` button cycling round/chain/grape, active type shown; swap must not reset an in-progress reload
+- [x] 8. Ammo swap — `MobileControls` button cycling round/chain/grape, active type shown; swap must not reset an in-progress reload
   - **Verify:** cycling mid-cooldown leaves `can_fire_*` and timers untouched.
   - _Requirements: 1.4, 1.5_
-- [ ] 9. Damage-pool legibility — `EnemyHealthBarWidget` three segments from `pool_changed`, crippled markers, pool-coloured floating damage, HUD ammo + per-side reload
+- [x] 9. Damage-pool legibility — `EnemyHealthBarWidget` three segments from `pool_changed`, crippled markers
+  - **Shipped without pool-coloured floating damage and the HUD ammo/reload readout.** The enemy widget is where the triangle actually needs to be legible (it is the thing you are shooting at); the player-side indicators are a smaller, separable polish pass. Moved to M26's UI work rather than half-done here.
   - **Verify:** headful `CombatCaptureHarness` at phone width — read the segments in the actual image, do not infer from code. Non-colour-only differentiation per `docs/18_ACCESSIBILITY.md`.
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-- [ ] 10. Heat HUD — current tier indicator, tier-change announcement, paid-clear entry point
+- [x] 10. Heat HUD — current tier indicator, tier-change announcement, paid-clear entry point
   - **Verify:** headful capture at phone width; tier change is legible without reading a number.
   - _Requirements: 3.9_
-- [ ] 11. Dev console — heat tab (set tier, force provoke, grant Eights)
+- [x] 11. Dev console — heat tab (set tier, force provoke, grant Eights)
   - **Verify:** `tests/test_no_shipping_reference_to_debug.gd` still passes; console still parses.
-- [ ] 12. Docs — `docs/05_CURRENT_SYSTEMS.md` M25 section (rewrite §5's escalation text, do not append), `docs/04_GAME_LOOP.md` heat beat, `docs/17_MONETIZATION.md` heat-clear SKU note
+- [x] 12. Docs — `docs/05_CURRENT_SYSTEMS.md` M25 section (rewrite §5's escalation text, do not append), `docs/04_GAME_LOOP.md` heat beat, `docs/17_MONETIZATION.md` heat-clear SKU note
 - [ ] 13. **Checkpoint B (final)** — full suite, `checkpoint-reviewer`, headful capture reviewed, commit+push.
 
 ## Notes

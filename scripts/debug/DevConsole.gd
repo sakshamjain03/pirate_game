@@ -231,6 +231,18 @@ func _make_progression_tab() -> ScrollContainer:
 		_button("+150 (Imperial)", func(): _cheat_notoriety_to(150.0)),
 		_button("Reset", func(): _cheat_notoriety_to(0.0)),
 	]))
+	body.add_child(_heading("Heat (M25)"))
+	body.add_child(_row([
+		_button("Tier 0", func(): _cheat_set_heat_tier(0)),
+		_button("Tier 2", func(): _cheat_set_heat_tier(2)),
+		_button("Tier 5", func(): _cheat_set_heat_tier(5)),
+		_button("Provoke all", _cheat_provoke_all),
+	]))
+	body.add_child(_row([
+		_button("+500 Eights", func(): _cheat_add(ResourceManager.PREMIUM_CURRENCY, 500)),
+		_button("Buy heat down", _cheat_buy_heat_down),
+		_button("Lying low", _cheat_toggle_lying_low),
+	]))
 	body.add_child(_heading("Research"))
 	body.add_child(_row([_button("Unlock all techs", _cheat_unlock_all_techs)]))
 	body.add_child(_heading("Chapters"))
@@ -250,8 +262,13 @@ func _fill_progression() -> void:
 	_clear(list)
 
 	var head := Label.new()
-	head.text = "Notoriety %.1f   |   %d chapter(s) enabled" % [
-		EmpireManager.notoriety, CampaignManager.chapters.size()]
+	var heat := "?"
+	if EmpireManager.has_method("get_heat_name"):
+		heat = "%d %s" % [EmpireManager.get_heat_level(), EmpireManager.get_heat_name()]
+	head.text = "Notoriety %.1f  |  Heat %s%s  |  %d chapter(s) enabled" % [
+		EmpireManager.notoriety, heat,
+		"  (lying low)" if EmpireManager.is_lying_low() else "",
+		CampaignManager.chapters.size()]
 	list.add_child(head)
 
 	for chapter in CampaignManager.chapters:
@@ -629,3 +646,52 @@ func _cheat_cripple_enemies() -> void:
 		dmg.hull = maximum * 0.1
 		count += 1
 	_say("crippled %d enemy ship(s) to 10%% hull" % count)
+
+
+# ------------------------------------------------------------- Heat (M25)
+
+## Jumps straight to a tier by setting the notoriety its threshold requires.
+## Goes through add_notoriety() rather than writing the field so the tier-change
+## signal and region activation both fire exactly as they would in play — a dev
+## shortcut must not be able to reach a state the game itself cannot.
+func _cheat_set_heat_tier(tier_number: int) -> void:
+	if not EmpireManager.heat_config:
+		_say("no heat curve loaded")
+		return
+	var target: HeatTierData = null
+	for t in EmpireManager.heat_config.tiers:
+		if t and t.tier == tier_number:
+			target = t
+	if target == null:
+		_say("no tier %d authored" % tier_number)
+		return
+	EmpireManager.add_notoriety(target.min_notoriety - EmpireManager.notoriety)
+	_say("heat -> %d %s (notoriety %.0f)" % [target.tier, target.display_name, EmpireManager.notoriety])
+	_fill_progression()
+
+
+## Turns the whole ambient population hostile without having to shoot each hull.
+func _cheat_provoke_all() -> void:
+	var count := 0
+	for enemy in get_tree().get_nodes_in_group("enemy_ship"):
+		if not is_instance_valid(enemy):
+			continue
+		var ai = enemy.get_node_or_null("EnemyAI")
+		if ai and ai.has_method("provoke"):
+			ai.provoke()
+			count += 1
+	_say("provoked %d ship(s)" % count)
+
+
+func _cheat_buy_heat_down() -> void:
+	if EmpireManager.spend_to_reduce_heat():
+		_say("bought heat down to %d %s" % [EmpireManager.get_heat_level(), EmpireManager.get_heat_name()])
+	else:
+		_say("heat clear refused (already lowest tier, not purchasable, or not enough Eights)")
+	_fill_progression()
+
+
+func _cheat_toggle_lying_low() -> void:
+	EmpireManager.set_lying_low(not EmpireManager.is_lying_low())
+	_say("lying low: %s" % ("ON" if EmpireManager.is_lying_low() else "OFF"))
+	_fill_progression()

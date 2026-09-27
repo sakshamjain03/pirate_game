@@ -137,6 +137,8 @@ var _last_reported_health: float = -1.0
 ## rather than being torn down and rebuilt each tick.
 var _enemy_bar_pool: Dictionary = {}
 var _notoriety_next_label: Label
+## M25 heat tier name, shown beside the notoriety number.
+var _heat_tier_label: Label
 var _notoriety_bar: NotorietyBar
 ## v0.3 notoriety bar; the card hugs header + bar, well short of the pill
 ## row (test_notoriety_chip_shrinks_to_content_width).
@@ -940,10 +942,20 @@ func _create_notoriety_label() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 0)
 	chip.add_child(col)
+	# M25 — the heat tier name. Notoriety was a bare number; the tier is what makes
+	# it read as a wanted level ("Unknown" vs "Nemesis") without the player having
+	# to learn what 150 means. Added to the existing header HBox so it lays out
+	# with its siblings rather than at a hand-placed offset.
+	_heat_tier_label = Label.new()
+	_heat_tier_label.name = "HeatTier"
+	_heat_tier_label.theme_type_variation = &"ChipLabel"
+	_heat_tier_label.add_theme_color_override("font_color", pal.notoriety_accent)
+
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 14)
 	header.add_child(title)
 	header.add_child(notoriety_label)
+	header.add_child(_heat_tier_label)
 	header.add_child(_notoriety_next_label)
 	col.add_child(header)
 	_notoriety_bar = NotorietyBar.new()
@@ -1097,6 +1109,9 @@ func _on_notoriety_changed(new_val: float) -> void:
 					next_threshold = region.activation_notoriety_threshold
 	if _notoriety_next_label:
 		_notoriety_next_label.text = (tr("Next escalation: %d") % roundi(next_threshold)) if next_threshold >= 0 else tr("Hunted everywhere")
+	if _heat_tier_label and emp and emp.has_method("get_heat_name"):
+		var heat_name: String = emp.get_heat_name()
+		_heat_tier_label.text = heat_name.to_upper() if not heat_name.is_empty() else ""
 	if _notoriety_bar:
 		_notoriety_bar.set_state(new_val, thresholds, next_threshold)
 		if _auto_hide and _last_notoriety >= 0.0 and not is_equal_approx(new_val, _last_notoriety):

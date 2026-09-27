@@ -467,10 +467,15 @@ load whenever a pending report exists, and clears it on dismiss.
 
 ## Known gaps
 
+**Updated 2026-09-28 (M25).** Ambient danger is no longer flat: `EnemySpawner`'s cap, cadence and
+strength multiplier now come from the current heat tier (see the M25 section below), and ambient
+ships are passive until provoked below tier 2. What remains open here:
+
 No region-specific enemy *types* yet (only stat scaling — `EnemySpawner`'s own TODO still lists
 this for a future milestone), and no named/scripted empire captains. The Defend Home fleet bonus
-and Fortress/Watchtower defense contributions are currently binary (built or not), not scaled by
-building upgrade tier.
+and Fortress/Watchtower defense contributions are still binary (built or not), not scaled by
+building upgrade tier — **M29 closes that one**, replacing the `fortress*20 + watchtower*15`
+literals with authored per-level `defense_score` data.
 
 ---
 
@@ -2897,3 +2902,115 @@ only be gated behind shipping regions/chapters; chapter rewards must resolve to 
 boss encounters must be reachable from a shipping chapter; and every shipping chapter must keep at
 least one mandatory objective. **Verified to actually fail** by re-introducing the `frozen_island`
 reference and watching it go red, rather than trusting a green run.
+
+---
+
+## M25 - Heat & Combat Feel (2026-09-28)
+
+Spec: `.kiro/specs/milestone-m25-heat-and-combat-feel/`. Commits `f8dffef` (heat), `898da20`
+(manual fire + ammo).
+
+### Heat - a GTA-style wanted level
+Ambient danger is now a direct function of the trouble the player has caused.
+
+**Heat is a LENS over `EmpireManager.notoriety`, not a second stat.** Notoriety already rose on
+kills, decayed, gated region activation and persisted; a parallel number would have given the game
+two escalation values that drift apart. Nothing writes a `heat` variable, nothing persists one, and
+`EmpireManager.load_save_data()` re-resolves the band on load.
+
+Six tiers authored in `resources/balance/HeatCurve.tres` (`HeatConfigData` + `HeatTierData`). This
+is also the game's single ambient-difficulty curve - it **absorbs the `DifficultyCurve.tres`
+deferred from M24** rather than adding a second file.
+
+| Tier | Name | Notoriety | Ambient cap | Engages unprovoked? |
+|---|---|---|---|---|
+| 0 | Unknown | 0 | 2 | no |
+| 1 | Noticed | 20 | 3 | no |
+| 2 | Wanted | **60** | 4 | yes |
+| 3 | Hunted | 110 | 5 | yes |
+| 4 | Scourge | **150** | 6 | yes |
+| 5 | Nemesis | 220 | 8 | yes |
+
+Tier boundaries are pinned to the region-activation thresholds (60, 150) so "the sea got harder"
+and "a new region opened" land together. `test_heat_system.gd` fails if the two curves drift apart.
+
+**Passive until provoked** is the interesting half. Below tier 2 an ambient hull patrols and
+ignores the player until *that specific ship* is shot, rammed or boarded. Provocation is per-ship
+(firing on one does not turn the sea hostile) and never expires. The gate lives in
+`EnemyAI._can_detect_player()` - the one point every IDLE/PATROL to CHASE transition already
+funnels through - so **no state-machine or avoidance code was touched**, and a passive ship still
+runs the full `_get_avoidance_turn`/`_probe`/`_push_to_open_water` path that stops it beaching.
+
+Only hulls in the new **`ambient_enemy`** group can go passive. Bosses, encounter spawns, siege
+attackers and `spawn_hunter()` dispatches are scripted and always engage - otherwise a fight the
+game promised would silently never start. A faction the player has already wrecked relations with
+also engages at any heat: heat governs the ambient world, not diplomacy.
+
+**Cooling off.** Decay was a flat `1.0/60` per second after a **600 s** grace, so a player had to
+stop playing for ten minutes to see any change. Now authored per tier after a 120 s grace, doubled
+while docked at an island the player **owns** (hiding in an enemy harbour does not cool the
+Admiralty off). Every tier authors non-zero free decay, so tier 0 is always reachable unaided.
+
+### Pieces of Eight
+The single premium currency, introduced early so the optional heat clear has a sink a zero-spend
+player already holds. Earned from chapter completion (`ChapterData.reward_eights`, authored 10-60
+across Ch1-5); spent to drop exactly **one** tier per purchase. The `docs/00_VISION.md` 19.2 rule
+that production may never mint it is enforced in code - `Island._produce_resource()` `push_error`s
+and grants nothing rather than silently succeeding.
+
+**This is deliberately not an energy system and must not become one.** Heat gates nothing: sailing,
+combat and boarding stay unlimited at every tier. `test_heat_system.gd` asserts `EmpireManager`
+never grows a `can_sail`/`has_energy`-shaped API.
+
+*Deferred:* the first-boss-kill Eights grant. "First time" needs a persisted set of defeated
+bosses - new save state that belongs with M31's achievement tracking.
+
+### Combat feel
+**Firing is the player's action.** `ShipCombat._physics_process` used to pull the trigger on
+arc-lock, so none of the depth underneath was ever a decision. Two traps on the way:
+
+- **The `auto_fire_enabled` export default stays `true`.** Flipping it would have disarmed every AI
+  hull: `EnemyAI` only calls `fire_cannons()` for its deliberate attack run (`EnemyAI.gd:378`) and
+  relied on auto-fire for everything else. That would have been a sweeping combat rebalance wearing
+  the costume of a UX fix. Only the **player's** hull is switched, from `SettingsManager.auto_fire`
+  (default false), in `ShipCombat._apply_player_auto_fire_setting()`.
+- **Mobile nearly shipped with no fire button.** `BtnFirePort`/`BtnFireStar` were hidden behind
+  `mobile_advanced_combat_controls` (default **off**) - correct while auto-fire pulled the trigger,
+  unplayable once it does not. They are persistent controls now. The dead "Advanced Fire Controls"
+  settings row was removed; its config key is still read so an existing config loads unchanged.
+
+Auto-fire survives as an accessibility option under **Display > Accessibility**.
+
+**The damage triangle is visible.** `EnemyHealthBarWidget` now shows hull, rigging and crew, fed by
+`ShipDamage.pool_changed`, with "RIGGING DOWN" / "CREW BROKEN" callouts. Each pool bar carries a
+text tag so the three are distinguishable without colour (`docs/18_ACCESSIBILITY.md`). This is what
+turns three authored `AmmoData` resources into a decision: chain wrecks sails so a target cannot
+flee, grape kills crew so boarding succeeds, round kills hull so you get loot instead of a prize.
+An ammo-swap control on the mobile action cluster cycles the three; `set_ammo()` never touches
+`can_fire_*` or the cooldowns, so switching mid-reload costs nothing.
+
+The HUD notoriety card now shows the heat tier NAME beside the number, so the player reads a wanted
+level instead of having to learn what 150 means.
+
+### Tests changed (all deliberate)
+- `test_empire_manager` x2 - the decay tests hardcoded the old 600 s grace; they now read it from
+  the authored curve, so the intent ("there is a grace period") survives and cannot drift again.
+- `test_firing_solver` x4, `test_combat_loop_end_to_end` x1, `test_combat_integration` x4 - opt into
+  auto-fire explicitly. Preconditions made visible; assertions unchanged.
+- `test_mobile_controls_layout` x1 - fire-button assertion **inverted** from hidden to visible. The
+  only genuine behaviour change among them.
+- `test_combat_integration`'s bow-on test needed the opt-in for a different reason: it asserts
+  nothing fires, so with manual fire as the default it would have passed **vacuously** - green
+  because nothing fires at all any more, not because the firing arc works.
+
+### Process note
+The Checkpoint A reviewer initially returned FAIL with nine failing tests. Those were measured
+against a dirty working tree: the reviewer was launched in the background and then the same files
+were edited for Tasks 7-8 while it ran. `git show --stat f8dffef` touches none of the files whose
+tests failed. Corrected verdict: PASS. **Do not run `checkpoint-reviewer` in the background while
+continuing to edit the files it is verifying.**
+
+### Not verifiable here
+Whether manual fire *feels* better than auto-fire, whether the heat curve paces well, and on-device
+frame rate at tier 5's cap of 8 ambient hulls (a phone performance question as much as a balance
+one). Stated rather than claimed.

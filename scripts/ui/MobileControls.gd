@@ -215,6 +215,7 @@ func _layout_primary_actions() -> void:
 		_center_button_content(button)
 	_add_cooldown_sweep("ability", btn_captain_ability)
 	_add_cooldown_sweep("broadside", btn_special_broadside)
+	_create_ammo_selector()
 
 
 func _create_action_captions() -> void:
@@ -293,10 +294,15 @@ func _create_caption_label(caption: String, x: float, width: float) -> void:
 
 
 func _apply_advanced_combat_controls() -> void:
-	var enabled := bool(SettingsManager.mobile_advanced_combat_controls)
-	btn_fire_port.visible = enabled
-	btn_fire_star.visible = enabled
-	if enabled and not _advanced_buttons_wired:
+	# M25 — the fire buttons are now ALWAYS visible. They used to be hidden behind
+	# `mobile_advanced_combat_controls` (default OFF) because auto-fire pulled the
+	# trigger and per-side buttons were a power-user extra. Firing is the player's
+	# action now, so leaving them gated would have shipped a mobile build with no
+	# way to shoot at all. The setting no longer gates them; see
+	# .kiro/specs/milestone-m25-heat-and-combat-feel/design.md.
+	btn_fire_port.visible = true
+	btn_fire_star.visible = true
+	if not _advanced_buttons_wired:
 		_setup_button(btn_fire_port, "fire_port")
 		_setup_button(btn_fire_star, "fire_starboard")
 		_advanced_buttons_wired = true
@@ -512,3 +518,83 @@ func _inject_action(action_name: String, pressed: bool) -> void:
 	ev.action = action_name
 	ev.pressed = pressed
 	Input.parse_input_event(ev)
+
+
+# ---------------------------------------------------------------- Ammo (M25)
+## The three ammo types have always existed with real, distinct effects — chain
+## wrecks sails so a target cannot flee, grape kills crew so boarding succeeds,
+## round kills hull so you get loot instead of a prize — and there has never been
+## a way to choose between them in play. Auto-fire meant the player never even
+## had a moment to. Now that firing is an action, the choice becomes the decision
+## that makes the damage triangle matter.
+##
+## Deliberately NOT behind a settings toggle: an option defaulting off would hide
+## the mechanic from every player who never opens Settings.
+
+const AMMO_PATHS := [
+	"res://resources/combat/ammo/RoundShot.tres",
+	"res://resources/combat/ammo/ChainShot.tres",
+	"res://resources/combat/ammo/GrapeShot.tres",
+]
+const AMMO_LABELS := ["Round", "Chain", "Grape"]
+
+var _btn_ammo: Button
+var _ammo_index: int = 0
+
+
+func _create_ammo_selector() -> void:
+	if _btn_ammo and is_instance_valid(_btn_ammo):
+		return
+	_btn_ammo = Button.new()
+	_btn_ammo.name = "BtnAmmo"
+	_btn_ammo.tooltip_text = tr("Shot type")
+	_make_round(_btn_ammo, _ROUND_SMALL)
+	# Sits above the ability button, inside the same 378-wide action column, so it
+	# joins the existing cluster rather than being placed at a hardcoded offset
+	# that would drift away from its siblings (CLAUDE.md fragile-area rule).
+	var size := PirateThemeBuilder.round_button_size(_ROUND_SMALL)
+	_btn_ammo.position = Vector2((189.0 - size.x) * 0.5, 136.0 - size.y - 12.0)
+	_center_button_content(_btn_ammo)
+	_btn_ammo.pressed.connect(_cycle_ammo)
+	btn_captain_ability.get_parent().add_child(_btn_ammo)
+	_sync_ammo_from_ship()
+	_refresh_ammo_button()
+
+
+## Reads the ship's current ammo so the button never contradicts what is loaded
+## (e.g. after a ship swap, or a save that restored a different shot type).
+func _sync_ammo_from_ship() -> void:
+	var combat := _player_combat()
+	if not combat or not combat.current_ammo:
+		return
+	var path: String = combat.current_ammo.resource_path
+	var found := AMMO_PATHS.find(path)
+	if found >= 0:
+		_ammo_index = found
+
+
+func _player_combat() -> Node:
+	var player := get_tree().get_first_node_in_group("player_ship")
+	return player.get_node_or_null("ShipCombat") if player else null
+
+
+func _cycle_ammo() -> void:
+	_ammo_index = (_ammo_index + 1) % AMMO_PATHS.size()
+	var combat := _player_combat()
+	if combat and combat.has_method("set_ammo"):
+		# set_ammo() only swaps the resource — it must never touch can_fire_* or
+		# the cooldown timers, so switching mid-reload costs nothing and the player
+		# is never punished for changing their mind.
+		combat.set_ammo(load(AMMO_PATHS[_ammo_index]))
+	_refresh_ammo_button()
+	HapticFeedbackManager.tap()
+
+
+func _refresh_ammo_button() -> void:
+	if not _btn_ammo or not is_instance_valid(_btn_ammo):
+		return
+	_btn_ammo.text = tr(AMMO_LABELS[_ammo_index])
+
+
+func get_ammo_index() -> int:
+	return _ammo_index

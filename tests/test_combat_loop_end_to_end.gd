@@ -156,6 +156,12 @@ func test_the_whole_v1_combat_loop_runs_through_the_real_scenes():
 	# The wait still has to cover the solver's 0.1 s retarget interval.
 	combat.can_fire_port = true
 	combat.can_fire_starboard = true
+	# M25 — the player's hull is manual-fire by default now (firing became an
+	# action the player takes). This segment tests the auto-fire path specifically,
+	# which survives as an accessibility option, so it opts in explicitly. The
+	# assertion below is unchanged: auto-fire must still pull the trigger on
+	# alignment with no input.
+	combat.auto_fire_enabled = true
 	await wait_seconds(0.8)
 	assert_true(solver.is_aligned(FiringSolver.SIDE_STARBOARD),
 		"A hostile off the beam must lock the starboard battery")

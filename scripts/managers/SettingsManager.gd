@@ -80,6 +80,11 @@ const DEFAULT_NOTIFY_RAIDS: bool = true
 ## enemy stats unscaled), 3 Brutal. Applied at use time by ShipCombat/EnemyAI
 ## via AIDifficultyData.for_ship(), so a change takes effect mid-session.
 const DEFAULT_AI_DIFFICULTY: int = 1
+## M25 — cannons no longer fire themselves; FIRE is a button. This is retained as
+## an ACCESSIBILITY option for players who cannot comfortably time a tap, and it
+## restores the pre-M25 behaviour exactly (ShipCombat's auto-fire block is
+## unchanged, only its default). Off by default.
+const DEFAULT_AUTO_FIRE: bool = false
 const AI_DIFFICULTY_PATHS: Array[String] = [
 	"res://resources/combat/ai_difficulty/Relaxed.tres",
 	"res://resources/combat/ai_difficulty/Normal.tres",
@@ -134,6 +139,12 @@ var reduce_motion: bool = DEFAULT_REDUCE_MOTION
 var text_size: int = DEFAULT_TEXT_SIZE
 var mute_in_background: bool = DEFAULT_MUTE_IN_BACKGROUND
 var notify_raids: bool = DEFAULT_NOTIFY_RAIDS
+var auto_fire: bool = DEFAULT_AUTO_FIRE:
+	set(value):
+		auto_fire = value
+		# Apply live: a player toggling this mid-battle should see it take effect
+		# now, not on the next ship swap.
+		_apply_auto_fire_to_player()
 var ai_difficulty: int = DEFAULT_AI_DIFFICULTY:
 	set(value):
 		ai_difficulty = clampi(value, 0, AI_DIFFICULTY_PATHS.size() - 1)
@@ -282,6 +293,8 @@ func load_settings() -> void:
 	notify_raids = _read_bool(config, "notifications", "raids", DEFAULT_NOTIFY_RAIDS)
 	var _ai_difficulty = config.get_value("gameplay", "ai_difficulty", DEFAULT_AI_DIFFICULTY)
 	ai_difficulty = _ai_difficulty if typeof(_ai_difficulty) == TYPE_INT else DEFAULT_AI_DIFFICULTY
+	var _auto_fire = config.get_value("gameplay", "auto_fire", DEFAULT_AUTO_FIRE)
+	auto_fire = _auto_fire if typeof(_auto_fire) == TYPE_BOOL else DEFAULT_AUTO_FIRE
 
 	if apply_input_bindings_on_load:
 		load_input_bindings(config)
@@ -306,6 +319,7 @@ func save_settings() -> void:
 	config.set_value("display", "quality", graphics_quality)
 	config.set_value("display", "ui_font", ui_font)
 	config.set_value("gameplay", "ai_difficulty", ai_difficulty)
+	config.set_value("gameplay", "auto_fire", auto_fire)
 	config.set_value("display", "hud_detail", hud_detail)
 	config.set_value("display", "show_fps", show_fps)
 	config.set_value("display", "max_fps", max_fps)
@@ -490,3 +504,17 @@ func get_ai_difficulty_names() -> Array[String]:
 		var res = load(path)
 		names.append(res.display_name if res is AIDifficultyData else path.get_file().get_basename())
 	return names
+
+
+## M25 — pushes the auto-fire accessibility setting onto the player's live
+## ShipCombat. Safe to call before the world exists (no player in the tree yet);
+## ShipCombat also reads the setting on its own _ready() for that case.
+func _apply_auto_fire_to_player() -> void:
+	if not is_inside_tree():
+		return
+	var player := get_tree().get_first_node_in_group("player_ship")
+	if not player:
+		return
+	var combat = player.get_node_or_null("ShipCombat")
+	if combat and "auto_fire_enabled" in combat:
+		combat.auto_fire_enabled = auto_fire

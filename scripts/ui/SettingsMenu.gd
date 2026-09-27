@@ -380,13 +380,12 @@ func _add_mobile_controls(card: VBoxContainer) -> void:
 		settings_manager.haptics_enabled = enabled
 		settings_manager.save_settings())
 	card.add_child(haptics)
-	var advanced_fire := CheckButton.new()
-	advanced_fire.text = tr("Advanced Fire Controls")
-	advanced_fire.button_pressed = settings_manager.mobile_advanced_combat_controls
-	advanced_fire.toggled.connect(func(enabled: bool):
-		settings_manager.mobile_advanced_combat_controls = enabled
-		settings_manager.save_settings())
-	card.add_child(advanced_fire)
+	# M25 — the "Advanced Fire Controls" row was removed. It gated the port/starboard
+	# fire buttons, which are now the core combat action and always shown; the toggle
+	# would only have let a player hide their own trigger. The
+	# `mobile_advanced_combat_controls` key is still read by SettingsManager so an
+	# existing config file loads unchanged, it simply no longer drives anything.
+	# Auto-fire moved to Display > Accessibility, where an accessibility option belongs.
 	var tilt_steer := CheckButton.new()
 	tilt_steer.text = tr("Tilt to Steer")
 	tilt_steer.button_pressed = settings_manager.mobile_tilt_steering_enabled
@@ -636,6 +635,13 @@ func _build_display_tab() -> void:
 	_add_toggle_row(access_card, tr("Reduce motion"), tr("No pops, glows, ticking numbers or typing"),
 		bool(_setting("reduce_motion", false)),
 		func(on: bool): _commit_setting("reduce_motion", on))
+	# M25 — firing is a player action now. This restores the pre-M25 behaviour for
+	# anyone who cannot comfortably time a tap; positioning still decides whether a
+	# side may fire either way, so nothing about the skill of aiming changes.
+	_add_toggle_row(access_card, tr("Auto-fire cannons"),
+		tr("Guns fire themselves whenever a broadside lines up"),
+		bool(_setting("auto_fire", false)),
+		func(on: bool): _commit_setting("auto_fire", on))
 
 	_add_section_header(display_vbox, tr("Sound & Alerts"))
 	var alert_card := _add_section_card(display_vbox)

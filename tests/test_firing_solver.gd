@@ -65,7 +65,14 @@ func _stats(cannon_range: float = 100.0, arc: float = 35.0, has_bow: bool = fals
 	s.chaser_arc_degrees = chaser_arc
 	return s
 
-func _make_ship(stats: ShipStats, group: String, pos: Vector3 = Vector3.ZERO) -> MockShip:
+## M25 — the player's hull is manual-fire by default now, so every auto-fire test
+## below opts in explicitly via . That is a precondition being
+## made visible, not a weakened assertion: these tests still verify exactly what
+## they always did, that auto-fire pulls the trigger on arc-lock and respects the
+## reload gate and the docked check. The accessibility setting is what turns it on
+## in the real game.
+func _make_ship(stats: ShipStats, group: String, pos: Vector3 = Vector3.ZERO,
+		auto_fire: bool = false) -> MockShip:
 	var ship = MockShip.new()
 	ship.add_to_group(group)
 	ship.add_to_group(_scope)
@@ -94,6 +101,10 @@ func _make_ship(stats: ShipStats, group: String, pos: Vector3 = Vector3.ZERO) ->
 	ship.add_child(combat)
 
 	add_child_autoqfree(ship)
+	# AFTER entering the tree: ShipCombat._ready() applies the player's auto-fire
+	# accessibility setting to anything in the "player_ship" group, so setting this
+	# any earlier would be silently overwritten.
+	combat.auto_fire_enabled = auto_fire
 	ship.global_position = pos
 	return ship
 
@@ -237,7 +248,7 @@ func test_bow_and_stern_lock_different_targets_at_once():
 	assert_eq(solver.get_target(FiringSolver.SIDE_STERN), behind, "Stern locks the aft hull")
 
 func test_auto_fire_fires_the_bow_chaser_when_aligned():
-	var player = _make_ship(_stats(100.0, 35.0, true), "player_ship", Vector3.ZERO)
+	var player = _make_ship(_stats(100.0, 35.0, true), "player_ship", Vector3.ZERO, true)
 	_add_chaser_guns(player)
 	_make_ship(_stats(), "enemy_ship", Vector3(0, 0, -40))
 	await wait_physics_frames(4)
@@ -320,7 +331,7 @@ func test_a_sinking_wreck_stops_being_a_target():
 # --- auto-fire ---
 
 func test_auto_fire_pulls_the_trigger_when_the_arc_lines_up():
-	var player = _make_ship(_stats(), "player_ship", Vector3.ZERO)
+	var player = _make_ship(_stats(), "player_ship", Vector3.ZERO, true)
 	_add_guns(player)
 	_make_ship(_stats(), "enemy_ship", Vector3(40, 0, 0))
 	await wait_physics_frames(4)
@@ -347,7 +358,7 @@ func test_auto_fire_can_be_switched_off():
 		"auto_fire_enabled = false must leave firing entirely manual")
 
 func test_auto_fire_respects_the_reload_gate():
-	var player = _make_ship(_stats(), "player_ship", Vector3.ZERO)
+	var player = _make_ship(_stats(), "player_ship", Vector3.ZERO, true)
 	_add_guns(player)
 	_make_ship(_stats(), "enemy_ship", Vector3(40, 0, 0))
 	# fire_rate 2.0 -> a 0.5 s reload, so a quarter second of frames is one volley.
@@ -356,7 +367,7 @@ func test_auto_fire_respects_the_reload_gate():
 	assert_eq(shots, 1, "Auto-fire must obey the per-side reload, not fire every frame")
 
 func test_auto_fire_is_suppressed_while_docked():
-	var player = _make_ship(_stats(), "player_ship", Vector3.ZERO)
+	var player = _make_ship(_stats(), "player_ship", Vector3.ZERO, true)
 	_add_guns(player)
 	player.is_docked = true
 	_make_ship(_stats(), "enemy_ship", Vector3(40, 0, 0))

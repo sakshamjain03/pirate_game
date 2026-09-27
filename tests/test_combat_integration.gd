@@ -35,9 +35,17 @@ func after_each():
 		_created_test_scene.queue_free()
 	_created_test_scene = null
 
-func _spawn(path: String, pos: Vector3) -> Node3D:
+## M25 — `auto_fire` opts a hull into firing on arc-lock with no input. The
+## player's hull is manual by default now, so the auto-fire tests below ask for it
+## explicitly. It has to be applied AFTER the node enters the tree, because
+## ShipCombat._ready() pushes the accessibility setting onto anything in the
+## "player_ship" group and would overwrite an earlier assignment.
+func _spawn(path: String, pos: Vector3, auto_fire: bool = false) -> Node3D:
 	var ship = load(path).instantiate() as Node3D
 	_root.add_child(ship)
+	var combat = ship.get_node_or_null("ShipCombat")
+	if combat:
+		combat.auto_fire_enabled = auto_fire or not ship.is_in_group("player_ship")
 	ship.global_position = pos
 	# There is no Ocean (and so no WaveGenerator) in this bare test root, so
 	# BuoyancySimulator has no water surface to work against and would shove the
@@ -102,7 +110,7 @@ func test_authored_cannon_range_is_actually_reachable_by_a_cannonball():
 func test_a_real_player_ship_auto_fires_on_a_real_enemy_in_its_arc():
 	## The end-to-end proof of docs/navalCombat.md §4: no input, correct
 	## positioning, cannonballs in the water.
-	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
+	var player = _spawn(PLAYER_SHIP, Vector3.ZERO, true)
 	# Default orientation faces -Z, so +X is the starboard beam. 45 units is
 	# inside the Sloop's authored 85-unit range.
 	_spawn(ENEMY_SHIP, Vector3(45, 0, 0))
@@ -130,7 +138,7 @@ func test_a_real_cannonball_collision_actually_damages_the_target():
 	## own RigidBody3D physics collision (Cannonball._on_body_entered) ever
 	## reaches ShipDamage.apply_hit() in actual flight. Waits long enough for
 	## a real flight (~0.7 s, see FALL_TIME above) plus impact.
-	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
+	var player = _spawn(PLAYER_SHIP, Vector3.ZERO, true)
 	var enemy = _spawn(ENEMY_SHIP, Vector3(45, 0, 0))
 
 	var enemy_dmg = enemy.get_node("ShipDamage")
@@ -146,7 +154,7 @@ func test_a_real_cannonball_collision_can_kill_the_target():
 	## Same gap as above, one step further: a hull that reaches 0 via a real
 	## collision (not a direct take_damage()/apply_hit() call) must still
 	## trigger the ShipDamage.destroyed -> ShipCombat.died kill path.
-	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
+	var player = _spawn(PLAYER_SHIP, Vector3.ZERO, true)
 	var enemy = _spawn(ENEMY_SHIP, Vector3(45, 0, 0))
 
 	var enemy_combat = enemy.get_node("ShipCombat")
@@ -161,7 +169,11 @@ func test_a_real_cannonball_collision_can_kill_the_target():
 
 
 func test_a_real_player_ship_does_not_auto_fire_at_a_bow_on_enemy():
-	var player = _spawn(PLAYER_SHIP, Vector3.ZERO)
+	## Auto-fire is opted into here even though the test asserts nothing fires —
+	## WITHOUT it this test would pass vacuously now that the player is manual by
+	## default, and would no longer be testing the firing arc at all. Arming the
+	## guns is what makes "and still nothing fired" mean something.
+	var player = _spawn(PLAYER_SHIP, Vector3.ZERO, true)
 	_spawn(ENEMY_SHIP, Vector3(0, 0, -45))
 
 	var combat = player.get_node("ShipCombat")

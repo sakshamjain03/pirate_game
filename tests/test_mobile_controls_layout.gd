@@ -222,8 +222,15 @@ func test_mobile_hud_keeps_only_persistent_controls_and_one_context_action():
 	assert_false(mobile_controls.get_node("Actions/BtnDock").visible)
 	assert_false(mobile_controls.get_node("Actions/BtnSetSail").visible)
 	assert_false(mobile_controls.get_node("Actions/BtnAnchor").visible)
-	assert_false(mobile_controls.get_node("Combat/BtnFirePort").visible)
-	assert_false(mobile_controls.get_node("Combat/BtnFireStar").visible)
+	# M25 — INVERTED DELIBERATELY. These asserted the fire buttons were hidden,
+	# which was right while auto-fire pulled the trigger and per-side buttons were
+	# a power-user extra behind `mobile_advanced_combat_controls` (default OFF).
+	# Firing is the player's action now, so hiding them would ship a mobile build
+	# with no way to shoot. They are persistent controls, like steering.
+	assert_true(mobile_controls.get_node("Combat/BtnFirePort").visible,
+		"Fire is the core combat action on mobile — it must always be reachable")
+	assert_true(mobile_controls.get_node("Combat/BtnFireStar").visible,
+		"Fire is the core combat action on mobile — it must always be reachable")
 
 	var context_action: Button = mobile_controls.get_node("Actions/ContextAction")
 	mobile_controls.set_dock_available(true)

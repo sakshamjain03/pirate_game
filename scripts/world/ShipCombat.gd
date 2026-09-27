@@ -23,6 +23,17 @@ signal misfired(side: String)
 ## locks in. Player skill moves from tapping to positioning. Off leaves the
 ## pre-rework manual trigger as the only way to fire, which is how
 ## `tests/test_ship_combat.gd` still exercises `fire_broadside()` directly.
+## M25 — the export default deliberately stays TRUE. Firing became a player
+## action, but flipping this default would have disarmed every AI hull's
+## opportunistic broadside as well: EnemyAI only calls fire_cannons() for its
+## deliberate attack run (EnemyAI.gd:378), and relied on auto-fire for everything
+## else. That would have been a silent, sweeping combat-balance change wearing the
+## costume of a UX fix.
+##
+## Instead the PLAYER's hull alone is switched to manual, from
+## SettingsManager.auto_fire (which defaults false), in
+## _apply_player_auto_fire_setting() below. Arc-lock still gates whether a side may
+## fire, so aiming stays positional and play stays one-thumb.
 @export var auto_fire_enabled: bool = true
 
 func set_ammo(ammo: AmmoData) -> void:
@@ -124,6 +135,7 @@ var _special_cooldown_remaining: float = 0.0
 var _arc_locked := {"port": false, "starboard": false, "bow": false, "stern": false}
 
 func _ready() -> void:
+	_apply_player_auto_fire_setting()
 	if not ship_stats:
 		push_warning("ShipCombat: No ShipStats assigned.")
 		return
@@ -697,3 +709,16 @@ func _start_cooldown(side: String) -> void:
 		_:
 			can_fire_starboard = false
 			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_starboard = true)
+
+
+## M25 — the player's hull honours the auto-fire accessibility setting. Read here
+## as well as pushed from SettingsManager, because a ship spawned or swapped after
+## the setting was last changed would otherwise come up with the export default.
+## Deliberately player-only: enemy auto-fire is EnemyAI's business, not an
+## accessibility option.
+func _apply_player_auto_fire_setting() -> void:
+	var parent := get_parent()
+	if not parent or not parent.is_in_group("player_ship"):
+		return
+	if SettingsManager and "auto_fire" in SettingsManager:
+		auto_fire_enabled = SettingsManager.auto_fire

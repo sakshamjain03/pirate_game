@@ -157,7 +157,11 @@ func open(island: Node3D) -> void:
 	var has_shipyard = island.has_building_type("shipyard") if island.has_method("has_building_type") else false
 	var has_tavern = island.has_building_type("tavern") if island.has_method("has_building_type") else false
 	
-	var can_build = type == IslandData.IslandType.FRIENDLY
+	# Must agree with Island.build_structure()'s own gate, which is
+	# is_owned_by_player() (FRIENDLY *or* CAPITAL). Checking FRIENDLY alone here
+	# hid the build tabs on a CAPITAL island the underlying logic would happily
+	# let you build on — a silent UI/logic contradiction.
+	var can_build = island.island_data.is_owned_by_player() if ("island_data" in island and island.island_data) else false
 	
 	tab_container.set_tab_hidden(0, not can_build) # Index 0 is Buildings
 	tab_container.set_tab_hidden(1, not has_shipyard or not can_build) # Index 1 is Shipyard

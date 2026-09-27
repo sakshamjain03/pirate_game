@@ -14,6 +14,10 @@ signal tier_changed(new_tier: int)
 var _current_tier: int = 1
 
 var built_buildings: Array[BuildingData] = []
+## Guards against stacking a second garrison when _spawn_defenses() re-runs on
+## region activation. Never reset — a destroyed defender means the island was
+## captured, not that it should grow a new garrison.
+var _defenders_spawned: bool = false
 var _production_timers: Dictionary = {}
 var _spawned_models: Dictionary = {}
 
@@ -48,8 +52,26 @@ func _ready() -> void:
 	if ResourceManager.has_signal("global_economy_tick"):
 		ResourceManager.global_economy_tick.connect(on_economy_tick)
 
+	# Defenders are gated on the island's region being active, and at world load
+	# every region past Beginner is still dormant (notoriety 0). Without this
+	# connection _spawn_defenses() only ever ran once, at _ready(), so an enemy
+	# island stayed undefended for the whole session and only grew a garrison if
+	# the player quit and reloaded after crossing the notoriety threshold.
+	var empire := get_tree().root.get_node_or_null("EmpireManager")
+	if empire and empire.has_signal("region_activated"):
+		empire.region_activated.connect(_on_region_activated)
+
 	_spawn_defenses()
 	_apply_terrain_theme()
+
+
+func _on_region_activated(region_id: String) -> void:
+	var empire := get_tree().root.get_node_or_null("EmpireManager")
+	if not empire:
+		return
+	var region = empire.get_region_for_island(get_island_id())
+	if region and region.id == region_id:
+		_spawn_defenses()
 
 func _apply_terrain_theme() -> void:
 	## All six islands instance the same Island.tscn layout — this re-tints
@@ -120,9 +142,12 @@ func _should_be_active() -> bool:
 	return empire.is_region_active(region.id)
 
 func _spawn_defenses() -> void:
+	if _defenders_spawned:
+		return
 	if not _should_be_active():
 		return
 	if island_data and island_data.island_type == IslandData.IslandType.ENEMY:
+		_defenders_spawned = true
 		var enemy_scene = load("res://scenes/world/EnemyShip.tscn")
 		if enemy_scene:
 			var enemy = enemy_scene.instantiate()
@@ -130,7 +155,10 @@ func _spawn_defenses() -> void:
 			if not parent:
 				parent = get_tree().root
 			parent.call_deferred("add_child", enemy)
-			enemy.global_position = global_position + Vector3(30, 0, 30)
+			# Offshore, clear of the terrain. The island collision cylinder is
+			# radius 38 since the scale-up (docs/21 §2); the old (30,0,30) offset
+			# is only 42.4u out, which put a ~9u hull's bow inside the beach.
+			enemy.global_position = global_position + Vector3(42, 0, 42)
 
 			# Monitor enemy death for capture logic
 			var combat = enemy.get_node_or_null("ShipCombat")

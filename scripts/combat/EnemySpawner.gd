@@ -24,7 +24,11 @@ signal enemy_destroyed(enemy: Node3D)
 @export var spawn_interval: float = 30.0
 @export var min_spawn_distance: float = 60.0
 @export var max_spawn_distance: float = 120.0
-@export var min_distance_from_islands: float = 25.0
+## Measured from island *centre*, so this must clear the island's own collision
+## radius (38u since the docs/21 §2 scale-up) plus room for a hull — at the old
+## 25.0 the check passed for points well inside the terrain, spawning ships
+## inside islands.
+@export var min_distance_from_islands: float = 55.0
 
 @export_group("Variety")
 @export var enemy_scene: PackedScene = preload("res://scenes/world/EnemyShip.tscn")

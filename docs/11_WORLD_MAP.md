@@ -230,6 +230,16 @@ pre-existing coordinates for now — a natural follow-up once these 5 are done.
 
 Each island answers: what it *gives*, what it *costs*, and what story it carries.
 
+> **The headings below are lore labels, not `IslandData.IslandType` values — do not copy them
+> into a `.tres`.** `FRIENDLY` and `CAPITAL` both make `is_owned_by_player()` return true, i.e.
+> "the player owns this", which gates building, production and free shipyard repair. So a
+> pirate-friendly-but-independent port (Tortuga) is authored `NEUTRAL`, and an enemy-held
+> regional capital (Cartagena Outpost) is authored `ENEMY`. Only islands the player actually
+> owns may be `FRIENDLY`/`CAPITAL`. This exact confusion shipped a real bug: Frostbite Reef, a
+> Royal Navy anchorage, was authored `CAPITAL` and was therefore counted as player-owned
+> territory from a new game — undefended, and buildable by the underlying logic (fixed
+> 2026-09-25).
+
 ### Port Royal — `port_royal` · Beginner · **HOME (once claimed)**
 Drowned in the quake, half of it still underwater. Pirate-friendly and undefended, but **not
 owned at game start** — the player claims it via the ordinary Colonize flow (Chapter 1's new

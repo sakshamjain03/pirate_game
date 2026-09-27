@@ -39,7 +39,43 @@ Everything sequenced below serves that sentence. Anything that does not is defer
 
 ---
 
-# 3. Forward-Looking Roadmap — M16 through M21
+# 2.5 Current Roadmap — M24 through M31 (locked 2026-09-28)
+
+**This supersedes §3 below for anything not yet built.** §3 (M16-M21) is kept as history; several
+of those milestones shipped, and its constitutional note is now **out of date** — see the warning
+under §3.
+
+The project is locked as a **freemium mobile** game shipping a **five-chapter, five-island MVP**.
+Per-milestone specs live in `.kiro/specs/milestone-mNN-*/`; scope detail is in
+`docs/13_CAMPAIGN_LEVELS_1-5.md` §0.
+
+| # | Milestone | Headline | Spec | Status |
+|---|---|---|---|---|
+| M24 | MVP Foundations | Constitution amended for F2P; scope cut to 5 chapters / 5 islands / 12 captains; dev console | `milestone-m24-mvp-foundations` | **Complete** (`6c8c820`, `a137563`) |
+| M25 | Heat & Combat Feel | GTA-style wanted level driving ambient danger; manual fire; the hull/sails/crew triangle made legible; Pieces of Eight introduced | `milestone-m25-heat-and-combat-feel` | In progress |
+| M26 | Islands as Places | Port view on docking — tap your real 3D buildings; five hand-authored island scenes drawn from their real-world namesakes | — | Planned |
+| M27 | Timed Operations & Prize Ships | `ScheduleManager` (one clock for builds/repairs/missions); uid-based fleet identity; **capture enemy ships instead of sinking them** | — | Planned |
+| M28 | The Maelstrom | Endless Vampire-Survivors-style survival mode, isolated from the campaign | — | Planned |
+| M29 | Living Economies & Sieges | Island specialization/security/logistics; playable sieges at any owned island; raiding enemy islands | — | Planned |
+| M30 | Contracts, Treasure & Trade | Port contract boards, buried treasure and exploration, per-island supply/demand and smuggling | — | Planned |
+| M31 | F2P Economy & Achievements | Store, IAP, rewarded ads, ~30 achievements, and the zero-spend balance lock for Ch1-5 | — | Planned |
+
+**M24-M27 are the playable vertical slice** — fight properly, arrive somewhere real, take a prize
+ship. Do not start M28+ before that slice is fun; everything after it tunes against a core that has
+to feel good first.
+
+**The hard release gate**, from `docs/00_VISION.md` §19.2: **Chapters 1-5 must be completable with
+zero spend**, verified by a balance pass in M31. That is a gate, not an aspiration.
+
+---
+
+# 3. Forward-Looking Roadmap — M16 through M21 (historical)
+
+> **⚠️ Out of date as of 2026-09-28.** The constitutional note below states the §19 never-list is
+> "absolute and unamendable" and that there is no premium currency. **That is no longer true** —
+> the game is now freemium with one premium currency (Pieces of Eight). See `docs/00_VISION.md`
+> §19.1 for the decision and §19.2 for the limits that replaced the blanket bans. Kept here as the
+> record of what was planned at the time; read §2.5 for current plans.
 
 **All milestones M7–M15.5 are complete.** See `docs/16_MILESTONE_HISTORY.md` for the full
 record. What follows is the forward plan to v1 completion and beyond.

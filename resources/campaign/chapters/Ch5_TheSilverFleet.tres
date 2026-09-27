@@ -31,9 +31,9 @@ mood = 4
 [sub_resource type="Resource" id="Obj_5_1"]
 script = ExtResource("2_objective")
 objective_id = "5.1"
-description = "Cut the supply"
-condition = 6
-target_id = "volcano_island"
+description = "Sound out the harbour"
+condition = 8
+target_id = "cartagena_outpost"
 target_count = 1
 
 [sub_resource type="Resource" id="Obj_5_2"]

@@ -35,6 +35,25 @@ closing beats.
 `royal_navy` and `spanish_empire` already exist as `is_empire = true` factions, so the escalation
 and raid machinery needs no new factions.
 
+### Which chapter takes which island
+
+Only **four** of the five are ownable (Tortuga never is), so not every chapter gets a fresh
+conquest — Chapter 3 is the defence chapter and takes none. This allocation is load-bearing;
+`tests/test_content_gate_integrity.gd` fails if a chapter objective ever targets a gated island.
+
+| Chapter | Island beat |
+|---|---|
+| Ch1 | Capture **Port Royal** (tutorial) |
+| Ch2 | Capture **Skull Cove** — "Take Blackjaw's cove" |
+| Ch3 | *None* — the siege/defence chapter |
+| Ch4 | Discover then colonize **Pelican Cay** — a quiet second port while the Admiral hunts you |
+| Ch5 | Dock at, then capture, **Cartagena Outpost** — the campaign's final conquest |
+
+Ch4 and Ch5 originally targeted Frozen Island and Volcano Island; both were gated by the scope cut,
+which left those chapters **uncompletable** until this was fixed (see `docs/05_CURRENT_SYSTEMS.md`,
+"Wave 0 follow-up"). Open balance question: Pelican Cay is tier 1, so Ch4's territory beat is easy
+for its point in the curve — revisit when Ch4 is tuned.
+
 Deferred islands: Volcano Island, Frozen Island, Blackwater Shoal, Isla del Rey, Widow's Reach,
 Fogbound Cay. Their layout data is still guarded by `tests/test_world_map_layout.gd`, which reads
 the authored scene state rather than the live tree precisely so deferred islands stay correct for

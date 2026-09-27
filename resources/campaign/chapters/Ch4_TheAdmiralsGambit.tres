@@ -28,9 +28,9 @@ mood = 0
 [sub_resource type="Resource" id="Obj_4_1"]
 script = ExtResource("2_objective")
 objective_id = "4.1"
-description = "Follow him into the cold"
+description = "Find the cay off the charts"
 condition = 7
-target_id = "frozen_island"
+target_id = "pelican_cay"
 target_count = 1
 
 [sub_resource type="Resource" id="Obj_4_2"]
@@ -76,9 +76,9 @@ target_count = 1
 [sub_resource type="Resource" id="Obj_4_7"]
 script = ExtResource("2_objective")
 objective_id = "4.7"
-description = "Take the reef"
+description = "Plant a second flag"
 condition = 6
-target_id = "frozen_island"
+target_id = "pelican_cay"
 target_count = 1
 
 [sub_resource type="Resource" id="Obj_4_8"]

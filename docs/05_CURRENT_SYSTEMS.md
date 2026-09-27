@@ -2840,3 +2840,60 @@ and `DevHarness.tscn` opens.
 `resources/balance/DifficultyCurve.tres` (per-chapter escalation) was planned here but **not
 built**: it would have had no reader until combat consumes it, and `AGENTS.md` forbids dead code.
 It moves to the combat wave, which is what actually reads it.
+
+### Wave 0 follow-up — the scope cut broke Chapters 4 and 5 (caught at checkpoint review)
+
+The Wave 0 commit (6c8c820) shipped a real defect that the full GUT suite passed straight through.
+Gating six islands left **mandatory objectives in two shipping chapters pointing at islands that no
+longer exist at runtime**:
+
+| Chapter | Objective | Was | Problem |
+|---|---|---|---|
+| Ch4 The Admiral's Gambit | 4.1 "Follow him into the cold" (DISCOVER_ISLAND) | `frozen_island` | gated |
+| Ch4 | 4.7 "Take the reef" (CAPTURE_ISLAND) | `frozen_island` | gated |
+| Ch5 The Silver Fleet | 5.1 "Cut the supply" (CAPTURE_ISLAND) | `volcano_island` | gated |
+
+Both chapters were **uncompletable**. This is precisely the failure mode `CLAUDE.md` already lists
+("fully authored content with no in-world trigger has shipped uncompletable before"), and it was
+found by the `checkpoint-reviewer` pass, not by the suite — which is the argument for that pass.
+
+**Root constraint, worth stating plainly:** five islands, one of which (Tortuga) is never ownable,
+leaves only **four capturable islands** for a five-chapter campaign. Ch1 takes Port Royal and Ch2
+already takes Skull Cove, so there is no fresh conquest available for every chapter. That is a real
+consequence of the scope cut, not a data-entry slip.
+
+**Resolution** (stays at five islands, per the locked scope):
+
+- **Ch4 4.1 → `pelican_cay`, DISCOVER_ISLAND, "Find the cay off the charts"**
+- **Ch4 4.7 → `pelican_cay`, CAPTURE_ISLAND, "Plant a second flag"** — Pelican Cay is NEUTRAL, and
+  `IslandMenu._on_colonize_pressed()` calls `Island.capture_island()`, which emits `island_captured`
+  and satisfies a CAPTURE_ISLAND objective. So colonizing *is* the capture, and Ch4's territory beat
+  becomes a gold/logistics cost rather than a fight — reasonable, since Ch4 already carries 8 Royal
+  Navy kills plus the Intransigent.
+- **Ch5 5.1 → `cartagena_outpost`, DOCK_AT_ISLAND, "Sound out the harbour"**, setting up 5.6's
+  capture of Cartagena as the campaign's final conquest.
+
+**Balance note to revisit:** Pelican Cay is tier 1 (Beginner Waters), so Ch4 acquires a low-tier
+island at notoriety 110-150. Thematically thin and mechanically easy. Reconsider when Ch4 is tuned.
+
+**Other references checked and cleared:**
+- Boss encounters require `ch4_the_admirals_gambit` / `ch5_the_silver_fleet` — both ship, so the
+  Intransigent and Cárdenas fights remain reachable.
+- `GhostFleetBoss.tres` requires region `ghost_reaches`, which is gated — correctly dormant, not a
+  bug.
+- Regions still list gated islands in `island_ids`; the only consumer is
+  `EmpireManager.get_region_for_island()`, a lookup, so this is harmless and keeps re-enable a
+  one-bool edit.
+- Captains Constance, Ezra and Isabela declare `home_island_id = "frozen_island"`, and Selene
+  `"volcano_island"`. **`home_island_id` has no consumer anywhere in `scripts/`** — it is unused
+  authored metadata, surfaced to nobody. Deliberately left alone: it becomes correct again when
+  those islands ship.
+
+### New guard: `tests/test_content_gate_integrity.gd`
+The durable fix. Five tests that fail whenever gating breaks shipping content:
+shipping chapter objectives may only target shipping islands (the direct regression, and its failure
+message names the chapter, objective, island and whether it is mandatory); shipping chapters may
+only be gated behind shipping regions/chapters; chapter rewards must resolve to shipping captains;
+boss encounters must be reachable from a shipping chapter; and every shipping chapter must keep at
+least one mandatory objective. **Verified to actually fail** by re-introducing the `frozen_island`
+reference and watching it go red, rather than trusting a green run.

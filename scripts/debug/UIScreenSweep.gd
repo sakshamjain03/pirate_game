@@ -390,6 +390,75 @@ func _run_modals() -> void:
 		modal.queue_free()
 		get_tree().paused = false
 		await _settle(2)
+	await _run_content_modals()
+
+
+## M22 Phase 6b — the content modals the world path never opens on its own
+## (store, support, rewarded offer, raid report, death, battle upgrades).
+## Each is shown straight from its own render method, NOT its gameplay
+## entry point: StoreScreen.open() logs analytics, RewardedBonusOffer.present()
+## is gated on real AdManager caps and DeathScreen's respawn spends gold —
+## a sweep must never touch any of that state.
+func _run_content_modals() -> void:
+	var store = load("res://scenes/ui/StoreScreen.tscn").instantiate()
+	add_child(store)
+	await _settle(3)
+	store._refresh()
+	store.show()
+	await _settle(4)
+	await _capture("18_store")
+	store.queue_free()
+
+	var support = load("res://scenes/ui/PurchaseSupportScreen.tscn").instantiate()
+	add_child(support)
+	await _settle(3)
+	support._refresh()
+	support.show()
+	await _settle(3)
+	await _capture("19_purchase_support")
+	support.queue_free()
+
+	var offer = load("res://scenes/ui/RewardedBonusOffer.tscn").instantiate()
+	add_child(offer)
+	await _settle(3)
+	offer.offer_label.text = "Your crew found extra salvage. Watch a short ad to double it?"
+	offer.show()
+	await _settle(3)
+	await _capture("20_rewarded_offer")
+	offer.queue_free()
+
+	for variant in [["21_raid_repelled", {"repelled": true, "faction_id": "spain"}],
+			["21_raid_hit", {"repelled": false, "faction_id": "britain", "stolen": {"gold": 120, "wood": 40}}]]:
+		var raid = load("res://scenes/ui/RaidReportScreen.tscn").instantiate()
+		add_child(raid)
+		await _settle(3)
+		raid.open(variant[1])
+		await _settle(3)
+		await _capture(variant[0])
+		raid.queue_free()
+		get_tree().paused = false
+
+	var death = load("res://scenes/ui/DeathScreen.tscn").instantiate()
+	add_child(death)
+	await _settle(3)
+	death.open(null)
+	await _settle(3)
+	await _capture("22_death")
+	death.queue_free()
+	get_tree().paused = false
+
+	var choice = load("res://scenes/ui/UpgradeChoiceScreen.tscn").instantiate()
+	add_child(choice)
+	await _settle(3)
+	var ups: Array = []
+	for id in ["HeavyVolley", "RapidReload", "EmergencyRepairs"]:
+		ups.append(load("res://resources/combat/upgrades/%s.tres" % id))
+	choice._on_offer(ups, 1, 3)
+	await _settle(4)
+	await _capture("23_upgrade_choice")
+	choice.queue_free()
+	get_tree().paused = false
+	await _settle(2)
 
 
 func _run_kit_sheet() -> void:

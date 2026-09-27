@@ -441,23 +441,105 @@ independently re-verified.
         confirmed as independent of this work: PASS. Pre-review status: GUT 729/730 (only the documented
         StoreScreen failure) and 0 script errors in both sweeps (the lambda-capture error at World
         teardown is fixed, design.md §11d).
-- [ ] 6.6 (6b) CaptainsLog, CodexScreen, WhatsNewScreen.
-  - **Verify:** their layout tests pass; sweep shots.
+- [x] 6.6 (6b) CaptainsLog, CodexScreen, WhatsNewScreen.
+  - **Verify:** their layout tests pass; sweep shots (`01_captains_log`, `03_codex`, `05_whats_new`,
+    both profiles).
+    - All three use one shared "journal page": a wood frame, a Germania `TitleLabel`, a parchment
+      page, ink text and one brass Close. The page comes from the new
+      `PirateThemeBuilder.dress_parchment_page()`, which also gives HSeparators an ink rule and
+      RichText ink colour. Codex entries are `InkInsetPanel` cards.
+    - Section headings use a new `UITokens.FONT_SECTION` (44), smaller than the frame title.
+    - Wrapped body text had double-spaced lines (Baloo 2's tall ascent). The fix is
+      `UITokens.BODY_LINE_SPACING` on InkBodyLabel and ChipLabel.
+    - `test_captains_log_layout`/`test_whats_new_screen_layout` changed their PC sizes on purpose,
+      from 480x560 to 880x640: at the old size the page left a text column about 300px wide. Both
+      files say so. The behaviour tests (Labels directly under Content) are unchanged.
   - _Requirements: 8.1_
-- [ ] 6.7 (6b) WardrobeScreen, StoreScreen, PurchaseSupportScreen, RewardedBonusOffer.
-  - **Verify:** sweep shots.
+- [x] 6.7 (6b) WardrobeScreen, StoreScreen, PurchaseSupportScreen, RewardedBonusOffer.
+  - **Verify:** sweep shots (`04_wardrobe`, `18_store`, `19_purchase_support`, `20_rewarded_offer`;
+    the last three are new sweep entries, drawn from their render methods so that no analytics, ad
+    or purchase state is touched).
+    - **Wardrobe**
+      - Slot buttons are a new `RailTab` variation (the Settings tab-rail art), opening onto a
+        parchment page.
+      - Cosmetics are v0.3 board tiles in an HFlowContainer. Before, a fixed 2-column grid of wide
+        brass bars cropped at the page edge. Each tile shows Owned / Not Owned / **Equipped**,
+        through a new read-only `ShipVisuals.get_equipped_cosmetic()`.
+      - Tiles are not device-scaled: a scaled 330px tile didn't fit the phone page and cropped its
+        status line (phone sweep). The "Tap a design…" detail line moved into the button row for the
+        same vertical budget.
+      - Equip is the one Primary. `PrimaryGlow` now hides while its button is disabled, with a new
+        test in `test_button_juice_and_glow`.
+      - The tile builder moved out of IslandMenu into a shared
+        `PirateThemeBuilder.make_board_tile()`; both screens call it, so there is no second copy.
+    - **Store, support and rewarded offer:** the same frame and page. Buy, Watch Ad and No Thanks are
+      all brass, on purpose: a coral glowing buy button or ad button is the pressure the AGENTS.md
+      never-list forbids. The new test group `SCREENS_THAT_MUST_NOT_HAVE_A_PRIMARY` pins this.
+    - **The StoreScreen "overlap" failure (Notes, Phase 3) is fixed, and its diagnosis was wrong.**
+      The failure was not Close's hardcoded 44px height. The test compared Close against `content`,
+      the scrolled VBox, whose rect is its full 1040px height and mostly clipped. It now checks the
+      ScrollContainer's visible rect and asserts clipping (`test_store_screen.gd` explains this).
   - _Requirements: 8.1_
-- [ ] 6.8 (6b) RaidReportScreen, DeathScreen (keep the distinct alarm/somber palette via tokens),
+- [x] 6.8 (6b) RaidReportScreen, DeathScreen (keep the distinct alarm/somber palette via tokens),
         UpgradeChoiceScreen.
-  - **Verify:** sweep shots.
+  - **Verify:** sweep shots (`21_raid_repelled`, `21_raid_hit`, `22_death`, `23_upgrade_choice`,
+    all new sweep entries).
+    - **Raid report and Death:** a frame, a `DisplayLabel` title and a parchment page. The raid title
+      is `hp_good` when the raid is repelled and `hp_low` when the island is hit; the Death title is
+      `hp_low`. These token colours replace the hand-picked `Color(1,0.3,0.3)` values.
+    - Defeat has one brass way forward and deliberately **no** coral glow, which would read as
+      celebration.
+    - `test_death_and_raid_report_layout` changed 500x300 to 760x400 on purpose. The Death penalty
+      string is now wrapped in `tr()`.
+    - **UpgradeChoice:** a frame, "Choose One", and the upgrades as `BoardTile` cards (glyph, ink
+      name, effect line) on parchment, replacing the flat navy StyleBoxFlat.
   - _Requirements: 8.1_
-- [ ] 6.9 (6b) EnemyHealthBarWidget, FloatingDamage (Baloo 800 numbers + ink outline).
-  - **Verify:** CombatCaptureHarness shot.
+- [x] 6.9 (6b) EnemyHealthBarWidget, FloatingDamage (Baloo 800 numbers + ink outline).
+  - **Verify:** CombatCaptureHarness shot, plus a probe capture of spawned damage numbers. Changes:
+    - **Enemy bar:** an ink-outlined name chip over a new `EnemyHullBar` (the hull pill with an
+      `hp_low` red fill, so it can't be mistaken for the player's green hull).
+    - **Damage numbers:** Baloo 800 in `hp_low`, with an ink outline, `fixed_size` and
+      `no_depth_test`. At world scale they were a few pixels tall at combat range.
+
+    **Two real bugs, found only by looking at the captures:**
+    1. **Every damage number drifted toward the world origin.** Both spawners (ShipCombat and
+       ShipCollisionHandler) `add_child()` first and set `global_position` afterwards, but
+       FloatingDamage computed an absolute float-up target in `_ready()`. It now tweens relative to
+       its start position. The fix is in FloatingDamage only; the protected combat files are
+       untouched.
+    2. **No Baloo "600/800" weight had ever rendered.** Godot 4.3 silently ignores a String
+       `"wght"` key in `FontVariation.variation_opentype`, and the integer OpenType tag is
+       required. Every HUD number, chip and body text had been Baloo 400 since Phase 1.
+       `test_theme_variations` pinned the broken String key. It now asserts the tag and, as a
+       behavioural check, that the 800 face shapes wider than 400.
+
+    Also fixed, a 6a regression: TutorialDialogue's card became 4,558px tall in the combat
+    capture. The wrapped label reported its height at ~0 width, and nothing re-ran the fit
+    afterwards. It now also refits on the Panel's `minimum_size_changed`.
   - _Requirements: 8.1_
-- [ ] 6.10 (6b) Extend `test_primary_button_rule` to every screen; update the inventory counts.
-  - **Verify:** test passes.
+- [x] 6.10 (6b) Extend `test_primary_button_rule` to every screen; update the inventory counts.
+  - **Verify:** test passes (4/4). Coverage:
+    - Wardrobe has exactly one Primary.
+    - The Log, Codex, What's New, Map, Tutorial, Support, Raid and UpgradeChoice screens have at
+      most one.
+    - Store, RewardedBonusOffer and Death must have none.
+    - IslandMenu is covered by `test_island_menu_board` and the HUD by `test_mobile_controls_layout`,
+      since both need a live world.
+
+    design.md §12 counts are updated. Also fixed from the 6b sweep: a neutral island opened
+    IslandMenu on a hidden Construction page, blank, with no tab lit. TabContainer only re-points a
+    hidden current tab while visible. The fix is `_select_first_visible_tab()`, with a new test that
+    fails without it (verified).
   - _Requirements: 6.3, 1.3_
-- [ ] 6.11 (6b) **Checkpoint — Phase 6b.**
+- [x] 6.11 (6b) **Checkpoint — Phase 6b.** `checkpoint-reviewer` independently re-verified:
+        - its own GUT run: **738/738**;
+        - its own phone and desktop sweeps, plus CombatCaptureHarness, with zero ERROR lines;
+        - the 6b shots, viewed;
+        - the font-tag, FloatingDamage and first-visible-tab fixes;
+        - the primary-rule coverage, and that the layout-size changes are deliberate;
+        - that no fragile ship code was touched.
+
+        Result: PASS. Not verifiable here: touch feel, haptics, on-device fps and notch safe area.
 
 ### Phase 7 — Motion foundation
 
@@ -542,7 +624,9 @@ independently re-verified.
   - **Found during Phase 3 (real GUT-suite run, this milestone's tree): 710/714 passing.** Beyond
     the 2 baseline failures above (still present, unchanged):
     1. `test_store_screen::test_property_no_overlap_between_content_and_close_button` — **new,
-       real, and intentionally left failing** — see design.md §11a. `StoreScreen.tscn`'s
+       real, and intentionally left failing** — see design.md §11a. **Resolved in 6.7, and the
+       diagnosis below was wrong:** the rect compared was the clipped scroll content, not what is
+       drawn (see 6.7). `StoreScreen.tscn`'s
        `CloseButton` has a hardcoded pre-M22 `custom_minimum_size.y = 44`; Germania One's own
        line-height at the new `FONT_BODY` makes the button's real content-driven minimum ~104px.
        Same class of "legacy hardcoded size vs. deliberately bigger theme" collision as

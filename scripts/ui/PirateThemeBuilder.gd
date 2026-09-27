@@ -235,6 +235,7 @@ static func build() -> Theme:
 	theme.set_color("font_shadow_color", "ChipLabel", pal.ink)
 	theme.set_constant("shadow_offset_x", "ChipLabel", 1)
 	theme.set_constant("shadow_offset_y", "ChipLabel", 1)
+	theme.set_constant("line_spacing", "ChipLabel", roundi(UITokens.BODY_LINE_SPACING * scale))
 
 	theme.set_font("font", "HudNumLabel", num_font)
 	theme.set_font_size("font_size", "HudNumLabel", roundi(UITokens.FONT_HUD_NUM * scale))
@@ -265,6 +266,7 @@ static func build() -> Theme:
 	theme.set_type_variation("InkBodyLabel", "Label")
 	theme.set_font("font", "InkBodyLabel", body_font)
 	theme.set_font_size("font_size", "InkBodyLabel", roundi(UITokens.FONT_BODY * scale))
+	theme.set_constant("line_spacing", "InkBodyLabel", roundi(UITokens.BODY_LINE_SPACING * scale))
 	for label_type in ["InkTitleLabel", "InkBodyLabel"]:
 		theme.set_color("font_color", label_type, pal.text_on_parchment)
 		theme.set_color("font_shadow_color", label_type, Color(0, 0, 0, 0))
@@ -611,6 +613,23 @@ static func build() -> Theme:
 	theme.set_color("font_hovered_color",    "TabBar", pal.brass_light)
 	theme.set_constant("h_separation", "TabContainer", 8)
 	theme.set_constant("h_separation", "TabBar", 8)
+	# RailTab: a toggle Button drawn as the same tab rail, for screens whose
+	# "tabs" are a button row feeding one page (Wardrobe's slots) rather
+	# than a TabContainer — the pressed tab is the parchment one.
+	theme.set_type_variation("RailTab", "Button")
+	theme.set_stylebox("normal", "RailTab", tab_unselected)
+	theme.set_stylebox("hover", "RailTab", tab_hovered)
+	theme.set_stylebox("pressed", "RailTab", tab_selected)
+	theme.set_stylebox("hover_pressed", "RailTab", tab_selected)
+	theme.set_stylebox("disabled", "RailTab", tab_unselected)
+	theme.set_stylebox("focus", "RailTab", _make_focus_outline(pal.brass_light, 12))
+	theme.set_font("font", "RailTab", display_font)
+	theme.set_font_size("font_size", "RailTab", roundi(UITokens.FONT_BODY * scale))
+	theme.set_color("font_color", "RailTab", pal.text_on_dark)
+	theme.set_color("font_hover_color", "RailTab", pal.brass_light)
+	theme.set_color("font_focus_color", "RailTab", pal.text_on_dark)
+	theme.set_color("font_pressed_color", "RailTab", pal.text_on_parchment)
+	theme.set_color("font_hover_pressed_color", "RailTab", pal.text_on_parchment)
 
 	# ======================================================================
 	# ProgressBar — no dedicated kit asset yet (Phase 5 owns the HUD hull bar
@@ -669,6 +688,17 @@ static func build() -> Theme:
 	theme.set_font("font", "HullBar", num_font)
 	theme.set_font_size("font_size", "HullBar", roundi(UITokens.FONT_CHIP * scale))
 	theme.set_color("font_color", "HullBar", pal.text_on_dark)
+	# EnemyHullBar: the same pill, hp-low red fill — a foe's bar must never
+	# read as the player's own green hull at a glance (M22 6.9).
+	var enemy_fill := hull_fill.duplicate() as StyleBoxFlat
+	enemy_fill.bg_color = pal.hp_low
+	enemy_fill.border_color = pal.hp_low.lightened(0.35)
+	theme.set_type_variation("EnemyHullBar", "ProgressBar")
+	theme.set_stylebox("background", "EnemyHullBar", hull_bg)
+	theme.set_stylebox("fill", "EnemyHullBar", enemy_fill)
+	theme.set_font("font", "EnemyHullBar", num_font)
+	theme.set_font_size("font_size", "EnemyHullBar", roundi(UITokens.FONT_CHIP * scale))
+	theme.set_color("font_color", "EnemyHullBar", pal.text_on_dark)
 
 	# ======================================================================
 	# ScrollBar — thin brass (design.md §7)
@@ -754,17 +784,28 @@ static func _load_body_font() -> Font:
 			return _load_baloo2_variation(600)
 
 
+## Baloo 2 ExtraBold — v0.3's "all numbers" face, for text drawn outside a
+## Theme (Label3D damage numbers). Same font build() gives HudNumLabel.
+static func number_font() -> Font:
+	return _load_baloo2_variation(800)
+
+
 ## Baloo 2 ships as a single variable font (wght axis) rather than separate
 ## Regular/Medium/SemiBold/Bold files — FontVariation picks the weight at
 ## runtime. 600 (SemiBold) is design.md §5's body_font weight; 800 (Bold) is
 ## num_font, used for HUD/chip numerals.
+##
+## The axis key MUST be the integer OpenType tag: Godot 4.3 silently ignores
+## a String "wght" key here (probed, M22 6.9), so from Phase 1 until then
+## every "600"/"800" Baloo in the theme actually rendered at the file's
+## default 400 weight.
 static func _load_baloo2_variation(weight: int) -> Font:
 	var base_font := _load_font(FONT_BALOO2, 14)
 	if base_font == null:
 		return null
 	var variation := FontVariation.new()
 	variation.base_font = base_font
-	variation.variation_opentype = {"wght": weight}
+	variation.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
 	return variation
 
 
@@ -802,7 +843,79 @@ static func build_parchment_page_theme() -> Theme:
 	page.set_color("font_color", "LinkButton", pal.sunset_teal)
 	page.set_color("font_hover_color", "LinkButton", pal.driftwood)
 	page.set_color("font_focus_color", "LinkButton", pal.sunset_teal)
+	page.set_color("default_color", "RichTextLabel", pal.text_on_parchment)
+	# Row dividers on parchment are a faint ink rule, not build()'s light line.
+	var rule := StyleBoxLine.new()
+	rule.color = Color(pal.ink.r, pal.ink.g, pal.ink.b, 0.22)
+	rule.thickness = 2
+	page.set_stylebox("separator", "HSeparator", rule)
+	page.set_constant("separation", "HSeparator", 14)
 	return page
+
+
+## M22 Phase 6b — the shared "journal page" of the content modals (Captain's
+## Log, Codex, What's New, …): the page panel inside a screen's wood frame
+## becomes parchment, and every Label/RichTextLabel/HSeparator under it reads
+## as ink via build_parchment_page_theme(), with no per-label colour
+## overrides. One helper, so those screens can't drift into three looks.
+static func dress_parchment_page(page: PanelContainer) -> void:
+	page.theme_type_variation = &"ParchmentPanel"
+	page.theme = build_parchment_page_theme()
+
+
+## M22 — the one v0.3 board tile (IslandMenu's boards, Wardrobe): a toggle
+## `BoardTile` Button holding an icon over a wrapped title and a coloured
+## status line. Children ignore the mouse so the tile itself takes the tap.
+## Callers add the ButtonGroup/pressed wiring and pass final (already
+## device-scaled, if wanted) sizes.
+static func make_board_tile(tile_size: Vector2, icon_tex: Texture2D, title_text: String,
+		status_text: String, status_color: Color, icon_size := Vector2(48, 48)) -> Button:
+	var tile := Button.new()
+	tile.theme_type_variation = &"BoardTile"
+	tile.toggle_mode = true
+	tile.custom_minimum_size = tile_size
+	tile.tooltip_text = title_text
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 10
+	v.offset_top = 10
+	v.offset_right = -10
+	v.offset_bottom = -10
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	if icon_tex:
+		var icon := TextureRect.new()
+		icon.texture = icon_tex
+		icon.custom_minimum_size = icon_size
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(icon)
+	var title := Label.new()
+	title.text = title_text
+	title.theme_type_variation = &"ChipLabel"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.max_lines_visible = 2
+	title.custom_minimum_size.x = tile_size.x - 20.0
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(title)
+	var status_lbl := Label.new()
+	status_lbl.text = status_text
+	status_lbl.theme_type_variation = &"ChipLabel"
+	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_lbl.add_theme_color_override("font_color", status_color)
+	status_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(status_lbl)
+	tile.add_child(v)
+	return tile
+
+
+## Ink colour for "done / good" state text on parchment — build()'s hp_good
+## green is tuned for dark wood and washes out on the page.
+static func ink_good_color() -> Color:
+	return UITokens.palette().hp_good.darkened(0.35)
 
 
 ## Wraps a kit SVG as a 9/3-slice StyleBoxTexture. `m*` are texture_margin

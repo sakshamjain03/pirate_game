@@ -131,4 +131,14 @@ func test_hud_num_and_chip_labels_use_the_800_weight_baloo2_variation():
 		var font := _theme.get_font("font", variation)
 		assert_true(font is FontVariation, "%s should be a Baloo 2 FontVariation" % variation)
 		if font is FontVariation:
-			assert_eq((font as FontVariation).variation_opentype.get("wght"), 800)
+			# M22 6.9: the key must be the integer OpenType tag — a String
+			# "wght" key (what this test used to assert) is silently ignored
+			# by Godot 4.3 and rendered every weight at 400.
+			var wght_tag := TextServerManager.get_primary_interface().name_to_tag("wght")
+			assert_eq((font as FontVariation).variation_opentype.get(wght_tag), 800)
+			# Behavioural, not just structural: the 800 face must actually
+			# shape wider than the file's default 400 weight.
+			var regular: Font = load(PirateThemeBuilder.FONT_BALOO2)
+			var w_bold := font.get_string_size("20,860", HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x
+			var w_regular := regular.get_string_size("20,860", HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x
+			assert_gt(w_bold, w_regular, "%s must render heavier than Baloo 2's default 400 weight" % variation)

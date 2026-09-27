@@ -13,12 +13,14 @@ class_name WhatsNewScreen extends Control
 @onready var panel: PanelContainer = %Panel
 @onready var title_label: Label = %TitleLabel
 @onready var scroll_container: ScrollContainer = %ScrollContainer
+@onready var page: PanelContainer = %Page
 
 
 func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_parchment_page(page)  # M22 6b: same journal page as the Log
 	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
 	if not patch_notes:
@@ -27,8 +29,7 @@ func _ready() -> void:
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = MobileLayoutManager.mobile_dialog_size(panel.custom_minimum_size, get_viewport())
 		scroll_container.custom_minimum_size = PirateThemeBuilder.scaled_size(scroll_container.custom_minimum_size)
-		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
-		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(100, 48))
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 
 
 func open() -> void:
@@ -74,14 +75,14 @@ func _refresh() -> void:
 func _add_header(text: String) -> void:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 20)
+	label.theme_type_variation = &"InkTitleLabel"
+	label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
 	content.add_child(label)
 
 
 func _add_body(text: String) -> void:
 	var label := Label.new()
 	label.text = text
+	label.theme_type_variation = &"InkBodyLabel"
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 15)
-	label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	content.add_child(label)

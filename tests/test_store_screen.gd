@@ -93,15 +93,23 @@ func test_property_panel_tracks_viewport_size_rather_than_a_fixed_pixel_size():
 	assert_ne(panel_sizes[1], panel_sizes[2])
 
 
+# M22 6b correction: this used to compare Close against `content` itself —
+# the scrolled VBox, whose rect is its FULL height (1040px at 1080p once the
+# product rows are at the kit's body size), most of it clipped by the
+# ScrollContainer and never drawn. What the player can see is the scroll
+# viewport, so that is the rect that must stay clear of Close; the second
+# assertion keeps the list genuinely reachable (it scrolls, not truncates).
 func test_property_no_overlap_between_content_and_close_button():
 	var sizes: Array[Vector2i] = [Vector2i(1920, 1080), Vector2i(750, 1334)]
 	for size in sizes:
 		_instantiate_at_size(size)
 		await wait_seconds(0.1)
-		var content_rect: Rect2 = _screen.content.get_global_rect()
+		var scroll := _screen.content.get_parent() as ScrollContainer
+		var content_rect: Rect2 = scroll.get_global_rect()
 		var close_rect: Rect2 = _screen.close_button.get_global_rect()
 		assert_false(content_rect.intersects(close_rect),
-			"Content (%s) and Close (%s) must not overlap at %s" % [content_rect, close_rect, size])
+			"Visible content (%s) and Close (%s) must not overlap at %s" % [content_rect, close_rect, size])
+		assert_true(scroll.clip_contents, "overflowing products must be clipped and scrolled, not drawn under Close")
 		_viewport.queue_free()
 		_viewport = null
 		_screen = null

@@ -17,6 +17,7 @@ class_name RewardedBonusOffer extends Control
 @onready var offer_label: Label = %OfferLabel
 @onready var watch_button: Button = %WatchAdButton
 @onready var decline_button: Button = %DeclineButton
+@onready var page: PanelContainer = %Page
 
 var _surface: StringName = &""
 var _on_bonus_granted: Callable
@@ -26,6 +27,9 @@ func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	# M22 6b: Watch and No Thanks are the same brass, side by side — an
+	# optional ad is never the coral "go" action (AGENTS.md never-list).
+	PirateThemeBuilder.dress_parchment_page(page)
 	watch_button.pressed.connect(_on_watch_pressed)
 	decline_button.pressed.connect(_on_decline_pressed)
 	PirateThemeBuilder.apply_button_juice(self)

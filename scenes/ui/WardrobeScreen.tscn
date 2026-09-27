@@ -30,68 +30,77 @@ anchor_right = 0.95
 anchor_bottom = 0.95
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"WoodFramePanel"
 
-[node name="Margin" type="MarginContainer" parent="Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
-
-[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="TitleLabel" type="Label" parent="Panel/Margin/VBox"]
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_type_variation = &"TitleLabel"
 text = "Wardrobe"
 horizontal_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="Panel/Margin/VBox"]
+[node name="Book" type="VBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
 
-[node name="SlotTabs" type="HBoxContainer" parent="Panel/Margin/VBox"]
+[node name="SlotTabs" type="HBoxContainer" parent="Panel/VBox/Book"]
 unique_name_in_owner = true
 layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
-[node name="ScrollContainer" type="ScrollContainer" parent="Panel/Margin/VBox"]
+[node name="Page" type="PanelContainer" parent="Panel/VBox/Book"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Content" type="GridContainer" parent="Panel/Margin/VBox/ScrollContainer"]
+[node name="PageBox" type="VBoxContainer" parent="Panel/VBox/Book/Page"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBox/Book/Page/PageBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="HFlowContainer" parent="Panel/VBox/Book/Page/PageBox/ScrollContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-columns = 2
-theme_override_constants/h_separation = 12
-theme_override_constants/v_separation = 12
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
 
-[node name="DetailLabel" type="Label" parent="Panel/Margin/VBox"]
+[node name="ButtonRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="DetailLabel" type="Label" parent="Panel/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"BodyLabel"
 autowrap_mode = 3
+max_lines_visible = 2
 
-[node name="ButtonRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
-layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 16
-
-[node name="EquipButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+[node name="EquipButton" type="Button" parent="Panel/VBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 text = "Equip"
 
-[node name="StoreButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+[node name="StoreButton" type="Button" parent="Panel/VBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 text = "Store"
 
-[node name="CloseButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+[node name="CloseButton" type="Button" parent="Panel/VBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 text = "Close"
 

@@ -172,6 +172,7 @@ func open(island: Node3D) -> void:
 			tab_container.set_tab_hidden(4, true)
 		if not TutorialManager.is_ui_unlocked("tab_trade"):
 			tab_container.set_tab_hidden(5, true)
+	_select_first_visible_tab()
 
 	if colonize_btn:
 		colonize_btn.visible = type == IslandData.IslandType.NEUTRAL
@@ -373,6 +374,18 @@ const _EMPTY_PAGE_TEXT := {
 	"TradeContainer": "No one here is buying.",
 }
 const _COST_RESOURCES := {"gold": "gold", "wood": "wood", "iron": "iron", "rum": "rum", "research": "research"}
+
+## TabContainer keeps a hidden tab current: a neutral island (Construction
+## hidden) opened on a blank Construction page with no tab highlighted
+## (M22 6b sweep). Land on the first tab the player can actually see.
+func _select_first_visible_tab() -> void:
+	if not tab_container.is_tab_hidden(tab_container.current_tab):
+		return
+	for i in tab_container.get_tab_count():
+		if not tab_container.is_tab_hidden(i):
+			tab_container.current_tab = i
+			return
+
 
 func _restyle_page(container: Container) -> void:
 	if not is_instance_valid(container):
@@ -705,50 +718,13 @@ func _tile_level(card: Node) -> String:
 
 
 func _make_tile(card: PanelContainer, key: String, group: ButtonGroup) -> Button:
-	var tile := Button.new()
-	tile.name = "Tile_" + key.validate_node_name()
-	tile.theme_type_variation = &"BoardTile"
-	tile.toggle_mode = true
-	tile.button_group = group
-	tile.custom_minimum_size = _TILE_SIZE
-	tile.tooltip_text = _card_title(card)
-	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 10
-	v.offset_top = 10
-	v.offset_right = -10
-	v.offset_bottom = -10
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 4)
-	var icon_tex := _tile_icon(card)
-	if icon_tex:
-		var icon := TextureRect.new()
-		icon.texture = icon_tex
-		icon.custom_minimum_size = Vector2(48, 48)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(icon)
-	var title := Label.new()
-	title.text = _tile_title(card)
-	title.theme_type_variation = &"ChipLabel"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.max_lines_visible = 2
-	title.custom_minimum_size.x = _TILE_SIZE.x - 20.0
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(title)
 	var status := _tile_status(card)
-	var status_lbl := Label.new()
 	var level := _tile_level(card)
-	status_lbl.text = status.text if level.is_empty() else "%s · %s" % [level, status.text]
-	status_lbl.theme_type_variation = &"ChipLabel"
-	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_lbl.add_theme_color_override("font_color", status.color)
-	status_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(status_lbl)
-	tile.add_child(v)
+	var tile := PirateThemeBuilder.make_board_tile(_TILE_SIZE, _tile_icon(card), _tile_title(card),
+		status.text if level.is_empty() else "%s · %s" % [level, status.text], status.color)
+	tile.name = "Tile_" + key.validate_node_name()
+	tile.button_group = group
+	tile.tooltip_text = _card_title(card)
 	if status.dim:
 		tile.modulate = Color(1, 1, 1, 0.72)
 	return tile

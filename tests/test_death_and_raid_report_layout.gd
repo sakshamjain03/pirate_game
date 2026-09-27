@@ -7,6 +7,9 @@ extends GutTest
 # sizing to both. One shared file rather than two near-duplicates. GUT only
 # exercises the PC branch (see test_pirate_theme_builder_mobile_scaling.gd's
 # header); the mobile branch is verified by real-device screenshot.
+# M22 6b (deliberate): 500x300 -> 760x400 for the kit's wood frame + parchment
+# page, whose own margins left the body a ~340px column at the old size; the
+# 42/18/24 font overrides are gone (DisplayLabel/InkBodyLabel variations).
 
 const DeathScreenScene = preload("res://scenes/ui/DeathScreen.tscn")
 const RaidReportScreenScene = preload("res://scenes/ui/RaidReportScreen.tscn")
@@ -16,7 +19,7 @@ func test_death_screen_panel_and_button_are_wired_and_sized_on_pc():
 	var screen: DeathScreen = DeathScreenScene.instantiate()
 	add_child_autofree(screen)
 
-	assert_eq(screen.panel.custom_minimum_size, Vector2(500, 300),
+	assert_eq(screen.panel.custom_minimum_size, Vector2(760, 400),
 		"PC panel size must be untouched by the mobile pass")
 	var size: Vector2 = screen.respawn_button.custom_minimum_size
 	assert_true(size.x >= 48.0 and size.y >= 48.0,
@@ -27,7 +30,7 @@ func test_raid_report_screen_panel_and_button_are_wired_and_sized_on_pc():
 	var screen: RaidReportScreen = RaidReportScreenScene.instantiate()
 	add_child_autofree(screen)
 
-	assert_eq(screen.panel.custom_minimum_size, Vector2(500, 300),
+	assert_eq(screen.panel.custom_minimum_size, Vector2(760, 400),
 		"PC panel size must be untouched by the mobile pass")
 	var size: Vector2 = screen.dismiss_button.custom_minimum_size
 	assert_true(size.x >= 48.0 and size.y >= 48.0,

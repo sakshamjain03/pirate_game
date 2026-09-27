@@ -64,6 +64,12 @@ func _ready() -> void:
 
 	name_label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
 	resized.connect(_fit_to_content)
+	# Also refit when the card's own minimum changes: a wrapped Label reports
+	# its height for whatever width it has *now*, and on the first layout
+	# after show() that can be ~0 — one character per line, a 4,558px-tall
+	# card (M22 6b, CombatCaptureHarness). Nothing else re-ran the fit once
+	# the label got its real width, so the card stayed tall forever.
+	$Panel.minimum_size_changed.connect(_fit_to_content)
 
 
 ## Height follows the wrapped text; position follows the platform (see

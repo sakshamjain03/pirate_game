@@ -30,42 +30,42 @@ grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="CenterContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(480, 560)
+custom_minimum_size = Vector2(880, 640)
 layout_mode = 2
+theme_type_variation = &"WoodFramePanel"
 
-[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
+theme_override_constants/separation = 14
 
-[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
-layout_mode = 2
-
-[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_type_variation = &"TitleLabel"
 text = "Captain's Log"
 horizontal_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="CenterContainer/Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="ScrollContainer" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="Page" type="PanelContainer" parent="CenterContainer/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 420)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Content" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/ScrollContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="CenterContainer/Panel/VBox/Page"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="CenterContainer/Panel/VBox/Page/ScrollContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
-[node name="CloseButton" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="CloseButton" type="Button" parent="CenterContainer/Panel/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 text = "Close"

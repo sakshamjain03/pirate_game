@@ -285,6 +285,12 @@ func apply_cosmetic(slot: String, cosmetic: CosmeticData) -> void:
 	_apply_damage_tint(_current_damage_severity)
 
 
+## Read-only: the cosmetic equipped in `slot`, or null (the wardrobe marks
+## that tile "Equipped", M22 6b).
+func get_equipped_cosmetic(slot: String) -> CosmeticData:
+	return _equipped_cosmetics.get(slot)
+
+
 ## M16 Task 17 — visual-only application for the wardrobe's live preview:
 ## does NOT touch _equipped_cosmetics, so backing out without confirming can
 ## cleanly revert via cancel_preview() rather than having already committed

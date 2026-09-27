@@ -90,3 +90,24 @@ func test_fleet_and_trade_stay_card_lists():
 	for tab in [3, 5]:
 		assert_true(_page(tab) is ScrollContainer, "tab %d stays a scrolled card list" % tab)
 		assert_null(_page(tab).find_child("Tiles", true, false))
+
+
+# M22 6b — a neutral island hides Construction (tab 0). TabContainer only
+# re-points a hidden current tab while it is visible, so on the FIRST open
+# (menu still hidden when open() configures the tabs) Construction stayed
+# current: a blank page with no tab highlighted. Uses a fresh, never-shown
+# menu for exactly that reason.
+func test_a_neutral_island_opens_on_a_visible_tab():
+	var fresh: IslandMenu = IslandMenuScene.instantiate()
+	add_child_autofree(fresh)
+	var neutral := IslandScript.new()
+	var data := IslandData.new()
+	data.island_type = IslandData.IslandType.NEUTRAL
+	neutral.island_data = data
+	add_child_autofree(neutral)
+	fresh.open(neutral)
+	await wait_frames(2)
+	assert_true(fresh.tab_container.is_tab_hidden(0), "precondition: Construction is hidden on a neutral island")
+	assert_false(fresh.tab_container.is_tab_hidden(fresh.tab_container.current_tab),
+		"the current tab must be one the player can see")
+	fresh.close()

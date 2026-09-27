@@ -11,20 +11,23 @@ class_name CaptainsLog extends Control
 @onready var close_button: Button = %CloseButton
 @onready var title_label: Label = %TitleLabel
 @onready var scroll_container: ScrollContainer = %ScrollContainer
+@onready var page: PanelContainer = %Page
 
 
 func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	# M22 6b: wood frame + parchment journal page (v0.3), ink text from the
+	# page theme rather than per-label colours.
+	PirateThemeBuilder.dress_parchment_page(page)
 	PirateThemeBuilder.apply_button_juice(self)
 	close_button.pressed.connect(close)
 
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = MobileLayoutManager.mobile_dialog_size(panel.custom_minimum_size, get_viewport())
 		scroll_container.custom_minimum_size = PirateThemeBuilder.scaled_size(scroll_container.custom_minimum_size)
-		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
-		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(100, 48))
+		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 
 	CampaignManager.objective_progressed.connect(func(_a, _b, _c): _refresh())
 	CampaignManager.objective_completed.connect(func(_a): _refresh())
@@ -54,7 +57,7 @@ func _refresh() -> void:
 	for child in content.get_children():
 		child.queue_free()
 
-	_add_header(tr("Completed Chapters"))
+	_add_section(tr("Completed Chapters"))
 	if CampaignManager.completed_chapter_ids.is_empty():
 		_add_body(tr("None yet."))
 	else:
@@ -67,11 +70,11 @@ func _refresh() -> void:
 
 	var current := CampaignManager._current_chapter()
 	if not current:
-		_add_header(tr("No Active Chapter"))
+		_add_section(tr("No Active Chapter"))
 		PirateThemeBuilder.apply_mobile_control_scaling(content)
 		return
 
-	_add_header(current.title)
+	_add_section(current.title)
 	var required: Array = []
 	var optional: Array = []
 	for objective in current.objectives:
@@ -85,7 +88,7 @@ func _refresh() -> void:
 
 	if not optional.is_empty():
 		content.add_child(HSeparator.new())
-		_add_header(tr("Optional"))
+		_add_section(tr("Optional"))
 		for objective in optional:
 			_add_objective_row(objective)
 
@@ -98,24 +101,35 @@ func _add_objective_row(objective: ObjectiveData) -> void:
 	var done := CampaignManager._completed_objective_ids.has(objective.objective_id)
 	var mark := "✓" if done else "%d/%d" % [current, objective.target_count]
 	label.text = "%s — %s" % [objective.description, mark]
+	label.theme_type_variation = &"InkBodyLabel"
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 16)
 	if done:
-		label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+		label.add_theme_color_override("font_color", PirateThemeBuilder.ink_good_color())
 	content.add_child(label)
 
 
+## A page section heading (Completed Chapters / the active chapter / Optional).
+func _add_section(text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.theme_type_variation = &"InkTitleLabel"
+	label.add_theme_font_size_override("font_size", UITokens.FONT_SECTION)
+	content.add_child(label)
+
+
+## An entry heading inside a section (a completed chapter's title).
 func _add_header(text: String) -> void:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 20)
+	label.theme_type_variation = &"InkTitleLabel"
+	label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
 	content.add_child(label)
 
 
 func _add_body(text: String) -> void:
 	var label := Label.new()
 	label.text = text
+	label.theme_type_variation = &"InkBodyLabel"
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 15)
-	label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	label.modulate = Color(1, 1, 1, 0.8)
 	content.add_child(label)

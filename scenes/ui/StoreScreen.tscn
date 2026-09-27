@@ -28,46 +28,52 @@ anchor_right = 0.95
 anchor_bottom = 0.95
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"WoodFramePanel"
 
-[node name="Margin" type="MarginContainer" parent="Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
-
-[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="TitleLabel" type="Label" parent="Panel/Margin/VBox"]
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_type_variation = &"TitleLabel"
 text = "Store"
 horizontal_alignment = 1
 
-[node name="DisclaimerLabel" type="Label" parent="Panel/Margin/VBox"]
-layout_mode = 2
-autowrap_mode = 3
-horizontal_alignment = 1
-text = "Everything here is cosmetic only — it changes how your ship looks and never affects gameplay."
-
-[node name="HSeparator" type="HSeparator" parent="Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="ScrollContainer" type="ScrollContainer" parent="Panel/Margin/VBox"]
+[node name="Page" type="PanelContainer" parent="Panel/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Content" type="VBoxContainer" parent="Panel/Margin/VBox/ScrollContainer"]
+[node name="PageBox" type="VBoxContainer" parent="Panel/VBox/Page"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DisclaimerLabel" type="Label" parent="Panel/VBox/Page/PageBox"]
+layout_mode = 2
+theme_type_variation = &"InkBodyLabel"
+text = "Everything here is cosmetic only — it changes how your ship looks and never affects gameplay."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBox/Page/PageBox"]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBox/Page/PageBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="Panel/VBox/Page/PageBox/ScrollContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 12
 
-[node name="CloseButton" type="Button" parent="Panel/Margin/VBox"]
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
+size_flags_horizontal = 4
 text = "Close"

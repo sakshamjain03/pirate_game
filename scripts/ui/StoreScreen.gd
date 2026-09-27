@@ -17,16 +17,23 @@ class_name StoreScreen extends Control
 @onready var content: VBoxContainer = %Content
 @onready var close_button: Button = %CloseButton
 @onready var title_label: Label = %TitleLabel
+@onready var page: PanelContainer = %Page
 
 ## Requirement 4.6 / docs/18_ACCESSIBILITY.md §6 — minimum touch target size,
 ## same constant WardrobeScreen already uses.
 const _MIN_TOUCH_SIZE := Vector2(48, 48)
+## Wide enough that "Owned"/"Unavailable"/a localised price never resizes
+## the column row to row.
+const _BUY_BUTTON_SIZE := Vector2(280, 48)
 
 
 func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	# M22 6b: the shared journal page. Buy buttons stay brass on purpose —
+	# a coral glowing "buy" is exactly the pressure AGENTS.md forbids.
+	PirateThemeBuilder.dress_parchment_page(page)
 	close_button.pressed.connect(close)
 	StoreManager.products_updated.connect(_refresh)
 	StoreManager.purchase_succeeded.connect(_on_purchase_succeeded)
@@ -35,7 +42,6 @@ func _ready() -> void:
 	PirateThemeBuilder.apply_button_juice(self)
 
 	if PirateThemeBuilder.is_mobile():
-		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 
 
@@ -63,6 +69,8 @@ func _refresh() -> void:
 	for child in content.get_children():
 		child.queue_free()
 	for product in StoreManager.get_all_products():
+		if content.get_child_count() > 0:
+			content.add_child(HSeparator.new())
 		content.add_child(_build_entry(product))
 	PirateThemeBuilder.apply_button_juice(content)
 
@@ -74,12 +82,15 @@ func _build_entry(product: ProductData) -> Control:
 
 	var label := Label.new()
 	label.text = product.display_name
+	label.theme_type_variation = &"InkTitleLabel"
+	label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(label)
 
 	var action := Button.new()
-	action.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_MIN_TOUCH_SIZE)
+	action.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_BUY_BUTTON_SIZE)
+	action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 	if StoreManager.is_owned(product.sku):
 		action.text = tr("Owned")

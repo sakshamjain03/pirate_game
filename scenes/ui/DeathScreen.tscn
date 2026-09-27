@@ -1,21 +1,6 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/DeathScreen.gd" id="1_death"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_MenuBg"]
-bg_color = Color(0.12, 0.05, 0.05, 0.95)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.8, 0.2, 0.2, 1)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
-shadow_size = 10
-shadow_color = Color(0, 0, 0, 0.45)
-anti_aliasing = true
 
 [node name="DeathScreen" type="Control"]
 layout_mode = 3
@@ -45,46 +30,39 @@ grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="CenterContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(500, 300)
+custom_minimum_size = Vector2(760, 400)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_MenuBg")
+theme_type_variation = &"WoodFramePanel"
 
-[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 30
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 30
-theme_override_constants/margin_bottom = 40
-
-[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 16
 alignment = 1
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="TitleLabel" type="Label" parent="CenterContainer/Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
-theme_override_font_sizes/font_size = 42
+theme_type_variation = &"DisplayLabel"
 text = "Ship Destroyed!"
 horizontal_alignment = 1
 
-[node name="PenaltyLabel" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="Page" type="PanelContainer" parent="CenterContainer/Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 18
+size_flags_vertical = 3
+
+[node name="PenaltyLabel" type="Label" parent="CenterContainer/Panel/VBox/Page"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 6
+theme_type_variation = &"InkBodyLabel"
 text = "Your crew salvaged the ship, but X Gold was lost to the sea."
 horizontal_alignment = 1
-autowrap_mode = 2
+autowrap_mode = 3
 
-[node name="HSeparator" type="HSeparator" parent="CenterContainer/Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="RespawnButton" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+[node name="RespawnButton" type="Button" parent="CenterContainer/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(200, 50)
+custom_minimum_size = Vector2(300, 96)
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 24
 text = "Respawn"

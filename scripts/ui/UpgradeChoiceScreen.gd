@@ -16,6 +16,8 @@ var _cards_row: HBoxContainer
 var _subtitle: Label
 var _offered: Array = []
 
+const _CARD_SIZE := Vector2(300, 330)
+
 
 func _ready() -> void:
 	# Must keep processing while the tree is paused, same as DeathScreen.
@@ -49,48 +51,41 @@ func _build() -> void:
 	centre.set_anchors_preset(Control.PRESET_FULL_RECT, true)
 	add_child(centre)
 
+	# M22 6b: kit frame + parchment page of BoardTile cards (was a flat
+	# navy StyleBoxFlat with hand-picked colours).
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.09, 0.07, 0.05, 0.97)
-	style.set_border_width_all(4)
-	style.border_color = Color(0.85, 0.68, 0.30)
-	style.set_corner_radius_all(10)
-	panel.add_theme_stylebox_override("panel", style)
+	panel.theme_type_variation = &"WoodFramePanel"
 	centre.add_child(panel)
 
-	var margin := MarginContainer.new()
-	for side in ["left", "top", "right", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 28)
-	panel.add_child(margin)
-
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 18)
-	margin.add_child(col)
+	col.add_theme_constant_override("separation", 12)
+	panel.add_child(col)
 
 	var title := Label.new()
-	title.text = "CHOOSE ONE"
+	title.text = tr("Choose One")
+	title.theme_type_variation = &"DisplayLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(38))
-	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.42))
 	col.add_child(title)
 
 	_subtitle = Label.new()
+	_subtitle.theme_type_variation = &"ChipLabel"
 	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_subtitle.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(15))
-	_subtitle.add_theme_color_override("font_color", Color(0.72, 0.68, 0.60))
 	col.add_child(_subtitle)
 
+	var page := PanelContainer.new()
+	PirateThemeBuilder.dress_parchment_page(page)
+	col.add_child(page)
 	_cards_row = HBoxContainer.new()
-	_cards_row.add_theme_constant_override("separation", 16)
+	_cards_row.add_theme_constant_override("separation", 20)
 	_cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_child(_cards_row)
+	page.add_child(_cards_row)
 
 
 func _on_offer(choices: Array, offer_index: int, total_offers: int) -> void:
 	if choices.is_empty():
 		return
 	_offered = choices
-	_subtitle.text = "Lasts this battle only  ·  offer %d of %d" % [offer_index, total_offers]
+	_subtitle.text = tr("Lasts this battle only  ·  offer %d of %d") % [offer_index, total_offers]
 
 	for child in _cards_row.get_children():
 		child.queue_free()
@@ -109,14 +104,46 @@ func _on_offer(choices: Array, offer_index: int, total_offers: int) -> void:
 		first.grab_focus()
 
 
+## One upgrade = one tappable BoardTile card: the authored glyph, the name
+## in ink Germania and the effect line. The children ignore the mouse so the
+## whole card is the touch target.
 func _make_card(upgrade: BattleUpgradeData) -> Button:
 	var card := Button.new()
-	card.custom_minimum_size = Vector2(228, 210)
-	card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	card.text = "%s\n\n%s\n\n%s" % [upgrade.icon, upgrade.display_name, upgrade.describe()]
-	card.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(17))
+	card.theme_type_variation = &"BoardTile"
+	card.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_CARD_SIZE)
 	card.tooltip_text = upgrade.describe()
 	card.pressed.connect(_on_card_pressed.bind(upgrade))
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 14
+	v.offset_top = 14
+	v.offset_right = -14
+	v.offset_bottom = -14
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 8)
+	card.add_child(v)
+	var glyph := Label.new()
+	glyph.text = upgrade.icon
+	glyph.theme_type_variation = &"InkTitleLabel"
+	glyph.add_theme_font_size_override("font_size", UITokens.FONT_DISPLAY)
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(glyph)
+	var name_lbl := Label.new()
+	name_lbl.text = upgrade.display_name
+	name_lbl.theme_type_variation = &"InkTitleLabel"
+	name_lbl.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(name_lbl)
+	var desc := Label.new()
+	desc.text = upgrade.describe()
+	desc.theme_type_variation = &"ChipLabel"
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(desc)
+	for child in v.get_children():
+		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return card
 
 

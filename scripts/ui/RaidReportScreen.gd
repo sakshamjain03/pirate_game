@@ -10,20 +10,19 @@ class_name RaidReportScreen extends Control
 @onready var outcome_label: Label = %TitleLabel
 @onready var details_label: Label = %DetailsLabel
 @onready var panel: PanelContainer = %Panel
+@onready var page: PanelContainer = %Page
 
 func _ready() -> void:
 	dismiss_button.pressed.connect(_on_dismiss_pressed)
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_parchment_page(page)
 	PirateThemeBuilder.apply_button_juice(self)
 
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
-		outcome_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(42))
-		details_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(18))
 		dismiss_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(dismiss_button.custom_minimum_size)
-		dismiss_button.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 
 func open(report: Dictionary) -> void:
 	var repelled = report.get("repelled", true)
@@ -36,11 +35,11 @@ func open(report: Dictionary) -> void:
 
 	if repelled:
 		outcome_label.text = tr("Raid Repelled!")
-		outcome_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+		outcome_label.add_theme_color_override("font_color", UITokens.palette().hp_good)
 		details_label.text = outcome_sentence
 	else:
 		outcome_label.text = tr("Raid Successful!")
-		outcome_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		outcome_label.add_theme_color_override("font_color", UITokens.palette().hp_low)
 
 		var stolen_text = outcome_sentence + "\n\n" + tr("Stolen Resources:") + "\n"
 		if stolen.is_empty():

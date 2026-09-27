@@ -38,38 +38,48 @@ func _build_ui() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(dim)
 	_panel = PanelContainer.new()
+	# A CanvasLayer can't carry a theme, so the frame owns it (as WorldHUD).
 	_panel.theme = PirateThemeBuilder.build()
+	_panel.theme_type_variation = &"WoodFramePanel"
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
 	# On mobile, a flat 1.5x of this small PC box still reads as a narrow
 	# column surrounded by wasted space (device-test feedback 2026-09-20) —
 	# same fix as CaptainsLog/WorldMapScreen/WhatsNewScreen's panel sizing.
-	var panel_size := Vector2(780, 600)
+	var panel_size := Vector2(1100, 680)
 	if PirateThemeBuilder.is_mobile():
 		panel_size = MobileLayoutManager.mobile_dialog_size(panel_size, get_viewport())
 	_panel.position = panel_size * -0.5
 	_panel.size = panel_size
 	root.add_child(_panel)
+	# M22 6b: the Log's layout — frame title, a parchment journal page of
+	# ink entry cards, one brass Close below (was a flat grey list).
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
+	layout.add_theme_constant_override("separation", 14)
 	_panel.add_child(layout)
-	var header := HBoxContainer.new()
-	layout.add_child(header)
 	var title := Label.new()
 	title.text = tr("Codex")
-	title.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(30))
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	var close_button := Button.new()
-	close_button.text = tr("Close")
-	close_button.pressed.connect(close)
-	header.add_child(close_button)
-	PirateThemeBuilder.apply_button_juice(_panel)
+	title.theme_type_variation = &"TitleLabel"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(title)
+	var page := PanelContainer.new()
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	PirateThemeBuilder.dress_parchment_page(page)
+	layout.add_child(page)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(scroll)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.add_child(scroll)
 	_entries = VBoxContainer.new()
 	_entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_entries.add_theme_constant_override("separation", 10)
 	scroll.add_child(_entries)
+	var close_button := Button.new()
+	close_button.text = tr("Close")
+	close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(260, 0))
+	close_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_button.pressed.connect(close)
+	layout.add_child(close_button)
+	PirateThemeBuilder.apply_button_juice(_panel)
 
 
 func _refresh() -> void:
@@ -117,23 +127,33 @@ func _refresh() -> void:
 func _add_section(text_value: String) -> void:
 	var label := Label.new()
 	label.text = text_value
-	label.add_theme_font_size_override("font_size", 22)
+	label.theme_type_variation = &"InkTitleLabel"
+	label.add_theme_font_size_override("font_size", UITokens.FONT_SECTION)
 	_entries.add_child(label)
-	_entries.add_child(HSeparator.new())
 
 
+## One Codex entry = one ink inset card (heading + wrapped body).
 func _add_entry(title_text: String, body_text: String) -> void:
+	var card := PanelContainer.new()
+	card.theme_type_variation = &"InkInsetPanel"
+	_entries.add_child(card)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	card.add_child(box)
 	var title := Label.new()
 	title.text = title_text
-	title.add_theme_font_size_override("font_size", 20)
-	_entries.add_child(title)
+	title.theme_type_variation = &"InkTitleLabel"
+	title.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+	if body_text.is_empty():
+		return
 	var body := Label.new()
 	body.text = body_text
+	body.theme_type_variation = &"InkBodyLabel"
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 15)
-	body.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	_entries.add_child(body)
-	_entries.add_child(HSeparator.new())
+	body.modulate = Color(1, 1, 1, 0.8)
+	box.add_child(body)
 
 
 func _captain_is_encountered(captain: CaptainData) -> bool:

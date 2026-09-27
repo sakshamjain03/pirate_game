@@ -13,9 +13,14 @@ class_name UITokens extends RefCounted
 # --- Type scale (Label/Button font sizes) ---
 const FONT_DISPLAY := 88   ## design 44 — headline moments ("Legendary Haul!")
 const FONT_TITLE   := 56   ## design 28 — screen/panel titles ("Captain's Roster")
+const FONT_SECTION := 44   ## design 22 — a section heading inside a page ("Completed Chapters")
 const FONT_HUD_NUM := 36   ## design 18 — HUD numeric readouts ("24,860 / 312")
 const FONT_BODY    := 32   ## design 16 — body text; default Label/Button size
 const FONT_CHIP    := 24   ## design 12 — small chip labels ("DMG 412")
+## Wrapped body paragraphs: Baloo 2's own ascent+descent already leaves a
+## generous gap, so a multi-line body at the default spacing read as
+## double-spaced (What's New, M22 6b sweep).
+const BODY_LINE_SPACING := -8
 
 # --- Corner radii (StyleBox corner_radius_*) ---
 const RADIUS_PRIMARY   := 36  ## design 18 — Primary/Brass buttons

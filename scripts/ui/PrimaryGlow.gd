@@ -37,6 +37,13 @@ func _ready() -> void:
 	_start_loop()
 
 
+## A disabled Primary (Wardrobe's Equip before a pick) must not keep
+## pulsing "tap me" — BaseButton has no disabled-changed signal, so poll.
+func _process(_delta: float) -> void:
+	var btn := get_parent() as BaseButton
+	visible = btn == null or not btn.disabled
+
+
 func _start_loop() -> void:
 	var half := UITokens.GLOW_PERIOD_SEC / 2.0
 	_loop_tween = create_tween().set_loops()

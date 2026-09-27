@@ -19,6 +19,21 @@ func test_mark_primary_sets_variation_and_adds_exactly_one_glow():
 	assert_eq(_count_glow_children(btn), 1, "mark_primary() must be idempotent — no second glow")
 
 
+# M22 6b — Wardrobe's Equip is Primary but starts disabled; a disabled CTA
+# must not pulse.
+func test_glow_hides_while_its_primary_is_disabled():
+	var btn := Button.new()
+	add_child_autofree(btn)
+	PirateThemeBuilder.mark_primary(btn)
+	var glow: PrimaryGlow = btn.get_children().filter(func(c): return c is PrimaryGlow)[0]
+	btn.disabled = true
+	await wait_process_frames(2)
+	assert_false(glow.visible, "a disabled Primary shows no glow")
+	btn.disabled = false
+	await wait_process_frames(2)
+	assert_true(glow.visible, "re-enabling it brings the glow back")
+
+
 func _count_glow_children(btn: Button) -> int:
 	var count := 0
 	for child in btn.get_children():

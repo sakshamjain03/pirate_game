@@ -476,6 +476,31 @@ moved to Starboard) and 320 wide.
   a fixed offset. The first tutorial placement clipped the right steering arrow, and a mirrored
   guess would have clipped left-handed layouts.
 
+## 11e. Phase 6b findings (content modals, combat widgets)
+
+- **One journal composition for every content modal:** a wood frame, a `TitleLabel`, a parchment
+  page from `dress_parchment_page()` with ink text, HSeparators and RichText from the page
+  sub-theme, and brass actions below. Log, Codex, What's New, Wardrobe, Store, Support, Rewarded
+  Offer, Raid Report, Death and UpgradeChoice all use it. Before, each had its own hand-picked
+  StyleBoxFlat.
+- **Shared builders instead of copies:** `make_board_tile()` (IslandMenu + Wardrobe), a `RailTab`
+  button variation (a button row styled as the tab rail), `EnemyHullBar`, `number_font()`,
+  `ink_good_color()`.
+- **Where coral is banned outright:** Store, RewardedBonusOffer and Death. These are
+  monetization/ad pressure (AGENTS.md) and a somber defeat (§10), not a "one Primary" choice.
+  Enforced by `test_primary_button_rule`.
+- **Engine gotchas found by capture:**
+  - `FontVariation.variation_opentype` needs the integer tag: a String `"wght"` is silently
+    ignored in 4.3, so every Baloo weight was 400 from Phase 1 until this phase.
+  - A wrapped Label measured before its first real layout reports a one-character-per-line
+    height, so a content-fitted panel must refit on `minimum_size_changed`, not only `resized`.
+  - TabContainer re-points a hidden current tab only while it is visible.
+  - Label3D damage numbers need `fixed_size` to be readable at combat range.
+- **Test-measurement correction:** an overlap test must compare *drawn* rects. A ScrollContainer's
+  child rect is its full content height, which is clipped, not drawn.
+- **Moving to the real 800 weight widened every number and chip.** The full phone and desktop
+  sweeps were re-run and viewed after the switch.
+
 ## 12. Screen inventory (baseline 2026-09-25)
 
 Override counts to burn down. `tscn` = `theme_override_*` lines in `scenes/ui/<name>.tscn`;
@@ -497,18 +522,18 @@ same greps after each phase and update the "now" columns.
 | IslandMenu | 14 | 51 | 6a | 11 | 60 † |
 | WorldMapScreen | 8 | 1 | 6a | 4 | 0 |
 | TutorialDialogue | 15 | 5 | 6a | 4 | 2 |
-| CaptainsLog | 6 | 6 | 6b | | |
-| CodexScreen | 0 | 6 | 6b | | |
-| WhatsNewScreen | 7 | 4 | 6b | | |
-| WardrobeScreen | 10 | 2 | 6b | | |
-| StoreScreen | 7 | 2 | 6b | | |
-| PurchaseSupportScreen | 7 | 1 | 6b | | |
-| RewardedBonusOffer | 7 | 0 | 6b | | |
-| RaidReportScreen | 11 | 5 | 6b | | |
-| DeathScreen | 11 | 3 | 6b | | |
-| UpgradeChoiceScreen | 0 | 9 | 6b | | |
-| EnemyHealthBarWidget | 8 | 0 | 6b | | |
-| FloatingDamage | 0 | 0 | 6b | | |
+| CaptainsLog | 6 | 6 | 6b | 2 | 3 |
+| CodexScreen | 0 | 6 | 6b | 0 | 5 |
+| WhatsNewScreen | 7 | 4 | 6b | 2 | 1 |
+| WardrobeScreen | 10 | 2 | 6b | 7 | 0 |
+| StoreScreen | 7 | 2 | 6b | 3 | 2 |
+| PurchaseSupportScreen | 7 | 1 | 6b | 2 | 0 |
+| RewardedBonusOffer | 7 | 0 | 6b | 2 | 0 |
+| RaidReportScreen | 11 | 5 | 6b | 1 | 2 |
+| DeathScreen | 11 | 3 | 6b | 1 | 1 |
+| UpgradeChoiceScreen | 0 | 9 | 6b | 0 | 5 |
+| EnemyHealthBarWidget | 8 | 0 | 6b | 1 | 2 |
+| FloatingDamage | 0 | 0 | 6b | 0 | 0 |
 | PortraitFallback (code-only) | – | 2 | 6a | | |
 | PirateThemeBuilder (code-only) | – | 1 | 3 | | |
 

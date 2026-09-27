@@ -26,11 +26,14 @@ func _instantiate() -> void:
 	add_child_autofree(_screen)
 
 
+# M22 6b (deliberate): 480x560 -> 880x640 — the v0.3 journal layout (wood
+# frame + parchment page at body size 32) left a ~300px text column at the
+# old size; the scroll's 400 leaves room for the frame title + Close.
 func test_panel_and_scroll_container_are_wired_and_sized_on_pc():
 	_instantiate()
-	assert_eq(_screen.panel.custom_minimum_size, Vector2(480, 560),
+	assert_eq(_screen.panel.custom_minimum_size, Vector2(880, 640),
 		"PC panel size must be untouched by the mobile pass")
-	assert_eq(_screen.scroll_container.custom_minimum_size, Vector2(0, 420),
+	assert_eq(_screen.scroll_container.custom_minimum_size, Vector2(0, 400),
 		"PC scroll container size must be untouched by the mobile pass")
 
 

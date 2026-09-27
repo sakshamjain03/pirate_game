@@ -15,19 +15,20 @@ const SUPPORT_EMAIL := "sj@passthebot.dev"
 @onready var contact_button: Button = %ContactButton
 @onready var panel: PanelContainer = %Panel
 @onready var title_label: Label = %TitleLabel
+@onready var page: PanelContainer = %Page
 
 
 func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_parchment_page(page)
 	close_button.pressed.connect(close)
 	contact_button.pressed.connect(_on_contact_pressed)
 	PirateThemeBuilder.apply_button_juice(self)
 
 	if PirateThemeBuilder.is_mobile():
 		panel.custom_minimum_size = PirateThemeBuilder.scaled_size(panel.custom_minimum_size)
-		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 		contact_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(contact_button.custom_minimum_size)
 		close_button.custom_minimum_size = PirateThemeBuilder.scaled_button_size(close_button.custom_minimum_size)
 

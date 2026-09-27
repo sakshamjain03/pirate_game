@@ -18,6 +18,13 @@ var _pulse_active := false
 var _pulse_tween: Tween
 
 
+func _ready() -> void:
+	# The name floats over open sea, not a panel — an ink outline keeps it
+	# legible on bright water and foam (M22 6.9).
+	_name_label.add_theme_color_override("font_outline_color", UITokens.palette().ink)
+	_name_label.add_theme_constant_override("outline_size", UITokens.TEXT_OUTLINE_SIZE * 2)
+
+
 func bind(ship: Node3D) -> void:
 	var combat := ship.get_node_or_null("ShipCombat")
 	if not combat:

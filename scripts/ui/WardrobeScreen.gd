@@ -12,7 +12,8 @@ class_name WardrobeScreen extends Control
 ## currency, or store link anywhere in this screen — absent, not disabled.
 
 @onready var slot_tabs: HBoxContainer = %SlotTabs
-@onready var content: GridContainer = %Content
+@onready var content: HFlowContainer = %Content
+@onready var page: PanelContainer = %Page
 @onready var equip_button: Button = %EquipButton
 @onready var store_button: Button = %StoreButton
 @onready var close_button: Button = %CloseButton
@@ -32,16 +33,25 @@ const _MIN_TOUCH_SIZE := Vector2(48, 48)
 ## deliberate controls (device-test feedback 2026-09-20), so they're sized
 ## well past the bare touch-target floor instead.
 const _MOBILE_TAB_SIZE := Vector2(160, 96)
+## M22 6b: each cosmetic is a v0.3 board tile (icon over name + state) on a
+## parchment page, wrapping in an HFlowContainer instead of a fixed 2-column
+## grid of wide brass bars that cropped at the page edge.
+const _TILE_SIZE := Vector2(210, 220)
+const _TILE_ICON_SIZE := Vector2(80, 80)
 
 var _ship_visuals: Node = null
 var _current_slot: String = ""
 var _previewing_cosmetic: CosmeticData = null
+var _tile_group := ButtonGroup.new()
 
 
 func _ready() -> void:
 	hide()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
+	PirateThemeBuilder.dress_parchment_page(page)
+	# Equip is the screen's one Primary (v0.3); Store/Close stay brass.
+	PirateThemeBuilder.mark_primary(equip_button)
 	close_button.pressed.connect(close)
 	equip_button.pressed.connect(_on_equip_pressed)
 	store_button.pressed.connect(store_screen.open)
@@ -49,16 +59,15 @@ func _ready() -> void:
 	_build_slot_tabs()
 	PirateThemeBuilder.apply_button_juice(self)
 	if PirateThemeBuilder.is_mobile():
-		title_label.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(24))
 		for btn in [equip_button, store_button, close_button]:
-			btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(Vector2(100, 48))
+			btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(btn.custom_minimum_size)
 
 
 func open() -> void:
 	_ship_visuals = _find_player_ship_visuals()
 	_previewing_cosmetic = null
 	equip_button.disabled = true
-	detail_label.text = ""
+	detail_label.text = tr("Tap a design to preview it on your ship.")
 	_select_slot(_SLOTS[0])
 	show()
 	get_tree().paused = true
@@ -82,9 +91,9 @@ func _build_slot_tabs() -> void:
 		var btn := Button.new()
 		btn.name = "Slot_%s" % slot
 		btn.text = slot.capitalize()
+		btn.theme_type_variation = &"RailTab"
 		if PirateThemeBuilder.is_mobile():
 			btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_MOBILE_TAB_SIZE)
-			btn.add_theme_font_size_override("font_size", PirateThemeBuilder.scaled_font_size(20))
 		else:
 			btn.custom_minimum_size = _MIN_TOUCH_SIZE
 		btn.toggle_mode = true
@@ -115,13 +124,24 @@ func _refresh_content() -> void:
 
 func _build_entry(cosmetic: CosmeticData) -> Button:
 	var owned: bool = EntitlementManager.has_entitlement(cosmetic.id)
-
-	var btn := Button.new()
-	btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_MIN_TOUCH_SIZE)
-	btn.text = cosmetic.display_name if owned else tr("%s (Not Owned)") % cosmetic.display_name
+	var equipped: bool = _ship_visuals != null and _ship_visuals.has_method("get_equipped_cosmetic") 		and _ship_visuals.get_equipped_cosmetic(_current_slot) == cosmetic
+	var pal := UITokens.palette()
+	var state := tr("Not Owned")
+	var state_color := pal.brick
+	if equipped:
+		state = tr("Equipped")
+		state_color = PirateThemeBuilder.ink_good_color()
+	elif owned:
+		state = tr("Owned")
+		state_color = pal.text_on_parchment
+	# Unscaled on phone: 220px already clears the touch floor, and the
+	# scaled 330px tile didn't fit the short landscape page (cropped status).
+	var btn := PirateThemeBuilder.make_board_tile(_TILE_SIZE,
+		cosmetic.icon, cosmetic.display_name, state, state_color, _TILE_ICON_SIZE)
+	btn.button_group = _tile_group
 	btn.disabled = not owned
-	if cosmetic.icon:
-		btn.icon = cosmetic.icon
+	if not owned:
+		btn.modulate = Color(1, 1, 1, 0.6)
 	btn.pressed.connect(_on_cosmetic_selected.bind(cosmetic))
 	return btn
 

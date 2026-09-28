@@ -41,7 +41,7 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
 - [x] 9. Scene + entry — `scenes/modes/Maelstrom.tscn` (root `Maelstrom`, `Run/` not `Systems/`, storm wall), Main Menu button, Retry / Main Menu flow resetting the mode
   - **Verify:** a test loads the scene and asserts no `Systems/EnemySpawner` path and root name ≠ `World`; headful capture of the scene at t≈0/3/12 s reviewed.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.3, 2.4_
-- [ ] 10. Docs — `docs/05_CURRENT_SYSTEMS.md` M26 section (own section only), `docs/04_GAME_LOOP.md` mode entry
+- [x] 10. Docs — `docs/05_CURRENT_SYSTEMS.md` M26 section (own section only), `docs/04_GAME_LOOP.md` mode entry
   - **Verify:** `sync-systems-doc` reports nothing undocumented for the files above.
 - [ ] 11. **Checkpoint B (final)** — rebase on `main`, full suite, `checkpoint-reviewer`, headful capture reviewed, commit+push.
 

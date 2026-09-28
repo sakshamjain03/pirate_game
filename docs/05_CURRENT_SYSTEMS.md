@@ -105,10 +105,14 @@ See `docs/navalCombat.md` §4/§5 for the locked design.
   `attack_range` (a second, independent firing range of 40 that disagreed with the authored
   `ShipStats.cannon_range`) is gone, replaced by `attack_range_fraction` of the hull's real range.
 - `EnemySpawner.gd` — spawns/caps enemy population, weights faction selection by reputation,
-  exposes `spawn_hunter()`, and `spawning_enabled` (paused during an encounter).
+  exposes `spawn_hunter()`, and `spawning_enabled` (paused during an encounter). M26 adds
+  `spawn_profile_override` (replaces the heat-tier lookup when set) and `spawn_scene()` — see
+  "M26 - The Maelstrom".
 - `LootDrop.gd` / `LootTableData.gd` / `BoardingSystem.gd` — death drops and boarding rewards
   rolled from a faction/boss-specific loot table, scaled by the destroyed ship's class
-  (`max_crew`) and current empire `notoriety`.
+  (`max_crew`) and current empire `notoriety`. Since M26 both the crate spawn and the
+  `ResourceManager` grant are campaign-only (`SceneManager.is_campaign()`), and `LootDrop` has an
+  optional `magnet_range` (0 = off).
 - `ShipDamage.gd` — hull/sails/crew pools, stern-arc crits, and (M8) the **write** side:
   `repair(pool, amount)`, `restore_all()`, `get_pool_maximum()`, and a timed speed penalty fed by
   `AmmoData.speed_penalty` (authored on ChainShot since M6 and read by nothing until now).
@@ -146,7 +150,7 @@ See `docs/navalCombat.md` §4/§5 for the locked design.
   `strength_multiplier`/rewards/`upgrade_offers`; only `DEFENSE` needed new code.
 
 **Combat data:** `resources/combat/encounters/*.tres` (6 encounter types),
-`resources/combat/upgrades/*.tres` (10 battle upgrades),
+`resources/combat/upgrades/*.tres` (22 battle upgrades — 12 added by M26),
 `resources/captains/abilities/*.tres` (20 captain abilities, one per captain),
 `resources/combat/ai_profiles/*.tres` (6 AI profiles covering all 5 combat roles).
 
@@ -3025,3 +3029,128 @@ continuing to edit the files it is verifying.**
 Whether manual fire *feels* better than auto-fire, whether the heat curve paces well, and on-device
 frame rate at tier 5's cap of 8 ambient hulls (a phone performance question as much as a balance
 one). Stated rather than claimed.
+
+## M26 - The Maelstrom (2026-09-29)
+
+Spec: `.kiro/specs/milestone-m26-maelstrom/`. Commits `035e019` (Checkpoint A), `7a54eb0` (run +
+upgrades), `49e8db1` (scene, entry, persistence). Built in the `m26-maelstrom` worktree in parallel
+with M27/M28 (file ownership in the spec's tasks.md Notes).
+
+An endless, Vampire-Survivors-style survival mode reached from the main menu: one ship, open water
+inside a storm wall, enemies that never stop and keep getting stronger, pickups from every kill,
+three-card level-ups. The run ends when the ship sinks; time survived is the score. Assembled from
+existing parts - **no second upgrade system, spawner or pickup type**.
+
+### Isolation - one flag, checked where the side effects already live
+`SceneManager.GameMode { CAMPAIGN, MAELSTROM }` + `is_campaign()`. Every leak is guarded at its
+source rather than snapshotted and restored:
+
+| Leak | Guard |
+|---|---|
+| Notoriety + campaign loot crate on kill | `ShipController._on_died()` skips both outside the campaign |
+| Resource grant from a crate | `LootDrop._collect()` skips the `ResourceManager` loop; `collected` still emits |
+| Boss-defeat cosmetic | `EntitlementManager._on_boss_ship_died()` returns outside the campaign (**not in the spec's leak table** - found while wiring, Req 6.3) |
+| Chapter objectives / seasonal kill counters | the spawner lives at `Run/EnemySpawner`, never `Systems/EnemySpawner` |
+| Autosave, economy tick | scene root is `Maelstrom`, not `World` |
+| Campaign-wired HUD (`CampaignManager` signals, `Systems/*` lookups) | no `WorldHUD`; `MaelstromHUD` + the existing `MobileControls` |
+
+`MainMenu` resets the mode to `CAMPAIGN` in `_ready()` whatever path led back to it, and
+`MaelstromRun.quit_to_menu()` resets it before the scene change (Req 1.4).
+
+### The end-of-run save hazard - bigger than the spec said
+The spec flagged that `save_game()` reads the `player_ship` group. The real hazard: **`load_game()`
+is only called from `World.gd`**, so a run started from the main menu has every manager at its
+defaults, and a full `save_game()` would overwrite the whole campaign with them. So a run
+**never calls `save_game()`**:
+
+- `SaveManager.save_maelstrom_result(eights, seconds, level)` reads the save file, changes only
+  `maelstrom` and `economy.eights`, backs up, writes, cloud-syncs. Every other section stays
+  byte-for-byte. An unreadable primary is never overwritten (the run is parked pending instead).
+- **No campaign save yet** (fresh install): the run waits in `user://maelstrom_pending.json`. It
+  deliberately does not create the main save - a half-empty file would switch on Continue and skip
+  New Game's onboarding. `load_game()` claims it (`_claim_pending_maelstrom()`, both the no-save
+  and normal branches); the next successful `save_game()` deletes it, so a session lost before any
+  save claims it again, exactly once.
+- `save_game()`/`load_game()` round-trip the optional `maelstrom` section (`_maelstrom_data`),
+  **omitted entirely until a run has finished** (the "no data vs empty section" rule).
+- `MaelstromRecord` (`scripts/modes/`) holds `{best_seconds, best_level, runs}`;
+  `SaveManager.load_maelstrom_record()` reads disk + pending so a cold start still shows the true
+  best. `New Game`'s `delete_save()` wipes the record with the rest of the save (the pending file
+  survives it, so Eights earned before the first campaign are not lost).
+- The in-memory wallet also gets the Eights (for any menu UI); harmless, because every World entry
+  rebuilds the economy from the patched file or claims the pending one.
+
+Guarded by `tests/test_maelstrom_isolation.gd`: a scripted run (kills, pickups, two level-ups, an
+offer taken, death) against a seeded save with a far-away `player` section - afterwards every file
+section except `maelstrom`/`economy.eights` and every manager's `get_save_data()` is identical.
+
+### Data - `resources/balance/MaelstromCurve.tres` (`MaelstromCurveData` + `MaelstromBandData`)
+Six bands (0/60/150/270/420/600 s: cap 3->10, interval 6->1.5 s, strength 1.0->2.6), a boss on
+entering 420 s (`BossShip`) and 600 s (`IronVultureBoss`), plunder thresholds (last repeats), the
+drop table (plunder / repair / two power-ups / keg), `drops_per_kill`, pickup lifetime/radius/magnet,
+keg radius/damage, `arena_radius` 400 + push force, and the Eights milestones (120 s->2, 300->4,
+480->6, 720->8, 900->10, cap 25). The **upgrade pool is authored on the curve** (22 entries), not
+scanned from the folder - directory listing is unreliable in exported builds.
+
+### `EnemySpawner.spawn_profile_override`
+A `Callable` returning `{cap, interval, strength, pool}`, read **live** each call. When valid it
+replaces the heat-tier cap/interval and the region/notoriety/heat strength scaling; hulls come from
+the band's pool (or `enemy_scene`) on a **duplicated** `ShipStats`, are tracked **non-ambient** and
+`provoke()`d, so heat passivity never applies (Req 3.3). `spawn_scene(scene, strength)` spawns a
+band's boss the same way. Unset, the campaign path is unchanged (`test_heat_system.gd` untouched).
+Spawns still sit 60-120u from the player, so near the wall one can appear outside it and sail in.
+
+### `MaelstromRun` (`scripts/modes/MaelstromRun.gd`, node `Run`)
+`READY -> RUNNING <-> OFFERING -> ENDED`. Elapsed time selects the band; entering a band spawns its
+boss once. Each kill (`enemy_destroyed`) drops 1-2 rolled `LootDrop`s (`loot_data.kind`):
+plunder -> run XP only; repair -> `CombatModifiers.repair_pool("hull")`; powerup ->
+`add_timed_effect()`; keg -> area damage through each hull's normal `ShipCombat.take_damage()`, so
+keg kills count. Level-ups queue; `UpgradeChoiceScreen` gets one weighted offer of three at a time
+(`upgrade_offer_requested(choices, level, 0)` - it now reads "Level N - lasts this run only" when
+there is no "of N"), filtered by `can_apply()`; a fully maxed pool drops the queue instead of
+hanging. Death mid-offer emits `encounter_ended` so the panel closes. The storm wall is an external
+central force past `arena_radius` - `ShipMovement`/`BuoyancySimulator` untouched. The run applies
+`FleetManager.get_active_ship()` (the starter Sloop on a cold start, as `PlayerShip.tscn` carries)
+and restores every pool to full.
+
+### New upgrades and modifier keys
+`CombatModifiers` gains `pickup_radius_mult`, `regen_per_second`, `extra_projectiles`,
+`ram_damage_mult` (timed effects can carry them too). `BattleUpgradeData.Effect` **appends**
+`PICKUP_RADIUS, HULL_REGEN, EXTRA_PROJECTILE, RAM_DAMAGE` (9-12; int-serialized). `HULL_REGEN`'s
+magnitude is a **percent** per second so it fits `magnitude`'s export range; regen never raises a
+sunk hull (`ShipDamage.repair()` itself does not check). Consumers: `ShipCombat._spawn_cannonball()`
+fires the extra balls through the normal aim/spread path; `ShipCollisionHandler._resolve_ram()`
+scales the damage a rammer's **bow** deals, outside the static `compute_ram_damage()`;
+`LootDrop.magnet_range` (0 = off for every campaign crate) drifts a pickup toward the ship.
+12 new `.tres` (Chain Hooks, Twin Decks, Oiled Blocks, Salvager's Eye, Ship's Carpenter, Iron Prow,
+Long Glass, Wide Gunports, Stormsails, Grog Ration, Tar Patch, Powder Monkey) - 22 in total.
+
+### Pre-existing bug fixed on the way - re-gunned hulls fired from outside the tree
+`ShipCombat._build_side()` added generated gun markers with `add_child()` from inside the ship's own
+`_ready()`, which Godot refuses ("Parent node is busy setting up children"). Every hull whose gun
+count differs from its authored markers - the Man O'War `BossShip` among them, in the campaign too -
+fired from markers that never entered the tree (an invalid `global_transform`). Now
+`add_child.call_deferred()`; this was the source of the suite's recurring "busy" errors (22 at the
+M25 baseline, 0 now). `test_maelstrom_spawner.gd` fails without it.
+
+### Scene and UI
+`scenes/modes/Maelstrom.tscn`: storm-grey environment, `Ocean`, `PlayerShip` at the origin,
+`StormWall` (a pale spray band - dark variants vanished into the fog in headful captures, sized at
+runtime from `arena_radius`), `CameraRig`, `Run/EnemySpawner`, `MobileControls`, and `UI/`
+(`MaelstromHUD`: time, level + plunder bar, kills, hull, Abandon; `UpgradeChoiceScreen`;
+`MaelstromResults`: time, kills, level, best, Eights, Sail Again / Main Menu - **no coral Primary
+on a defeat**, per M22). Main menu: an always-visible "The Maelstrom" secondary button.
+`scenes/debug/MaelstromCaptureHarness.tscn` is `CaptureHarness.tscn`'s twin.
+
+### Tests
+New: `test_maelstrom_curve`, `test_maelstrom_isolation`, `test_maelstrom_spawner`,
+`test_maelstrom_run`, `test_maelstrom_upgrades`, `test_maelstrom_scene` (60 tests). Changed:
+`test_battle_upgrades`' sanity check learns that `HULL_REGEN`/`EXTRA_PROJECTILE` are additive, like
+`FIRING_ARC` (a new case, nothing loosened). Suite at M26 Checkpoint B: see the checkpoint commit.
+Tests that end a run back up and restore `user://save_data.json(.bak)` and the pending file.
+
+### Not verifiable here
+Phone frame rate at 10 hulls plus pickups (above M25's already-unverified tier-5 cap of 8), whether
+the curve paces well, whether the magnet and storm wall *feel* right, and touch feel. Headful
+captures confirmed the arena, HUD, unprovoked engagement, the wall up close, the choice screen (and
+the second queued offer) and the results panel - layout, not feel.

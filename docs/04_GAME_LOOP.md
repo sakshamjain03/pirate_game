@@ -182,6 +182,40 @@ Identity is the progression—not just statistics.
 
 ---
 
+# Side Mode: The Maelstrom (M26)
+
+Sail In (main menu, any time, no save needed)
+
+↓
+
+Survive (enemies never stop; every band is stronger)
+
+↓
+
+Sweep the Wreckage (plunder, repairs, power-ups, powder kegs)
+
+↓
+
+Level Up (choose 1 of 3 temporary upgrades)
+
+↓
+
+Sink (time survived is the score)
+
+↓
+
+Results (best time, Pieces of Eight) → Sail Again
+
+A pure-combat session for when there is no time for the campaign. It is **isolated by
+construction**: a run never changes gold, wood, iron, rum, notoriety, heat, fleet, captains or
+chapter progress. Its one link to the empire is a capped Pieces of Eight grant from survival
+milestones — one of the sources `AGENTS.md` allows. Upgrades last one run only; there is no
+meta-progression between runs.
+
+Implementation: `docs/05_CURRENT_SYSTEMS.md` → "M26 - The Maelstrom".
+
+---
+
 # Design Rules
 
 Every action should produce visible progress.

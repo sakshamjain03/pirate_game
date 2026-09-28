@@ -38,10 +38,13 @@ change goes through it.
 | **new** `scripts/modes/MaelstromRun.gd` | run state machine; implements the `UpgradeChoiceScreen` binding contract |
 | **new** `scripts/modes/MaelstromResults.gd` | results panel (Retry / Main Menu) |
 | **new** `scripts/modes/MaelstromRecord.gd` | best-run persistence helper (`get_save_data`/`load_save_data`) |
-| **new** `scenes/modes/Maelstrom.tscn` | Ocean, PlayerShip, CameraRig, WorldUI, `Run` (MaelstromRun + EnemySpawner + WorldManager), storm wall, UpgradeChoiceScreen, results |
+| **new** `scenes/modes/Maelstrom.tscn` | Ocean, PlayerShip, CameraRig, `Run` (MaelstromRun + EnemySpawner), storm wall, MobileControls, `UI/` (MaelstromHUD, UpgradeChoiceScreen, results). *As built:* no `WorldUI`/WorldHUD (campaign-wired) and no WorldManager (nothing in the run needs it) |
+| **new** `scripts/modes/MaelstromHUD.gd` | *(as built)* time, level + plunder bar, kills, hull, Abandon |
+| `scripts/managers/EntitlementManager.gd` | *(as built)* boss-defeat cosmetic campaign-only — a leak missing from §1's table |
+| `scripts/world/ShipCombat.gd`, `ShipCollisionHandler.gd`, `scripts/ui/UpgradeChoiceScreen.gd` | *(as built)* extra-projectile and ram-damage consumers; "Level N" subtitle when `total_offers == 0`; deferred gun-marker add (pre-existing bug) |
 | **new** `resources/balance/MaelstromCurve.tres` | authored curve |
 | **new** `resources/combat/upgrades/*.tres` | ≥ 12 new upgrades |
-| `scripts/managers/SaveManager.gd` | additive: write/read the `maelstrom` section (omit when empty) |
+| `scripts/managers/SaveManager.gd` | additive: write/read the `maelstrom` section (omit when empty); *(as built)* `save_maelstrom_result()` file patch + pending file (§8) |
 | `scripts/ui/MainMenu.gd` + `scenes/ui/MainMenu.tscn` | additive: "The Maelstrom" button |
 | **new** `tests/test_maelstrom_curve.gd`, `test_maelstrom_isolation.gd`, `test_maelstrom_run.gd` | |
 
@@ -118,14 +121,13 @@ READY → RUNNING → (OFFERING ↔ RUNNING)* → ENDED
   `upgrade_offer_requested(choices, level, 0)`. `apply_upgrade_choice(upgrade)` →
   `modifiers.apply_upgrade(upgrade)`; decrement; next offer on the following frame.
 - `_end_run`: stop spawning (`spawning_enabled = false`), compute
-  `eights = curve.eights_for(elapsed)`, `ResourceManager.add_resource(PREMIUM_CURRENCY, eights)`
-  if > 0, update `MaelstromRecord`, `SaveManager.save_game()` (**the one explicit save of a run**,
-  so the Eights and record persist), show results.
+  `eights = curve.eights_for(elapsed)`, `SaveManager.save_maelstrom_result(eights, elapsed, level)`
+  (**the one write of a run — never `save_game()`**, see §8), show results.
 
-  **Hazard:** `SaveManager.save_game()` writes a `player` section from `player_ship` group — the
-  Maelstrom ship is in that group. The results path must call a narrower save or remove the
-  Maelstrom ship from `player_ship` before saving; otherwise the run's ship position/damage would
-  overwrite the campaign ship's. Resolve in Task 8, guarded by the isolation test.
+  **Hazard (resolved in Task 8, bigger than first written):** `SaveManager.save_game()` writes a
+  `player` section from the `player_ship` group, which the Maelstrom ship is in — but worse,
+  `load_game()` only runs when World loads, so a run started from the main menu has every manager
+  at its defaults and a full save would overwrite the entire campaign with them. Hence §8's patch.
 - Quit/Retry: `game_mode = CAMPAIGN` before `SceneManager.change_scene("MainMenu")`; Retry
   reloads `Maelstrom.tscn` with the mode still `MAELSTROM`.
 
@@ -151,3 +153,10 @@ Powder Monkey (damage, 3 stacks at low magnitude).
 `MaelstromRecord` holds `{best_seconds, best_level, runs}`. `SaveManager.save_game()` writes
 `save_dict["maelstrom"]` only when `runs > 0`; `load_game()` reads it when present. This follows
 the fragile-area rule: an optional section is omitted, never written empty.
+
+**Patch, don't save (user decision, 2026-09-29).** `SaveManager.save_maelstrom_result()` reads the
+save file from disk, changes only `maelstrom` and `economy.eights`, backs up and writes it back
+(cloud-synced like `save_game`). An unreadable primary is never overwritten. With **no campaign
+save yet**, the run's Eights and record wait in `user://maelstrom_pending.json` instead of creating
+a near-empty main save (which would switch on Continue and skip New Game's onboarding);
+`load_game()` claims the pending file and the next successful `save_game()` deletes it.

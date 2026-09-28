@@ -204,6 +204,10 @@ func _on_node_added(node: Node) -> void:
 
 
 func _on_boss_ship_died() -> void:
+	# M26 Req 6.3 — a Maelstrom boss is not a campaign boss defeat; Eights are a
+	# run's only carry-over.
+	if not SceneManager.is_campaign():
+		return
 	grant(&"figurehead_golden_eagle", "boss_defeat")
 
 

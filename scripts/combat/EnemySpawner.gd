@@ -51,6 +51,12 @@ var _player_ship: Node3D = null
 var _enemies_container: Node3D = null
 var available_factions: Array[Resource] = []
 
+## M26 — when valid, replaces the heat-tier lookup (and the empire/notoriety
+## strength scaling) for every ambient spawn. Called with no arguments; returns
+## {"cap": int, "interval": float, "strength": float, "pool": Array[PackedScene]}.
+## Set by MaelstromRun; left invalid in the campaign, where nothing here changes.
+var spawn_profile_override: Callable = Callable()
+
 func _ready() -> void:
 	call_deferred("_initialize")
 
@@ -116,9 +122,13 @@ func _spawn_enemy() -> void:
 	var spawn_pos = _find_spawn_position()
 	if spawn_pos == Vector3.ZERO:
 		return  # Could not find a valid position
-	
+
+	if spawn_profile_override.is_valid():
+		_spawn_from_profile(spawn_profile_override.call(), spawn_pos)
+		return
+
 	var enemy = enemy_scene.instantiate()
-	
+
 	if available_factions.size() > 0:
 		var chosen_faction = null
 		if FactionManager:
@@ -165,6 +175,64 @@ func _spawn_enemy() -> void:
 	_place_upright(enemy, spawn_pos, randf() * TAU)
 
 	_track_enemy(enemy)
+	enemy_spawned.emit(enemy)
+
+
+## M26 — a profile-driven spawn: hull from the profile's pool, strength from the
+## profile instead of region/notoriety/heat, always engaging. Faction is still
+## rolled so hulls keep their colours and AI behaviour.
+func _spawn_from_profile(profile: Dictionary, spawn_pos: Vector3) -> void:
+	var scene: PackedScene = enemy_scene
+	var pool: Array = profile.get("pool", [])
+	if not pool.is_empty():
+		var picked = pool.pick_random()
+		if picked:
+			scene = picked
+	var enemy := _instantiate_scaled(scene, float(profile.get("strength", 1.0)))
+	if enemy == null:
+		return
+	if "faction" in enemy and available_factions.size() > 0:
+		enemy.faction = available_factions.pick_random()
+	_add_engaging(enemy, spawn_pos)
+
+
+## M26 — spawns one specific scene (a Maelstrom band's boss) at a safe distance,
+## scaled by `strength`, always engaging. Returns the hull, or null on failure.
+func spawn_scene(scene: PackedScene, strength: float = 1.0) -> Node3D:
+	if not scene or not _enemies_container:
+		return null
+	var spawn_pos = _find_spawn_position()
+	if spawn_pos == Vector3.ZERO:
+		return null
+	var enemy := _instantiate_scaled(scene, strength)
+	if enemy == null:
+		return null
+	_add_engaging(enemy, spawn_pos)
+	return enemy
+
+
+func _instantiate_scaled(scene: PackedScene, strength: float) -> Node3D:
+	var enemy := scene.instantiate() as Node3D
+	if enemy == null:
+		push_error("EnemySpawner: scene '%s' is not a Node3D" % scene.resource_path)
+		return null
+	if enemy.get("ship_stats"):
+		# Duplicate, never mutate the shared .tres (Requirement 3.5).
+		enemy.ship_stats = enemy.ship_stats.duplicate(true)
+		enemy.ship_stats.max_health *= strength
+		enemy.ship_stats.cannon_damage *= strength
+	return enemy
+
+
+func _add_engaging(enemy: Node3D, spawn_pos: Vector3) -> void:
+	_enemies_container.add_child(enemy)
+	_place_upright(enemy, spawn_pos, randf() * TAU)
+	# Not ambient: heat-tier passivity (EnemyAI._may_engage_player) must never
+	# apply — every Maelstrom hull engages unprovoked (Requirement 3.3).
+	_track_enemy(enemy, false)
+	var ai = enemy.get_node_or_null("EnemyAI")
+	if ai and ai.has_method("provoke"):
+		ai.provoke()
 	enemy_spawned.emit(enemy)
 
 
@@ -285,11 +353,15 @@ func _heat_tier() -> HeatTierData:
 ## Live ambient cap - the heart of the wanted-level feel: 2 hulls when the player
 ## is unknown, 8 when they are a Nemesis.
 func get_active_max_enemies() -> int:
+	if spawn_profile_override.is_valid():
+		return int(spawn_profile_override.call().get("cap", max_enemies))
 	var tier := _heat_tier()
 	return tier.max_ambient_enemies if tier else max_enemies
 
 
 func get_active_spawn_interval() -> float:
+	if spawn_profile_override.is_valid():
+		return float(spawn_profile_override.call().get("interval", spawn_interval))
 	var tier := _heat_tier()
 	return tier.spawn_interval_seconds if tier else spawn_interval
 

@@ -25,6 +25,16 @@ extends Node
 
 signal scene_changed(new_path: String)
 
+## M26 — which kind of session is loaded. The one switch every campaign side
+## effect of a kill or pickup checks (ShipController._on_died, LootDrop._collect),
+## so a Maelstrom run can reuse combat without leaking notoriety or resources
+## into the campaign. Set by whoever starts a mode, reset to CAMPAIGN on leaving.
+enum GameMode { CAMPAIGN, MAELSTROM }
+var game_mode: GameMode = GameMode.CAMPAIGN
+
+func is_campaign() -> bool:
+	return game_mode == GameMode.CAMPAIGN
+
 var _is_transitioning: bool = false
 var _scene_history: Array[String] = []
 var _fade_overlay: ColorRect

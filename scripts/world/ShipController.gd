@@ -371,8 +371,10 @@ func _on_died() -> void:
 
 	_play_sinking_sequence()
 
-	# If this is an enemy, drop loot and despawn
-	if not is_in_group("player_ship"):
+	# If this is an enemy, drop loot and despawn. M26: both campaign side effects
+	# (crate of campaign resources, notoriety) are skipped outside the campaign —
+	# a Maelstrom run spawns its own pickups from EnemySpawner.enemy_destroyed.
+	if not is_in_group("player_ship") and SceneManager.is_campaign():
 		_spawn_loot()
 		
 		# Add notoriety based on faction

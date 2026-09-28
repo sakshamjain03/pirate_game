@@ -84,11 +84,14 @@ func _collect() -> void:
 	HapticFeedbackManager.reward()
 	collected.emit(loot_data)
 
-	# Grant resources via ResourceManager
-	for res_type in loot_data.keys():
-		var amount = loot_data[res_type]
-		if ResourceManager.has_method("add_resource"):
-			ResourceManager.add_resource(res_type, amount)
+	# Grant resources via ResourceManager — campaign only (M26). A Maelstrom
+	# pickup is routed by MaelstromRun through `collected` above and must never
+	# reach the campaign economy.
+	if SceneManager.is_campaign():
+		for res_type in loot_data.keys():
+			var amount = loot_data[res_type]
+			if ResourceManager.has_method("add_resource"):
+				ResourceManager.add_resource(res_type, amount)
 
 	HapticFeedbackManager.reward()
 

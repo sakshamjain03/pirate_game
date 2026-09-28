@@ -16,19 +16,19 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
 
 ## Tasks
 
-- [ ] 1. Game mode flag — `SceneManager.GameMode`, `game_mode`, `is_campaign()`
+- [x] 1. Game mode flag — `SceneManager.GameMode`, `game_mode`, `is_campaign()`
   - **Verify:** new test asserts default is `CAMPAIGN` and `is_campaign()` flips with the flag.
   - _Requirements: 1.2, 1.4_
-- [ ] 2. Isolation guards — `ShipController._on_died()` (notoriety, `_spawn_loot`) and `LootDrop._collect()` (grant loop) check `SceneManager.is_campaign()`
+- [x] 2. Isolation guards — `ShipController._on_died()` (notoriety, `_spawn_loot`) and `LootDrop._collect()` (grant loop) check `SceneManager.is_campaign()`
   - **Verify:** `tests/test_maelstrom_isolation.gd` — killing an enemy with the mode set leaves notoriety and resources unchanged; with the mode unset the old behaviour holds (existing loot/notoriety tests still pass).
   - _Requirements: 2.1, 2.2_
-- [ ] 3. Data layer — `MaelstromBandData`, `MaelstromCurveData` (`band_at`, `xp_for_level`, `eights_for`), `resources/balance/MaelstromCurve.tres`
+- [x] 3. Data layer — `MaelstromBandData`, `MaelstromCurveData` (`band_at`, `xp_for_level`, `eights_for`), `resources/balance/MaelstromCurve.tres`
   - **Verify:** `tests/test_maelstrom_curve.gd` — `band_at` boundaries incl. 0 and past the last band; `eights_for` sums reached milestones and respects the cap; bands sorted.
   - _Requirements: 3.1, 5.1, 6.2_
-- [ ] 4. `EnemySpawner.spawn_profile_override`
+- [x] 4. `EnemySpawner.spawn_profile_override`
   - **Verify:** with the override set, `get_active_max_enemies()`/`get_active_spawn_interval()` return the profile; unset, the M25 heat tests pass unchanged; strength still duplicates `ShipStats`.
   - _Requirements: 3.2, 3.5_
-- [ ] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
+- [x] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
 - [ ] 6. `MaelstromRun` core — elapsed, band tracking, boss-at-band-start, kill → drops, pickup routing (plunder/repair/powerup/keg), level queue, `upgrade_offer_requested` + `apply_upgrade_choice`
   - **Verify:** `tests/test_maelstrom_run.gd` — scripted kills produce drops; plunder crossing two thresholds queues two offers shown one at a time; repair calls `repair_pool`; offered choices all pass `can_apply()`.
   - _Requirements: 3.3, 3.4, 4.1, 4.2, 4.3, 5.2, 5.4_

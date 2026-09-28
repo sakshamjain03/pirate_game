@@ -1,0 +1,113 @@
+[gd_resource type="Resource" script_class="MaelstromCurveData" load_steps=22 format=3]
+
+[ext_resource type="Script" path="res://scripts/modes/MaelstromCurveData.gd" id="1_curve"]
+[ext_resource type="Script" path="res://scripts/modes/MaelstromBandData.gd" id="2_band"]
+[ext_resource type="Script" path="res://scripts/combat/BattleUpgradeData.gd" id="5_upg"]
+[ext_resource type="PackedScene" path="res://scenes/world/BossShip.tscn" id="3_boss"]
+[ext_resource type="PackedScene" path="res://scenes/world/IronVultureBoss.tscn" id="4_vulture"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/BurningShot.tres" id="u01"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/EmergencyRepairs.tres" id="u02"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/FullSail.tres" id="u03"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/HeavyVolley.tres" id="u04"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/LongNines.tres" id="u05"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/PatchTheRigging.tres" id="u06"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/PrimedCharges.tres" id="u07"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/RallyTheCrew.tres" id="u08"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/RapidReload.tres" id="u09"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/SteadyGunners.tres" id="u10"]
+
+; M26 - the Maelstrom's pacing, and nothing else. Starting values from
+; .kiro/specs/milestone-m26-maelstrom/design.md section 3; tune in play, not in review.
+;
+; A cap of 10 hulls in the last band is above M25's tier-5 heat cap of 8, which is
+; itself unverified on a phone - flagged in the M26 checkpoint.
+
+[sub_resource type="Resource" id="band_0"]
+script = ExtResource("2_band")
+start_seconds = 0.0
+max_enemies = 3
+spawn_interval = 6.0
+strength_multiplier = 1.0
+
+[sub_resource type="Resource" id="band_1"]
+script = ExtResource("2_band")
+start_seconds = 60.0
+max_enemies = 4
+spawn_interval = 5.0
+strength_multiplier = 1.2
+
+[sub_resource type="Resource" id="band_2"]
+script = ExtResource("2_band")
+start_seconds = 150.0
+max_enemies = 5
+spawn_interval = 4.0
+strength_multiplier = 1.5
+
+[sub_resource type="Resource" id="band_3"]
+script = ExtResource("2_band")
+start_seconds = 270.0
+max_enemies = 7
+spawn_interval = 3.0
+strength_multiplier = 1.8
+
+[sub_resource type="Resource" id="band_4"]
+script = ExtResource("2_band")
+start_seconds = 420.0
+max_enemies = 8
+spawn_interval = 2.2
+strength_multiplier = 2.2
+boss_scene = ExtResource("3_boss")
+
+[sub_resource type="Resource" id="band_5"]
+script = ExtResource("2_band")
+start_seconds = 600.0
+max_enemies = 10
+spawn_interval = 1.5
+strength_multiplier = 2.6
+boss_scene = ExtResource("4_vulture")
+
+[resource]
+script = ExtResource("1_curve")
+bands = Array[ExtResource("2_band")]([SubResource("band_0"), SubResource("band_1"), SubResource("band_2"), SubResource("band_3"), SubResource("band_4"), SubResource("band_5")])
+xp_per_level = Array[int]([4, 6, 8, 11, 14, 18, 22, 27, 32, 38, 45])
+upgrade_pool = Array[ExtResource("5_upg")]([ExtResource("u01"), ExtResource("u02"), ExtResource("u03"), ExtResource("u04"), ExtResource("u05"), ExtResource("u06"), ExtResource("u07"), ExtResource("u08"), ExtResource("u09"), ExtResource("u10")])
+choices_per_offer = 3
+drops = Array[Dictionary]([{
+"amount": 2.0,
+"kind": "plunder",
+"weight": 10.0
+}, {
+"amount": 0.15,
+"kind": "repair",
+"weight": 2.0
+}, {
+"amount": 0.0,
+"duration": 8.0,
+"effect": {
+"fire_rate": 1.5
+},
+"kind": "powerup",
+"weight": 1.0
+}, {
+"amount": 0.0,
+"duration": 8.0,
+"effect": {
+"speed": 1.35
+},
+"kind": "powerup",
+"weight": 1.0
+}, {
+"amount": 0.0,
+"kind": "keg",
+"weight": 0.8
+}])
+drops_per_kill = Vector2i(1, 2)
+pickup_lifetime = 25.0
+base_pickup_radius = 6.0
+magnet_range_mult = 2.0
+keg_radius = 25.0
+keg_damage = 60.0
+arena_radius = 400.0
+storm_push_force = 40.0
+eights_milestones = Array[Vector2i]([Vector2i(120, 2), Vector2i(300, 4), Vector2i(480, 6), Vector2i(720, 8), Vector2i(900, 10)])
+eights_cap_per_run = 25

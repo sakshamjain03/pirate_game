@@ -22,6 +22,10 @@ signal collected(loot_data: Dictionary)
 @export var lifetime: float = 60.0  # despawn after 60 seconds
 @export var bob_height: float = 0.3
 @export var bob_speed: float = 2.0
+## M26 — within this range the drop drifts toward the player ship (the survival
+## genre's "sweep through the loot"). 0 = off, which every campaign crate keeps.
+@export var magnet_range: float = 0.0
+@export var magnet_speed: float = 14.0
 
 var _time: float = 0.0
 var _base_y: float = 0.0
@@ -69,6 +73,10 @@ func _process(delta: float) -> void:
 			return
 
 	var dist = global_position.distance_to(_player_ship.global_position)
+	if magnet_range > 0.0 and dist < magnet_range:
+		var to_ship: Vector3 = _player_ship.global_position - global_position
+		to_ship.y = 0.0
+		global_position += to_ship.normalized() * minf(magnet_speed * delta, to_ship.length())
 	if dist < pickup_range:
 		_collect()
 

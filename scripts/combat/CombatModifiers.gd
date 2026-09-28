@@ -32,6 +32,14 @@ var range_mult: float = 1.0
 var arc_bonus_degrees: float = 0.0
 ## Multiplies the special broadside's cooldown, so < 1.0 means it returns sooner.
 var special_cooldown_mult: float = 1.0
+## M26 — multiplies the pickup (and magnet) radius of Maelstrom drops.
+var pickup_radius_mult: float = 1.0
+## M26 — fraction of max hull restored per second, while the hull is afloat.
+var regen_per_second: float = 0.0
+## M26 — extra cannonballs every gun fires per shot. Additive, whole balls.
+var extra_projectiles: int = 0
+## M26 — multiplies the hull damage this ship's bow deals when it rams.
+var ram_damage_mult: float = 1.0
 
 # Battle-long layer: temporary upgrades, cleared when the encounter ends.
 var _base := _neutral()
@@ -47,6 +55,7 @@ static func _neutral() -> Dictionary:
 	return {
 		"damage": 1.0, "fire_rate": 1.0, "speed": 1.0,
 		"range": 1.0, "arc": 0.0, "special_cooldown": 1.0,
+		"pickup_radius": 1.0, "regen": 0.0, "extra_projectiles": 0.0, "ram_damage": 1.0,
 	}
 
 
@@ -58,6 +67,8 @@ func reset() -> void:
 
 
 func _process(delta: float) -> void:
+	if regen_per_second > 0.0:
+		_regen(delta)
 	if _timed.is_empty():
 		return
 	var expired := false
@@ -77,8 +88,16 @@ func _recompute() -> void:
 	var rng: float = _base["range"]
 	var arc: float = _base["arc"]
 	var special: float = _base["special_cooldown"]
+	var pickup: float = _base["pickup_radius"]
+	var regen: float = _base["regen"]
+	var extra: float = _base["extra_projectiles"]
+	var ram: float = _base["ram_damage"]
 
 	for t in _timed:
+		pickup *= float(t.get("pickup_radius", 1.0))
+		regen += float(t.get("regen", 0.0))
+		extra += float(t.get("extra_projectiles", 0.0))
+		ram *= float(t.get("ram_damage", 1.0))
 		damage *= float(t.get("damage", 1.0))
 		fire_rate *= float(t.get("fire_rate", 1.0))
 		speed *= float(t.get("speed", 1.0))
@@ -92,6 +111,10 @@ func _recompute() -> void:
 	range_mult = rng
 	arc_bonus_degrees = arc
 	special_cooldown_mult = special
+	pickup_radius_mult = pickup
+	regen_per_second = regen
+	extra_projectiles = int(round(extra))
+	ram_damage_mult = ram
 	modifiers_changed.emit()
 
 
@@ -152,6 +175,15 @@ func apply_upgrade(upgrade: BattleUpgradeData) -> bool:
 			_repair("sails", upgrade.magnitude)
 		BattleUpgradeData.Effect.RALLY_CREW:
 			_repair("crew", upgrade.magnitude)
+		BattleUpgradeData.Effect.PICKUP_RADIUS:
+			_base["pickup_radius"] *= upgrade.magnitude
+		BattleUpgradeData.Effect.HULL_REGEN:
+			# Authored as PERCENT of max hull per second (see BattleUpgradeData).
+			_base["regen"] += upgrade.magnitude / 100.0
+		BattleUpgradeData.Effect.EXTRA_PROJECTILE:
+			_base["extra_projectiles"] += upgrade.magnitude
+		BattleUpgradeData.Effect.RAM_DAMAGE:
+			_base["ram_damage"] *= upgrade.magnitude
 		_:
 			push_error("CombatModifiers: unhandled effect on '%s'" % upgrade.upgrade_id)
 			return false
@@ -165,6 +197,16 @@ func apply_upgrade(upgrade: BattleUpgradeData) -> bool:
 func repair_pool(pool: String, fraction: float) -> void:
 	## Public so a captain ability can heal too, without duplicating the lookup.
 	_repair(pool, fraction)
+
+
+func _regen(delta: float) -> void:
+	## M26 "Ship's Carpenter": a slow hull trickle. Never raises a sunk hull —
+	## ShipDamage.repair() itself does not check for destruction.
+	var parent = get_parent()
+	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
+	if not dmg or dmg.hull <= 0.0:
+		return
+	_repair("hull", regen_per_second * delta)
 
 
 func _repair(pool: String, fraction: float) -> void:

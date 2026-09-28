@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BattleUpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/BattleUpgradeData.gd" id="1_up"]
+
+; M26 - a Maelstrom level-up choice (design.md section 7). Usable by any encounter.
+[resource]
+script = ExtResource("1_up")
+upgrade_id = "powder_monkey"
+display_name = "Powder Monkey"
+description = "Fresh powder, faster hands: +10% cannon damage."
+icon = "💥"
+effect = 0
+magnitude = 1.1
+max_stacks = 3
+weight = 1.2

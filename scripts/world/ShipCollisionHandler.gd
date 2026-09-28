@@ -268,6 +268,11 @@ func _evaluate_contact(other: Node3D, point: Vector3, n_into_me: Vector3) -> voi
 				_announce("Ran aground! -%d hull" % int(round(dmg)))
 
 
+static func _ram_upgrade_mult(ship: Node) -> float:
+	var mods = ship.get_node_or_null("CombatModifiers") if ship else null
+	return mods.ram_damage_mult if mods is CombatModifiers else 1.0
+
+
 func _resolve_ram(other: ShipController, other_handler: ShipCollisionHandler, point: Vector3,
 		n_into_me: Vector3, closing: float) -> void:
 	var my_zone := get_zone_at(point)
@@ -286,6 +291,12 @@ func _resolve_ram(other: ShipController, other_handler: ShipCollisionHandler, po
 	if hostile:
 		dmg_me = compute_ram_damage(config, closing, body.mass, other.mass, my_zone, their_zone, my_stats, other_stats)
 		dmg_other = compute_ram_damage(config, closing, other.mass, body.mass, their_zone, my_zone, other_stats, my_stats)
+		# M26 "Iron Prow" — a temporary upgrade on the RAMMER's bow, applied the
+		# same way ShipStats.ram_damage_mult is inside compute_ram_damage().
+		if my_zone == RamConfigData.Zone.BOW:
+			dmg_other *= _ram_upgrade_mult(body)
+		if their_zone == RamConfigData.Zone.BOW:
+			dmg_me *= _ram_upgrade_mult(other)
 		if dmg_me > 0.0:
 			_apply_impact(body, dmg_me, my_zone)
 		if dmg_other > 0.0:

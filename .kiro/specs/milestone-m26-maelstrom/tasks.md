@@ -29,10 +29,10 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
   - **Verify:** with the override set, `get_active_max_enemies()`/`get_active_spawn_interval()` return the profile; unset, the M25 heat tests pass unchanged; strength still duplicates `ShipStats`.
   - _Requirements: 3.2, 3.5_
 - [x] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
-- [ ] 6. `MaelstromRun` core — elapsed, band tracking, boss-at-band-start, kill → drops, pickup routing (plunder/repair/powerup/keg), level queue, `upgrade_offer_requested` + `apply_upgrade_choice`
+- [x] 6. `MaelstromRun` core — elapsed, band tracking, boss-at-band-start, kill → drops, pickup routing (plunder/repair/powerup/keg), level queue, `upgrade_offer_requested` + `apply_upgrade_choice`
   - **Verify:** `tests/test_maelstrom_run.gd` — scripted kills produce drops; plunder crossing two thresholds queues two offers shown one at a time; repair calls `repair_pool`; offered choices all pass `can_apply()`.
   - _Requirements: 3.3, 3.4, 4.1, 4.2, 4.3, 5.2, 5.4_
-- [ ] 7. Upgrades — new `CombatModifiers` keys (pickup radius, regen, extra projectile, ram damage), new `Effect` values appended at the enum's end, ≥ 12 new `.tres`, pickup magnet
+- [x] 7. Upgrades — new `CombatModifiers` keys (pickup radius, regen, extra projectile, ram damage), new `Effect` values appended at the enum's end, ≥ 12 new `.tres`, pickup magnet
   - **Verify:** every file in `resources/combat/upgrades/` loads as `BattleUpgradeData` with a unique `upgrade_id` (count ≥ 18); each new effect key changes the stat it names; existing 6 upgrade `.tres` still resolve to the same effect.
   - _Requirements: 4.4, 5.3_
 - [ ] 8. Run end — results panel, Eights grant, `MaelstromRecord`, `maelstrom` save section (omitted when empty), the explicit end-of-run save **without** writing the Maelstrom ship into the `player` section

@@ -88,6 +88,20 @@ func test_profile_pool_picks_from_pool() -> void:
 	_profile = {"cap": 7, "interval": 2.5, "strength": 2.0, "pool": []}
 
 
+func test_regunned_boss_generated_markers_join_the_tree() -> void:
+	# ShipCombat._build_side() used to add generated gun markers directly inside
+	# the ship's _ready(), which Godot refuses ("Parent node is busy setting up
+	# children") — the Man O'War boss then fired from markers outside the tree.
+	var boss: PackedScene = load("res://scenes/world/BossShip.tscn")
+	var enemy := _spawner.spawn_scene(boss, 1.0)
+	await get_tree().process_frame
+	var combat = enemy.get_node("ShipCombat")
+	assert_gt(combat._generated_markers.size(), 0, "fixture: BossShip really is re-gunned")
+	for m in combat._generated_markers:
+		assert_true(m.is_inside_tree(), "generated marker '%s' is in the tree" % m.name)
+		assert_eq(m.get_parent(), enemy)
+
+
 func test_spawn_scene_spawns_and_tracks_boss() -> void:
 	var boss: PackedScene = load("res://scenes/world/BossShip.tscn")
 	watch_signals(_spawner)

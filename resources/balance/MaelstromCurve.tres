@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MaelstromCurveData" load_steps=22 format=3]
+[gd_resource type="Resource" script_class="MaelstromCurveData" load_steps=34 format=3]
 
 [ext_resource type="Script" path="res://scripts/modes/MaelstromCurveData.gd" id="1_curve"]
 [ext_resource type="Script" path="res://scripts/modes/MaelstromBandData.gd" id="2_band"]
@@ -15,6 +15,18 @@
 [ext_resource type="Resource" path="res://resources/combat/upgrades/RallyTheCrew.tres" id="u08"]
 [ext_resource type="Resource" path="res://resources/combat/upgrades/RapidReload.tres" id="u09"]
 [ext_resource type="Resource" path="res://resources/combat/upgrades/SteadyGunners.tres" id="u10"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/ChainHooks.tres" id="u11"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/TwinDecks.tres" id="u12"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/OiledBlocks.tres" id="u13"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/SalvagersEye.tres" id="u14"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/ShipsCarpenter.tres" id="u15"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/IronProw.tres" id="u16"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/LongGlass.tres" id="u17"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/WideGunports.tres" id="u18"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/Stormsails.tres" id="u19"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/GrogRation.tres" id="u20"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/TarPatch.tres" id="u21"]
+[ext_resource type="Resource" path="res://resources/combat/upgrades/PowderMonkey.tres" id="u22"]
 
 ; M26 - the Maelstrom's pacing, and nothing else. Starting values from
 ; .kiro/specs/milestone-m26-maelstrom/design.md section 3; tune in play, not in review.
@@ -70,7 +82,7 @@ boss_scene = ExtResource("4_vulture")
 script = ExtResource("1_curve")
 bands = Array[ExtResource("2_band")]([SubResource("band_0"), SubResource("band_1"), SubResource("band_2"), SubResource("band_3"), SubResource("band_4"), SubResource("band_5")])
 xp_per_level = Array[int]([4, 6, 8, 11, 14, 18, 22, 27, 32, 38, 45])
-upgrade_pool = Array[ExtResource("5_upg")]([ExtResource("u01"), ExtResource("u02"), ExtResource("u03"), ExtResource("u04"), ExtResource("u05"), ExtResource("u06"), ExtResource("u07"), ExtResource("u08"), ExtResource("u09"), ExtResource("u10")])
+upgrade_pool = Array[ExtResource("5_upg")]([ExtResource("u01"), ExtResource("u02"), ExtResource("u03"), ExtResource("u04"), ExtResource("u05"), ExtResource("u06"), ExtResource("u07"), ExtResource("u08"), ExtResource("u09"), ExtResource("u10"), ExtResource("u11"), ExtResource("u12"), ExtResource("u13"), ExtResource("u14"), ExtResource("u15"), ExtResource("u16"), ExtResource("u17"), ExtResource("u18"), ExtResource("u19"), ExtResource("u20"), ExtResource("u21"), ExtResource("u22")])
 choices_per_offer = 3
 drops = Array[Dictionary]([{
 "amount": 2.0,

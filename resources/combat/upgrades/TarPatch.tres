@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BattleUpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/BattleUpgradeData.gd" id="1_up"]
+
+; M26 - a Maelstrom level-up choice (design.md section 7). Usable by any encounter.
+[resource]
+script = ExtResource("1_up")
+upgrade_id = "tar_patch"
+display_name = "Tar Patch"
+description = "Tar and canvas - restore 35% of max sails."
+icon = "🧵"
+effect = 7
+magnitude = 0.35
+max_stacks = 5
+weight = 0.8

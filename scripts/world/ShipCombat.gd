@@ -301,7 +301,12 @@ func _build_side(authored: Array[Node3D], n: int, prefix: String) -> Array[Node3
 		marker.name = "%s%d" % [prefix, i + 1]
 		marker.transform = template.transform
 		marker.position.z = mid - span * 0.5 + span * t
-		parent.add_child(marker)
+		# Deferred: this runs inside the ship's own _ready(), while the ship is
+		# still "busy setting up children" — a direct add_child() is refused
+		# there, which left every generated gun of a re-gunned hull (e.g. the
+		# Man O'War BossShip) outside the tree, firing from an invalid transform.
+		# The marker joins before the first physics frame, long before any shot.
+		parent.add_child.call_deferred(marker)
 		_generated_markers.append(marker)
 		out.append(marker)
 		if cannon_model_scene:
@@ -615,7 +620,11 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 	
 	var ammo_data = current_ammo if current_ammo else load("res://resources/combat/ammo/RoundShot.tres")
 
-	for i in range(ammo_data.projectiles_per_cannon):
+	# M26 "Twin Decks" — extra balls per gun from temporary upgrades. Each goes
+	# through the same aim/spread path below, so they fan out naturally.
+	var shot_mods := _get_modifiers()
+	var extra_balls: int = shot_mods.extra_projectiles if shot_mods else 0
+	for i in range(ammo_data.projectiles_per_cannon + extra_balls):
 		var ball = cannonball_scene.instantiate() as RigidBody3D
 		# Add to main world, not as child of ship
 		get_tree().current_scene.add_child(ball)

@@ -280,7 +280,9 @@ func test_every_authored_upgrade_is_loadable_and_coherent():
 			BattleUpgradeData.Effect.SPECIAL_COOLDOWN:
 				assert_lt(u.magnitude, 1.0, "%s: a cooldown upgrade must reduce it" % f)
 			BattleUpgradeData.Effect.REPAIR_HULL, BattleUpgradeData.Effect.REPAIR_SAILS, \
-			BattleUpgradeData.Effect.RALLY_CREW, BattleUpgradeData.Effect.FIRING_ARC:
+			BattleUpgradeData.Effect.RALLY_CREW, BattleUpgradeData.Effect.FIRING_ARC, \
+			BattleUpgradeData.Effect.HULL_REGEN, BattleUpgradeData.Effect.EXTRA_PROJECTILE:
+				# M26: HULL_REGEN and EXTRA_PROJECTILE ADD an amount, like FIRING_ARC.
 				assert_gt(u.magnitude, 0.0, "%s: must restore/widen something" % f)
 			_:
 				assert_gt(u.magnitude, 1.0, "%s: a multiplier upgrade must be > 1.0" % f)

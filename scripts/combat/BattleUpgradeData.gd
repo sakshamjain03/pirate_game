@@ -18,6 +18,11 @@ enum Effect {
 	REPAIR_HULL,       ## instant: restores this FRACTION of max hull
 	REPAIR_SAILS,      ## instant: restores this FRACTION of max sails
 	RALLY_CREW,        ## instant: restores this FRACTION of max crew
+	# M26 — int-serialized in every .tres: APPEND ONLY, never reorder.
+	PICKUP_RADIUS,     ## multiplies the Maelstrom pickup/magnet radius
+	HULL_REGEN,        ## ADDS this PERCENT of max hull restored per second
+	EXTRA_PROJECTILE,  ## ADDS this many cannonballs per gun per shot
+	RAM_DAMAGE,        ## multiplies hull damage dealt by this ship's bow
 }
 
 @export var upgrade_id: String = ""
@@ -31,6 +36,8 @@ enum Effect {
 @export var effect: Effect = Effect.DAMAGE
 ## Read per-effect: a multiplier for the scaling effects, added degrees for
 ## FIRING_ARC, and a fraction of the pool maximum for the instant repairs.
+## HULL_REGEN is a percent per second and EXTRA_PROJECTILE a whole ball count
+## (M26), both so they fit this range.
 @export_range(0.05, 5.0) var magnitude: float = 1.25
 ## How many times this may be taken in one battle. Instant repairs are worth
 ## repeating; a compounding damage multiplier is not.
@@ -52,5 +59,9 @@ func describe() -> String:
 			return "Restore %.0f%%" % (magnitude * 100.0)
 		Effect.SPECIAL_COOLDOWN, Effect.RELOAD_SPEED:
 			return "%.0f%% faster" % (abs(1.0 - magnitude) * 100.0)
+		Effect.HULL_REGEN:
+			return "Repair %.1f%% hull per second" % magnitude
+		Effect.EXTRA_PROJECTILE:
+			return "+%d cannonball per gun" % int(round(magnitude))
 		_:
 			return "%+.0f%%" % ((magnitude - 1.0) * 100.0)

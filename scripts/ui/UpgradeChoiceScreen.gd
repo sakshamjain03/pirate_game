@@ -89,7 +89,11 @@ func _on_offer(choices: Array, offer_index: int, total_offers: int) -> void:
 	if choices.is_empty():
 		return
 	_offered = choices
-	_subtitle.text = tr("Lasts this battle only  ·  offer %d of %d") % [offer_index, total_offers]
+	if total_offers <= 0:
+		# M26 Maelstrom: an open-ended run has no "of N" — offer_index is the level.
+		_subtitle.text = tr("Level %d  ·  lasts this run only") % offer_index
+	else:
+		_subtitle.text = tr("Lasts this battle only  ·  offer %d of %d") % [offer_index, total_offers]
 
 	for child in _cards_row.get_children():
 		child.queue_free()

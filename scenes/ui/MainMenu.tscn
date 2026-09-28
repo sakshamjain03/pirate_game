@@ -100,6 +100,11 @@ text = "Continue"
 layout_mode = 2
 text = "New Game"
 
+; M26 - the endless survival mode. Always available, even with no save.
+[node name="MaelstromButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
+layout_mode = 2
+text = "The Maelstrom"
+
 [node name="StoreButton" type="Button" parent="Control/MainVBox/ButtonPanel/VBoxContainer"]
 layout_mode      = 2
 text             = "Store"

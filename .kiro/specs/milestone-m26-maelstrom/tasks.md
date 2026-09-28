@@ -35,10 +35,10 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
 - [x] 7. Upgrades — new `CombatModifiers` keys (pickup radius, regen, extra projectile, ram damage), new `Effect` values appended at the enum's end, ≥ 12 new `.tres`, pickup magnet
   - **Verify:** every file in `resources/combat/upgrades/` loads as `BattleUpgradeData` with a unique `upgrade_id` (count ≥ 18); each new effect key changes the stat it names; existing 6 upgrade `.tres` still resolve to the same effect.
   - _Requirements: 4.4, 5.3_
-- [ ] 8. Run end — results panel, Eights grant, `MaelstromRecord`, `maelstrom` save section (omitted when empty), the explicit end-of-run save **without** writing the Maelstrom ship into the `player` section
+- [x] 8. Run end — results panel, Eights grant, `MaelstromRecord`, `maelstrom` save section (omitted when empty), the explicit end-of-run save **without** writing the Maelstrom ship into the `player` section
   - **Verify:** isolation test snapshots every manager's `get_save_data()` + the `player` section before a scripted run and after `_end_run()`; only `maelstrom` and `economy.eights` differ; a fresh save has no `maelstrom` key.
   - _Requirements: 2.5, 6.1, 6.2, 6.3, 6.4_
-- [ ] 9. Scene + entry — `scenes/modes/Maelstrom.tscn` (root `Maelstrom`, `Run/` not `Systems/`, storm wall), Main Menu button, Retry / Main Menu flow resetting the mode
+- [x] 9. Scene + entry — `scenes/modes/Maelstrom.tscn` (root `Maelstrom`, `Run/` not `Systems/`, storm wall), Main Menu button, Retry / Main Menu flow resetting the mode
   - **Verify:** a test loads the scene and asserts no `Systems/EnemySpawner` path and root name ≠ `World`; headful capture of the scene at t≈0/3/12 s reviewed.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.3, 2.4_
 - [ ] 10. Docs — `docs/05_CURRENT_SYSTEMS.md` M26 section (own section only), `docs/04_GAME_LOOP.md` mode entry

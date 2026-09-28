@@ -36,6 +36,7 @@ func _ready() -> void:
 	_apply_theme()
 	_animate_title()
 	_connect_buttons()
+	_setup_maelstrom_button()
 	_show_crash_report_notice()
 	if AudioManager: AudioManager.play_music("main_menu")
 
@@ -99,6 +100,24 @@ func _on_new_game_pressed() -> void:
 	}
 	TutorialManager.start_new_game_session()
 	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
+
+## M26 Requirement 1.1/1.2 — the endless survival mode, available from a fresh
+## install with no save. A run never touches the campaign save; see MaelstromRun.
+func _setup_maelstrom_button() -> void:
+	# On the main menu no run is active, whatever path led here (Requirement 1.4).
+	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
+	var btn := get_node_or_null("Control/MainVBox/ButtonPanel/VBoxContainer/MaelstromButton") as Button
+	if not btn:
+		return
+	btn.visible = true
+	btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_SECONDARY_SIZE)
+	btn.pressed.connect(_on_maelstrom_pressed)
+
+
+func _on_maelstrom_pressed() -> void:
+	SceneManager.game_mode = SceneManager.GameMode.MAELSTROM
+	SceneManager.change_scene_with_fade(MaelstromRun.MAELSTROM_SCENE)
+
 
 func _on_settings_pressed() -> void:
 	SceneManager.change_scene_with_fade("res://scenes/ui/SettingsMenu.tscn")

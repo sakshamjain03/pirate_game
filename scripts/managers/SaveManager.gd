@@ -67,6 +67,16 @@ var _did_launch_cloud_check: bool = false
 ## real HTTPRequest.
 var _request_override: Callable = Callable()
 
+## M26 — the Maelstrom's best-run record, round-tripped as the optional
+## "maelstrom" section (omitted entirely until a run has finished).
+var _maelstrom_data: Dictionary = {}
+## M26 — where a finished run's Eights and record wait when there is no campaign
+## save to patch yet (a fresh install). Claimed into the campaign by load_game()
+## and deleted by the next successful save_game(). Never creates the main save,
+## so a run can't make "Continue" appear over a near-empty file.
+const MAELSTROM_PENDING_PATH := "user://maelstrom_pending.json"
+var _maelstrom_pending_claimed: bool = false
+
 func _ready() -> void:
 	# fresh_sign_in, not signed_in — a background token refresh also emits signed_in (for UI
 	# reactivity) and must NOT re-trigger a cloud-conflict check mid-session. See AuthManager.gd.
@@ -183,6 +193,11 @@ func save_game() -> void:
 	if SeasonalEventManager.has_method("get_save_data"):
 		save_dict["seasonal_events"] = SeasonalEventManager.get_save_data()
 
+	# 9e. Maelstrom record (M26) — an optional section: omitted, never written
+	# empty (the "no data" vs "empty section" rule).
+	if int(_maelstrom_data.get("runs", 0)) > 0:
+		save_dict["maelstrom"] = _maelstrom_data.duplicate()
+
 	# Preserve the last known save before replacing it. A failed backup is safer
 	# than a write that could destroy the player's only recoverable copy.
 	var had_existing_save := FileAccess.file_exists(SAVE_PATH)
@@ -203,6 +218,12 @@ func save_game() -> void:
 			_restore_backup()
 		return
 
+	# M26 — the claimed pending run is now inside a real save.
+	if _maelstrom_pending_claimed:
+		_maelstrom_pending_claimed = false
+		if FileAccess.file_exists(MAELSTROM_PENDING_PATH):
+			DirAccess.remove_absolute(MAELSTROM_PENDING_PATH)
+
 	# M15 Requirement 3.4/4.2 — mirrors the existing local format exactly, no second schema.
 	# Fire-and-forget: never awaited here, so a slow/failed network call can't delay or block
 	# the caller (auto-save timer, dock completion, etc.) — Requirement 4.2.
@@ -211,6 +232,8 @@ func save_game() -> void:
 
 func load_game() -> void:
 	if not has_recoverable_save_data():
+		_maelstrom_data = {}
+		_claim_pending_maelstrom()   # M26 — runs played before the first campaign save
 		game_loaded.emit()
 		return
 
@@ -360,6 +383,10 @@ func load_game() -> void:
 	# 9d. Seasonal Events (M14)
 	if data.has("seasonal_events") and SeasonalEventManager.has_method("load_save_data"):
 		SeasonalEventManager.load_save_data(data["seasonal_events"])
+
+	# 9e. Maelstrom record (M26), then any run waiting in the pending file.
+	_maelstrom_data = data["maelstrom"].duplicate() if data.get("maelstrom") is Dictionary else {}
+	_claim_pending_maelstrom()
 
 	# 10. Offline catch-up (must run after islands and fleet are restored above)
 	if data.has("last_saved_unix"):
@@ -669,3 +696,113 @@ func _get_dialog_parent() -> Node:
 	if tree is SceneTree and tree.current_scene:
 		return tree.current_scene
 	return self
+
+
+# ------------------------------------------------------------------ M26 Maelstrom
+
+## M26 — the ONE write a Maelstrom run makes. Deliberately not save_game(): a run
+## started from the main menu has every manager at its defaults (the campaign is
+## only loaded when World loads), so a full save would overwrite the player's real
+## campaign with them. Instead this patches exactly two things on disk — the
+## "maelstrom" record and economy.eights — and leaves every other section
+## byte-for-byte as it was. With no campaign save yet, both wait in
+## MAELSTROM_PENDING_PATH instead. Returns the updated record.
+func save_maelstrom_result(eights: int, seconds: float, level: int) -> Dictionary:
+	var record := MaelstromRecord.new()
+	record.load_save_data(load_maelstrom_record())
+	record.merge_run(seconds, level)
+	var record_data := record.get_save_data()
+	eights = maxi(eights, 0)
+
+	var data: Dictionary = {}
+	if has_save_data():
+		data = _read_save_file(SAVE_PATH)["data"]
+		if data.is_empty():
+			# An unreadable primary is recovery's business (load_game falls back
+			# to the backup) — never overwrite it, and never lose the run: park
+			# it in the pending file like a fresh install would.
+			push_error("SaveManager: campaign save unreadable; Maelstrom result kept pending.")
+
+	if not data.is_empty():
+		# Fold in anything still pending (e.g. a cloud download replaced the save
+		# before the pending file was claimed), so the two never coexist after this.
+		var pending := _read_maelstrom_pending()
+		eights += int(pending.get("eights", 0))
+		data["maelstrom"] = record_data
+		if eights > 0:
+			var economy: Dictionary = data.get("economy", {}) if data.get("economy") is Dictionary else {}
+			var key := ResourceManager.PREMIUM_CURRENCY
+			economy[key] = int(economy.get(key, 0)) + eights
+			data["economy"] = economy
+		if not _backup_existing_save():
+			return record_data
+		var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+		if not file:
+			push_error("SaveManager: failed to write Maelstrom result.")
+			_restore_backup()
+			return record_data
+		file.store_string(JSON.stringify(data, "\t"))
+		file.close()
+		if FileAccess.file_exists(MAELSTROM_PENDING_PATH):
+			DirAccess.remove_absolute(MAELSTROM_PENDING_PATH)
+		if AuthManager.is_signed_in():
+			_sync_to_cloud(data)
+	else:
+		var pending := _read_maelstrom_pending()
+		pending["eights"] = int(pending.get("eights", 0)) + eights
+		pending["record"] = record_data
+		var pf := FileAccess.open(MAELSTROM_PENDING_PATH, FileAccess.WRITE)
+		if not pf:
+			push_error("SaveManager: failed to write pending Maelstrom result.")
+			return record_data
+		pf.store_string(JSON.stringify(pending, "\t"))
+		pf.close()
+
+	_maelstrom_data = record_data
+	# Keep the in-memory wallet honest for any menu UI. Safe: every World entry
+	# reloads economy from the file patched above (or claims the pending file).
+	if eights > 0:
+		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, eights)
+	return record_data
+
+
+## M26 — the record as it stands on disk right now (campaign section + anything
+## pending), so a run started cold from the main menu still shows the true best.
+func load_maelstrom_record() -> Dictionary:
+	var record := MaelstromRecord.new()
+	if has_save_data():
+		var data: Dictionary = _read_save_file(SAVE_PATH)["data"]
+		if data.get("maelstrom") is Dictionary:
+			record.load_save_data(data["maelstrom"])
+	var pending := _read_maelstrom_pending()
+	if pending.get("record") is Dictionary:
+		record.merge_record(pending["record"])
+	return record.get_save_data()
+
+
+func get_maelstrom_data() -> Dictionary:
+	return _maelstrom_data.duplicate()
+
+
+func _read_maelstrom_pending() -> Dictionary:
+	var result := _read_save_file(MAELSTROM_PENDING_PATH)
+	return result["data"]
+
+
+func _claim_pending_maelstrom() -> void:
+	## Called from load_game(): credits runs played before any campaign save
+	## existed. The file is only deleted by the next successful save_game(), so a
+	## session that ends before that claims it again from scratch — never twice,
+	## because load_game() always rebuilds the economy from the file first.
+	var pending := _read_maelstrom_pending()
+	if pending.is_empty():
+		return
+	var eights := int(pending.get("eights", 0))
+	if eights > 0:
+		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, eights)
+	if pending.get("record") is Dictionary:
+		var record := MaelstromRecord.new()
+		record.load_save_data(_maelstrom_data)
+		record.merge_record(pending["record"])
+		_maelstrom_data = record.get_save_data()
+	_maelstrom_pending_claimed = true

@@ -30,6 +30,9 @@ const MAIN_MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
 @export var spawner_path: NodePath = ^"EnemySpawner"
 ## Optional; bound at _ready when present.
 @export var choice_screen_path: NodePath
+## Optional; a MeshInstance3D with a CylinderMesh, sized to curve.arena_radius so
+## the wall you see is exactly where the push starts (one source for the number).
+@export var storm_wall_path: NodePath
 
 var state: State = State.READY
 var elapsed: float = 0.0
@@ -59,6 +62,12 @@ func _ready() -> void:
 	var screen = get_node_or_null(choice_screen_path) if not choice_screen_path.is_empty() else null
 	if screen and screen.has_method("bind_encounter_manager"):
 		screen.bind_encounter_manager(self)
+	var wall = get_node_or_null(storm_wall_path) if not storm_wall_path.is_empty() else null
+	if wall is MeshInstance3D and wall.mesh is CylinderMesh:
+		var mesh: CylinderMesh = wall.mesh.duplicate()
+		mesh.top_radius = curve.arena_radius
+		mesh.bottom_radius = curve.arena_radius
+		wall.mesh = mesh
 	bind_player(get_tree().get_first_node_in_group("player_ship") as RigidBody3D)
 	state = State.RUNNING
 

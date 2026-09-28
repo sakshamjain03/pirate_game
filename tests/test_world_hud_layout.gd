@@ -15,8 +15,25 @@ const WorldHUDScene = preload("res://scenes/ui/WorldHUD.tscn")
 
 var _viewport: SubViewport
 var _hud
+var _saved_empire: Dictionary = {}
+
+## The notoriety chip's width depends on its text, and since M25 that text
+## includes the heat tier name and the next-escalation label — both read live
+## from EmpireManager, not from the value passed to _on_notoriety_changed().
+## Suites that assign EmpireManager.notoriety directly leave a stale cached tier
+## (e.g. "NEMESIS") behind, which made the width test fail depending on test
+## order. Pin a clean zero-heat state through load_save_data(), which is the path
+## that re-resolves the tier, and put the real state back afterwards.
+func before_each():
+	_saved_empire = EmpireManager.get_save_data()
+	# A fresh game: only regions that need no notoriety are active.
+	var fresh := {}
+	for region in EmpireManager._regions:
+		fresh[region.id] = region.activation_notoriety_threshold <= 0.0
+	EmpireManager.load_save_data({"notoriety": 0.0, "region_active": fresh})
 
 func after_each():
+	EmpireManager.load_save_data(_saved_empire)
 	PirateThemeBuilder.force_mobile_scaling_for_test = false
 	if is_instance_valid(_viewport):
 		_viewport.queue_free()

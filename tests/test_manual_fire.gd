@@ -119,3 +119,38 @@ func test_the_fire_input_actions_exist() -> void:
 	# The buttons are useless without the actions behind them.
 	assert_true(InputMap.has_action("fire_port"), "fire_port action must exist")
 	assert_true(InputMap.has_action("fire_starboard"), "fire_starboard action must exist")
+
+
+func test_ammo_can_be_swapped_without_a_touch_screen() -> void:
+	# Desktop is a supported platform and MobileControls (the only other swap
+	# control) is hidden there, so the action must exist and carry a key.
+	assert_true(InputMap.has_action("cycle_ammo"), "cycle_ammo action must exist")
+	var has_key := false
+	for ev in InputMap.action_get_events("cycle_ammo"):
+		if ev is InputEventKey:
+			has_key = true
+	assert_true(has_key, "cycle_ammo must be bound to a keyboard key")
+
+
+func test_cycle_ammo_walks_round_chain_grape_and_wraps() -> void:
+	var ship := _make_hull(true)
+	var combat := ship.get_node("ShipCombat")
+	combat.set_ammo(load(combat.AMMO_CYCLE[0]))
+	var seen: Array[String] = []
+	for i in combat.AMMO_CYCLE.size():
+		seen.append(combat.cycle_ammo().resource_path)
+	assert_eq(seen, [combat.AMMO_CYCLE[1], combat.AMMO_CYCLE[2], combat.AMMO_CYCLE[0]],
+		"cycle_ammo must step round -> chain -> grape -> round")
+
+
+func test_cycle_ammo_emits_ammo_changed_and_never_touches_the_reload() -> void:
+	var ship := _make_hull(true)
+	var combat := ship.get_node("ShipCombat")
+	combat.set_ammo(load(combat.AMMO_CYCLE[0]))
+	combat.can_fire_port = false
+	combat.can_fire_starboard = false
+	watch_signals(combat)
+	combat.cycle_ammo()
+	assert_signal_emitted(combat, "ammo_changed")
+	assert_false(combat.can_fire_port, "swapping mid-reload must not reload the port battery")
+	assert_false(combat.can_fire_starboard, "swapping mid-reload must not reload the starboard battery")

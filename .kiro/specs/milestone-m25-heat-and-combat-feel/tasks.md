@@ -49,7 +49,7 @@ failing.** Any failure is a regression.
 - [x] 11. Dev console — heat tab (set tier, force provoke, grant Eights)
   - **Verify:** `tests/test_no_shipping_reference_to_debug.gd` still passes; console still parses.
 - [x] 12. Docs — `docs/05_CURRENT_SYSTEMS.md` M25 section (rewrite §5's escalation text, do not append), `docs/04_GAME_LOOP.md` heat beat, `docs/17_MONETIZATION.md` heat-clear SKU note
-- [ ] 13. **Checkpoint B (final)** — full suite, `checkpoint-reviewer`, headful capture reviewed, commit+push.
+- [x] 13. **Checkpoint B (final)** — full suite, `checkpoint-reviewer`, headful capture reviewed, commit+push. *(Suite 828/828; reviewer PASS. Headful capture found desktop had no ammo swap: fixed with a `cycle_ammo` action routed through `ShipCombat.cycle_ammo()`. Also fixed two order-dependent test preconditions.)*
 
 ## Notes
 

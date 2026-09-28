@@ -531,15 +531,12 @@ func _inject_action(action_name: String, pressed: bool) -> void:
 ## Deliberately NOT behind a settings toggle: an option defaulting off would hide
 ## the mechanic from every player who never opens Settings.
 
-const AMMO_PATHS := [
-	"res://resources/combat/ammo/RoundShot.tres",
-	"res://resources/combat/ammo/ChainShot.tres",
-	"res://resources/combat/ammo/GrapeShot.tres",
-]
+## Order matches ShipCombat.AMMO_CYCLE, which owns the cycle itself.
 const AMMO_LABELS := ["Round", "Chain", "Grape"]
 
 var _btn_ammo: Button
 var _ammo_index: int = 0
+var _ammo_combat: Node = null
 
 
 func _create_ammo_selector() -> void:
@@ -562,15 +559,21 @@ func _create_ammo_selector() -> void:
 
 
 ## Reads the ship's current ammo so the button never contradicts what is loaded
-## (e.g. after a ship swap, or a save that restored a different shot type).
+## (e.g. after a ship swap, a save that restored a different shot type, or a swap
+## made with the keyboard/gamepad `cycle_ammo` action).
 func _sync_ammo_from_ship() -> void:
 	var combat := _player_combat()
-	if not combat or not combat.current_ammo:
+	if not combat:
 		return
-	var path: String = combat.current_ammo.resource_path
-	var found := AMMO_PATHS.find(path)
-	if found >= 0:
-		_ammo_index = found
+	if combat != _ammo_combat and combat.has_signal("ammo_changed"):
+		if _ammo_combat and is_instance_valid(_ammo_combat) and _ammo_combat.ammo_changed.is_connected(_on_ammo_changed):
+			_ammo_combat.ammo_changed.disconnect(_on_ammo_changed)
+		combat.ammo_changed.connect(_on_ammo_changed)
+		_ammo_combat = combat
+	if combat.has_method("get_ammo_cycle_index"):
+		var found: int = combat.get_ammo_cycle_index()
+		if found >= 0:
+			_ammo_index = found
 
 
 func _player_combat() -> Node:
@@ -579,15 +582,18 @@ func _player_combat() -> Node:
 
 
 func _cycle_ammo() -> void:
-	_ammo_index = (_ammo_index + 1) % AMMO_PATHS.size()
+	_sync_ammo_from_ship()
 	var combat := _player_combat()
-	if combat and combat.has_method("set_ammo"):
-		# set_ammo() only swaps the resource — it must never touch can_fire_* or
-		# the cooldown timers, so switching mid-reload costs nothing and the player
-		# is never punished for changing their mind.
-		combat.set_ammo(load(AMMO_PATHS[_ammo_index]))
+	if combat and combat.has_method("cycle_ammo"):
+		combat.cycle_ammo()
+	_sync_ammo_from_ship()
 	_refresh_ammo_button()
 	HapticFeedbackManager.tap()
+
+
+func _on_ammo_changed(_ammo: AmmoData) -> void:
+	_sync_ammo_from_ship()
+	_refresh_ammo_button()
 
 
 func _refresh_ammo_button() -> void:

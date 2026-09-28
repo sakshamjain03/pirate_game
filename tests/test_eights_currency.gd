@@ -92,6 +92,9 @@ func test_island_production_still_works_for_normal_resources() -> void:
 	island.set_script(load("res://scripts/world/Island.gd"))
 	add_child_autoqfree(island)
 
+	# Start well under the storage cap: earlier suites can leave wood sitting at
+	# max_storage, where +5 clamps to +0 and this failed depending on test order.
+	ResourceManager.current_resources["wood"] = 0
 	var before: int = int(ResourceManager.get_resource("wood"))
 	island._produce_resource("wood", 5)
 	assert_eq(int(ResourceManager.get_resource("wood")), before + 5,

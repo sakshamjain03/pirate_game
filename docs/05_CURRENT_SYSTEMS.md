@@ -27,7 +27,9 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing.** The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
+**Current (2026-09-29, M25 Checkpoint B): 828 tests, 828 passing, 0 failing.** The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
+
+Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
 Previous: 467 tests, 467 passing, 0 failing (2026-09-14)
 
@@ -2988,6 +2990,15 @@ turns three authored `AmmoData` resources into a decision: chain wrecks sails so
 flee, grape kills crew so boarding succeeds, round kills hull so you get loot instead of a prize.
 An ammo-swap control on the mobile action cluster cycles the three; `set_ammo()` never touches
 `can_fire_*` or the cooldowns, so switching mid-reload costs nothing.
+
+**Checkpoint B finding, fixed:** desktop (a supported platform) had no way to swap ammo at all -
+`MobileControls` returns before building the swap button off mobile layouts, and no input action
+existed. The cycle now lives in `ShipCombat` (`AMMO_CYCLE`, `cycle_ammo()`, `get_ammo_cycle_index()`,
+`ammo_changed` signal). The touch button calls it, and so does the new `cycle_ammo` action (T key,
+gamepad D-pad up) in `WorldManager._unhandled_input`, which also toasts "Loaded: <shot>" through
+`WorldHUD.announce_event()` since desktop shows no button label. `MobileControls` listens to
+`ammo_changed`, so its label follows a swap made from either input. Guarded by three new tests in
+`tests/test_manual_fire.gd`.
 
 The HUD notoriety card now shows the heat tier NAME beside the number, so the player reads a wanted
 level instead of having to learn what 150 means.

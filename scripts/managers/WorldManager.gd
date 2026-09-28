@@ -135,6 +135,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# M25 — the keyboard/gamepad twin of MobileControls' shot-type button. Without
+	# it desktop had no way to choose ammo at all (the touch button is hidden off
+	# mobile). The HUD toast stands in for the button label desktop doesn't show.
+	if event.is_action_pressed("cycle_ammo"):
+		if combat and combat.has_method("cycle_ammo"):
+			var ammo: AmmoData = combat.cycle_ammo()
+			var hud = get_tree().get_first_node_in_group("hud")
+			if ammo and hud and hud.has_method("announce_event"):
+				hud.announce_event(tr("Loaded: %s") % tr(ammo.display_name))
+		get_viewport().set_input_as_handled()
+		return
+
 	# Manual per-side fire is retained only as an escape hatch while auto-fire is
 	# being verified, per the M8 risk-register mitigation. With auto_fire_enabled
 	# true it is redundant, not harmful: the same per-side reload gates both.

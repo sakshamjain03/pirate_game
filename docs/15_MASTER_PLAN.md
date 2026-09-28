@@ -52,7 +52,7 @@ Per-milestone specs live in `.kiro/specs/milestone-mNN-*/`; scope detail is in
 | # | Milestone | Headline | Spec | Status |
 |---|---|---|---|---|
 | M24 | MVP Foundations | Constitution amended for F2P; scope cut to 5 chapters / 5 islands / 12 captains; dev console | `milestone-m24-mvp-foundations` | **Complete** (`6c8c820`, `a137563`) |
-| M25 | Heat & Combat Feel | GTA-style wanted level driving ambient danger; manual fire; the hull/sails/crew triangle made legible; Pieces of Eight introduced | `milestone-m25-heat-and-combat-feel` | In progress |
+| M25 | Heat & Combat Feel | GTA-style wanted level driving ambient danger; manual fire; the hull/sails/crew triangle made legible; Pieces of Eight introduced | `milestone-m25-heat-and-combat-feel` | **Complete** (`f8dffef`, `898da20`, `6e6b6e2`, Checkpoint B) |
 | M26 | Islands as Places | Port view on docking — tap your real 3D buildings; five hand-authored island scenes drawn from their real-world namesakes | — | Planned |
 | M27 | Timed Operations & Prize Ships | `ScheduleManager` (one clock for builds/repairs/missions); uid-based fleet identity; **capture enemy ships instead of sinking them** | — | Planned |
 | M28 | The Maelstrom | Endless Vampire-Survivors-style survival mode, isolated from the campaign | — | Planned |

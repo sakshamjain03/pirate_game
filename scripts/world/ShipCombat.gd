@@ -36,8 +36,41 @@ signal misfired(side: String)
 ## fire, so aiming stays positional and play stays one-thumb.
 @export var auto_fire_enabled: bool = true
 
+## M25 — the ammo the player cycles through, in order. Lives here, next to
+## current_ammo, so the touch button (MobileControls) and the desktop/gamepad
+## `cycle_ammo` action (WorldManager) share one cycle instead of each keeping its
+## own index — desktop previously had no way to swap ammo at all, because the
+## only swap control was a touch button hidden on non-mobile layouts.
+const AMMO_CYCLE: Array[String] = [
+	"res://resources/combat/ammo/RoundShot.tres",
+	"res://resources/combat/ammo/ChainShot.tres",
+	"res://resources/combat/ammo/GrapeShot.tres",
+]
+
+signal ammo_changed(ammo: AmmoData)
+
+## set_ammo() only swaps the resource — it must never touch can_fire_* or the
+## cooldown timers, so switching mid-reload costs nothing and the player is never
+## punished for changing their mind.
 func set_ammo(ammo: AmmoData) -> void:
 	current_ammo = ammo
+	ammo_changed.emit(ammo)
+
+
+## Index of current_ammo in AMMO_CYCLE, or -1 when it is something else (none
+## loaded, or a non-player ammo type).
+func get_ammo_cycle_index() -> int:
+	if not current_ammo:
+		return -1
+	return AMMO_CYCLE.find(current_ammo.resource_path)
+
+
+## Loads the next ammo in AMMO_CYCLE. Anything off the cycle restarts at round shot.
+func cycle_ammo() -> AmmoData:
+	var next := (get_ammo_cycle_index() + 1) % AMMO_CYCLE.size()
+	var ammo := load(AMMO_CYCLE[next]) as AmmoData
+	set_ammo(ammo)
+	return ammo
 
 var cannonball_scene: PackedScene = preload("res://scenes/combat/Cannonball.tscn")
 ## Every authored cannon marker (broadside and chaser, all 3 ship scenes) sits

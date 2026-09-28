@@ -24,6 +24,9 @@ var defend_home_ship_indices: Array = []
 # Dictionary mapping ship_index (int) -> { "captain_index": int, "mission_type": String, "timer": float }
 var active_missions: Dictionary = {}
 
+## M27 — the ScheduleManager job target for ship construction.
+const SHIP_TARGET := "fleet"
+
 func _ready() -> void:
 	# Give the player a starter ship if empty. Must match PlayerShip.tscn's
 	# own ship_stats (Sloop) — a mismatch here previously made the Shipyard
@@ -43,6 +46,50 @@ func _ready() -> void:
 			
 	if ResourceManager.has_signal("global_economy_tick"):
 		ResourceManager.global_economy_tick.connect(on_economy_tick)
+
+	ScheduleManager.job_completed.connect(_on_job_completed)
+
+## M27 — a new hull takes time at the Shipyard: pays now (ResourceManager.pay(),
+## which can cover a shortfall with Eights), and add_ship() runs when the job
+## completes. `shipyard_level` is the building level of the Shipyard it's built
+## at — the speed source (design.md §4). Refuses a hull already owned or already
+## on the slipway, so it can't be paid for twice.
+func start_ship_construction(ship: ShipStats, cost: Dictionary, shipyard_level: int, allow_cover: bool = false) -> bool:
+	if owns_ship_stats(ship) or is_ship_under_construction(ship):
+		return false
+	if not ResourceManager.pay(cost, allow_cover):
+		return false
+	var duration := get_ship_build_seconds(ship, shipyard_level)
+	if duration <= 0.0:
+		add_ship(ship)
+	else:
+		ScheduleManager.start_job("ship", SHIP_TARGET, ship.resource_path, duration)
+	return true
+
+func get_ship_build_seconds(ship: ShipStats, shipyard_level: int) -> float:
+	return ScheduleManager.pricing.effective_duration("ship", ship.build_seconds, shipyard_level)
+
+## The running construction job for this hull, or {}.
+func get_ship_construction_job(ship: ShipStats) -> Dictionary:
+	for job in ScheduleManager.get_jobs_of_kind("ship"):
+		if job["payload"] == ship.resource_path:
+			return job
+	return {}
+
+func is_ship_under_construction(ship: ShipStats) -> bool:
+	return not get_ship_construction_job(ship).is_empty()
+
+func _on_job_completed(job: Dictionary) -> void:
+	if job["kind"] != "ship":
+		return
+	var path: String = job["payload"]
+	var ship: ShipStats = null
+	if ResourceLoader.exists(path):
+		ship = load(path) as ShipStats
+	if not ship:
+		push_error("FleetManager: ship construction completed for unresolvable hull '%s'." % path)
+		return
+	add_ship(ship)
 
 func on_economy_tick() -> void:
 	for ship_idx in active_missions.keys():

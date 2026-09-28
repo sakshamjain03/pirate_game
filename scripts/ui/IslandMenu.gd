@@ -31,6 +31,10 @@ var available_modules: Array[ShipModuleData] = []
 
 var colonize_btn: Button
 
+## M27 — live job rows: {job_id, label, bar, verb}, refreshed by _job_timer.
+var _job_widgets: Array = []
+var _job_timer: Timer
+
 func _ready() -> void:
 	add_to_group("island_menu")
 	close_button.pressed.connect(_on_close_pressed)
@@ -47,6 +51,18 @@ func _ready() -> void:
 	if ResourceManager.has_signal("resources_changed"):
 		ResourceManager.resources_changed.connect(_on_resources_changed)
 
+	# M27 — timers. Construction completes on whichever island owns it, menu open
+	# or not, so every island's structure_completed is relayed as structure_changed
+	# (CampaignManager/SeasonalEventManager's objective hook). Deferred: islands
+	# join the "islands" group in their own _ready(), which can run after this one.
+	_connect_islands.call_deferred()
+	ScheduleManager.job_started.connect(_on_schedule_changed)
+	ScheduleManager.job_completed.connect(_on_schedule_job_completed)
+	_job_timer = Timer.new()
+	_job_timer.wait_time = 1.0
+	_job_timer.timeout.connect(_tick_job_widgets)
+	add_child(_job_timer)
+	_job_timer.start()
 
 	# Create Colonize Button — label text is set per-island in open(), since cost is
 	# now authored per-IslandData (IslandData.colonize_cost_gold) rather than fixed.
@@ -265,23 +281,23 @@ func _refresh_buildings() -> void:
 func _create_building_entry(building: BuildingData) -> void:
 	var hbox = HBoxContainer.new()
 	hbox.set_meta("tile_icon", building.produces_resource)
-	
+
 	# Name & Desc
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	
+
 	var name_lbl = Label.new()
 	name_lbl.text = building.building_name
 	name_lbl.add_theme_font_size_override("font_size", 18)
-	
+
 	var desc_lbl = Label.new()
 	desc_lbl.text = building.description + " (+" + str(building.production_amount) + " " + building.produces_resource + "/" + str(int(building.production_interval)) + "s)"
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	
+
 	info_vbox.add_child(name_lbl)
 	info_vbox.add_child(desc_lbl)
-	
+
 	# Cost
 	var cost_lbl = Label.new()
 	var cost_text = ""
@@ -290,12 +306,12 @@ func _create_building_entry(building: BuildingData) -> void:
 		cost_text += str(cost_dict[k]) + " " + tr(k.capitalize()) + "  "
 	cost_lbl.text = cost_text
 	cost_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	
+
 	# Button
 	var btn = Button.new()
 	btn.text = tr("Build")
 	btn.custom_minimum_size = Vector2(80, 40)
-	
+
 	# Check if already built
 	var is_built = false
 	var existing_building: BuildingData = null
@@ -308,16 +324,28 @@ func _create_building_entry(building: BuildingData) -> void:
 				is_built = true
 				existing_building = b
 				break
-				
+
 	var island_tier = 1
 	if current_island.has_method("get_island_tier"):
 		island_tier = current_island.get_island_tier()
-				
+
+	# M27 — one build/upgrade per island at a time (Requirement 2.7).
+	var active_job: Dictionary = current_island.get_active_construction() if current_island.has_method("get_active_construction") else {}
+	# What this row would build or upgrade into, for the job/duration checks below.
+	var target: BuildingData = building
 	if is_built and existing_building:
+		target = existing_building.next_upgrade as BuildingData
+
+	if target and not active_job.is_empty() and active_job["payload"] == target.building_id:
+		# This row's own construction is running: its live status replaces the action.
+		_add_job_status(info_vbox, hbox, active_job, tr("Upgrading") if is_built else tr("Building"))
+		btn.visible = false
+		cost_lbl.text = ""
+	elif is_built and existing_building:
 		if "next_upgrade" in existing_building and existing_building.next_upgrade:
 			btn.text = tr("Upgrade")
 			var next_b = existing_building.next_upgrade
-			
+
 			if "required_island_tier" in next_b and next_b.required_island_tier > island_tier:
 				btn.disabled = true
 				cost_lbl.text = tr("Requires Island Tier %d") % next_b.required_island_tier
@@ -328,7 +356,7 @@ func _create_building_entry(building: BuildingData) -> void:
 				for k in up_cost.keys():
 					cost_text += str(up_cost[k]) + " " + tr(k.capitalize()) + "  "
 				cost_lbl.text = cost_text
-				
+
 				if not ResourceManager.can_afford(up_cost):
 					btn.disabled = true
 					cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
@@ -351,15 +379,26 @@ func _create_building_entry(building: BuildingData) -> void:
 				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 			else:
 				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
-				
+
 			btn.pressed.connect(func(): _on_build_pressed(building))
-		
+
+	if btn.visible and not active_job.is_empty() and btn.text in [tr("Build"), tr("Upgrade")]:
+		# Another construction holds the builders — say so instead of a bare
+		# disabled button.
+		btn.disabled = true
+		btn.text = tr("Builders busy")
+		btn.tooltip_text = tr("One construction at a time on each island.")
+	elif btn.visible and target and current_island.has_method("get_construction_seconds"):
+		var seconds: float = current_island.get_construction_seconds(target, "upgrade" if is_built else "build")
+		if seconds > 0.0:
+			desc_lbl.text += "  " + tr("Takes %s.") % _format_seconds(seconds)
+
 	hbox.add_child(info_vbox)
 	hbox.add_child(cost_lbl)
 	hbox.add_child(btn)
-	
+
 	buildings_container.add_child(hbox)
-	
+
 	# Add a separator
 	var sep = HSeparator.new()
 	buildings_container.add_child(sep)
@@ -693,6 +732,8 @@ func _stack_card_for_detail(card: PanelContainer) -> void:
 	card.set_meta("tile_icon", row.get_meta("tile_icon", ""))
 	if row.has_meta("tile_title"):
 		card.set_meta("tile_title", row.get_meta("tile_title"))
+	if row.has_meta("tile_status"):
+		card.set_meta("tile_status", row.get_meta("tile_status"))
 
 
 func _card_title(card: Node) -> String:
@@ -757,6 +798,9 @@ func _tile_icon(card: Node) -> Texture2D:
 ## second, separately-derived rule (so tile and detail can't disagree).
 func _tile_status(card: Node) -> Dictionary:
 	var pal := UITokens.palette()
+	# M27 — a running job ("Building", "Researching") is the entry's state.
+	if card.has_meta("tile_status"):
+		return {"text": String(card.get_meta("tile_status")), "color": pal.sunset_teal, "dim": false}
 	for lbl in card.find_children("*", "Label", true, false):
 		if lbl.visible and lbl.text.begins_with(tr("Requires")):
 			return {"text": tr("Locked"), "color": pal.brick, "dim": true}
@@ -846,28 +890,102 @@ func _refresh_tier_pips() -> void:
 			UIMotion.idle_glow(node)
 
 
-func _on_build_pressed(building: BuildingData) -> void:
+## M27 — starts construction (instant at 0 duration). structure_changed and the
+## Shipyard/Tavern tab unlock fire when it *completes*, from
+## _on_island_structure_completed(), not here.
+func _on_build_pressed(building: BuildingData, allow_cover: bool = false) -> void:
 	if current_island and current_island.has_method("build_structure"):
-		if current_island.build_structure(building):
+		if current_island.build_structure(building, allow_cover):
 			_refresh_buildings()
-			# If we just built a shipyard or tavern, unhide the tabs
-			if building.building_id.begins_with("shipyard"):
-				tab_container.set_tab_hidden(1, false)
-				_refresh_ships()
-			elif building.building_id.begins_with("tavern"):
-				tab_container.set_tab_hidden(2, false)
-				_refresh_captains()
 			if AudioManager: AudioManager.play_sound("build_success")
-			structure_changed.emit(building.building_id, false)
 			HapticFeedbackManager.reward()
 
-func _on_upgrade_pressed(old_id: String, next_upgrade: BuildingData) -> void:
+func _on_upgrade_pressed(old_id: String, next_upgrade: BuildingData, allow_cover: bool = false) -> void:
 	if current_island and current_island.has_method("upgrade_structure"):
-		if current_island.upgrade_structure(old_id, next_upgrade):
+		if current_island.upgrade_structure(old_id, next_upgrade, allow_cover):
 			_refresh_buildings()
 			if AudioManager: AudioManager.play_sound("upgrade_success")
-			structure_changed.emit(next_upgrade.building_id, true)
 			HapticFeedbackManager.reward()
+
+# --- M27: timed jobs ----------------------------------------------------------
+
+func _connect_islands() -> void:
+	for island in get_tree().get_nodes_in_group("islands"):
+		if island.has_signal("structure_completed"):
+			island.structure_completed.connect(_on_island_structure_completed.bind(island))
+
+## The one place structure_changed is emitted: when a building actually exists, so
+## a BUILD_STRUCTURE/UPGRADE_STRUCTURE_TO_LEVEL objective can't complete on payment.
+func _on_island_structure_completed(building: BuildingData, is_upgrade: bool, island: Node) -> void:
+	structure_changed.emit(building.building_id, is_upgrade)
+	if not visible or island != current_island:
+		return
+	# A finished Shipyard or Tavern unlocks its tab on the spot.
+	if building.building_id.begins_with("shipyard"):
+		tab_container.set_tab_hidden(1, false)
+		_refresh_ships()
+	elif building.building_id.begins_with("tavern"):
+		tab_container.set_tab_hidden(2, false)
+		_refresh_captains()
+	_refresh_tier_pips()
+	_refresh_buildings()
+
+func _on_schedule_changed(_job: Dictionary) -> void:
+	# Same full refresh an economy change triggers (no-op while closed).
+	_on_resources_changed(ResourceManager.current_resources)
+
+func _on_schedule_job_completed(job: Dictionary) -> void:
+	if job["kind"] == "repair":
+		_apply_repair()
+	_on_schedule_changed(job)
+
+## Adds a running job's live status line and progress bar to a row's info column
+## and registers them for the 1 s tick. `verb` also becomes the tile's status.
+func _add_job_status(info_vbox: VBoxContainer, row: Control, job: Dictionary, verb: String) -> void:
+	var status := Label.new()
+	status.add_theme_font_size_override("font_size", 14)
+	# Blue-ish on purpose: the restyle pass maps it to the palette's teal (a
+	# "working" state), distinct from affordable/unaffordable.
+	status.add_theme_color_override("font_color", Color(0.3, 0.6, 0.9))
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.min_value = 0.0
+	bar.max_value = 1.0
+	bar.step = 0.0
+	bar.custom_minimum_size = Vector2(0, 14)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_vbox.add_child(status)
+	info_vbox.add_child(bar)
+	row.set_meta("tile_status", verb)
+	var widget := {"job_id": job["id"], "label": status, "bar": bar, "verb": verb}
+	_job_widgets.append(widget)
+	_update_job_widget(widget)
+
+func _update_job_widget(widget: Dictionary) -> void:
+	var id: String = widget.job_id
+	widget.label.text = tr("%s — %s left") % [widget.verb, _format_seconds(ScheduleManager.remaining(id))]
+	widget.bar.value = ScheduleManager.progress(id)
+
+func _tick_job_widgets() -> void:
+	_job_widgets = _job_widgets.filter(func(w): return is_instance_valid(w.label) and not w.label.is_queued_for_deletion())
+	if not visible:
+		return
+	for widget in _job_widgets:
+		if ScheduleManager.has_job(widget.job_id):
+			_update_job_widget(widget)
+
+## "0:42", "12:05", "1:02:09".
+func _format_seconds(seconds: float) -> String:
+	var t := ceili(maxf(seconds, 0.0))
+	var h := t / 3600
+	var m := (t % 3600) / 60
+	var s := t % 60
+	return "%d:%02d:%02d" % [h, m, s] if h > 0 else "%d:%02d" % [m, s]
+
+func _shipyard_level() -> int:
+	if current_island and current_island.has_method("get_building_level"):
+		return current_island.get_building_level("shipyard")
+	return 0
 
 # --- SHIPYARD ---
 
@@ -896,33 +1014,67 @@ func _create_repair_ship_entry() -> void:
 	var row := HBoxContainer.new()
 	row.set_meta("tile_icon", "cannonball")
 	row.set_meta("tile_title", tr("Repairs"))
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var details := Label.new()
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	details.text = tr("Hull %d / %d  •  Rigging %d / %d") % [roundi(hull), roundi(hull_max), roundi(sails), roundi(sails_max)]
 	details.add_theme_font_size_override("font_size", 14)
-	row.add_child(details)
+	info.add_child(details)
+	row.add_child(info)
 	var repair_button := Button.new()
 	repair_button.text = tr("Repair Ship")
 	repair_button.custom_minimum_size = Vector2(120, 44)
-	repair_button.disabled = is_equal_approx(hull, hull_max) and is_equal_approx(sails, sails_max)
-	if not repair_button.disabled:
-		repair_button.pressed.connect(_on_repair_ship_pressed.bind(damage))
+	# M27 — a shipyard repair is a job; sailing never waits on it (the ship keeps
+	# its current damage until the job completes, and passive DockingSystem
+	# repair is unchanged).
+	var repair_jobs := ScheduleManager.get_jobs_of_kind("repair")
+	if not repair_jobs.is_empty():
+		_add_job_status(info, row, repair_jobs[0], tr("Repairing"))
+		repair_button.visible = false
+	else:
+		repair_button.disabled = is_equal_approx(hull, hull_max) and is_equal_approx(sails, sails_max)
+		if not repair_button.disabled:
+			var seconds := _repair_seconds(damage)
+			if seconds > 0.0:
+				repair_button.text = tr("Repair Ship (%s)") % _format_seconds(seconds)
+			repair_button.pressed.connect(_on_repair_ship_pressed.bind(damage))
 	row.add_child(repair_button)
 	ships_container.add_child(row)
 	ships_container.add_child(HSeparator.new())
 
 
+## Missing hull + rigging points × the authored rate × this Shipyard's speed.
+func _repair_seconds(damage: Node) -> float:
+	var missing: float = (damage.get_pool_maximum("hull") - damage.get("hull")) \
+		+ (damage.get_pool_maximum("sails") - damage.get("sails"))
+	var pricing := ScheduleManager.pricing
+	return pricing.effective_duration("repair", maxf(missing, 0.0) * pricing.repair_seconds_per_point, _shipyard_level())
+
+
 func _on_repair_ship_pressed(damage: Node) -> void:
-	if not is_instance_valid(damage):
+	if not is_instance_valid(damage) or not current_island:
 		return
-	## A Shipyard restores hull and rigging. Crew remain a Tavern concern, so
-	## this does not erase the recruit/boarding economy.
+	if not ScheduleManager.get_jobs_of_kind("repair").is_empty():
+		return  # one repair at a time; the row shows the running one
+	var seconds := _repair_seconds(damage)
+	ScheduleManager.start_job("repair", current_island.get_island_id(), "", seconds)
+	_refresh_ships()
+
+
+## A repair job completed (possibly after leaving port). A Shipyard restores hull
+## and rigging on the player's ship. Crew remain a Tavern concern, so this does
+## not erase the recruit/boarding economy.
+func _apply_repair() -> void:
+	var player := get_tree().get_first_node_in_group("player_ship")
+	var damage = player.get_node_or_null("ShipDamage") if player else null
+	if not damage:
+		return
 	var restored: float = damage.repair("hull", damage.get_pool_maximum("hull"))
 	restored += damage.repair("sails", damage.get_pool_maximum("sails"))
 	if restored <= 0.0:
 		return
 	HapticFeedbackManager.reward()
-	_refresh_ships()
 
 func _create_ship_entry(ship: ShipStats) -> void:
 	var hbox = HBoxContainer.new()
@@ -954,9 +1106,17 @@ func _create_ship_entry(ship: ShipStats) -> void:
 	btn.text = tr("Buy")
 	btn.custom_minimum_size = Vector2(80, 40)
 	
+	var ship_job := FleetManager.get_ship_construction_job(ship)
+	var build_seconds := FleetManager.get_ship_build_seconds(ship, _shipyard_level())
+	if build_seconds > 0.0 and ship_job.is_empty() and not FleetManager.owns_ship_stats(ship):
+		desc_lbl.text += "  " + tr("Takes %s.") % _format_seconds(build_seconds)
 	if FleetManager.owns_ship_stats(ship):
 		btn.text = tr("Owned")
 		btn.disabled = true
+	elif not ship_job.is_empty():
+		_add_job_status(info_vbox, hbox, ship_job, tr("On the slipway"))
+		btn.visible = false
+		cost_lbl.text = ""
 	elif not ResourceManager.can_afford(cost_dict):
 		btn.disabled = true
 		cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
@@ -971,9 +1131,9 @@ func _create_ship_entry(ship: ShipStats) -> void:
 	ships_container.add_child(hbox)
 	ships_container.add_child(HSeparator.new())
 
-func _on_buy_ship_pressed(ship: ShipStats, cost: Dictionary) -> void:
-	if ResourceManager.spend_resources(cost):
-		FleetManager.add_ship(ship)
+## M27 — a hull is laid down now and joins the fleet when the job completes.
+func _on_buy_ship_pressed(ship: ShipStats, cost: Dictionary, allow_cover: bool = false) -> void:
+	if FleetManager.start_ship_construction(ship, cost, _shipyard_level(), allow_cover):
 		if AudioManager: AudioManager.play_sound("ship_purchase")
 		_refresh_ships()
 
@@ -1478,9 +1638,23 @@ func _create_research_entry(tech: TechData) -> void:
 	if current_island and current_island.has_method("get_island_tier"):
 		island_tier = current_island.get_island_tier()
 
+	# M27 — one research job at a time, empire-wide (Requirement 2.7).
+	var research_job := TechManager.get_research_job()
+	var researching_this: bool = not research_job.is_empty() and research_job["payload"] == tech.resource_path
+	var research_seconds := TechManager.get_research_seconds(tech)
+	if research_seconds > 0.0 and not researching_this and not TechManager.is_unlocked(tech.tech_id):
+		desc_lbl.text += "  " + tr("Takes %s.") % _format_seconds(research_seconds)
 	if TechManager.is_unlocked(tech.tech_id):
 		btn.text = tr("Researched")
 		btn.disabled = true
+	elif researching_this:
+		_add_job_status(info_vbox, hbox, research_job, tr("Researching"))
+		btn.visible = false
+		cost_lbl.text = ""
+	elif not research_job.is_empty() and TechManager.can_research(tech, island_tier):
+		btn.disabled = true
+		btn.text = tr("Scholars busy")
+		btn.tooltip_text = tr("One research at a time.")
 	elif not TechManager.can_research(tech, island_tier):
 		btn.disabled = true
 		if tech.required_island_tier > island_tier:
@@ -1502,9 +1676,9 @@ func _create_research_entry(tech: TechData) -> void:
 	research_container.add_child(hbox)
 	research_container.add_child(HSeparator.new())
 
-func _on_unlock_tech_pressed(tech: TechData, cost: Dictionary) -> void:
-	if ResourceManager.spend_resources(cost):
-		TechManager.unlock_tech(tech)
+## M27 — research starts now; TechManager unlocks the tech when its job completes.
+func _on_unlock_tech_pressed(tech: TechData, cost: Dictionary, allow_cover: bool = false) -> void:
+	if TechManager.start_research(tech, cost, allow_cover):
 		if AudioManager: AudioManager.play_sound("tech_unlock")
 		_refresh_research()
 

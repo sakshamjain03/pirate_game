@@ -7,11 +7,17 @@ signal tech_recalculated()
 
 var unlocked_techs: Array[Resource] = []
 
+## M27 — the ScheduleManager job target for research (empire-wide, not an island).
+const RESEARCH_TARGET := "tech"
+
 # Cached global modifiers
 var global_health_mod: float = 1.0
 var global_damage_mod: float = 1.0
 var global_speed_mod: float = 1.0
 var global_storage_mod: float = 1.0
+
+func _ready() -> void:
+	ScheduleManager.job_completed.connect(_on_job_completed)
 
 func is_unlocked(tech_id: String) -> bool:
 	for t in unlocked_techs:
@@ -31,6 +37,55 @@ func can_research(tech: TechData, island_tier: int) -> bool:
 	if not tech.required_prerequisite_tech_id.is_empty() and not is_unlocked(tech.required_prerequisite_tech_id):
 		return false
 	return true
+
+## M27 — research takes time: pays now (ResourceManager.pay(), which can cover a
+## shortfall with Eights), and unlock_tech() runs when the ScheduleManager job
+## completes. One research job at a time, empire-wide (Requirement 2.7). Does not
+## check can_research() — the caller already gates on island tier.
+func start_research(tech: TechData, cost: Dictionary, allow_cover: bool = false) -> bool:
+	if is_unlocked(tech.tech_id) or is_researching():
+		return false
+	if not ResourceManager.pay(cost, allow_cover):
+		return false
+	var duration := get_research_seconds(tech)
+	if duration <= 0.0:
+		unlock_tech(tech)
+	else:
+		ScheduleManager.start_job("research", RESEARCH_TARGET, tech.resource_path, duration)
+	return true
+
+## Effective research time at the highest Academy level the player owns.
+func get_research_seconds(tech: TechData) -> float:
+	return ScheduleManager.pricing.effective_duration("research", tech.research_seconds, get_academy_level())
+
+## Research is empire-wide, so its speed source is the best Academy on any owned
+## island (design.md §4). 0 = no Academy.
+func get_academy_level() -> int:
+	var best := 0
+	for island in get_tree().get_nodes_in_group("islands"):
+		if island.island_data and island.island_data.is_owned_by_player() and island.has_method("get_building_level"):
+			best = maxi(best, island.get_building_level("academy"))
+	return best
+
+## The running research job, or {}.
+func get_research_job() -> Dictionary:
+	var jobs := ScheduleManager.get_jobs_of_kind("research")
+	return jobs[0] if not jobs.is_empty() else {}
+
+func is_researching() -> bool:
+	return not get_research_job().is_empty()
+
+func _on_job_completed(job: Dictionary) -> void:
+	if job["kind"] != "research":
+		return
+	var path: String = job["payload"]
+	var tech: TechData = null
+	if ResourceLoader.exists(path):
+		tech = load(path) as TechData
+	if not tech:
+		push_error("TechManager: research job completed for unresolvable tech '%s'." % path)
+		return
+	unlock_tech(tech)
 
 func unlock_tech(tech: Resource) -> void:
 	if not is_unlocked(tech.tech_id):

@@ -17,19 +17,19 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
 
 ## Tasks
 
-- [ ] 1. `ScheduleManager` autoload — jobs, `start_job`/`remaining`/`finish_now`/`finish_cost_eights`, completion guard (World loaded or `game_loaded`), idempotency record, `now_offset`, `schedule` save section (omitted when empty)
+- [x] 1. `ScheduleManager` autoload — jobs, `start_job`/`remaining`/`finish_now`/`finish_cost_eights`, completion guard (World loaded or `game_loaded`), idempotency record, `now_offset`, `schedule` save section (omitted when empty)
   - **Verify:** `tests/test_schedule_manager.gd` — a job completes once when time passes; a save/load round-trip with a finished job completes it exactly once; duration 0 completes immediately; no `schedule` key in a fresh save.
   - _Requirements: 1.1-1.5_
-- [ ] 2. `EconomyPricingData` + `resources/balance/EconomyPricing.tres`; duration exports on `BuildingData`, `TechData`, `ShipStats` (default 0)
+- [x] 2. `EconomyPricingData` + `resources/balance/EconomyPricing.tres`; duration exports on `BuildingData`, `TechData`, `ShipStats` (default 0)
   - **Verify:** `effective_duration()` strictly decreases with level for every kind; all existing building/tech/ship `.tres` still load with 0 duration (instant).
   - _Requirements: 2.5, 3.1, 3.2, 3.3_
-- [ ] 3. Timed building — `Island` build/upgrade start jobs, `_finish_build`/`_finish_upgrade`, `is_building()`, `get_building_level()`, `structure_completed`; `IslandMenu.structure_changed` re-emitted on completion
+- [x] 3. Timed building — `Island` build/upgrade start jobs, `_finish_build`/`_finish_upgrade`, `is_building()`, `get_building_level()`, `structure_completed`; `IslandMenu.structure_changed` re-emitted on completion
   - **Verify:** with a non-zero duration, building is absent until the job completes, then present with its visual; BUILD_STRUCTURE objective completes only on completion; with 0 duration existing island/campaign tests pass unchanged.
   - _Requirements: 2.1, 2.7_
-- [ ] 4. Timed research, ships and repair — `TechManager.start_research`, `FleetManager.start_ship_construction`, repair job in `IslandMenu`
+- [x] 4. Timed research, ships and repair — `TechManager.start_research`, `FleetManager.start_ship_construction`, repair job in `IslandMenu`
   - **Verify:** unlock/add_ship/repair happen on completion only; a second research job is refused; passive DockingSystem repair test unchanged.
   - _Requirements: 2.2, 2.3, 2.4, 2.7_
-- [ ] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
+- [x] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
 - [ ] 6. Eights sinks — `finish_now` pricing, `ResourceManager.shortfall`/`shortfall_cost_eights`/`cover_shortfall_and_spend`, `EightsConfirmDialog`, job rows (remaining + bar + Finish now) and Cover buttons in IslandMenu
   - **Verify:** `tests/test_eights_sinks.gd` — cost from remaining not total; min 1; refusal spends nothing; cover is atomic; refused when it would clamp at storage cap; refused for Eights costs.
   - _Requirements: 2.6, 4.1-4.4, 5.1-5.5_

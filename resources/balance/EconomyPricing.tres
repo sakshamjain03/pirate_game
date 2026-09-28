@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EconomyPricingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/EconomyPricingData.gd" id="1_pricing"]
+
+[resource]
+script = ExtResource("1_pricing")
+seconds_per_eight = 60.0
+shortfall_rates = {
+"gold": 50,
+"iron": 5,
+"research": 5,
+"rum": 5,
+"wood": 10
+}
+build_speed_by_island_tier = Array[float]([1.0, 0.85, 0.7, 0.55, 0.4])
+research_speed_by_academy_level = Array[float]([1.0, 0.8, 0.65, 0.5, 0.4, 0.3])
+ship_speed_by_shipyard_level = Array[float]([1.0, 0.8, 0.65, 0.5, 0.4, 0.3])
+repair_seconds_per_point = 0.5
+zero_spend_early_cap_seconds = 120.0

@@ -198,6 +198,11 @@ func save_game() -> void:
 	if int(_maelstrom_data.get("runs", 0)) > 0:
 		save_dict["maelstrom"] = _maelstrom_data.duplicate()
 
+	# 9f. Running timers (M27) — optional: ScheduleManager returns {} with no jobs.
+	var schedule: Dictionary = ScheduleManager.get_save_data()
+	if not schedule.is_empty():
+		save_dict["schedule"] = schedule
+
 	# Preserve the last known save before replacing it. A failed backup is safer
 	# than a write that could destroy the player's only recoverable copy.
 	var had_existing_save := FileAccess.file_exists(SAVE_PATH)
@@ -231,6 +236,9 @@ func save_game() -> void:
 		_sync_to_cloud(save_dict)
 
 func load_game() -> void:
+	# M27 — "schedule" is omitted when no job is running, so a stale job from an
+	# earlier session in this process must be cleared before anything loads.
+	ScheduleManager.reset()
 	if not has_recoverable_save_data():
 		_maelstrom_data = {}
 		_claim_pending_maelstrom()   # M26 — runs played before the first campaign save
@@ -387,6 +395,11 @@ func load_game() -> void:
 	# 9e. Maelstrom record (M26), then any run waiting in the pending file.
 	_maelstrom_data = data["maelstrom"].duplicate() if data.get("maelstrom") is Dictionary else {}
 	_claim_pending_maelstrom()
+
+	# 9f. Running timers (M27). Due jobs complete once game_loaded has fired and the
+	# World's owners are wired — see ScheduleManager's header.
+	if data.get("schedule") is Dictionary:
+		ScheduleManager.load_save_data(data["schedule"])
 
 	# 10. Offline catch-up (must run after islands and fleet are restored above)
 	if data.has("last_saved_unix"):

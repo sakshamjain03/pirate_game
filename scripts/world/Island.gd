@@ -11,6 +11,10 @@ extends Node3D
 @export var island_data: IslandData
 
 signal tier_changed(new_tier: int)
+## M27 — a building finished construction or an upgrade finished (never on a save
+## restore). IslandMenu re-emits it as structure_changed for the campaign, so a
+## BUILD_STRUCTURE objective completes when the building exists, not when it's paid.
+signal structure_completed(building: BuildingData, is_upgrade: bool)
 var _current_tier: int = 1
 
 var built_buildings: Array[BuildingData] = []
@@ -61,6 +65,8 @@ func _ready() -> void:
 
 	if ResourceManager.has_signal("global_economy_tick"):
 		ResourceManager.global_economy_tick.connect(on_economy_tick)
+
+	ScheduleManager.job_completed.connect(_on_job_completed)
 
 	# Defenders are gated on the island's region being active, and at world load
 	# every region past Beginner is still dormant (notoriety 0). Without this
@@ -291,68 +297,134 @@ func has_building_type(base_id: String) -> bool:
 func has_shipyard() -> bool:
 	return has_building_type("shipyard")
 
-func build_structure(building: BuildingData) -> bool:
+## M27 — pays now; the building exists only once construction completes
+## (instantly when its effective duration is 0, otherwise via a ScheduleManager
+## job). Returns whether construction started. `allow_cover` tops up a shortfall
+## with Eights (ResourceManager.pay()).
+func build_structure(building: BuildingData, allow_cover: bool = false) -> bool:
 	if not island_data or not island_data.is_owned_by_player():
 		return false # Can only build on islands the player owns
 
 	if has_building(building.building_id):
 		return false # Already built
 
-	# Pay cost
-	var cost = building.get_cost_dict()
-	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):
-		built_buildings.append(building)
-		
-		# Spawn visual model
-		var slot_index = built_buildings.size() - 1
-		_spawn_building_visual(building, slot_index, true)
-		
-		if ResourceManager.has_method("recalculate_storage_capacity"):
-			ResourceManager.recalculate_storage_capacity()
+	if is_constructing():
+		return false # One build/upgrade per island at a time (M27 Requirement 2.7)
 
-		_recalculate_tier()
-		if AudioManager: AudioManager.play_sound("building_construct")
-
-		return true
-		
-	return false
-
-func upgrade_structure(old_id: String, new_building: BuildingData) -> bool:
-	var old_building_idx = -1
-	var old_slot_index = -1
-	for i in range(built_buildings.size()):
-		if built_buildings[i].building_id == old_id:
-			old_building_idx = i
-			old_slot_index = i
-			break
-			
-	if old_building_idx == -1:
+	if not ResourceManager.pay(building.get_cost_dict(), allow_cover):
 		return false
-		
-	var cost = new_building.get_cost_dict()
-	if ResourceManager.has_method("spend_resources") and ResourceManager.spend_resources(cost):
-		built_buildings[old_building_idx] = new_building
-		if AudioManager: AudioManager.play_sound("building_upgrade")
 
-		# Update visuals if needed (just scale up for now)
-		if _spawned_models.has(old_id):
-			var model = _spawned_models[old_id]
-			if is_instance_valid(model):
-				var target_scale = Vector3.ONE * pow(1.2, new_building.level - 1)
-				var tween = create_tween()
-				tween.tween_property(model, "scale", target_scale, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-			# Re-map the dictionary key
-			_spawned_models[new_building.building_id] = model
-			_spawned_models.erase(old_id)
-			
-		if ResourceManager.has_method("recalculate_storage_capacity"):
-			ResourceManager.recalculate_storage_capacity()
-			
-		_recalculate_tier()
-			
-		return true
-		
-	return false
+	var duration := get_construction_seconds(building, "build")
+	if duration <= 0.0:
+		_finish_build(building)
+	else:
+		ScheduleManager.start_job("build", get_island_id(), building.building_id, duration)
+	return true
+
+func upgrade_structure(old_id: String, new_building: BuildingData, allow_cover: bool = false) -> bool:
+	if _index_of_building(old_id) == -1:
+		return false
+
+	if is_constructing():
+		return false
+
+	if not ResourceManager.pay(new_building.get_cost_dict(), allow_cover):
+		return false
+
+	var duration := get_construction_seconds(new_building, "upgrade")
+	if duration <= 0.0:
+		_finish_upgrade(old_id, new_building)
+	else:
+		ScheduleManager.start_job("upgrade", get_island_id(), new_building.building_id, duration)
+	return true
+
+## M27 — effective build/upgrade time at this island's current tier.
+func get_construction_seconds(building: BuildingData, kind: String = "build") -> float:
+	return ScheduleManager.pricing.effective_duration(kind, building.build_seconds, get_island_tier())
+
+## M27 — the running build/upgrade job on this island, or {}.
+func get_active_construction() -> Dictionary:
+	for job in ScheduleManager.get_jobs_for(get_island_id()):
+		if job["kind"] in ["build", "upgrade"]:
+			return job
+	return {}
+
+func is_constructing() -> bool:
+	return not get_active_construction().is_empty()
+
+## M27 — is this exact building_id under construction (or being upgraded to)?
+## has_building() stays "is built".
+func is_building(building_id: String) -> bool:
+	return get_active_construction().get("payload", "") == building_id
+
+## M27 — the built level of a building type ("shipyard" -> 0..5), the speed source
+## for research (Academy) and ships/repair (Shipyard).
+func get_building_level(base_id: String) -> int:
+	var level := 0
+	for b in built_buildings:
+		if b.building_id == base_id or b.building_id.begins_with(base_id + "_l"):
+			level = maxi(level, b.level)
+	return level
+
+func _index_of_building(building_id: String) -> int:
+	for i in range(built_buildings.size()):
+		if built_buildings[i].building_id == building_id:
+			return i
+	return -1
+
+func _on_job_completed(job: Dictionary) -> void:
+	if job["target"] != get_island_id() or not job["kind"] in ["build", "upgrade"]:
+		return
+	var building := _resolve_building(job["payload"])   # push_errors on an unknown id
+	if not building:
+		return
+	if job["kind"] == "build":
+		_finish_build(building)
+		return
+	# The building being upgraded is the one whose next level is this one.
+	for b in built_buildings:
+		if b.next_upgrade and b.next_upgrade.building_id == building.building_id:
+			_finish_upgrade(b.building_id, building)
+			return
+	push_error("Island %s: upgrade to %s completed but no built building upgrades into it." % [get_island_id(), building.building_id])
+
+func _finish_build(building: BuildingData) -> void:
+	if has_building(building.building_id):
+		push_error("Island %s: %s completed but is already built." % [get_island_id(), building.building_id])
+		return
+	built_buildings.append(building)
+
+	# Spawn visual model
+	var slot_index = built_buildings.size() - 1
+	_spawn_building_visual(building, slot_index, true)
+
+	ResourceManager.recalculate_storage_capacity()
+	_recalculate_tier()
+	if AudioManager: AudioManager.play_sound("building_construct")
+	structure_completed.emit(building, false)
+
+func _finish_upgrade(old_id: String, new_building: BuildingData) -> void:
+	var old_building_idx := _index_of_building(old_id)
+	if old_building_idx == -1:
+		push_error("Island %s: upgrade from %s completed but it is no longer built." % [get_island_id(), old_id])
+		return
+	built_buildings[old_building_idx] = new_building
+	if AudioManager: AudioManager.play_sound("building_upgrade")
+
+	# Update visuals if needed (just scale up for now)
+	if _spawned_models.has(old_id):
+		var model = _spawned_models[old_id]
+		if is_instance_valid(model):
+			var target_scale = Vector3.ONE * pow(1.2, new_building.level - 1)
+			var tween = create_tween()
+			tween.tween_property(model, "scale", target_scale, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		# Re-map the dictionary key
+		_spawned_models[new_building.building_id] = model
+		_spawned_models.erase(old_id)
+
+	ResourceManager.recalculate_storage_capacity()
+	_recalculate_tier()
+	structure_completed.emit(new_building, true)
 
 func _spawn_building_visual(building: BuildingData, slot_index: int, animate: bool = false) -> void:
 	if not building_slots or building_slots.get_child_count() == 0:

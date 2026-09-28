@@ -43,6 +43,9 @@ const _PATHS := {
 	"wardrobe": "res://assets/ui/icons/wardrobe.svg",
 	# M22 Phase 6c — the v0.3 notoriety-bar marker (bone disc + skull).
 	"skull": "res://assets/ui/icons/skull.svg",
+	# M27 — Pieces of Eight, the one premium currency: a silver coin (the
+	# historical real de a ocho was silver) with an "8", same coin geometry as gold.
+	"eights": "res://assets/ui/icons/eights.svg",
 }
 
 static func get_icon(key: String) -> Texture2D:

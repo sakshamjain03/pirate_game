@@ -10,6 +10,8 @@ class_name TechData
 @export var cost_gold: int = 100
 @export var cost_wood: int = 0
 @export var cost_iron: int = 0
+## M27 — research time before Academy speed (EconomyPricing.tres). 0 = instant.
+@export var research_seconds: float = 0.0
 
 ## M11 — gates this tech behind the player's home island reaching this tier,
 ## mirroring BuildingData.required_island_tier's exact pattern. 1 = ungated.

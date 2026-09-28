@@ -3,7 +3,7 @@ extends Node
 ## Purpose: Global manager for player resources (Economy).
 ## Responsibilities: Tracks Gold, Wood, Iron, Rum, Research and Eights. Handles
 ##   adding/spending.
-## Dependencies: None
+## Dependencies: ScheduleManager.pricing (M27 shortfall rates only)
 ##
 ## M25 — "eights" (Pieces of Eight) is the single premium currency. It lives here
 ## like any other resource so one wallet, one save path, one UI idiom -- but it is
@@ -106,6 +106,91 @@ func spend_resources(cost: Dictionary) -> bool:
 		
 	resources_changed.emit(current_resources)
 	return true
+
+## M27 — the one pay path for a purchase the player chose: spend the cost, or
+## (allow_cover) top up whatever is missing with Eights first. Owners (Island,
+## TechManager, FleetManager, IslandMenu) call this after their own guards pass.
+func pay(cost: Dictionary, allow_cover: bool = false) -> bool:
+	if allow_cover and not can_afford(cost):
+		return cover_shortfall_and_spend(cost)
+	return spend_resources(cost)
+
+
+## M27 Requirement 5.1 — {resource: missing} for every non-Eights resource `cost`
+## needs more of than the wallet holds. Empty when affordable.
+func shortfall(cost: Dictionary) -> Dictionary:
+	var gap := {}
+	var wanted := _lowercase_keys(cost)
+	for type in wanted:
+		if is_premium_currency(type):
+			continue
+		var missing: int = int(wanted[type]) - get_resource(type)
+		if missing > 0:
+			gap[type] = missing
+	return gap
+
+
+## M27 Requirement 5.2 — Eights to cover `cost`'s shortfall at the authored
+## per-resource rates, each rounded up; 0 when nothing is missing, otherwise at
+## least 1. A missing resource with no authored rate can't be priced (0).
+func shortfall_cost_eights(cost: Dictionary) -> int:
+	var rates: Dictionary = _pricing().shortfall_rates
+	var gap := shortfall(cost)
+	var price := 0
+	for type in gap:
+		var rate := float(rates.get(type, 0))
+		if rate <= 0.0:
+			push_error("ResourceManager: no shortfall rate authored for '%s'." % type)
+			return 0
+		price += ceili(float(gap[type]) / rate)
+	return price
+
+
+## Whether `cost` can be covered right now: something is missing, the cost has no
+## Eights in it (Requirement 5.5), every missing resource has a rate, the full
+## amount fits under its storage cap (add_resource() clamps — Eights must never buy
+## resources that vanish), and the Eights are there.
+func can_cover_shortfall(cost: Dictionary) -> bool:
+	var wanted := _lowercase_keys(cost)
+	if wanted.has(PREMIUM_CURRENCY):
+		return false
+	var gap := shortfall(wanted)
+	if gap.is_empty():
+		return false
+	for type in gap:
+		if int(wanted[type]) > int(max_storage.get(type, 0)):
+			return false
+	var price := shortfall_cost_eights(wanted)
+	return price > 0 and get_resource(PREMIUM_CURRENCY) >= price
+
+
+## M27 Requirement 5.3 — atomically: spend the Eights, add exactly the shortfall,
+## spend the full cost. Refuses (changing nothing) whenever can_cover_shortfall()
+## is false.
+func cover_shortfall_and_spend(cost: Dictionary) -> bool:
+	if not can_cover_shortfall(cost):
+		return false
+	var gap := shortfall(cost)
+	current_resources[PREMIUM_CURRENCY] -= shortfall_cost_eights(cost)
+	for type in gap:
+		current_resources[type] = get_resource(type) + gap[type]
+	if not spend_resources(cost):
+		push_error("ResourceManager: covered shortfall still unaffordable — %s." % str(cost))
+		return false
+	return true
+
+
+## One authored pricing instance for the whole economy — ScheduleManager's.
+func _pricing() -> Resource:
+	return ScheduleManager.pricing
+
+
+func _lowercase_keys(cost: Dictionary) -> Dictionary:
+	var result := {}
+	for type in cost.keys():
+		result[String(type).to_lower()] = cost[type]
+	return result
+
 
 func get_save_data() -> Dictionary:
 	return current_resources.duplicate()

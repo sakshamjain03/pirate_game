@@ -17,6 +17,9 @@ class_name BuildingData extends Resource
 @export var cost_gold: int = 50
 @export var cost_wood: int = 0
 @export var cost_iron: int = 0
+## M27 — construction time before island-tier speed (EconomyPricing.tres).
+## 0 = instant, which every building authored before M27 relies on.
+@export var build_seconds: float = 0.0
 
 @export_group("Production")
 @export var produces_resource: String = "wood"

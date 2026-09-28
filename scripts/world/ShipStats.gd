@@ -23,6 +23,8 @@ class_name ShipStats extends Resource
 @export_range(0, 5000) var cost_wood: int = 0
 @export_range(0, 2000) var cost_iron: int = 0
 @export_range(0, 500) var cost_rum: int = 0
+## M27 — construction time before Shipyard speed (EconomyPricing.tres). 0 = instant.
+@export_range(0.0, 7200.0) var build_seconds: float = 0.0
 
 @export_group("Movement")
 @export_range(0.0, 100.0) var max_speed: float = 30.0

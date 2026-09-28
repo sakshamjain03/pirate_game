@@ -39,7 +39,7 @@ Everything sequenced below serves that sentence. Anything that does not is defer
 
 ---
 
-# 2.5 Current Roadmap — M24 through M31 (locked 2026-09-28)
+# 2.5 Current Roadmap — M24 through M33 (locked 2026-09-28, re-ordered 2026-09-29)
 
 **This supersedes §3 below for anything not yet built.** §3 (M16-M21) is kept as history; several
 of those milestones shipped, and its constitutional note is now **out of date** — see the warning
@@ -53,19 +53,31 @@ Per-milestone specs live in `.kiro/specs/milestone-mNN-*/`; scope detail is in
 |---|---|---|---|---|
 | M24 | MVP Foundations | Constitution amended for F2P; scope cut to 5 chapters / 5 islands / 12 captains; dev console | `milestone-m24-mvp-foundations` | **Complete** (`6c8c820`, `a137563`) |
 | M25 | Heat & Combat Feel | GTA-style wanted level driving ambient danger; manual fire; the hull/sails/crew triangle made legible; Pieces of Eight introduced | `milestone-m25-heat-and-combat-feel` | **Complete** (`f8dffef`, `898da20`, `6e6b6e2`, Checkpoint B) |
-| M26 | Islands as Places | Port view on docking — tap your real 3D buildings; five hand-authored island scenes drawn from their real-world namesakes | — | Planned |
-| M27 | Timed Operations & Prize Ships | `ScheduleManager` (one clock for builds/repairs/missions); uid-based fleet identity; **capture enemy ships instead of sinking them** | — | Planned |
-| M28 | The Maelstrom | Endless Vampire-Survivors-style survival mode, isolated from the campaign | — | Planned |
-| M29 | Living Economies & Sieges | Island specialization/security/logistics; playable sieges at any owned island; raiding enemy islands | — | Planned |
-| M30 | Contracts, Treasure & Trade | Port contract boards, buried treasure and exploration, per-island supply/demand and smuggling | — | Planned |
-| M31 | F2P Economy & Achievements | Store, IAP, rewarded ads, ~30 achievements, and the zero-spend balance lock for Ch1-5 | — | Planned |
+| M26 | The Maelstrom | Endless Vampire-Survivors-style survival mode, isolated from the campaign (was M28) | `milestone-m26-maelstrom` | Planned — **parallel** |
+| M27 | Timers & the Eights Economy | `ScheduleManager` (one clock for builds/research/ships/repairs); Eights finish timers and cover shortfalls; consumable Eights packs on the stub store (the clock from old M27 + the store half of old M31) | `milestone-m27-eights-economy` | Planned — **parallel** |
+| M28 | Lessons & Campaign Cohesion | Skippable non-modal lessons as chapter content; every system taught and used by an objective across Ch1-5 | `milestone-m28-lessons-and-cohesion` | Planned — **parallel** |
+| M29 | Islands as Places | Port view on docking — tap your real 3D buildings; five hand-authored island scenes drawn from their real-world namesakes (was M26) | — | Planned |
+| M30 | Prize Ships | uid-based fleet identity; **capture enemy ships instead of sinking them** (rest of old M27) | — | Planned |
+| M31 | Living Economies & Sieges | Island specialization/security/logistics; playable sieges at any owned island; raiding enemy islands | — | Planned |
+| M32 | Contracts, Treasure & Trade | Port contract boards, buried treasure and exploration, per-island supply/demand and smuggling | — | Planned |
+| M33 | Achievements, Ads & Balance Lock | Rewarded ads, ~30 achievements, real Play Billing, and the zero-spend balance lock for Ch1-5 | — | Planned |
 
-**M24-M27 are the playable vertical slice** — fight properly, arrive somewhere real, take a prize
-ship. Do not start M28+ before that slice is fun; everything after it tunes against a core that has
-to feel good first.
+**Re-ordered 2026-09-29 (project owner).** After M25 the owner asked for the two modes (endless
+Maelstrom, the five-chapter main game with a skippable tutorial) and a working Eights economy
+before the port view and prize ships. M26-M28 **run in parallel**, each in its own worktree and
+session, which departs deliberately from Rule 8's one-milestone-at-a-time default. Each spec's
+Notes section holds the file-ownership table that makes that safe; shared files (`MainMenu`,
+`SaveManager`, `WorldHUD`, `project.godot`, `docs/05`) take additive edits only. After all three
+land, one joint wrap-up check runs on the merged `main`: full suite, `checkpoint-reviewer`
+against all three specs, M28's timer lesson switched on, one headful pass across all three.
+
+**The vertical-slice gate still holds, re-scoped:** M24-M28 are now the playable slice — fight
+properly, a second mode to fight in, a campaign that teaches everything, and an economy with a
+reason to exist. Do not start M29+ before that slice is fun; everything after it tunes against a
+core that has to feel good first.
 
 **The hard release gate**, from `docs/00_VISION.md` §19.2: **Chapters 1-5 must be completable with
-zero spend**, verified by a balance pass in M31. That is a gate, not an aspiration.
+zero spend**, gate tests in M27 and the full balance pass in M33. That is a gate, not an aspiration.
 
 ---
 

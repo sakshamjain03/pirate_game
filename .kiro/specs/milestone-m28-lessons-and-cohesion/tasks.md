@@ -16,32 +16,32 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
 
 ## Tasks
 
-- [ ] 1. Fix `TutorialManager._UNLOCK_ON_OBJECTIVE` to point at the objectives it describes (recruit = 1.8, combat = 1.6); confirm against `docs/13` §3
+- [x] 1. Fix `TutorialManager._UNLOCK_ON_OBJECTIVE` to point at the objectives it describes (recruit = 1.8, combat = 1.6); confirm against `docs/13` §3
   - **Verify:** new test — completing Ch1's recruit objective unlocks `tab_fleet`, its combat objective unlocks `tab_research`; building the tavern unlocks neither.
   - _Requirements: 2.5_
-- [ ] 2. `LessonData` + `ChapterData.lessons`; `TutorialManager` `lessons_enabled`, seen set, `mark_seen`/`has_seen`/`replay_lessons`, save data (old saves default to enabled)
+- [x] 2. `LessonData` + `ChapterData.lessons`; `TutorialManager` `lessons_enabled`, seen set, `mark_seen`/`has_seen`/`replay_lessons`, save data (old saves default to enabled)
   - **Verify:** `tests/test_lessons.gd` — seen set round-trips; a save without the new keys loads enabled with nothing seen.
   - _Requirements: 1.1, 1.2, 1.4, 3.4_
-- [ ] 3. `CampaignManager` lesson firing — `_fire_trigger`, `lesson_requested`, all `Trigger` sources incl. optional `ScheduleManager.job_started`; unknown lesson id `push_error`s
+- [x] 3. `CampaignManager` lesson firing — `_fire_trigger`, `lesson_requested`, all `Trigger` sources incl. optional `ScheduleManager.job_started`; unknown lesson id `push_error`s
   - **Verify:** a lesson fires once for its trigger in its chapter, never in another chapter, never when disabled; with no `ScheduleManager` autoload the suite shows no error.
   - _Requirements: 1.3, 1.5, 4.1, 4.2_
-- [ ] 4. `LessonCoachCard` — non-modal, queued, waits for `TutorialDialogue.is_blocking()`, highlight pulse, placed in HUD container layout
+- [x] 4. `LessonCoachCard` — non-modal, queued, waits for `TutorialDialogue.is_blocking()`, highlight pulse, placed in HUD container layout
   - **Verify:** showing a lesson does not set `get_tree().paused`; two lessons queue; a blocking dialogue defers the card; headful capture shows it clear of the dialogue and resource bar.
   - _Requirements: 1.6_
-- [ ] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
-- [ ] 6. New `ObjectiveData.Condition` values (appended) and their tracking in `CampaignManager`
+- [x] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
+- [x] 6. New `ObjectiveData.Condition` values (appended) and their tracking in `CampaignManager`
   - **Verify:** `tests/test_new_objective_conditions.gd` — each condition progresses from its signal and only while its chapter is current; `SWAP_AMMO` ignores load-time `set_ammo`; every existing chapter `.tres` still resolves the same condition for every existing objective (compare ints before/after).
   - _Requirements: 2.2, 2.3, 2.4_
-- [ ] 7. Author content — ~20 lessons, the new objectives in Ch1-4 (appended ids), hand-off lines between chapters
+- [x] 7. Author content — ~20 lessons, the new objectives in Ch1-4 (appended ids), hand-off lines between chapters
   - **Verify:** `tests/test_campaign_coverage.gd` — the coverage table: every system has ≥1 lesson and ≥1 objective in Ch1-5 (timers marked pending until `ScheduleManager` exists; Maelstrom lesson-only); every new objective is reachable; `test_content_gate_integrity.gd` passes.
   - _Requirements: 2.1, 2.6_
-- [ ] 8. Skip / replay — New Game prompt in `MainMenu`, "Replay lessons" in `SettingsMenu`
+- [x] 8. Skip / replay — New Game prompt in `MainMenu`, "Replay lessons" in `SettingsMenu`
   - **Verify:** "I know these waters" → no lesson fires during a scripted Ch1, all tabs unlocked, Ch1 objectives still complete and grant rewards; "Replay lessons" re-enables.
   - _Requirements: 3.1, 3.2, 3.3_
-- [ ] 9. Docs — `docs/13_CAMPAIGN_LEVELS_1-5.md` final objective + lesson list per chapter, `docs/05_CURRENT_SYSTEMS.md` M28 section (own section only)
+- [x] 9. Docs — `docs/13_CAMPAIGN_LEVELS_1-5.md` final objective + lesson list per chapter, `docs/05_CURRENT_SYSTEMS.md` M28 section (own section only)
   - **Verify:** `sync-systems-doc` reports nothing undocumented for the files above.
   - _Requirements: 2.6_
-- [ ] 10. **Checkpoint B (final)** — rebase on `main`, full suite, `checkpoint-reviewer`, headful capture of a lesson card + the New Game prompt reviewed, commit+push.
+- [x] 10. **Checkpoint B (final)** — rebase on `main`, full suite, `checkpoint-reviewer`, headful capture of a lesson card + the New Game prompt reviewed, commit+push.
 
 ## Notes
 

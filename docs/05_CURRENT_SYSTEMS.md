@@ -27,7 +27,7 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-09-30, M27 Checkpoint B): 133 scripts, 963 tests, 963 passing, 0 failing** (the process still exits 0xC0000005 at engine teardown, after GUT's summary; this was already true at M27 Checkpoint A, so read the Totals block, not the exit code) (M25 Checkpoint B was 828; M26 and M27 added the rest). A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
+**Current (2026-09-30, M28 Checkpoint B): 136 scripts, 1027 tests, 1027 passing, 0 failing** (M27 Checkpoint B was 133 / 963) (the process still exits 0xC0000005 at engine teardown, after GUT's summary; this was already true at M27 Checkpoint A, so read the Totals block, not the exit code) (M25 Checkpoint B was 828; M26 and M27 added the rest). A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
 
 Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
@@ -721,7 +721,9 @@ lost — a drop in total test count is treated as a regression in this project. 
 `is_ui_unlocked()` flags, plus the `user://tutorial_state.json` completion-flag file I/O that
 suppresses a replay for existing players. `TutorialDialogue.gd` now listens to
 `CampaignManager.chapter_started`/`chapter_completed` directly and advances through a chapter's
-`opening_beats`/`closing_beats` array on Continue.
+`opening_beats`/`closing_beats` array on Continue. **M28:** the unlock map now reads 1.8 -> Fleet,
+1.6 -> Research (it pointed at the tavern/warehouse), and TutorialManager also holds the lessons flag,
+seen-lesson set and shown-openings set; see "M28 - Lessons & Campaign Cohesion".
 
 ### D57 — `InputManager` promoted to an autoload
 
@@ -750,7 +752,7 @@ Authored verbatim against `docs/13_CAMPAIGN_LEVELS_1-5.md` §3-§7: **Ch1 The Dr
 gate — starts immediately), **Ch2 Blood in the Shallows** (`required_previous_chapter = ch1`),
 **Ch3 The King's Answer** (`required_region_id = "contested_waters"`), **Ch4 The Admiral's Gambit**
 (`required_previous_chapter = ch3`), **Ch5 The Silver Fleet**
-(`required_region_id = "imperial_waters"`). ~40 objectives, ~15 dialogue beats total. All 20
+(`required_region_id = "imperial_waters"`). ~40 objectives (47 after M28 appended seven), ~15 dialogue beats total. All 20
 captains' `unlock_chapter_id` authored per `docs/06_NARRATIVE_AND_WORLD.md` §10.4;
 `IslandMenu._refresh_captains()` now hides a captain until `CampaignManager.is_chapter_completed()`
 for their unlock chapter. One deliberate simplification: Chapter 3's objective 3.5 checks
@@ -3344,3 +3346,113 @@ and with it the toast's fade). The toast is now freed after that shot.
 Real Play Billing (plugin not vendored), whether the durations *feel* fair (M33's balance pass), and
 on-device completion notifications (`LocalNotificationManager.schedule_completion()` is not wired;
 stretch goal).
+
+## M28 - Lessons & Campaign Cohesion (2026-09-30)
+
+Spec: `.kiro/specs/milestone-m28-lessons-and-cohesion/`. Commit `69a026a` (Checkpoint A: lessons,
+coach card, unlock-map fix, lost-opening fix), then the new conditions, content, skip/replay and docs.
+Built directly on `main` (M26/M27 had already merged; the spec's worktree step was moot).
+
+The five chapters now teach the whole game: every player-facing system has a **lesson** (a short,
+non-blocking coach card fired in context) and an **objective** that makes the player use it. The
+system -> lesson -> objective table lives in `tests/test_campaign_coverage.gd`; a new player-facing
+system needs a row there. Final per-chapter objective and lesson lists: `docs/13` (tables generated
+from the `.tres` files), §10 for the skip/replay flow.
+
+### Lessons are chapter content, not a second onboarding system
+- **`LessonData`** (`scripts/world/LessonData.gd`): `lesson_id`, `title`, `body`, `trigger`,
+  `trigger_arg`, `highlight_group`, `display_seconds`. `Trigger` is int-serialized, **append only**:
+  `CHAPTER_STARTED, OBJECTIVE_CURRENT, FIRST_ENEMY_IN_RANGE, FIRST_DOCK, FIRST_DAMAGE_TAKEN,
+  HEAT_TIER_UP, FIRST_EIGHTS, FIRST_JOB_STARTED, CHAPTER_COMPLETED`. 22 lessons in
+  `resources/campaign/lessons/`, attached via `ChapterData.lessons` (Ch1 8, Ch2 5, Ch3 5, Ch4 3, Ch5 1).
+- **`CampaignManager`** fires them: `lesson_requested(lesson)`, `_fire_trigger(trigger, arg, chapter)`.
+  A lesson fires once per profile, only while **its own** chapter is current, only while
+  `TutorialManager.lessons_enabled`, and **only while a node in group `lesson_coach_card` exists**.
+  That last guard matters because `_catch_up()` runs at autoload boot, so Chapter 1 starts on the
+  menu. `on_world_ready()` re-fires the current chapter's `CHAPTER_STARTED`/`OBJECTIVE_CURRENT`
+  (deferred, after WorldHUD built the card); the seen set makes repeats no-ops. Sources: its own
+  `chapter_started`/`chapter_completed`/`objective_completed` (bound methods, not lambdas), dock,
+  player `ShipCombat.arc_lock_changed`, player `ShipDamage.pool_changed` decreases,
+  `EmpireManager.heat_tier_changed` rises, `resources_changed` with Eights > 0, and
+  `ScheduleManager.job_started` (optional connect; `trigger_arg` matches `job.kind`).
+- **"Current objective"** = `CampaignManager.get_current_objective()`: the first incomplete,
+  non-optional objective in authored order. That's the same pick WorldHUD's stall hint makes, since
+  objectives all progress in parallel.
+- `has_lesson()` / `get_lesson()` (the latter `push_error`s on an unknown id). `_validate_lessons()`
+  at load reports null/empty/duplicate ids. A saved seen id that no longer resolves is reported by
+  `TutorialManager.load_save_data()` but kept, never dropped.
+- **`TutorialManager`** holds only `lessons_enabled`, the seen set, `start_new_game_lessons()`,
+  `replay_lessons()`, `mark_seen`/`has_seen`, and the shown-openings set (below). Save keys in the
+  `tutorial` section: `lessons_enabled`, `seen_lessons`, `shown_openings`. A pre-M28 save loads with
+  lessons on and nothing seen. `replay_lessons()` sets `_replay_pending` so the `load_save_data()`
+  that Settings -> Continue runs next doesn't restore the pre-replay state. It's cleared on
+  `SaveManager.game_loaded`.
+- **`LessonCoachCard`** (`scenes/ui/LessonCoachCard.tscn`): a BountyCard parchment slip. **Desktop:**
+  a child of WorldHUD's `TopRightPanel` VBoxContainer, so it stacks under the resource bar by measured
+  size (the D36 rule). **Phone:** its own `LessonBand` VBoxContainer in the free band between the
+  thumb clusters (`_fit_tutorial_between_thumb_clusters()` -> `_place_lesson_band()`). Its top is
+  below both `TutorialDialogue._MOBILE_TOP` and TopRightPanel's measured bottom. The Checkpoint B
+  phone sweep caught the TopRightPanel placement covering Ability/Broadside and pushing the
+  notoriety card onto them; `test_mobile_controls_layout.gd` now shows a lesson on a forced-phone
+  HUD at three sizes and checks it against every visible MobileControls button. It queues lessons, shows one at a time, never shows
+  while `TutorialDialogue.is_blocking()` (a dialogue that opens mid-lesson sends it back to the front
+  of the queue), dismisses on tap or after `display_seconds`, and uses the default process mode, so
+  it pauses with the game and never pauses it. The highlight is `UIMotion.idle_glow` on the first
+  node in `highlight_group`, restored on dismiss. Groups: `hud_ammo_button`
+  (MobileControls; phone only), `hud_world_map_button`, `hud_notoriety`.
+
+### Seven new objective conditions (`ObjectiveData.Condition` 15-21, appended)
+| Condition | Tracked from | Notes |
+|---|---|---|
+| `SWAP_AMMO` | player `ShipCombat.ammo_changed` | only a change to a *different* `ammo_id`; seeded from the loaded ammo at world-ready |
+| `CRIPPLE_SAILS` | enemy `ShipDamage.pool_changed("sails", 0)` | once per hull (instance id), only if `EnemyAI.is_provoked()`. Enemies are watched via the `enemy_ship` scene group: swept at world-ready, then `SceneTree.node_added`, because roamers, encounter ships and Island defenders share no spawn signal |
+| `LOWER_HEAT` | `EmpireManager.heat_tier_changed` | any downward `tier` crossing. Ch3 is gated on Contested Waters (60 = Wanted), so a drop is always available; free decay always gets there, the Eights clear is optional |
+| `ASSIGN_CAPTAIN` | `FleetManager.active_ship_changed` | **the signal was declared but never emitted.** New `FleetManager.set_active_ship(index)` is the one write path (IslandMenu's Make Active uses it); captain must be non-null |
+| `CHANGE_REPUTATION` | `FactionManager.reputation_changed` | level check on `target_value` (`is_level_check()` includes it) |
+| `SET_COURSE` | `WorldMapScreen.course_requested` | connected via new group `world_map_screen`; an island-target condition in `test_content_gate_integrity` |
+| `REPAIR_SHIP` | **new** `ShipDamage.repaired(pool, amount)` | emitted by `repair()` only. The spec's "hull rises on `pool_changed`" rule is wrong: buying or switching a ship runs `set_stats_preserving_fractions()` then `restore_all()`, which also raises the hull while docked. Must be docked (`DockingSystem.current_state == DOCKED`) |
+
+New objectives (ids appended; Ch2's `2.8` already existed, so the design's example ids were off):
+1.10 Load chain shot · 2.9 Shred a raider's rigging · 2.10 Patch her up in port · 3.8 Let the Navy
+lose your scent · 3.9 Give the new hull a captain · 4.9 Plot a course to the cay · 4.10 Earn the
+merchants' trust (Guild rep 35: start 20 + one 15-point tribute). All mandatory. Two hand-off
+closing lines were added: Ch1 (Higgins -> Skull Cove's tithe) and Ch3 (Marguerite -> Pelican Cay).
+
+### Fixes found on the way
+- **Tab unlock map** pointed at the tavern (1.7) and warehouse (1.5); it now uses 1.8 (recruit) ->
+  Fleet and 1.6 (combat) -> Research. `test_tutorial_manager.gd` had encoded the old ids.
+- **Chapter 1's opening beats never rendered on a fresh install.** `chapter_started` fired at
+  autoload boot, before any `TutorialDialogue` existed, and nothing re-emitted it. TutorialDialogue
+  now records openings it actually renders (`TutorialManager.mark_opening_shown`). Once a World load
+  settles (`SaveManager.game_loaded`, one-shot, then deferred past `_catch_up`), it shows the current
+  chapter's opening if there's no record of it. A pre-M28 save treats its completed and current
+  chapters as shown (resolved lazily, because SaveManager loads `tutorial` *before* `campaign`).
+- **Settings "Replay Tutorial" -> "Replay Lessons".** It called `reset_and_replay()`, which re-locked
+  the Fleet/Research/Trade tabs until Chapter 1 objectives completed again, which a player past
+  Chapter 1 could never do. It now calls `replay_lessons()`. `reset_and_replay()` remains (tested,
+  no UI caller).
+- **New Game prompt** (`MainMenu`): "Teach me the ropes" / "I know these waters" via `ChoiceDialog`.
+  A returning player gets the skip option first (ChoiceDialog focuses the first button). Skip sets
+  lessons off and calls `skip_tutorial()`; the story, objectives and rewards still run.
+
+### Tests
+`test_lessons.gd` (35), `test_new_objective_conditions.gd` (17, including a hardcoded table of every
+pre-M28 objective's condition int), `test_campaign_coverage.gd` (9), plus 2 new cases in
+`test_tutorial_manager.gd` and `SET_COURSE` in `test_content_gate_integrity.gd`.
+
+### Known gaps / follow-ups
+- `DevConsole` still writes `FleetManager.active_ship_index` directly (a debug path, so no
+  `active_ship_changed`).
+- A tech that raises max hull while docked sets `ShipCombat.current_health`, which goes through
+  `repair()` and would count for `REPAIR_SHIP`. Harmless edge.
+- Pre-existing, not M28: Ch4's opening has Vance say "I will be at Frostbite Reef" while 4.1/4.7
+  target Pelican Cay (the 2026-09-21 geography overhaul retargeted the objectives, not the line).
+  MainMenu New Game still doesn't reset `CampaignManager`'s in-memory progress (see M27's note).
+- Pre-existing, seen in the Checkpoint B phone sweep: the notoriety card's bottom edge touches the
+  top of the two Combat fire buttons (`test_property_mobile_buttons_never_overlap_hud_panels` does not
+  list the Combat cluster's buttons).
+- `hud_ammo_button` exists only on phones; desktop cycles ammo by key, so the ammo lesson has no
+  highlight there.
+
+### Not verifiable here
+Whether the lessons are *well-timed* for a real new player, and the touch feel of the card on a phone.

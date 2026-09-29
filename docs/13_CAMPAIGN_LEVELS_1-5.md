@@ -243,23 +243,40 @@ Cove et al.), so the mechanic keeps its teeth from Chapter 2 onward.
 
 ## Objectives
 
-| # | Objective | `ObjectiveData.condition` | Target | Count |
+| # | Objective | `ObjectiveData.condition` | Target | Count / value |
 |---|---|---|---|---|
 | 1.1 | Come alongside the drowned port | `DOCK_AT_ISLAND` | `port_royal` | 1 |
 | 1.2 | Plant your flag on the ruin | `CAPTURE_ISLAND` | `port_royal` | 1 |
-| 1.3 | Raise a distillery from the rubble | `BUILD_STRUCTURE` | `farm` | 1 |
-| 1.4 | Get the timber flowing | `BUILD_STRUCTURE` | `lumber_mill` | 1 |
-| 1.5 | Somewhere to put it all | `BUILD_STRUCTURE` | `warehouse` | 1 |
+| 1.3 | Raise a distillery from the rubble | `BUILD_STRUCTURE` | `farm_l1` | 1 |
+| 1.4 | Get the timber flowing | `BUILD_STRUCTURE` | `lumber_mill_l1` | 1 |
+| 1.5 | Somewhere to put it all | `BUILD_STRUCTURE` | `warehouse_l1` | 1 |
 | 1.6 | Sink whatever comes sniffing | `DESTROY_SHIPS` | `pirate_clans` | 3 |
-| 1.7 | A roof for the crew | `BUILD_STRUCTURE` | `tavern` | 1 |
+| 1.10 **(M28)** | Load chain shot | `SWAP_AMMO` | `chain` | 1 |
+| 1.7 | A roof for the crew | `BUILD_STRUCTURE` | `tavern_l1` | 1 |
 | 1.8 | Sign your first captain | `RECRUIT_CAPTAIN` | — | 1 |
 | 1.9 *(optional)* | Raise the port to tier 2 | `REACH_ISLAND_TIER` | `port_royal` | 2 |
 
 The existing 8 `TutorialManager` steps map onto 1.1, 1.3–1.8 almost exactly — sail, dock, build,
-recruit, fight. **They become this chapter's data**, plus one genuinely new step: 1.2's claim,
+recruit, fight. Tab unlocks (`TutorialManager._UNLOCK_ON_OBJECTIVE`, fixed in M28): **1.8 → Fleet**,
+**1.6 → Research**, chapter completion → Trade. **They become this chapter's data**, plus one genuinely new step: 1.2's claim,
 which didn't exist as a tutorial step because Port Royal used to be pre-owned. The capture-as-a-
 *choice* beat still belongs to Chapter 2 (Skull Cove) — 1.2 is a cheap, near-automatic claim on
 an island nobody was defending, not a real decision.
+
+## Lessons (M28)
+Non-blocking coach cards (`LessonData`, `ChapterData.lessons`), each shown at most once per
+profile while this chapter is current. See §10.
+
+| Lesson | Title | Trigger | Highlight |
+|---|---|---|---|
+| `ch1_sailing` | Under Sail | CHAPTER_STARTED | — |
+| `ch1_docking` | Coming Alongside | OBJECTIVE_CURRENT `1.1` | — |
+| `ch1_island_menu` | Your Harbour | FIRST_DOCK | — |
+| `ch1_building` | Build to Earn | OBJECTIVE_CURRENT `1.3` | — |
+| `ch1_storage` | Storage Caps | OBJECTIVE_CURRENT `1.5` | — |
+| `ch1_manual_fire` | Broadside! | FIRST_ENEMY_IN_RANGE | — |
+| `ch1_ammo` | Shot & the Triangle | OBJECTIVE_CURRENT `1.10` | `hud_ammo_button` |
+| `ch1_captains` | Captains | OBJECTIVE_CURRENT `1.8` | — |
 
 ## What it teaches
 Sailing and docking · the build menu · the economy tick · that broadsides must be *aimed* ·
@@ -313,22 +330,36 @@ notoriety lands ~15–20 from the three kills and nothing else.
 
 ## Objectives
 
-| # | Objective | `ObjectiveData.condition` | Target | Count |
+| # | Objective | `ObjectiveData.condition` | Target | Count / value |
 |---|---|---|---|---|
 | 2.1 | Refuse the tithe | `DESTROY_SHIPS` | `pirate_clans` | 3 |
-| 2.2 | Build a shipyard | `BUILD_STRUCTURE` | `shipyard` | 1 |
-| 2.3 | Buy a hull that can take a hit | `OWN_SHIP_CLASS` | class 2 | 1 |
-| 2.4 | Take one alive | `BOARD_SHIPS` | any | 2 |
-| 2.5 | Open the mines | `BUILD_STRUCTURE` | `mine` | 1 |
+| 2.2 | Build a shipyard | `BUILD_STRUCTURE` | `shipyard_l1` | 1 |
+| 2.10 **(M28)** | Patch her up in port | `REPAIR_SHIP` | — | 1 |
+| 2.3 | Buy a hull that can take a hit | `OWN_SHIP_CLASS` | — | class 2 |
+| 2.4 | Take one alive | `BOARD_SHIPS` | — | 2 |
+| 2.9 **(M28)** | Shred a raider's rigging | `CRIPPLE_SAILS` | — | 1 |
+| 2.5 | Open the mines | `BUILD_STRUCTURE` | `mine_l1` | 1 |
 | 2.6 | Raise the port to tier 3 | `REACH_ISLAND_TIER` | `port_royal` | 3 |
 | 2.7 | Take Blackjaw's cove | `CAPTURE_ISLAND` | `skull_cove` | 1 |
-| 2.8 *(optional)* | Keep Hale sweet | `ACCUMULATE_RESOURCE` | trade income | — |
+| 2.8 *(optional)* | Keep Hale sweet | `ACCUMULATE_RESOURCE` | `gold` | 2000 |
 
 **2.7 is the chapter's spine and its cost.** Capturing Skull Cove requires Contested Waters to
 be active (`Island._should_be_active()` gates capture on region activation), which requires
 notoriety ≥ 60 — which objectives 2.1–2.6 supply naturally (+1/kill, +15/capture, boarding
 loot). The chapter therefore ends *by* crossing the Ch3 gate. The story and the system agree
 without either being told to.
+
+## Lessons (M28)
+Non-blocking coach cards (`LessonData`, `ChapterData.lessons`), each shown at most once per
+profile while this chapter is current. See §10.
+
+| Lesson | Title | Trigger | Highlight |
+|---|---|---|---|
+| `ch2_repair` | Patching Up | FIRST_DAMAGE_TAKEN | — |
+| `ch2_timers` | Work Takes Time | FIRST_JOB_STARTED | — |
+| `ch2_ship_classes` | Bigger Hulls | OBJECTIVE_CURRENT `2.3` | — |
+| `ch2_boarding` | Boarding | OBJECTIVE_CURRENT `2.4` | — |
+| `ch2_capture` | Taking an Island | OBJECTIVE_CURRENT `2.7` | — |
 
 ## What it teaches
 Boarding (the M6 climax mechanic) · ammunition choice — chain shot to cripple a runner, grape to
@@ -378,13 +409,15 @@ Bartholomew, Whistler) · Shipyard/Mine/Market unlocked.
 
 ## Objectives
 
-| # | Objective | `ObjectiveData.condition` | Target | Count |
+| # | Objective | `ObjectiveData.condition` | Target | Count / value |
 |---|---|---|---|---|
 | 3.1 | Break the blockade | `DESTROY_SHIPS` | `royal_navy` | 6 |
-| 3.2 | Build a watchtower | `BUILD_STRUCTURE` | `watchtower` | 1 |
-| 3.3 | Build a fortress | `BUILD_STRUCTURE` | `fortress` | 1 |
+| 3.8 **(M28)** | Let the Navy lose your scent | `LOWER_HEAT` | — | 1 |
+| 3.2 | Build a watchtower | `BUILD_STRUCTURE` | `watchtower_l1` | 1 |
+| 3.3 | Build a fortress | `BUILD_STRUCTURE` | `fortress_l1` | 1 |
 | 3.4 | Survive a raid on your port | `SURVIVE_RAID` | — | 1 |
-| 3.5 | Assign a ship to defend home | `OWN_SHIP_CLASS` + Defend Home flag | class 3 | 1 |
+| 3.5 | Assign a ship to defend home | `OWN_SHIP_CLASS` | — | class 3 |
+| 3.9 **(M28)** | Give the new hull a captain | `ASSIGN_CAPTAIN` | — | 1 |
 | 3.6 | Raise the port to tier 4 | `REACH_ISLAND_TIER` | `port_royal` | 4 |
 | 3.7 *(optional)* | Cripple a Navy ship without sinking it | `BOARD_SHIPS` | `royal_navy` | 1 |
 
@@ -400,6 +433,18 @@ have time to build defences — 3.2/3.3/3.5 are the answer to 3.4, handed over b
 > lines up — but it is probabilistic. `SURVIVE_RAID` must accept *either* outcome (repelled or
 > looted) as satisfying the objective; being robbed is a lesson, not a fail state. Consider a
 > guaranteed scripted first raid on 3.3's completion so no player misses the beat.
+
+## Lessons (M28)
+Non-blocking coach cards (`LessonData`, `ChapterData.lessons`), each shown at most once per
+profile while this chapter is current. See §10.
+
+| Lesson | Title | Trigger | Highlight |
+|---|---|---|---|
+| `ch3_heat` | Heat | HEAT_TIER_UP | `hud_notoriety` |
+| `ch3_lie_low` | Lying Low | OBJECTIVE_CURRENT `3.8` | `hud_notoriety` |
+| `ch3_defence` | Defend Home | OBJECTIVE_CURRENT `3.2` | — |
+| `ch3_fleet` | Your Fleet | OBJECTIVE_CURRENT `3.9` | — |
+| `ch3_eights` | Pieces of Eight | FIRST_EIGHTS | — |
 
 ## What it teaches
 The world pushes back · defence buildings have a purpose · fleet assignment matters · Navy ships
@@ -452,16 +497,18 @@ Vance burned her port too) and **Isabela** (Navy defector) · Watchtower/Fortres
 
 ## Objectives
 
-| # | Objective | `ObjectiveData.condition` | Target | Count |
+| # | Objective | `ObjectiveData.condition` | Target | Count / value |
 |---|---|---|---|---|
-| 4.1 | Follow him into the cold | `DISCOVER_ISLAND` | `frozen_island` | 1 |
+| 4.9 **(M28)** | Plot a course to the cay | `SET_COURSE` | `pelican_cay` | 1 |
+| 4.1 | Find the cay off the charts | `DISCOVER_ISLAND` | `pelican_cay` | 1 |
 | 4.2 | Strip the escort | `DESTROY_SHIPS` | `royal_navy` | 8 |
-| 4.3 | Build the Academy | `BUILD_STRUCTURE` | `academy` | 1 |
+| 4.3 | Build the Academy | `BUILD_STRUCTURE` | `academy_l1` | 1 |
 | 4.4 | Research a hull upgrade | `UNLOCK_TECH` | `reinforced_hulls` | 1 |
-| 4.5 | Buy a frigate | `OWN_SHIP_CLASS` | class 3 | 1 |
-| 4.6 | **Sink HMS *Intransigent*** | `DEFEAT_BOSS` | `intransigent` | 1 |
-| 4.7 | Take the reef | `CAPTURE_ISLAND` | `frozen_island` | 1 |
-| 4.8 *(optional)* | Board the *Intransigent* instead of sinking her | `BOARD_SHIPS` | `intransigent` | 1 |
+| 4.10 **(M28)** | Earn the merchants' trust | `CHANGE_REPUTATION` | `merchant_guild` | 35 |
+| 4.5 | Buy a frigate | `OWN_SHIP_CLASS` | — | class 3 |
+| 4.6 | Sink HMS Intransigent | `DEFEAT_BOSS` | `intransigent` | 1 |
+| 4.7 | Plant a second flag | `CAPTURE_ISLAND` | `pelican_cay` | 1 |
+| 4.8 *(optional)* | Board the Intransigent instead of sinking her | `BOARD_SHIPS` | `intransigent` | 1 |
 
 ## Boss design — HMS *Intransigent*
 Built on the existing `BossShip.tscn` + `AIProfileData` + `LootTableData` (`BossLoot.tres`), so
@@ -475,6 +522,16 @@ this needs **content, not a new system**:
 - Ash/spray weather is not needed; the cold reef fog is enough.
 - Boarding her (4.8) requires crew, which requires the Tavern crew-recruit flow from M6 — the
   optional objective that finally makes crew feel like a resource.
+
+## Lessons (M28)
+Non-blocking coach cards (`LessonData`, `ChapterData.lessons`), each shown at most once per
+profile while this chapter is current. See §10.
+
+| Lesson | Title | Trigger | Highlight |
+|---|---|---|---|
+| `ch4_world_map` | Charts | OBJECTIVE_CURRENT `4.9` | `hud_world_map_button` |
+| `ch4_research` | Research | OBJECTIVE_CURRENT `4.4` | — |
+| `ch4_factions` | Friends & Enemies | OBJECTIVE_CURRENT `4.10` | — |
 
 ## What it teaches
 That a fight can be *lost* · positioning over volume of fire · tech research as preparation ·
@@ -524,16 +581,16 @@ this game does not otherwise have).
 
 ## Objectives
 
-| # | Objective | `ObjectiveData.condition` | Target | Count |
+| # | Objective | `ObjectiveData.condition` | Target | Count / value |
 |---|---|---|---|---|
-| 5.1 | Cut the supply | `CAPTURE_ISLAND` | `volcano_island` | 1 |
+| 5.1 | Sound out the harbour | `DOCK_AT_ISLAND` | `cartagena_outpost` | 1 |
 | 5.2 | Sink the escort screen | `DESTROY_SHIPS` | `spanish_empire` | 12 |
-| 5.3 | Buy a ship of the line | `OWN_SHIP_CLASS` | class 4 | 1 |
+| 5.3 | Buy a ship of the line | `OWN_SHIP_CLASS` | — | class 4 |
 | 5.4 | Raise the port to tier 5 | `REACH_ISLAND_TIER` | `port_royal` | 5 |
-| 5.5 | **Break Cárdenas' escort** | `DEFEAT_BOSS` | `cardenas_escort` | 1 |
+| 5.5 | Break Cárdenas' escort | `DEFEAT_BOSS` | `cardenas_escort` | 1 |
 | 5.6 | Take Cartagena | `CAPTURE_ISLAND` | `cartagena_outpost` | 1 |
 | 5.7 *(optional)* | Board the flagship | `BOARD_SHIPS` | `cardenas_escort` | 1 |
-| 5.8 *(optional)* | Own a Man O'War | `OWN_SHIP_CLASS` | class 5 | 1 |
+| 5.8 *(optional)* | Own a Man O'War | `OWN_SHIP_CLASS` | — | class 5 |
 
 **5.4 is the real wall.** Island tier 5 means every building on Port Royal at level 5 —
 under the authored chains that is roughly 30 000 gold, 6 000 wood, 2 000 iron in cumulative
@@ -547,6 +604,14 @@ A **multi-stage fight**, distinct from Ch4's duel, reusing the same components:
 2. **Flagship** — Galleon-class with the longest `cannon_range` in the game, so closing costs
    hull the whole way in.
 3. **Cartagena's shore guns** — reuse the island-defender spawn path; the fight has *terrain*.
+
+## Lessons (M28)
+Non-blocking coach cards (`LessonData`, `ChapterData.lessons`), each shown at most once per
+profile while this chapter is current. See §10.
+
+| Lesson | Title | Trigger | Highlight |
+|---|---|---|---|
+| `ch5_maelstrom` | The Maelstrom | CHAPTER_COMPLETED | — |
 
 ## What it teaches
 Everything at once, under pressure. No new mechanic — Chapter 5's job is mastery, not tuition.
@@ -607,6 +672,13 @@ Every condition in `ObjectiveData.Condition` used above, against the signal that
 | `ACCUMULATE_RESOURCE` | `ResourceManager.resources_changed` | ✅ exists |
 | `REACH_NOTORIETY` | `EmpireManager.notoriety_changed` | ✅ exists |
 | `SURVIVE_RAID` | `EmpireManager.raid_resolved` | ✅ exists (M4) |
+| `SWAP_AMMO` | player `ShipCombat.ammo_changed(ammo)`, only to a *different* `ammo_id` | ✅ M28 |
+| `CRIPPLE_SAILS` | enemy `ShipDamage.pool_changed("sails", 0)` on a provoked ship, once per hull | ✅ M28 |
+| `LOWER_HEAT` | `EmpireManager.heat_tier_changed`, any downward crossing | ✅ M28 |
+| `ASSIGN_CAPTAIN` | `FleetManager.active_ship_changed(ship, captain)` — declared long before, first emitted by M28's `set_active_ship()` | ✅ M28 |
+| `CHANGE_REPUTATION` | `FactionManager.reputation_changed(id, rep)`, level check on `target_value` | ✅ M28 |
+| `SET_COURSE` | `WorldMapScreen.course_requested(island)` | ✅ M28 |
+| `REPAIR_SHIP` | new `ShipDamage.repaired` (from `repair()` only, never `restore_all()`) while docked | ✅ M28 |
 
 Three gaps, all small: a boss id on the boss-death signal, a `discovered` write path, and the
 E1 ship-class field. All are M7 tasks.
@@ -627,3 +699,23 @@ So the spine is provably extensible without a rewrite:
 
 Each is **one `ChapterData` file plus content**. If any of them needs a new script, the M7
 implementation got the data model wrong.
+
+---
+
+# 10. Lessons & skip (M28)
+
+Every chapter above lists its **lessons**: short, non-blocking coach cards (`LessonCoachCard`,
+inside WorldHUD's `TopRightPanel`) that appear the moment a system becomes relevant. They never
+pause the game, never overlap `TutorialDialogue` (they queue behind a story beat), and dismiss on
+tap or after `display_seconds`. The objectives marked **(M28)** make the player *use* what the
+lesson just explained. `tests/test_campaign_coverage.gd` holds the system -> lesson -> objective
+table: a new player-facing system needs a row there.
+
+- **New Game** asks *Teach me the ropes* / *I know these waters*. Skipping turns lessons off and
+  opens every tab (`skip_tutorial()`); Chapter 1's story, objectives and rewards still run. A
+  returning player (onboarding already finished on this install) gets *I know these waters* first.
+- **Settings -> Replay Lessons** clears the seen set and turns lessons back on. It no longer
+  re-locks tabs.
+- `lessons_enabled`, `seen_lessons` and `shown_openings` persist in the `tutorial` save section.
+  A save without them loads with lessons on and nothing seen.
+

@@ -30,18 +30,18 @@ Baseline entering this milestone (2026-09-29, post-M25): **121 scripts, 828 test
   - **Verify:** unlock/add_ship/repair happen on completion only; a second research job is refused; passive DockingSystem repair test unchanged.
   - _Requirements: 2.2, 2.3, 2.4, 2.7_
 - [x] 5. **Checkpoint A** — full suite, `checkpoint-reviewer` on Tasks 1-4, commit+push.
-- [ ] 6. Eights sinks — `finish_now` pricing, `ResourceManager.shortfall`/`shortfall_cost_eights`/`cover_shortfall_and_spend`, `EightsConfirmDialog`, job rows (remaining + bar + Finish now) and Cover buttons in IslandMenu
+- [x] 6. Eights sinks — `finish_now` pricing, `ResourceManager.shortfall`/`shortfall_cost_eights`/`cover_shortfall_and_spend`, `EightsConfirmDialog`, job rows (remaining + bar + Finish now) and Cover buttons in IslandMenu
   - **Verify:** `tests/test_eights_sinks.gd` — cost from remaining not total; min 1; refusal spends nothing; cover is atomic; refused when it would clamp at storage cap; refused for Eights costs.
   - _Requirements: 2.6, 4.1-4.4, 5.1-5.5_
-- [ ] 7. Store consumables — `ProductData.grants_eights`, `IStoreBackend.consume`, stub implementation, Play TODO, `StoreManager` consumable branch + persisted order ids, 4 packs, StoreScreen Eights section, HUD Eights chip
+- [x] 7. Store consumables — `ProductData.grants_eights`, `IStoreBackend.consume`, stub implementation, Play TODO, `StoreManager` consumable branch + persisted order ids, 4 packs, StoreScreen Eights section, HUD Eights chip
   - **Verify:** `tests/test_eights_store.gd` — a stub purchase grants once; the same `order_id` delivered twice grants once; restore never grants; existing cosmetic/entitlement store tests unchanged.
   - _Requirements: 6.1-6.6_
-- [ ] 8. Author durations on Ch1-5 path content; zero-spend gate tests; DevConsole economy tab
+- [x] 8. Author durations on Ch1-5 path content; zero-spend gate tests; DevConsole economy tab
   - **Verify:** `tests/test_zero_spend_gate.gd` — no required cost contains Eights; every Ch1-2 required job is under the cap at the level those chapters reach; `tests/test_no_shipping_reference_to_debug.gd` still passes.
   - _Requirements: 7.1-7.3_
-- [ ] 9. Docs — `docs/05_CURRENT_SYSTEMS.md` M27 section (own section only), `docs/17_MONETIZATION.md` pack table + pricing formula + consumable model, `docs/04_GAME_LOOP.md` timer beat
+- [x] 9. Docs — `docs/05_CURRENT_SYSTEMS.md` M27 section (own section only), `docs/17_MONETIZATION.md` pack table + pricing formula + consumable model, `docs/04_GAME_LOOP.md` timer beat
   - **Verify:** `sync-systems-doc` reports nothing undocumented for the files above.
-- [ ] 10. **Checkpoint B (final)** — rebase on `main`, full suite, `checkpoint-reviewer`, headful capture of IslandMenu job rows, confirm dialogs and store Eights section reviewed, commit+push.
+- [x] 10. **Checkpoint B (final)** — rebase on `main`, full suite, `checkpoint-reviewer`, headful capture of IslandMenu job rows, confirm dialogs and store Eights section reviewed, commit+push.
 
 ## Notes
 

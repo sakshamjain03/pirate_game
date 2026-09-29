@@ -14,3 +14,4 @@ produces_resource = "iron"
 production_amount = 18
 production_interval = 15.0
 model_path = "res://assets/models/iron-mine.glb"
+build_seconds = 3600.0

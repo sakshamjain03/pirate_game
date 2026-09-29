@@ -58,3 +58,13 @@ func acknowledge(_order_id: String) -> void:
 		return
 	# TODO(M17 Wave 1, blocked): route to the real plugin's acknowledge call.
 	pass
+
+
+func consume(_order_id: String) -> void:
+	if not is_available():
+		return
+	# TODO(M27, blocked on the same plugin): route to the real plugin's
+	# consumePurchase(purchaseToken). Consuming is what lets Play sell an Eights
+	# pack again; an unconsumed one keeps coming back from query_owned(), where
+	# StoreManager's granted-order record stops it granting twice.
+	pass

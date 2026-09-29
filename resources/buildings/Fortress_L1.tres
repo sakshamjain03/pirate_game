@@ -16,3 +16,4 @@ produces_resource = ""
 production_amount = 0
 production_interval = 0.0
 model_path = "res://assets/models/pirate-fortress.glb"
+build_seconds = 45.0

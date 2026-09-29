@@ -72,6 +72,16 @@ func acknowledge(_order_id: String) -> void:
 	pass
 
 
+## M27 — a consumed purchase is no longer owned: query_owned() stops reporting
+## it and the next begin_purchase() of that sku mints a fresh order id, exactly
+## what a real store does for a consumable.
+func consume(order_id: String) -> void:
+	for sku in _owned.keys():
+		if _owned[sku] == order_id:
+			_owned.erase(sku)
+			return
+
+
 ## Test-only: simulates the store reporting a refund/chargeback for a sku
 ## already recorded as owned by this stub.
 func simulate_revocation(sku: StringName) -> void:

@@ -31,6 +31,10 @@ var available_modules: Array[ShipModuleData] = []
 
 var colonize_btn: Button
 
+## preload rather than the bare class name — headless GUT runs don't always have a
+## freshly rebuilt global-script-class cache (same note as SaveManager).
+const EightsConfirmDialogScript := preload("res://scripts/ui/EightsConfirmDialog.gd")
+
 ## M27 — live job rows: {job_id, label, bar, verb}, refreshed by _job_timer.
 var _job_widgets: Array = []
 var _job_timer: Timer
@@ -336,6 +340,10 @@ func _create_building_entry(building: BuildingData) -> void:
 	if is_built and existing_building:
 		target = existing_building.next_upgrade as BuildingData
 
+	# Set by an unaffordable Build/Upgrade branch below (Requirement 5.4).
+	var cover_cost: Dictionary = {}
+	var cover_action := Callable()
+
 	if target and not active_job.is_empty() and active_job["payload"] == target.building_id:
 		# This row's own construction is running: its live status replaces the action.
 		_add_job_status(info_vbox, hbox, active_job, tr("Upgrading") if is_built else tr("Building"))
@@ -360,6 +368,8 @@ func _create_building_entry(building: BuildingData) -> void:
 				if not ResourceManager.can_afford(up_cost):
 					btn.disabled = true
 					cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+					cover_cost = up_cost
+					cover_action = func(): _on_upgrade_pressed(existing_building.building_id, next_b, true)
 				else:
 					cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 					btn.pressed.connect(func(): _on_upgrade_pressed(existing_building.building_id, next_b))
@@ -377,6 +387,8 @@ func _create_building_entry(building: BuildingData) -> void:
 			if not ResourceManager.can_afford(cost_dict):
 				btn.disabled = true
 				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+				cover_cost = cost_dict
+				cover_action = func(): _on_build_pressed(building, true)
 			else:
 				cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 
@@ -387,6 +399,8 @@ func _create_building_entry(building: BuildingData) -> void:
 		# disabled button.
 		btn.disabled = true
 		btn.text = tr("Builders busy")
+		# "Lv 1 · Builders busy" overran a phone-width tile; the detail says why.
+		btn.set_meta("tile_text", tr("Busy"))
 		btn.tooltip_text = tr("One construction at a time on each island.")
 	elif btn.visible and target and current_island.has_method("get_construction_seconds"):
 		var seconds: float = current_island.get_construction_seconds(target, "upgrade" if is_built else "build")
@@ -396,6 +410,8 @@ func _create_building_entry(building: BuildingData) -> void:
 	hbox.add_child(info_vbox)
 	hbox.add_child(cost_lbl)
 	hbox.add_child(btn)
+	if not cover_cost.is_empty() and btn.text in [tr("Build"), tr("Upgrade")]:
+		_add_cover_button(hbox, cover_cost, building.building_name, cover_action)
 
 	buildings_container.add_child(hbox)
 
@@ -620,6 +636,13 @@ func _build_board_layouts() -> void:
 
 
 func _layout_board(container: Container) -> void:
+	# Several refreshes in one frame (a Build press: the spend, M27's job_started,
+	# the handler's own refresh) each queue a deferred restyle. A live "Tiles" flow
+	# means this refresh's cards are already tiled — hidden in the list — and a
+	# second pass would find none visible and hide the detail panel.
+	var tiled := container.get_node_or_null("Tiles")
+	if tiled and not tiled.is_queued_for_deletion():
+		return
 	var board: Dictionary = _boards[container]
 	var body: VBoxContainer = board.body
 	# The previous refresh's docked card is not a child of `container`, so
@@ -683,7 +706,8 @@ func _select_card(container: Container, card: PanelContainer, key: String) -> vo
 	# Colonize is showing, which is then the screen's hero action.
 	var marked := false
 	for btn in card.find_children("*", "Button", true, false):
-		if btn.visible and not btn.disabled and not marked and not colonize_btn.visible:
+		# M27 — an Eights spend (Finish now / Cover) is never the screen's hero CTA.
+		if btn.visible and not btn.disabled and not marked and not colonize_btn.visible and not btn.has_meta("no_primary"):
 			PirateThemeBuilder.mark_primary(btn)
 			marked = true
 		else:
@@ -808,7 +832,7 @@ func _tile_status(card: Node) -> Dictionary:
 		if not btn.visible:
 			continue
 		if btn.disabled:
-			return {"text": btn.text, "color": pal.ink, "dim": true}
+			return {"text": String(btn.get_meta("tile_text", btn.text)), "color": pal.ink, "dim": true}
 		return {"text": btn.text, "color": pal.hp_good.darkened(0.35), "dim": false}
 	# No action button (e.g. "Crew Full"): the entry's own state label — the
 	# one the restyle pass coloured by meaning.
@@ -957,7 +981,13 @@ func _add_job_status(info_vbox: VBoxContainer, row: Control, job: Dictionary, ve
 	info_vbox.add_child(status)
 	info_vbox.add_child(bar)
 	row.set_meta("tile_status", verb)
-	var widget := {"job_id": job["id"], "label": status, "bar": bar, "verb": verb}
+	# Requirement 4.3 — every running job can be finished early, behind a confirm.
+	var finish := Button.new()
+	finish.custom_minimum_size = Vector2(120, 44)
+	finish.set_meta("no_primary", true)
+	finish.pressed.connect(_on_finish_now_pressed.bind(job["id"], verb))
+	row.add_child(finish)
+	var widget := {"job_id": job["id"], "label": status, "bar": bar, "verb": verb, "finish": finish}
 	_job_widgets.append(widget)
 	_update_job_widget(widget)
 
@@ -965,6 +995,46 @@ func _update_job_widget(widget: Dictionary) -> void:
 	var id: String = widget.job_id
 	widget.label.text = tr("%s — %s left") % [widget.verb, _format_seconds(ScheduleManager.remaining(id))]
 	widget.bar.value = ScheduleManager.progress(id)
+	var cost := ScheduleManager.finish_cost_eights(id)
+	# A job already due finishes free (and completes on the next pass).
+	widget.finish.text = tr("Finish now") if cost <= 0 \
+		else tr("Finish now — %s") % EightsConfirmDialogScript.short_amount(cost)
+	widget.finish.disabled = ResourceManager.get_resource(ResourceManager.PREMIUM_CURRENCY) < cost
+
+func _on_finish_now_pressed(job_id: String, verb: String) -> void:
+	var cost := ScheduleManager.finish_cost_eights(job_id)
+	if cost > 0:
+		var action := tr("Finish %s now") % verb.to_lower()
+		if not await EightsConfirmDialogScript.new(action, cost).confirm(self):
+			return
+	# finish_now() re-prices at spend time — never more than was confirmed,
+	# since remaining time only falls while the dialog is open.
+	if ScheduleManager.finish_now(job_id):
+		HapticFeedbackManager.reward()
+
+## Requirement 5.4 — an unaffordable purchase the player already chose can have
+## its shortfall covered with Eights. Only offered when it can actually succeed
+## (enough Eights, nothing clamped by storage, no Eights in the cost), so a player
+## without Eights never sees a paid button on every row.
+func _add_cover_button(row: Control, cost: Dictionary, what: String, action: Callable) -> void:
+	if not ResourceManager.can_cover_shortfall(cost):
+		return
+	var price := ResourceManager.shortfall_cost_eights(cost)
+	var btn := Button.new()
+	btn.text = tr("Cover for %s") % EightsConfirmDialogScript.short_amount(price)
+	btn.custom_minimum_size = Vector2(120, 44)
+	btn.set_meta("no_primary", true)
+	btn.tooltip_text = tr("Pay the missing resources in Pieces of Eight.")
+	btn.pressed.connect(_on_cover_pressed.bind(cost, what, action))
+	row.add_child(btn)
+
+func _on_cover_pressed(cost: Dictionary, what: String, action: Callable) -> void:
+	var price := ResourceManager.shortfall_cost_eights(cost)
+	if price <= 0:
+		return
+	if not await EightsConfirmDialogScript.new(tr("Cover the missing resources for %s") % what, price).confirm(self):
+		return
+	action.call()
 
 func _tick_job_widgets() -> void:
 	_job_widgets = _job_widgets.filter(func(w): return is_instance_valid(w.label) and not w.label.is_queued_for_deletion())
@@ -1123,11 +1193,13 @@ func _create_ship_entry(ship: ShipStats) -> void:
 	else:
 		cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 		btn.pressed.connect(func(): _on_buy_ship_pressed(ship, cost_dict))
-		
+
 	hbox.add_child(info_vbox)
 	hbox.add_child(cost_lbl)
 	hbox.add_child(btn)
-	
+	if ship_job.is_empty() and not FleetManager.owns_ship_stats(ship) and not ResourceManager.can_afford(cost_dict):
+		_add_cover_button(hbox, cost_dict, name_lbl.text, func(): _on_buy_ship_pressed(ship, cost_dict, true))
+
 	ships_container.add_child(hbox)
 	ships_container.add_child(HSeparator.new())
 
@@ -1303,16 +1375,20 @@ func _create_captain_entry(cap: CaptainData) -> void:
 	else:
 		cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 		btn.pressed.connect(func(): _on_hire_captain_pressed(cap, cost_dict))
-		
+
 	hbox.add_child(info_vbox)
 	hbox.add_child(cost_lbl)
 	hbox.add_child(btn)
-	
+	if not cap in FleetManager.owned_captains and not ResourceManager.can_afford(cost_dict):
+		_add_cover_button(hbox, cost_dict, cap.captain_name, func(): _on_hire_captain_pressed(cap, cost_dict, true))
+
 	captains_container.add_child(hbox)
 	captains_container.add_child(HSeparator.new())
 
-func _on_hire_captain_pressed(cap: CaptainData, cost: Dictionary) -> void:
-	if ResourceManager.spend_resources(cost):
+func _on_hire_captain_pressed(cap: CaptainData, cost: Dictionary, allow_cover: bool = false) -> void:
+	if cap in FleetManager.owned_captains:
+		return
+	if ResourceManager.pay(cost, allow_cover):
 		FleetManager.add_captain(cap)
 		if AudioManager: AudioManager.play_sound("captain_recruit")
 		_refresh_captains()
@@ -1668,11 +1744,15 @@ func _create_research_entry(tech: TechData) -> void:
 	else:
 		cost_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 		btn.pressed.connect(func(): _on_unlock_tech_pressed(tech, cost_dict))
-		
+	var coverable_research: bool = not TechManager.is_unlocked(tech.tech_id) and research_job.is_empty() \
+		and TechManager.can_research(tech, island_tier) and not ResourceManager.can_afford(cost_dict)
+
 	hbox.add_child(info_vbox)
 	hbox.add_child(cost_lbl)
 	hbox.add_child(btn)
-	
+	if coverable_research:
+		_add_cover_button(hbox, cost_dict, tech.tech_name, func(): _on_unlock_tech_pressed(tech, cost_dict, true))
+
 	research_container.add_child(hbox)
 	research_container.add_child(HSeparator.new())
 

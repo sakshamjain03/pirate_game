@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
@@ -20,6 +20,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/icons/rum.svg" id="13_rum_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui_icons/icons/cannon_ready.png" id="14_cannon_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/research.svg" id="19_research_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/eights.svg" id="27_eights_icon"]
 
 
 [node name="WorldHUD" type="CanvasLayer"]
@@ -548,6 +549,29 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="ResearchLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/ResearchChip/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PillNumLabel"
+text = "0"
+
+[node name="EightsChip" type="PanelContainer" parent="TopRightPanel/ResourceBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"ResourcePill"
+
+[node name="Row" type="HBoxContainer" parent="TopRightPanel/ResourceBar/HBox/EightsChip"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="TopRightPanel/ResourceBar/HBox/EightsChip/Row"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("27_eights_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="EightsLabel" type="Label" parent="TopRightPanel/ResourceBar/HBox/EightsChip/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PillNumLabel"

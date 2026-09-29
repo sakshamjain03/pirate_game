@@ -175,6 +175,11 @@ func _run_world_screens() -> void:
 			await _wait_seconds(0.3)
 			await _capture("02b_course_set")
 			_hud.clear_course()
+			# The "Course set" toast fades on the process clock, which IslandMenu
+			# pauses — left alone it froze over every island-menu shot below.
+			for child in _hud.get_children():
+				if child.name.begins_with("Announcement"):
+					child.queue_free()
 			await _settle(2)
 
 	if _hud and "codex_screen" in _hud and _hud.codex_screen:
@@ -363,9 +368,67 @@ func _capture_owned_island_menu(island: Node3D) -> void:
 			_hud.island_menu.tab_container.current_tab = tab
 			await _settle(3)
 			await _capture("06_island_owned_tab%d" % tab)
+	await _capture_economy_states(island)
 	_hud.island_menu.close()
 	island.built_buildings.assign(original_buildings)
 	island.island_data = original_data
+	await _settle(2)
+
+
+## M27 — the Eights sinks no ordinary sweep state reaches: rows offering
+## "Cover for N Eights", running build/research jobs (remaining + bar +
+## "Finish now"), and EightsConfirmDialog. Resources and jobs are set IN MEMORY
+## and restored; the sweep's current_scene isn't World, so no job ever completes
+## and nothing is saved.
+func _capture_economy_states(island: Node3D) -> void:
+	var menu = _hud.island_menu
+	var saved_resources: Dictionary = ResourceManager.current_resources.duplicate()
+	var saved_jobs: Dictionary = ScheduleManager._jobs.duplicate(true)
+	var saved_tab: int = menu.tab_container.current_tab
+
+	# Cover only shows on an unaffordable row that it can actually pay for.
+	for r in ["gold", "wood", "iron"]:
+		ResourceManager.current_resources[r] = 5
+	ResourceManager.current_resources[ResourceManager.PREMIUM_CURRENCY] = 40
+	ResourceManager.resources_changed.emit(ResourceManager.current_resources)
+	menu.tab_container.current_tab = 0
+	await _settle(4)
+	await _capture("06_island_owned_cover")
+
+	# One construction on this island and one empire-wide research.
+	ScheduleManager.start_job("build", island.get_island_id(), "warehouse_l1", 30.0)
+	ScheduleManager.start_job("research", "tech", "res://resources/techs/SwifterSails.tres", 120.0)
+	for tab in range(menu.tab_container.get_tab_count()):
+		if not menu.tab_container.is_tab_hidden(tab):
+			menu.tab_container.current_tab = tab
+			await _settle(3)
+			await _capture("06_island_owned_jobs_tab%d" % tab)
+	# The running jobs' own rows: remaining time, progress bar, Finish now.
+	for shot in [["06_job_row_build", menu.buildings_container, "Warehouse"],
+			["06_job_row_research", menu.research_container, "Swifter Sails"]]:
+		var container: Node = shot[1]
+		menu.tab_container.current_tab = container.get_parent().get_parent().get_index()
+		await _settle(3)
+		var flow := container.get_node_or_null("Tiles")
+		if flow:
+			for tile in flow.get_children():
+				if tile is Button and String(tile.tooltip_text).contains(shot[2]):
+					tile.set_pressed_no_signal(true)  # as IslandMenu restores a selection
+					tile.emit_signal("pressed")
+					break
+		await _settle(3)
+		await _capture(shot[0])
+
+	var dialog = preload("res://scripts/ui/EightsConfirmDialog.gd").new("Finish building now", 1)
+	add_child(dialog)
+	await _settle(4)
+	await _capture("06_eights_confirm")
+	dialog.queue_free()
+
+	ScheduleManager._jobs = saved_jobs
+	ResourceManager.current_resources = saved_resources
+	ResourceManager.resources_changed.emit(ResourceManager.current_resources)
+	menu.tab_container.current_tab = saved_tab
 	await _settle(2)
 
 

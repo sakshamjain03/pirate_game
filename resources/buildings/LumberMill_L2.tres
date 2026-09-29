@@ -12,3 +12,4 @@ level = 2
 cost_gold = 75
 production_amount = 9
 model_path = "res://assets/models/structure-platform.glb"
+build_seconds = 90.0

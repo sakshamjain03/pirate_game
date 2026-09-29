@@ -81,6 +81,7 @@ func _build_ui() -> void:
 	_tabs.add_child(_make_fleet_tab())
 	_tabs.add_child(_make_islands_tab())
 	_tabs.add_child(_make_combat_tab())
+	_tabs.add_child(_make_economy_tab())
 
 
 ## Every tab is a scrolling VBox — the console outgrows one screen fast, and a
@@ -137,6 +138,7 @@ func _refresh_all() -> void:
 			"Progression": _fill_progression()
 			"Fleet": _fill_fleet()
 			"Islands": _fill_islands()
+			"Economy": _fill_economy()
 
 
 # ------------------------------------------------------------------ Resources
@@ -217,6 +219,81 @@ func _cheat_zero_resources() -> void:
 	for key in RESOURCE_KEYS:
 		_cheat_empty(key)
 	_say("all resources zeroed")
+
+
+# ---------------------------------------------------------------- Economy (M27)
+
+## Timers and Eights. Time is moved with ScheduleManager.now_offset (its public
+## DevConsole/test seam) and completion runs through process_due_jobs() — the
+## same single completion pass the game uses, so a jumped job completes exactly
+## as a waited-out one would.
+func _make_economy_tab() -> ScrollContainer:
+	var page := _make_page("Economy")
+	var body := _body_of(page)
+	body.add_child(_heading("Pieces of Eight"))
+	body.add_child(_row([
+		_button("+100 Eights", func(): _cheat_add(ResourceManager.PREMIUM_CURRENCY, 100)),
+		_button("+1000 Eights", func(): _cheat_add(ResourceManager.PREMIUM_CURRENCY, 1000)),
+		_button("Empty Eights", func(): _cheat_empty(ResourceManager.PREMIUM_CURRENCY)),
+	]))
+	body.add_child(_heading("Clock"))
+	body.add_child(_row([
+		_button("+1 min", func(): _cheat_advance_clock(60.0)),
+		_button("+10 min", func(): _cheat_advance_clock(600.0)),
+		_button("+1 h", func(): _cheat_advance_clock(3600.0)),
+		_button("Reset offset", _cheat_reset_clock),
+	]))
+	body.add_child(_row([_button("Finish all jobs", _cheat_finish_all_jobs)]))
+	body.add_child(_heading("Running jobs"))
+	var list := VBoxContainer.new()
+	list.name = "List"
+	body.add_child(list)
+	return page
+
+
+func _fill_economy() -> void:
+	var page := _tabs.get_node_or_null("Economy")
+	if not page:
+		return
+	var list := _body_of(page).get_node_or_null("List")
+	if not list:
+		return
+	_clear(list)
+	var head := Label.new()
+	head.text = "Eights %d  |  clock offset %+.0fs" % [
+		ResourceManager.get_resource(ResourceManager.PREMIUM_CURRENCY), ScheduleManager.now_offset]
+	list.add_child(head)
+	var jobs := ScheduleManager.get_all_jobs()
+	if jobs.is_empty():
+		var none := Label.new()
+		none.text = "(no running jobs)"
+		list.add_child(none)
+	for job in jobs:
+		var l := Label.new()
+		l.text = "%s  %s -> %s  %.0fs left  (%d Eights)" % [job.kind, job.target,
+			String(job.payload).get_file(), ScheduleManager.remaining(job.id),
+			ScheduleManager.finish_cost_eights(job.id)]
+		list.add_child(l)
+
+
+func _cheat_advance_clock(seconds: float) -> void:
+	ScheduleManager.now_offset += seconds
+	var done := ScheduleManager.process_due_jobs()
+	_say("clock +%.0fs — %d job(s) completed" % [seconds, done])
+	_fill_economy()
+
+
+func _cheat_reset_clock() -> void:
+	ScheduleManager.now_offset = 0.0
+	_say("clock offset reset (running jobs keep their start times)")
+	_fill_economy()
+
+
+func _cheat_finish_all_jobs() -> void:
+	var longest := 0.0
+	for job in ScheduleManager.get_all_jobs():
+		longest = maxf(longest, ScheduleManager.remaining(job.id))
+	_cheat_advance_clock(longest + 1.0)
 
 
 # ---------------------------------------------------------------- Progression

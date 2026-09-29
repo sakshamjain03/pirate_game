@@ -12,3 +12,4 @@ next_upgrade = ExtResource("1_8l23r")
 cost_wood = 100
 produces_resource = "gold"
 model_path = "res://assets/models/tavern.glb"
+build_seconds = 40.0

@@ -9,3 +9,4 @@ building_id = "lumber_mill_l1"
 building_name = "Lumber Mill Level 1"
 next_upgrade = ExtResource("1_dlexy")
 model_path = "res://assets/models/structure-platform.glb"
+build_seconds = 20.0

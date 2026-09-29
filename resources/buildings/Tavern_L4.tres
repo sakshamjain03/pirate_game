@@ -15,3 +15,4 @@ cost_wood = 800
 produces_resource = "gold"
 production_amount = 27
 model_path = "res://assets/models/tavern.glb"
+build_seconds = 1200.0

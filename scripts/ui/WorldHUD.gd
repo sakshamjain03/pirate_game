@@ -44,6 +44,9 @@ signal _dummy  # ensures signals section exists
 @onready var iron_cap_label  : Label        = %IronCapLabel
 @onready var rum_cap_label   : Label        = %RumCapLabel
 @onready var research_label  : Label        = %ResearchLabel
+## M27 Requirement 6.6 — the premium currency's balance. No cap label: Eights
+## have no storage cap to show (ResourceManager.max_storage["eights"] is a ceiling).
+@onready var eights_label    : Label        = %EightsLabel
 @onready var island_menu     : IslandMenu   = %IslandMenu
 @onready var death_screen    : DeathScreen  = %DeathScreen
 @onready var upgrade_choice_screen: UpgradeChoiceScreen = %UpgradeChoiceScreen
@@ -1224,6 +1227,8 @@ func _on_resources_changed(res: Dictionary) -> void:
 	_set_resource_pill(rum_label, rum_cap_label, res.get("rum", 0), max_res.get("rum", 9999))
 	if research_label:
 		research_label.text = str(res.get("research", 0))
+	if eights_label:
+		eights_label.text = str(res.get(ResourceManager.PREMIUM_CURRENCY, 0))
 
 func _on_dock_completed(island_id: String) -> void:
 	if _uses_mobile_utility_menu():

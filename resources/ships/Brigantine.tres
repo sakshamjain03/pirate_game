@@ -39,3 +39,4 @@ fire_rate = 0.1538
 cannons_per_side = 5
 cannon_range = 92.0
 cannon_speed = 130.0
+build_seconds = 300.0

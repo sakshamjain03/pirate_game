@@ -16,3 +16,4 @@ health_modifier = 1.0
 damage_modifier = 1.0
 speed_modifier = 1.15
 storage_modifier = 1.0
+research_seconds = 120.0

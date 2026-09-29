@@ -138,8 +138,7 @@ func test_an_instant_building_still_completes_immediately_and_once() -> void:
 	add_child_autofree(menu)
 	await wait_frames(1)
 	watch_signals(menu)
-	var farm: BuildingData = load(FARM_L1)
-	assert_eq(farm.build_seconds, 0.0, "precondition: this test is about 0 = instant")
+	var farm: BuildingData = _author(FARM_L1, "build_seconds", 0.0)   # 0 = instant
 	assert_true(_island.build_structure(farm))
 	assert_true(_island.has_building("farm_l1"))
 	assert_signal_emit_count(menu, "structure_changed", 1)
@@ -159,7 +158,7 @@ func test_a_second_construction_on_the_same_island_is_refused() -> void:
 
 
 func test_a_timed_upgrade_keeps_the_old_level_until_it_completes() -> void:
-	var farm_l1: BuildingData = load(FARM_L1)
+	var farm_l1: BuildingData = _author(FARM_L1, "build_seconds", 0.0)
 	assert_true(_island.build_structure(farm_l1))
 	var farm_l2: BuildingData = _author(FARM_L2, "build_seconds", 90.0)
 	assert_true(_island.upgrade_structure("farm_l1", farm_l2))

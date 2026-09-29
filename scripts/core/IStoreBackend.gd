@@ -43,3 +43,10 @@ func query_owned() -> void:
 
 func acknowledge(_order_id: String) -> void:
 	pass
+
+
+## M27 — marks a consumable purchase (an Eights pack) as used up so the store
+## lets it be bought again and stops reporting it from query_owned(). StoreManager
+## calls this only after the Eights are granted and the order id recorded.
+func consume(_order_id: String) -> void:
+	pass

@@ -12,6 +12,8 @@ var _island: Node
 var _saved_resources: Dictionary
 var _saved_region_active: Dictionary
 var _created_test_scene: Node3D = null
+var _saved_jobs: Dictionary
+var _saved_offset: float
 
 func before_each():
 	if not get_tree().current_scene:
@@ -22,6 +24,9 @@ func before_each():
 		_created_test_scene = scene
 
 	_saved_resources = ResourceManager.current_resources.duplicate()
+	_saved_jobs = ScheduleManager._jobs.duplicate(true)
+	_saved_offset = ScheduleManager.now_offset
+	ScheduleManager.reset()
 	ResourceManager.current_resources["gold"] = 100000
 	ResourceManager.current_resources["wood"] = 100000
 	ResourceManager.current_resources["iron"] = 100000
@@ -39,6 +44,8 @@ func before_each():
 
 func after_each():
 	ResourceManager.current_resources = _saved_resources.duplicate()
+	ScheduleManager._jobs = _saved_jobs
+	ScheduleManager.now_offset = _saved_offset
 	EmpireManager._region_active = _saved_region_active.duplicate()
 	# This file's own current_scene, if it created one, must not outlive it —
 	# a leaked one previously corrupted test_navigation_integration.gd's real
@@ -48,6 +55,13 @@ func after_each():
 			get_tree().current_scene = null
 		_created_test_scene.queue_free()
 	_created_test_scene = null
+
+
+## M27 — construction takes time now. This file is about *where* the player can
+## build, so each job is waited out through ScheduleManager's own completion pass.
+func _finish_construction() -> void:
+	ScheduleManager.now_offset += 100000.0
+	ScheduleManager.process_due_jobs()
 
 
 func test_cartagena_starts_owned_by_spain_and_not_buildable():
@@ -68,6 +82,7 @@ func test_building_on_a_captured_cartagena_works_identically_to_port_royal():
 
 	var farm: BuildingData = load("res://resources/buildings/Farm_L1.tres")
 	assert_true(_island.build_structure(farm), "Building must succeed on a captured non-home island")
+	_finish_construction()
 	assert_true(_island.has_building(farm.building_id))
 
 
@@ -75,10 +90,12 @@ func test_upgrading_a_building_on_cartagena_works():
 	_island.capture_island(load("res://resources/factions/PlayerFaction.tres"))
 	var farm_l1: BuildingData = load("res://resources/buildings/Farm_L1.tres")
 	_island.build_structure(farm_l1)
+	_finish_construction()
 
 	var farm_l2: BuildingData = load("res://resources/buildings/Farm_L2.tres")
 	assert_true(_island.upgrade_structure(farm_l1.building_id, farm_l2),
 		"Upgrading must work on a captured non-home island exactly like Port Royal")
+	_finish_construction()
 	assert_true(_island.has_building(farm_l2.building_id))
 
 
@@ -91,10 +108,15 @@ func test_island_tier_advances_on_cartagena():
 	# same formula Port Royal uses.
 	var farm_l1: BuildingData = load("res://resources/buildings/Farm_L1.tres")
 	var mill_l1: BuildingData = load("res://resources/buildings/LumberMill_L1.tres")
+	# One construction per island at a time (M27), so each is finished in turn.
 	_island.build_structure(farm_l1)
+	_finish_construction()
 	_island.build_structure(mill_l1)
+	_finish_construction()
 	_island.upgrade_structure(farm_l1.building_id, load("res://resources/buildings/Farm_L2.tres"))
+	_finish_construction()
 	_island.upgrade_structure(mill_l1.building_id, load("res://resources/buildings/LumberMill_L2.tres"))
+	_finish_construction()
 
 	assert_gt(_island.get_island_tier(), tier_before,
 		"Tier must recalculate from Cartagena's own buildings, not assume it's always tier 1")

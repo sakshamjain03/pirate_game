@@ -43,3 +43,4 @@ has_bow_chaser = true
 chaser_damage = 18.0
 chaser_range = 140.0
 chaser_arc_degrees = 15.0
+build_seconds = 420.0

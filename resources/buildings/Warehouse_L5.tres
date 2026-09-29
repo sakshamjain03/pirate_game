@@ -21,3 +21,4 @@ produces_resource = ""
 production_amount = 0
 production_interval = 0.0
 model_path = "res://assets/models/dockside-warehouse.glb"
+build_seconds = 3600.0

@@ -53,7 +53,7 @@ theme_override_constants/separation = 12
 [node name="DisclaimerLabel" type="Label" parent="Panel/VBox/Page/PageBox"]
 layout_mode = 2
 theme_type_variation = &"InkBodyLabel"
-text = "Everything here is cosmetic only — it changes how your ship looks and never affects gameplay."
+text = "Cosmetics change how your ship looks and never affect gameplay. Pieces of Eight only finish a wait early or cover a few missing resources — never anything play can't earn."
 horizontal_alignment = 1
 autowrap_mode = 3
 

@@ -17,3 +17,4 @@ produces_resource = "gold"
 production_amount = 32
 production_interval = 15.0
 model_path = "res://assets/models/structure-platform-small.glb"
+build_seconds = 300.0

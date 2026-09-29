@@ -16,3 +16,4 @@ cost_iron = 70
 produces_resource = "research"
 production_amount = 16
 model_path = "res://assets/models/tower-middle-windows.glb"
+build_seconds = 300.0

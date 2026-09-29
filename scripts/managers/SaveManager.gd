@@ -725,35 +725,63 @@ func save_maelstrom_result(eights: int, seconds: float, level: int) -> Dictionar
 	record.load_save_data(load_maelstrom_record())
 	record.merge_run(seconds, level)
 	var record_data := record.get_save_data()
-	eights = maxi(eights, 0)
+	if _patch_eights_outside_world(maxi(eights, 0), record_data):
+		_maelstrom_data = record_data
+	return record_data
 
+
+## M27 — purchased Eights (a store consumable) must survive whatever happens
+## next. Inside a campaign World the live economy is the truth, so they're added
+## and saved at once. Anywhere else (the main menu's store) the economy in memory
+## is a default that World will replace from disk, so they go through the same
+## patch-on-disk write a Maelstrom run uses. Returns false only if nothing could
+## be written — the caller then leaves the order unconsumed for a retry.
+func persist_purchased_eights(eights: int) -> bool:
+	if eights <= 0:
+		return true
+	var scene := get_tree().current_scene
+	if scene and scene.name == "World" and SceneManager.is_campaign():
+		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, eights)
+		save_game()
+		return true
+	return _patch_eights_outside_world(eights, {})
+
+
+## M26/M27 — the one out-of-World write of Eights: adds `eights` to
+## economy.eights in the campaign save (and, for a Maelstrom run, replaces the
+## "maelstrom" record), leaving every other section byte-for-byte as it was. With
+## no readable campaign save it parks both in MAELSTROM_PENDING_PATH, which
+## load_game() claims. On success the in-memory wallet is credited too; returns
+## false (crediting nothing) if the write failed.
+func _patch_eights_outside_world(eights: int, maelstrom_record: Dictionary) -> bool:
 	var data: Dictionary = {}
 	if has_save_data():
 		data = _read_save_file(SAVE_PATH)["data"]
 		if data.is_empty():
 			# An unreadable primary is recovery's business (load_game falls back
-			# to the backup) — never overwrite it, and never lose the run: park
-			# it in the pending file like a fresh install would.
-			push_error("SaveManager: campaign save unreadable; Maelstrom result kept pending.")
+			# to the backup) — never overwrite it, and never lose the Eights: park
+			# them in the pending file like a fresh install would.
+			push_error("SaveManager: campaign save unreadable; Eights kept pending.")
 
 	if not data.is_empty():
 		# Fold in anything still pending (e.g. a cloud download replaced the save
 		# before the pending file was claimed), so the two never coexist after this.
 		var pending := _read_maelstrom_pending()
 		eights += int(pending.get("eights", 0))
-		data["maelstrom"] = record_data
+		if not maelstrom_record.is_empty():
+			data["maelstrom"] = maelstrom_record
 		if eights > 0:
 			var economy: Dictionary = data.get("economy", {}) if data.get("economy") is Dictionary else {}
 			var key := ResourceManager.PREMIUM_CURRENCY
 			economy[key] = int(economy.get(key, 0)) + eights
 			data["economy"] = economy
 		if not _backup_existing_save():
-			return record_data
+			return false
 		var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 		if not file:
-			push_error("SaveManager: failed to write Maelstrom result.")
+			push_error("SaveManager: failed to write Eights to the campaign save.")
 			_restore_backup()
-			return record_data
+			return false
 		file.store_string(JSON.stringify(data, "\t"))
 		file.close()
 		if FileAccess.file_exists(MAELSTROM_PENDING_PATH):
@@ -763,20 +791,20 @@ func save_maelstrom_result(eights: int, seconds: float, level: int) -> Dictionar
 	else:
 		var pending := _read_maelstrom_pending()
 		pending["eights"] = int(pending.get("eights", 0)) + eights
-		pending["record"] = record_data
+		if not maelstrom_record.is_empty():
+			pending["record"] = maelstrom_record
 		var pf := FileAccess.open(MAELSTROM_PENDING_PATH, FileAccess.WRITE)
 		if not pf:
-			push_error("SaveManager: failed to write pending Maelstrom result.")
-			return record_data
+			push_error("SaveManager: failed to write pending Eights.")
+			return false
 		pf.store_string(JSON.stringify(pending, "\t"))
 		pf.close()
 
-	_maelstrom_data = record_data
 	# Keep the in-memory wallet honest for any menu UI. Safe: every World entry
 	# reloads economy from the file patched above (or claims the pending file).
 	if eights > 0:
 		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, eights)
-	return record_data
+	return true
 
 
 ## M26 — the record as it stands on disk right now (campaign section + anything

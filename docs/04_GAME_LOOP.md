@@ -216,6 +216,41 @@ Implementation: `docs/05_CURRENT_SYSTEMS.md` → "M26 - The Maelstrom".
 
 ---
 
+# Empire Timers (M27)
+
+Choose a Build, Upgrade, Research, Ship or Repair (pay its cost)
+
+↓
+
+Work Starts (one construction per island, one research at a time)
+
+↓
+
+Sail, Fight, Explore (the clock keeps running — even with the game closed)
+
+↓
+
+Return to Port (the work is done; the building, tech or hull appears)
+
+↓
+
+Choose the Next One
+
+This is the rhythm the Daily Loop returns to. **Only the empire layer is timed** — sailing,
+combat, boarding, encounters and the Maelstrom are never gated by a timer or a meter.
+
+Play shortens every timer: a higher island tier builds faster, the best Academy researches
+faster, a bigger Shipyard builds and repairs ships faster. Early chapters stay short (Ch1-2 jobs
+under two minutes), so a free player is never made to wait to move the story on.
+
+Pieces of Eight are an optional shortcut, always behind a confirm step: **Finish now**, priced
+off the time remaining (never the total), or **Cover** the few resources a chosen purchase is
+missing. Neither can buy anything play can't.
+
+Implementation: `docs/05_CURRENT_SYSTEMS.md` → "M27 - Timers & the Eights Economy".
+
+---
+
 # Design Rules
 
 Every action should produce visible progress.

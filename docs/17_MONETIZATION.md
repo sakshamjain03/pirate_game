@@ -150,6 +150,38 @@ always in exchange for a bonus on something they have already earned.
 - Hard daily caps as tabled above, so the game cannot degrade into an advertisement delivery
   mechanism for a heavy player.
 
+## 2.4 Pieces of Eight packs — consumable (M27)
+
+Four consumable packs, bought as often as the player likes. Each is a
+`resources/store/EightsPack*.tres` `ProductData` with `grants_eights` set and no entitlement ids.
+Prices are set in the store console, never in the game.
+
+| Pack | SKU | Eights | Bonus vs. the Pouch rate |
+|---|---|---|---|
+| Pouch of Eights | `eights_pouch` | 80 | — |
+| Chest of Eights | `eights_chest` | 450 | +12% |
+| Hoard of Eights | `eights_hoard` | 1000 | +25% |
+| King's Ransom | `eights_kings_ransom` | 2800 | +40% |
+
+**What Eights buy (M27).** Both prices come from `resources/balance/EconomyPricing.tres`, never a
+script:
+
+- **Finish now** on a running build, upgrade, research, ship or shipyard-repair job:
+  `max(1, ceil(remaining_seconds / seconds_per_eight))`, with `seconds_per_eight = 60`. The price
+  comes from **remaining** time only: two jobs with equal time left cost the same whatever their total
+  length, and a job already due finishes free. Every timer is also shortened by play: island tier for
+  construction, the best Academy for research, the local Shipyard for ships and repair.
+- **Cover a shortfall** on a purchase the player already chose (build, upgrade, research, ship,
+  captain): `sum(ceil(missing[r] / rate[r]))`. Units per Eight: gold 50, wood 10, iron 5, rum 5,
+  research 5. Cover is refused when:
+  - the cost contains Eights;
+  - a required amount exceeds its storage cap (Eights must never buy resources that would be thrown
+    away);
+  - the player lacks the Eights. The button is not shown at all in that case.
+
+Both go through one confirm dialog that states the price and the balance. Neither is ever the
+screen's coral Primary.
+
 ---
 
 # 3. What is never sold
@@ -226,6 +258,30 @@ against the store's own receipt**, not against an authoritative server. This is 
 Light integrity work (save tamper-resistance) is scheduled in M21 to keep casual tampering from
 being trivial, but the project explicitly does **not** invest in anti-cheat. That is the correct
 trade for a fair, single-player, cosmetics-only model.
+
+## 4.5 Consumables are not entitlements (M27)
+
+An Eights pack grants no entitlement. Its Eights go into the one wallet (`ResourceManager`,
+`"eights"`, saved with the campaign), and the store order is then **consumed** so it can be bought
+again.
+
+**Exactly once per order id.** `StoreManager` records every order id that has granted in
+`user://store_orders.json`. Like entitlements, that is an eager write outside the campaign save, so a
+cloud-save conflict that rolls the campaign back can never make an order grantable again. A repeated
+purchase callback, or a restore that reports an order already granted, only consumes it.
+
+**Restoration for consumables** (decided 2026-09-29). If the app dies between payment and grant,
+the store still reports the order as unconsumed. On the next launch or an explicit restore it is
+**granted once, then consumed**, so a paid pack is never lost. The Eights are written before the
+order id is recorded, so the only failure window errs toward the player.
+
+**Bought from the main menu.** There, the economy in memory is a default that entering World
+replaces from the save file. So purchased Eights are written straight into the save's
+`economy.eights`, the same patch a Maelstrom run's Eights use, or into the pending file on a fresh
+install. They are never only held in memory.
+
+Real Play Billing `consumePurchase` is a documented TODO in `StoreBackendPlay`, blocked on the same
+unvendored plugin as the rest of billing. Everything above works end to end on the stub backend.
 
 ---
 

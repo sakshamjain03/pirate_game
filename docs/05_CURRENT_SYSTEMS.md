@@ -27,7 +27,7 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-09-29, M25 Checkpoint B): 828 tests, 828 passing, 0 failing.** The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
+**Current (2026-09-30, M27 Checkpoint B): 133 scripts, 963 tests, 963 passing, 0 failing** (the process still exits 0xC0000005 at engine teardown, after GUT's summary; this was already true at M27 Checkpoint A, so read the Totals block, not the exit code) (M25 Checkpoint B was 828; M26 and M27 added the rest). A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
 
 Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
@@ -164,7 +164,7 @@ existing stern-crit arc, no region-specific mixed-role compositions beyond `Elit
   10-second economy tick signal, `add_resource` / `spend_resource` / `can_afford`. Dynamically recalculates `max_storage` by summing `storage_bonus` across all constructed buildings. `add_resource()` rejects (push_error, no-op) any resource type not already declared in `max_storage`/`base_storage`, rather than silently granting it unlimited (999999) capacity — every resource type is meant to be part of the authored schema, not created ad hoc at runtime (BUG_REPORT.md fix pass, 2026-09-14).
 - `Island.gd`: tracks `built_buildings` per island, listens to the economy tick, produces
   resources per building — gated on `IslandData.is_owned_by_player()` (FRIENDLY or CAPITAL only; NEUTRAL/ENEMY/LEGENDARY islands no longer produce for the player). `build_structure()` / `upgrade_structure()` spend resources and swap
-  in the next `BuildingData` tier — `build_structure()` is likewise gated on player ownership, so buildings can no longer be constructed on an enemy/neutral island. Restores buildings dynamically via name convention (`<BuildingName>_L<Level>.tres`). Includes `get_island_tier()` derived from average building levels.
+  in the next `BuildingData` tier — `build_structure()` is likewise gated on player ownership, so buildings can no longer be constructed on an enemy/neutral island. Restores buildings dynamically via name convention (`<BuildingName>_L<Level>.tres`). Includes `get_island_tier()` derived from average building levels. **M27:** build/upgrade now pay at once and add the building only when its `ScheduleManager` job completes (instant at 0 duration) - see the M27 section.
 - 10 populated `BuildingData` chains exist: Academy, Farm, Fortress, LumberMill, Market, Mine,
   Shipyard, Tavern, Warehouse, Watchtower. Each has 5 authored level resources (`_L1.tres` to `_L5.tres`) with geometric cost/production scaling.
 - **Offline catch-up (M5):** `SaveManager` persists `last_saved_unix` on every save; on load it
@@ -2830,7 +2830,8 @@ for the day it ships — SceneState sees all eleven. New sibling test
 Developer cheat console: resources (fill/empty/max), notoriety and chapter jumps, unlock-all-techs,
 ship level **up and down** (`set_all_components()` keeps components legal on a downgrade), captain
 levels, grant-all hulls/captains, island capture/release/sail-to, heal, god mode, kill/cripple
-enemies. Timer and siege tabs land with `ScheduleManager` and `SiegeManager`.
+enemies. The Economy tab (Eights, clock offset, finish all jobs) landed with `ScheduleManager` in M27
+(see "M27 - Timers & the Eights Economy"); a siege tab lands with `SiegeManager`.
 
 **Safety contract — it must be impossible for this to bug the real game:**
 1. **One-way dependency.** It calls only public manager APIs and public fields. **No shipping script
@@ -3154,3 +3155,192 @@ Phone frame rate at 10 hulls plus pickups (above M25's already-unverified tier-5
 the curve paces well, whether the magnet and storm wall *feel* right, and touch feel. Headful
 captures confirmed the arena, HUD, unprovoked engagement, the wall up close, the choice screen (and
 the second queued offer) and the results panel - layout, not feel.
+
+## M27 - Timers & the Eights Economy (2026-09-29)
+
+Spec: `.kiro/specs/milestone-m27-eights-economy/`. Commit `dd3c0a2` (Checkpoint A: the clock,
+timed build/research/ships/repair), then the sinks, store packs, authored durations and gate tests.
+Built in the `m27-eights-economy` worktree alongside M26/M28.
+
+The empire layer now takes time and Pieces of Eight have something to do: **finish** a running timer
+or **cover** the shortfall on a purchase the player already chose, and they can be bought in packs.
+Everything stays inside AGENTS.md's freemium lines - sailing, combat, boarding, encounters and the
+Maelstrom are never timed, every timer shortens with play, skip cost is priced off remaining time.
+
+### `ScheduleManager` (autoload, after `ResourceManager`) - the one clock
+Owns every job: `{id, kind, target, payload, start_unix, duration}`. Kinds `build`, `upgrade`,
+`research`, `ship`, `repair` (`KINDS`; anything else `push_error`s). `target` is who owns the result
+(island id, `"tech"`, `"fleet"`), `payload` what it produces (building id, tech/ship resource path).
+API: `start_job()` (duration <= 0 completes inside the call), `get_job`, `get_jobs_for(target)`,
+`get_jobs_of_kind`, `remaining` (wall clock, so jobs finish while the game is closed), `progress`,
+`finish_cost_eights`, `finish_now`, `process_due_jobs()` (the single completion pass, start order),
+`now()` + `now_offset` (DevConsole/tests only). Signals `job_started(job)` - **M28's timer lesson
+depends on this name and `job.kind`** - and `job_completed(job)`.
+
+It never knows what a job produces. Owners filter `job_completed` by kind/target and apply the result.
+
+- **Exactly once.** `_completed_ids` (pruned to the last 200 on save) is checked before emitting.
+- **Save.** Optional `schedule` section `{jobs, completed_ids}`, **omitted when no job runs**.
+  `SaveManager.load_game()` calls `ScheduleManager.reset()` first. The omitted section would otherwise
+  leave a previous session's jobs alive in the autoload (e.g. main menu -> Continue).
+- **When jobs complete.** Only while a campaign World is loaded (`current_scene.name == "World"`
+  **and** `SceneManager.is_campaign()`), and only once armed. Arming is `call_deferred` from
+  `SaveManager.game_loaded`, because `World.gd` queues `load_game` *before*
+  `CampaignManager.on_world_ready`, which wires the objective hook. A synchronous completion on
+  `game_loaded` would build the building with nobody listening for the objective.
+- **`PROCESS_MODE_ALWAYS`.** IslandMenu pauses the tree while open; a paused clock showed 0:00 rows
+  that never completed.
+- `pricing` is `load()`ed in `_ready()`. Preloading the `.tres` in a member initializer produced a
+  **placeholder instance** - the exported values but none of the methods - because the autoload was
+  still compiling. Anything else preloading a script-backed `.tres` in an autoload initializer has
+  the same trap.
+
+### Durations and speed sources - `resources/balance/EconomyPricing.tres` (`EconomyPricingData`)
+`seconds_per_eight` (60), `shortfall_rates` (units per Eight: gold 50, wood 10, iron/rum/research 5;
+no `eights` key, ever), speed tables, `repair_seconds_per_point` (0.5), `zero_spend_early_cap_seconds`
+(120). `effective_duration(kind, base, level)`:
+- build/upgrade use `build_speed_by_island_tier`, index tier-1: 1.0 -> 0.4.
+- research uses `research_speed_by_academy_level` at the **best Academy on any owned island**
+  (`TechManager.get_academy_level()`); index 0 = none, 1.0 -> 0.3.
+- ship and repair use `ship_speed_by_shipyard_level` at **that island's** Shipyard
+  (`Island.get_building_level("shipyard")`).
+
+Levels clamp to the table ends, and a base of 0 stays 0.
+
+New exports, default 0 = instant, so unauthored content behaves exactly as before:
+- `BuildingData.build_seconds` and `ShipStats.build_seconds` (Cost group);
+- `TechData.research_seconds`.
+
+Authored starting values (Task 8, tune in M33):
+- **Buildings:** L1 20-45 s (Farm/LumberMill 20, Mine/Warehouse/Market 30, Tavern/Watchtower 40,
+  Shipyard/Fortress/Academy 45), L2 90 s, L3 300 s, L4 1200 s, L5 3600 s.
+- **Techs** by required island tier: 30 s / 2 min / 5 min / 15 min / 30 min.
+- **Ships:** Dinghy 30 s, Sloop 45 s, Schooner 90 s, Corvette 120 s, Brigantine 300 s, Frigate 420 s,
+  Galleon 600 s, Man O'War 1200 s.
+
+### Where time now applies
+- **Island.** `build_structure(b, allow_cover)` / `upgrade_structure(old, new, allow_cover)`:
+  - keep every guard, refuse while the island already has a build/upgrade job (one per island,
+    Requirement 2.7), pay, then either start a job or call `_finish_build`/`_finish_upgrade` directly
+    at 0 duration;
+  - `_finish_*` hold the old append/visual/storage/tier code and emit the new
+    `structure_completed(building, is_upgrade)`. `restore_buildings()` does **not** emit it;
+  - an upgrade job's payload is the new id, and the old building is found via `next_upgrade`
+    (`push_error` if missing);
+  - new helpers: `is_building(id)`, `is_constructing()`, `get_active_construction()`,
+    `get_construction_seconds()`, `get_building_level(base_id)`. `has_building()` still means "is built".
+- **`IslandMenu.structure_changed` now fires on completion, never on payment.** IslandMenu connects
+  every `islands`-group node's `structure_completed` (deferred from `_ready`) and re-emits it. That is
+  the **only** emit site, so `CampaignManager`/`SeasonalEventManager`'s BUILD_STRUCTURE/
+  UPGRADE_STRUCTURE_TO_LEVEL objectives complete when the building exists, on any island, menu open
+  or not. The Shipyard/Tavern tab unlock moved there too.
+- **Research.** `TechManager.start_research(tech, cost, allow_cover)` refuses if the tech is unlocked
+  or any research runs, pays, and starts the job; `unlock_tech()` runs on completion.
+  `get_research_seconds()`, `get_research_job()`, `is_researching()`.
+- **Ships.** `FleetManager.start_ship_construction(ship, cost, shipyard_level, allow_cover)` refuses a
+  hull already owned or already on the slipway (paying twice was otherwise possible); `add_ship()`
+  runs on completion.
+- **Repair.** The Shipyard tab's Repair Ship starts a `repair` job, one at a time, lasting
+  (missing hull + rigging) x `repair_seconds_per_point` x Shipyard speed. Completion repairs the
+  player ship's `ShipDamage` exactly as the old instant button did. It stays free. Sailing is never
+  blocked, and `DockingSystem`'s passive repair is untouched.
+- **UI.** Job rows show "Building - 0:42 left", a ProgressBar (1 s label-only tick, no rebuild) and
+  "Finish now - N Eights". Tiles read the job verb via a `tile_status` meta. A refused second job
+  says why ("Builders busy", "Scholars busy"). Build/research/ship rows show "Takes m:ss".
+
+### Eights sinks
+- **Finish now.** `ScheduleManager.finish_now(id)` costs `max(1, ceil(remaining / seconds_per_eight))`
+  through `ResourceManager.spend_resources()` and refuses without spending when it can't pay. A job
+  already due finishes **free**, never charging for time that has passed.
+- **Cover.** `ResourceManager`:
+  - `shortfall(cost)` returns the missing amounts, never Eights;
+  - `shortfall_cost_eights(cost)` sums ceil per resource, 0 when nothing is missing;
+  - `can_cover_shortfall(cost)`;
+  - `cover_shortfall_and_spend(cost)` is atomic, and refuses when the cost contains Eights or when any
+    required amount exceeds `max_storage` (`add_resource()` clamps, so Eights would buy resources that
+    vanish);
+  - `pay(cost, allow_cover)` is **the one pay path** every owner API above uses after its own guards.
+    Covering therefore never double-spends and never bypasses a guard.
+- **UI rules.** Both sinks confirm through `EightsConfirmDialog` (a `ChoiceDialog` with Cancel first,
+  showing price and balance). Neither is ever the coral Primary: a `no_primary` meta is honoured by
+  `_select_card`. "Cover for N Eights" appears on unaffordable build/upgrade/research/ship/captain
+  rows **only when it can succeed**, so a player without Eights never sees a paid button on every row.
+  Captain hire now pays through `pay()` too.
+
+### Store consumables - the Eights packs
+- `ProductData.grants_eights` (0 = non-consumable, every existing product).
+  `resources/store/EightsPack{Pouch,Chest,Hoard,KingsRansom}.tres` = 80 / 450 / 1000 / 2800, with no
+  entitlement ids.
+- `IStoreBackend.consume(order_id)`. The stub erases that order from `_owned`, so `query_owned()`
+  stops reporting it and the next purchase mints a fresh id; without this the stub replays one order
+  id per sku forever. `StoreBackendPlay.consume()` is a TODO on the same missing plugin.
+- `StoreManager._grant_consumable()` grants once per order id, recorded in
+  **`user://store_orders.json`** (eager write, not the main save, so a cloud rollback can't re-arm an
+  order), then consumes. The Eights are persisted *before* the id is recorded, so a crash between
+  errs toward the player.
+- **Restore (user decision, 2026-09-29).** An unconsumed Eights order that never granted (app killed
+  between payment and grant) **is granted once on restore/launch**, then consumed. One already
+  granted is only consumed. The spec's literal "restore never grants" would have lost paid packs.
+- **Hazard found: the main-menu store.** `StoreScreen` is reachable from `MainMenu`, where the economy
+  in memory is a default that World replaces from disk, so an in-memory grant would silently vanish.
+  `SaveManager.persist_purchased_eights(n)` adds and `save_game()`s inside a campaign World;
+  elsewhere it uses the same patch-on-disk write as a Maelstrom run. That write was extracted from
+  `save_maelstrom_result()` into `_patch_eights_outside_world(eights, maelstrom_record)`; the
+  Maelstrom path is unchanged and `test_maelstrom_isolation.gd` still guards it. A purchase never
+  creates the campaign save: with none yet it waits in `maelstrom_pending.json`, which
+  `load_game()` claims.
+- `StoreScreen` gets a "Pieces of Eight" header with the live balance above the packs (sorted by
+  size). Cosmetics follow **after** them - `test_store_screen`'s purchase test presses the last
+  enabled button, and that must not be an Eights pack.
+- WorldHUD: `EightsChip` (a `ResourcePill` sibling in the resource bar's HBox, no cap label).
+  New icon `assets/ui/icons/eights.svg` (a silver coin with an 8; UIIcons key `eights`).
+
+### DevConsole - Economy tab
+Grant/empty Eights; clock +1 min / +10 min / +1 h / reset (`now_offset`, then `process_due_jobs()`,
+so a jumped job completes exactly as a waited one); Finish all jobs; the running-job list with
+remaining time and finish price.
+
+### Tests
+New: `test_schedule_manager` (14), `test_economy_pricing` (8), `test_timed_actions` (15),
+`test_eights_sinks` (21), `test_eights_store` (10), `test_zero_spend_gate` (7). The gate reads the
+shipping chapter `.tres` files:
+- no required building/tech/ship costs Eights;
+- every Ch1-2 required job, every Level 2 upgrade (the way to tier 2) and a hull of each required
+  class fits `zero_spend_early_cap_seconds` at **worst-case** speed (tier 1, Shipyard L1, no Academy).
+
+**Changed:** `test_cartagena_buildable` waits out each construction through `process_due_jobs()` (its
+subject is *where* building works; one-at-a-time also meant finishing each before the next). Tests that
+build/research with real content set a duration on the cached resource and restore it in
+`after_each`. Store tests back up and restore every `user://` file a grant can touch: the app-data
+folder is shared by every checkout and worktree of this project.
+
+### Checkpoint B headful review (2026-09-30)
+`UIScreenSweep` gained `_capture_economy_states()`: Cover rows, both running-job rows and
+`EightsConfirmDialog`, all set in memory and restored, never saved. Four defects GUT couldn't see:
+- **The detail panel vanished after a Build press.** Several refreshes in one frame (the spend,
+  `job_started`, the handler's own) each queue a deferred `_restyle_page`. The second found the first's
+  cards already tiled and hidden, so `_layout_board()` hid the detail, taking the new job row and
+  Finish now with it. `_layout_board()` now returns early while a live `Tiles` flow exists. Pinned by
+  `test_several_refreshes_in_one_frame_keep_the_detail_docked`.
+- **StoreScreen's disclaimer said "Everything here is cosmetic only"** above the Eights packs. It now
+  says what Eights do and don't buy.
+- **"1 Pieces of Eight" / "Cover for 1 Eights".** `EightsConfirmDialog.amount_text()`/`short_amount()`
+  pluralise, and a due job reads plain "Finish now".
+- **"Lv 1 · Builders busy" overran phone tiles.** A button's `tile_text` meta now overrides its tile
+  caption ("Busy"); the detail keeps the full reason.
+
+The sweep also froze the "Course set" toast over every island-menu shot (IslandMenu pauses the tree,
+and with it the toast's fade). The toast is now freed after that shot.
+
+### Noticed, not fixed
+- The Warehouse's detail text reads "(+0 /0s)": the production suffix is appended even for a building
+  that produces nothing. This predates M27.
+- `TechManager.load_save_data()` silently skips a tech path that no longer resolves, against the
+  "resolvers push_error" rule.
+- MainMenu New Game resets only `ResourceManager.current_resources` (and drops the `eights` key until
+  the next storage recalculation); fleet/tech/campaign rely on the fresh World.
+
+### Not verifiable here
+Real Play Billing (plugin not vendored), whether the durations *feel* fair (M33's balance pass), and
+on-device completion notifications (`LocalNotificationManager.schedule_completion()` is not wired;
+stretch goal).

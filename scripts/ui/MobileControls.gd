@@ -152,6 +152,7 @@ func _measured_bottom(cluster: Control) -> float:
 	return max_bottom
 
 func _apply_mobile_layout() -> void:
+	_layout_context_row()
 	var safe := MobileLayoutManager.safe_area(get_viewport())
 	var scale := maxf(0.55, MobileLayoutManager.mobile_scale(get_viewport()))
 	var movement: Control = $Movement
@@ -194,6 +195,93 @@ func _apply_mobile_layout() -> void:
 	var pause_size := PirateThemeBuilder.round_button_size(_ROUND_SMALL)
 	btn_pause.position = Vector2(safe.end.x - pause_size.x * scale - 16.0, safe.position.y + 150.0 * scale)
 	btn_pause.size = pause_size * scale
+	_fit_combat_cluster()
+
+
+## Top edge (canvas px) the Combat cluster must stay below: WorldHUD's
+## TopRightPanel bottom, which only WorldHUD can measure. -INF = no limit.
+var _combat_top_limit: float = -INF
+
+## Called by WorldHUD._apply_mobile_safe_area() once it has laid out
+## TopRightPanel. Stacking Combat on top of Actions from the bottom up (above)
+## keeps those two apart, but on a short 19.5:9 phone the stack then reached up
+## into the notoriety card: since M25 made the fire buttons always visible,
+## their top edge sat under it. Stored as well as applied, so a later
+## _apply_mobile_layout() (both passes run on every resize) re-applies it
+## instead of undoing it.
+func fit_combat_cluster_below(top_limit: float) -> void:
+	_combat_top_limit = top_limit
+	_fit_combat_cluster()
+
+
+## Re-seats Combat so it clears _combat_top_limit. Preferred: stacked above
+## Actions (the default layout), shrunk only as much as the band between the
+## limit and Actions' top edge requires. On a 19.5:9 phone that band can be
+## shorter than a fire button at the 48dp touch-target floor
+## (docs/18_ACCESSIBILITY.md §6) — then Combat moves BESIDE Actions instead,
+## bottom-aligned with the Ability/Broadside row, on the screen-centre side.
+## WorldHUD._fit_tutorial_between_thumb_clusters() measures Combat's children,
+## so the dialogue/lesson band narrows to match either placement.
+func _fit_combat_cluster() -> void:
+	if not _uses_mobile_layout() or _combat_top_limit == -INF:
+		return
+	var combat: Control = $Combat
+	var actions: Control = $Actions
+	var column_width := 378.0
+	# Actions itself can reach the notoriety card on a 19.5:9 phone when the
+	# card shows its bar (a few px into the context action / ammo row). Shrink
+	# it, anchored at its bottom outer corner, just enough to clear — never
+	# below the touch-target floor of its big round buttons.
+	if actions.position.y < _combat_top_limit:
+		var a_height := _measured_bottom(actions)
+		# The floor comes from the cluster's SMALLEST button (the ammo button),
+		# or shrinking to clear the panel would push it under 48dp.
+		var a_side := minf(btn_captain_ability.size.x, btn_captain_ability.size.y)
+		if _btn_ammo and is_instance_valid(_btn_ammo) and _btn_ammo.visible:
+			a_side = minf(a_side, minf(_btn_ammo.size.x, _btn_ammo.size.y))
+		if a_height > 0.0 and a_side > 0.0:
+			var a_bottom := actions.position.y + a_height * actions.scale.y
+			var a_right := actions.position.x + column_width * actions.scale.x
+			var a_scale := clampf((a_bottom - _combat_top_limit) / a_height,
+				PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET.x / a_side, actions.scale.x)
+			actions.scale = Vector2.ONE * a_scale
+			actions.position.y = a_bottom - a_height * a_scale
+			if not MobileLayoutManager.is_left_handed():
+				actions.position.x = a_right - column_width * a_scale
+	if combat.position.y >= _combat_top_limit:
+		return
+	var height := _measured_bottom(combat)
+	var width := _measured_right(combat)
+	if height <= 0.0 or width <= 0.0:
+		return
+	var button_side := minf(btn_fire_port.size.x, btn_fire_port.size.y)
+	var floor_scale := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET.x / button_side if button_side > 0.0 else combat.scale.x
+	var band_bottom := actions.position.y - _CLUSTER_EDGE_GAP * actions.scale.y
+	var stacked_scale := minf((band_bottom - _combat_top_limit) / height, combat.scale.x)
+	if stacked_scale >= floor_scale:
+		combat.scale = Vector2.ONE * stacked_scale
+		combat.position = Vector2(
+			actions.position.x + (column_width * actions.scale.x - width * stacked_scale) * 0.5,
+			band_bottom - height * stacked_scale)
+		return
+	var side_scale := maxf(floor_scale, minf(combat.scale.x, actions.scale.x * 0.7))
+	var row_bottom: float = actions.position.y + (btn_captain_ability.position.y + btn_captain_ability.size.y) * actions.scale.y
+	var gap := _CLUSTER_EDGE_GAP * actions.scale.x
+	var x: float = actions.position.x - gap - width * side_scale
+	if MobileLayoutManager.is_left_handed():
+		x = actions.position.x + column_width * actions.scale.x + gap
+	combat.scale = Vector2.ONE * side_scale
+	combat.position = Vector2(x, row_bottom - height * side_scale)
+
+
+## Local-space right edge of the widest visible child (the horizontal twin of
+## _measured_bottom()).
+func _measured_right(cluster: Control) -> float:
+	var max_right := 0.0
+	for child in cluster.get_children():
+		if child is Control and child.visible:
+			max_right = maxf(max_right, child.position.x + child.size.x)
+	return max_right
 
 
 func _layout_primary_actions() -> void:
@@ -320,8 +408,11 @@ func _apply_tilt_steering() -> void:
 func _create_context_action() -> void:
 	_context_action = Button.new()
 	_context_action.name = "ContextAction"
-	_context_action.custom_minimum_size = Vector2(378, 120)
-	_context_action.size = Vector2(378, 120)
+	# Narrower than the 378 column by the ammo button's slot at the row's right
+	# end (_create_ammo_selector), so the two share a row instead of overlapping.
+	var width := 378.0 - _ammo_slot_width()
+	_context_action.custom_minimum_size = Vector2(width, 120)
+	_context_action.size = Vector2(width, 120)
 	_context_action.tooltip_text = tr("Context Action")
 	_center_button_content(_context_action)
 	_context_action.pressed.connect(_on_context_action_pressed)
@@ -546,22 +637,52 @@ func _create_ammo_selector() -> void:
 	_btn_ammo.name = "BtnAmmo"
 	_btn_ammo.tooltip_text = tr("Shot type")
 	_make_round(_btn_ammo, _ROUND_SMALL)
-	# Sits above the ability button, inside the same 378-wide action column, so it
-	# joins the existing cluster rather than being placed at a hardcoded offset
-	# that would drift away from its siblings (CLAUDE.md fragile-area rule).
+	# Its own slot at the right end of the context-action row (the context
+	# action is narrowed by _ammo_slot_width() to make room). It used to sit
+	# "above the ability button", at y 136 - height - 12, which is inside the
+	# context action's 0-120 band, so it covered "Set Sail" on every phone.
 	var size := PirateThemeBuilder.round_button_size(_ROUND_SMALL)
-	_btn_ammo.position = Vector2((189.0 - size.x) * 0.5, 136.0 - size.y - 12.0)
+	_btn_ammo.position = Vector2(378.0 - size.x, (120.0 - size.y) * 0.5)
 	_center_button_content(_btn_ammo)
 	_btn_ammo.pressed.connect(_cycle_ammo)
 	_btn_ammo.add_to_group(&"hud_ammo_button")   # M28 lesson highlight
 	btn_captain_ability.get_parent().add_child(_btn_ammo)
 	_sync_ammo_from_ship()
 	_refresh_ammo_button()
+	_layout_context_row()
 
 
 ## Reads the ship's current ammo so the button never contradicts what is loaded
 ## (e.g. after a ship swap, a save that restored a different shot type, or a swap
 ## made with the keyboard/gamepad `cycle_ammo` action).
+## Width the ammo button's slot takes from the context-action row, gap included.
+## Reads the button's real size once it exists: the theme renders it larger
+## than its nominal _ROUND_SMALL width, and sizing the slot off the nominal
+## width pushed the button past the column's right edge (off-screen on phones).
+func _ammo_slot_width() -> float:
+	if _btn_ammo and is_instance_valid(_btn_ammo):
+		return _ammo_button_size().x + 12.0
+	return PirateThemeBuilder.round_button_size(_ROUND_SMALL).x + 12.0
+
+
+func _ammo_button_size() -> Vector2:
+	return _btn_ammo.size.max(_btn_ammo.get_combined_minimum_size())
+
+
+## Shares the top row of the 378-wide Actions column: the context action on the
+## left, the ammo button in its own slot on the right. Re-run on every layout
+## pass, since the ammo button's real size is only known once it is themed.
+func _layout_context_row() -> void:
+	if not _btn_ammo or not is_instance_valid(_btn_ammo) or not _context_action:
+		return
+	var ammo_size := _ammo_button_size()
+	_btn_ammo.size = ammo_size
+	_btn_ammo.position = Vector2(378.0 - ammo_size.x, maxf(0.0, (120.0 - ammo_size.y) * 0.5))
+	var width := 378.0 - _ammo_slot_width()
+	_context_action.custom_minimum_size = Vector2(width, 120)
+	_context_action.size = Vector2(width, 120)
+
+
 func _sync_ammo_from_ship() -> void:
 	var combat := _player_combat()
 	if not combat:

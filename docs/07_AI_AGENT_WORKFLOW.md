@@ -185,9 +185,8 @@ changes every milestone as tests are added — stale baselines have caused real 
 times in this project's history (a `103` figure that was stale by 15 tests; a `323/322` result that
 didn't reproduce). Instead: **run the suite first and record the actual totals** before making
 changes, then compare after. Any new failure, or any drop in the total test count, is a regression.
-The one standing exception is `test_property_21_lod_distance_transitions` — no ocean LOD system
-exists yet (M10 scope as of this writing), a real tracked gap, not a regression, until M10 closes
-it.
+There is no standing exception any more: `test_property_21_lod_distance_transitions`, the old
+known gap, has passed since M10's ocean LOD work.
 
 New tests must go **flat under `tests/`** — GUT's `-gdir=res://tests` does not recurse into
 subdirectories in this project.

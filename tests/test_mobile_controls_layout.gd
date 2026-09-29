@@ -21,6 +21,7 @@ var _viewport: SubViewport
 var _hud
 
 func after_each():
+	PirateThemeBuilder.force_mobile_scaling_for_test = false
 	if is_instance_valid(_viewport):
 		_viewport.queue_free()
 	_viewport = null
@@ -94,6 +95,12 @@ func test_property_mobile_buttons_never_overlap_hud_panels():
 			"BtnCaptainAbility": mobile_controls.get_node("Actions/BtnCaptainAbility"),
 			"BtnSpecialBroadside": mobile_controls.get_node("Actions/BtnSpecialBroadside"),
 			"ContextAction": mobile_controls.get_node("Actions/ContextAction"),
+			# Always visible since M25 (manual fire), yet never listed here —
+			# which is how the notoriety card covering their top edge on phones
+			# went uncaught.
+			"BtnFirePort": mobile_controls.get_node("Combat/BtnFirePort"),
+			"BtnFireStar": mobile_controls.get_node("Combat/BtnFireStar"),
+			"BtnAmmo": mobile_controls.get_node("Actions/BtnAmmo"),
 		}
 
 		for blocker_name in blockers:
@@ -347,3 +354,70 @@ func test_property_a_showing_lesson_card_never_overlaps_a_mobile_button():
 		_viewport = null
 		_hud = null
 	PirateThemeBuilder.force_mobile_scaling_for_test = was_mobile
+
+
+# M25 follow-up (2026-09-30): the shot-type button was placed "above the
+# ability button" at a fixed offset that landed inside the context action's
+# band, covering "Set Sail" on every phone, and the fire buttons' top edge sat
+# under the notoriety card. Neither was caught: the blocker test above never
+# listed those buttons, and it ran without the real phone scaling path (see
+# test_world_hud_layout's note on force_mobile_scaling_for_test). This checks
+# every visible thumb-cluster button against every other one AND against
+# TopRightPanel, with phone scaling forced, at the phone aspect ratios the
+# sweep uses (19.5:9 is the tightest vertically).
+func test_property_no_two_thumb_buttons_overlap_on_a_real_phone_layout():
+	PirateThemeBuilder.force_mobile_scaling_for_test = true
+	var was_left := bool(SettingsManager.mobile_left_handed)
+	var sizes: Array[Vector2i] = [Vector2i(1560, 720), Vector2i(2340, 1080), Vector2i(1920, 1080)]
+	for left_handed in [false, true]:
+		SettingsManager.mobile_left_handed = left_handed
+		for size in sizes:
+			await _check_thumb_layout(size, left_handed)
+	SettingsManager.mobile_left_handed = was_left
+
+
+func _check_thumb_layout(size: Vector2i, left_handed: bool) -> void:
+	_instantiate_mobile_hud_at_size(size)
+	await wait_seconds(0.1)
+	for _i in 30:
+		if _hud.mobile_utility_menu_button:
+			break
+		await wait_frames(1)
+	_hud.cannons_container.hide()
+	_hud._apply_mobile_safe_area()
+	var where := "%s %s" % [size, "left-handed" if left_handed else "right-handed"]
+	var mobile_controls = _hud.get_node("MobileControls")
+	var buttons := {}
+	for path in ["Combat/BtnFirePort", "Combat/BtnFireStar", "Actions/ContextAction",
+			"Actions/BtnAmmo", "Actions/BtnCaptainAbility", "Actions/BtnSpecialBroadside", "BtnPause"]:
+		var btn: Control = mobile_controls.get_node(path)
+		if btn.is_visible_in_tree():
+			buttons[path] = btn.get_global_rect()
+	# ContextAction is hidden with no ship in range of anything; the rest must show.
+	assert_gte(buttons.size(), 6, "thumb buttons must be visible at %s" % where)
+	var viewport_rect := Rect2(Vector2.ZERO, Vector2(size))
+	var floor_size := PirateThemeBuilder.MOBILE_MIN_TOUCH_TARGET
+	var names := buttons.keys()
+	for i in names.size():
+		var r: Rect2 = buttons[names[i]]
+		assert_true(viewport_rect.encloses(r), "%s %s leaves the screen at %s" % [names[i], r, where])
+		if names[i] != "Actions/ContextAction":
+			assert_true(r.size.x >= floor_size.x - 0.5 and r.size.y >= floor_size.y - 0.5,
+				"%s %s is under the %s touch target at %s" % [names[i], r.size, floor_size, where])
+		for j in range(i + 1, names.size()):
+			assert_false(r.intersects(buttons[names[j]]),
+				"%s %s overlaps %s %s at %s" % [names[i], r, names[j], buttons[names[j]], where])
+	# TopRightPanel's own box spans the full resource-bar width; what must be
+	# clear is what it draws — the resource bar and the notoriety card — plus
+	# the hull bar on the left.
+	var blockers := {"HealthBarContainer": _hud.get_node("HealthBarContainer").get_global_rect()}
+	for panel_child in _hud.top_right_panel.get_children():
+		if panel_child is Control and panel_child.visible:
+			blockers[panel_child.name] = panel_child.get_global_rect()
+	for b in blockers:
+		for n in names:
+			assert_false(blockers[b].intersects(buttons[n]),
+				"%s %s overlaps %s %s at %s" % [b, blockers[b], n, buttons[n], where])
+	_viewport.queue_free()
+	_viewport = null
+	_hud = null

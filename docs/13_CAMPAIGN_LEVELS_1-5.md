@@ -273,13 +273,14 @@ profile while this chapter is current. See §10.
 | `ch1_docking` | Coming Alongside | OBJECTIVE_CURRENT `1.1` | — |
 | `ch1_island_menu` | Your Harbour | FIRST_DOCK | — |
 | `ch1_building` | Build to Earn | OBJECTIVE_CURRENT `1.3` | — |
+| `ch1_timers` | Work Takes Time | FIRST_JOB_STARTED | — |
 | `ch1_storage` | Storage Caps | OBJECTIVE_CURRENT `1.5` | — |
 | `ch1_manual_fire` | Broadside! | FIRST_ENEMY_IN_RANGE | — |
 | `ch1_ammo` | Shot & the Triangle | OBJECTIVE_CURRENT `1.10` | `hud_ammo_button` |
 | `ch1_captains` | Captains | OBJECTIVE_CURRENT `1.8` | — |
 
 ## What it teaches
-Sailing and docking · the build menu · the economy tick · that broadsides must be *aimed* ·
+Sailing and docking · the build menu · that building takes time (and how to speed it up) · the economy tick · that broadsides must be *aimed* ·
 storage caps as a reason to spend.
 
 ## Enemies
@@ -356,7 +357,6 @@ profile while this chapter is current. See §10.
 | Lesson | Title | Trigger | Highlight |
 |---|---|---|---|
 | `ch2_repair` | Patching Up | FIRST_DAMAGE_TAKEN | — |
-| `ch2_timers` | Work Takes Time | FIRST_JOB_STARTED | — |
 | `ch2_ship_classes` | Bigger Hulls | OBJECTIVE_CURRENT `2.3` | — |
 | `ch2_boarding` | Boarding | OBJECTIVE_CURRENT `2.4` | — |
 | `ch2_capture` | Taking an Island | OBJECTIVE_CURRENT `2.7` | — |
@@ -493,7 +493,12 @@ Vance burned her port too) and **Isabela** (Navy defector) · Watchtower/Fortres
 > town that had no law in it, and I have spent every year since making certain no other harbour
 > gets the chance."
 >
-> "You are not a criminal to me. You are a *repetition*. I will be at Frostbite Reef."
+> "You are not a criminal to me. You are a *repetition*. Plant your flag on one more harbour and I
+> will come to take it down."
+>
+> *(Rewritten 2026-09-30: the line used to send the player to Frostbite Reef, which has been
+> content-gated off since the M24 scope cut. Chapter 4 happens at Pelican Cay, and the Intransigent
+> encounter spawns near the player, not at an island.)*
 
 ## Objectives
 
@@ -541,7 +546,7 @@ that the optional harder path (boarding) pays better.
 Average building level 4, Frigate owned, first tech unlocked. Gold turnover ≈ 8 000–12 000.
 
 ## Rewards
-3 heavy captains (Barnaby, Constance, Ezra) · Academy/tech line · Frostbite Reef's iron ·
+3 heavy captains (Barnaby, Constance, Ezra) · Academy/tech line · Pelican Cay as a second port ·
 **Navy raid frequency drops** (their forward base is gone — a defensive reward, which is a kind
 this game does not otherwise have).
 

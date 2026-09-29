@@ -263,7 +263,19 @@ func _on_colonize_pressed() -> void:
 		return
 
 	var cost = {"gold": current_island.island_data.colonize_cost_gold}
-	if ResourceManager.spend_resources(cost):
+	# The Colonize button is a fixed scene node rather than a generated row, so
+	# instead of a second Cover button it offers the cover on press — the same
+	# confirm step (_on_cover_pressed) every other purchase uses.
+	if not ResourceManager.can_afford(cost):
+		if ResourceManager.can_cover_shortfall(cost):
+			_on_cover_pressed(cost, current_island.get_island_name(), _colonize.bind(cost, true))
+		return
+	_colonize(cost)
+
+func _colonize(cost: Dictionary, allow_cover: bool = false) -> void:
+	if not current_island or not current_island.island_data:
+		return
+	if ResourceManager.pay(cost, allow_cover):
 		if FactionManager.has_method("get_player_faction"):
 			current_island.capture_island(FactionManager.get_player_faction())
 			# Re-open the menu to refresh tabs
@@ -295,7 +307,11 @@ func _create_building_entry(building: BuildingData) -> void:
 	name_lbl.add_theme_font_size_override("font_size", 18)
 
 	var desc_lbl = Label.new()
-	desc_lbl.text = building.description + " (+" + str(building.production_amount) + " " + building.produces_resource + "/" + str(int(building.production_interval)) + "s)"
+	desc_lbl.text = building.description
+	# Storage, defence and shipyard buildings produce nothing and author an empty
+	# resource with a 0 s interval — printing the suffix for them read "(+0 /0s)".
+	if not building.produces_resource.is_empty() and building.production_amount > 0:
+		desc_lbl.text += " (+%d %s/%ds)" % [building.production_amount, tr(building.produces_resource.capitalize()), int(building.production_interval)]
 	desc_lbl.add_theme_font_size_override("font_size", 12)
 	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 
@@ -1276,6 +1292,9 @@ func _create_crew_recruitment_entry() -> void:
 			
 		hbox.add_child(cost_lbl)
 		hbox.add_child(btn)
+		if not ResourceManager.can_afford(cost):
+			_add_cover_button(hbox, cost, tr("Recruit %d") % recruit_amt,
+				func(): _on_recruit_crew_pressed(recruit_amt, cost, dmg, true))
 	else:
 		var full_lbl = Label.new()
 		full_lbl.text = tr("Crew Full")
@@ -1285,8 +1304,10 @@ func _create_crew_recruitment_entry() -> void:
 	captains_container.add_child(hbox)
 	captains_container.add_child(HSeparator.new())
 
-func _on_recruit_crew_pressed(amount: float, cost: Dictionary, dmg: Node) -> void:
-	if ResourceManager.spend_resources(cost):
+func _on_recruit_crew_pressed(amount: float, cost: Dictionary, dmg: Node, allow_cover: bool = false) -> void:
+	if not is_instance_valid(dmg):
+		return
+	if ResourceManager.pay(cost, allow_cover):
 		dmg.crew = min(dmg.crew + amount, dmg.ship_stats.max_crew)
 		if dmg.has_signal("pool_changed"):
 			dmg.pool_changed.emit("crew", dmg.crew, dmg.ship_stats.max_crew)
@@ -1512,6 +1533,9 @@ func _create_progression_rows(owned: OwnedShipData, index: int) -> void:
 		else:
 			level_btn.pressed.connect(func(): _on_level_up_pressed(index))
 		level_row.add_child(level_btn)
+		if owned.can_level_up_ship() and not ResourceManager.can_afford(owned.get_level_up_cost()):
+			_add_cover_button(level_row, owned.get_level_up_cost(), tr("Ship Level %d") % (owned.level + 1),
+				func(): _on_level_up_pressed(index, true))
 	fleet_container.add_child(level_row)
 
 	var catalog := OwnedShipData.get_component_catalog()
@@ -1551,6 +1575,9 @@ func _create_component_row(owned: OwnedShipData, index: int, comp: ShipComponent
 		else:
 			btn.pressed.connect(func(): _on_upgrade_component_pressed(index, comp.component_id))
 	row.add_child(btn)
+	if btn.disabled and lvl < OwnedShipData.MAX_LEVEL and owned.can_upgrade_component(comp.component_id):
+		_add_cover_button(row, owned.get_component_upgrade_cost(comp.component_id), tr(comp.display_name),
+			func(): _on_upgrade_component_pressed(index, comp.component_id, true))
 	fleet_container.add_child(row)
 
 
@@ -1562,8 +1589,8 @@ func _format_cost(cost: Dictionary) -> String:
 	return "  ".join(parts) if not parts.is_empty() else tr("Free")
 
 
-func _on_upgrade_component_pressed(index: int, component_id: String) -> void:
-	if FleetManager.upgrade_component(index, component_id):
+func _on_upgrade_component_pressed(index: int, component_id: String, allow_cover: bool = false) -> void:
+	if FleetManager.upgrade_component(index, component_id, allow_cover):
 		_refresh_fleet()
 
 
@@ -1589,20 +1616,26 @@ func _create_module_slot_row(owned: OwnedShipData, index: int, slot: int) -> voi
 		if module == equipped:
 			btn.text = tr("%s [Equipped]") % module.display_name
 			btn.disabled = true
-		elif not ResourceManager.can_afford({"gold": module.cost_gold, "wood": module.cost_wood, "iron": module.cost_iron}):
+		elif not ResourceManager.can_afford(_module_cost(module)):
 			btn.disabled = true
 		else:
 			btn.pressed.connect(func(): _on_equip_module_pressed(index, module))
 		row.add_child(btn)
+		if module != equipped and btn.disabled:
+			_add_cover_button(row, _module_cost(module), module.display_name,
+				func(): _on_equip_module_pressed(index, module, true))
 
 	fleet_container.add_child(row)
 
-func _on_level_up_pressed(index: int) -> void:
-	if FleetManager.level_up_ship(index):
+func _on_level_up_pressed(index: int, allow_cover: bool = false) -> void:
+	if FleetManager.level_up_ship(index, allow_cover):
 		_refresh_fleet()
 
-func _on_equip_module_pressed(index: int, module: ShipModuleData) -> void:
-	if FleetManager.equip_module(index, module):
+func _module_cost(module: ShipModuleData) -> Dictionary:
+	return {"gold": module.cost_gold, "wood": module.cost_wood, "iron": module.cost_iron}
+
+func _on_equip_module_pressed(index: int, module: ShipModuleData, allow_cover: bool = false) -> void:
+	if FleetManager.equip_module(index, module, allow_cover):
 		_refresh_fleet()
 
 func _on_mission_pressed(ship_idx: int, cap_idx: int, type: String) -> void:

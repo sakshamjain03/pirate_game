@@ -4,7 +4,6 @@
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
 [ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Repair.tres" id="L_Ch2_Repair"]
-[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Timers.tres" id="L_Ch2_Timers"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_ShipClasses.tres" id="L_Ch2_ShipClasses"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Boarding.tres" id="L_Ch2_Boarding"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Capture.tres" id="L_Ch2_Capture"]
@@ -137,6 +136,6 @@ required_previous_chapter = "ch1_the_drowned_port"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
 objectives = Array[ObjectiveData]([SubResource("Obj_2_1"), SubResource("Obj_2_2"), SubResource("Obj_2_10"), SubResource("Obj_2_3"), SubResource("Obj_2_4"), SubResource("Obj_2_9"), SubResource("Obj_2_5"), SubResource("Obj_2_6"), SubResource("Obj_2_7"), SubResource("Obj_2_8")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2")])
-lessons = Array[LessonData]([ExtResource("L_Ch2_Repair"), ExtResource("L_Ch2_Timers"), ExtResource("L_Ch2_ShipClasses"), ExtResource("L_Ch2_Boarding"), ExtResource("L_Ch2_Capture")])
+lessons = Array[LessonData]([ExtResource("L_Ch2_Repair"), ExtResource("L_Ch2_ShipClasses"), ExtResource("L_Ch2_Boarding"), ExtResource("L_Ch2_Capture")])
 reward_gold = 800
 reward_eights = 15

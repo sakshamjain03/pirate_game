@@ -43,10 +43,10 @@ guess if neither is found. Before starting a run, check for a stray leftover God
 previous killed attempt (`Get-Process | Where-Object {$_.ProcessName -like "*Godot*"}` on
 PowerShell) — it's the usual cause of a run looking hung. All tests live flat under `tests/*.gd`
 (GUT's `-gdir=res://tests` here does not recurse into subdirectories, despite what older spec text
-assumed). The suite has exactly one known/accepted pre-existing failure
-(`test_property_21_lod_distance_transitions` — no LOD system exists yet, a real tracked gap, not a
-regression); any other failure or a drop in total test count is a real regression. Full details
-and the current baseline count are in `docs/05_CURRENT_SYSTEMS.md`.
+assumed). The suite has no accepted failures: `test_property_21_lod_distance_transitions`, long
+the one known gap, has passed since M10's ocean LOD work. Any failure or a drop in total test count
+is a real regression. Full details and the current baseline count are in
+`docs/05_CURRENT_SYSTEMS.md`.
 
 For visual/physics/UI defects — proven repeatedly to be invisible to the GUT suite (rendering
 glitches, HUD overlap, ship capsizing) — run the headful screenshot harness and actually look at

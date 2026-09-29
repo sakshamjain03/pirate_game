@@ -124,10 +124,10 @@ static func wants_lessons_for(choice: int, returning: bool) -> bool:
 func _start_new_game(wants_lessons: bool) -> void:
 	SaveManager.delete_save()
 	AnalyticsManager.log_first_event("new_game_started")
-	# Reset resources for fresh start since it's an autoload
-	ResourceManager.current_resources = {
-		"gold": 200, "wood": 50, "iron": 20, "rum": 10
-	}
+	# Every campaign autoload back to its boot state, not just resources: a New
+	# Game after playing in the same session used to keep chapter progress,
+	# fleet, techs, heat and timers from the previous run.
+	SaveManager.reset_to_new_game()
 	TutorialManager.start_new_game_session()
 	TutorialManager.start_new_game_lessons(wants_lessons)
 	if not wants_lessons:

@@ -496,7 +496,10 @@ func _cheat_set_ship_level(index: int, to_level: int) -> void:
 
 
 func _cheat_set_active_ship(index: int) -> void:
-	FleetManager.active_ship_index = index
+	# Through set_active_ship(), not a direct field write: it also picks the
+	# matching captain and emits active_ship_changed, which M28's ASSIGN_CAPTAIN
+	# objective and the HUD listen to — a direct write leaves both stale.
+	FleetManager.set_active_ship(index)
 	_reapply_active_ship()
 	FleetManager.fleet_changed.emit()
 	_say("active ship -> %d" % index)

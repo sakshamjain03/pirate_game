@@ -27,7 +27,7 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-09-30, M28 Checkpoint B): 136 scripts, 1027 tests, 1027 passing, 0 failing** (M27 Checkpoint B was 133 / 963) (the process still exits 0xC0000005 at engine teardown, after GUT's summary; this was already true at M27 Checkpoint A, so read the Totals block, not the exit code) (M25 Checkpoint B was 828; M26 and M27 added the rest). A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
+**Current (2026-09-30, M26-M28 joint wrap-up): 137 scripts, 1035 tests, 1035 passing, 0 failing** (M28 Checkpoint B was 136 / 1027; M27 Checkpoint B 133 / 963) (the process still exits 0xC0000005 at engine teardown, after GUT's summary; this was already true at M27 Checkpoint A, so read the Totals block, not the exit code) (M25 Checkpoint B was 828; M26 and M27 added the rest). A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
 
 Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
@@ -3334,7 +3334,7 @@ folder is shared by every checkout and worktree of this project.
 The sweep also froze the "Course set" toast over every island-menu shot (IslandMenu pauses the tree,
 and with it the toast's fade). The toast is now freed after that shot.
 
-### Noticed, not fixed
+### Noticed, not fixed (all three fixed in the M26-M28 joint wrap-up)
 - The Warehouse's detail text reads "(+0 /0s)": the production suffix is appended even for a building
   that produces nothing. This predates M27.
 - `TechManager.load_save_data()` silently skips a tech path that no longer resolves, against the
@@ -3441,18 +3441,84 @@ pre-M28 objective's condition int), `test_campaign_coverage.gd` (9), plus 2 new 
 `test_tutorial_manager.gd` and `SET_COURSE` in `test_content_gate_integrity.gd`.
 
 ### Known gaps / follow-ups
-- `DevConsole` still writes `FleetManager.active_ship_index` directly (a debug path, so no
-  `active_ship_changed`).
+- ~~`DevConsole` still writes `FleetManager.active_ship_index` directly~~ — fixed in the M26-M28
+  joint wrap-up.
 - A tech that raises max hull while docked sets `ShipCombat.current_health`, which goes through
   `repair()` and would count for `REPAIR_SHIP`. Harmless edge.
-- Pre-existing, not M28: Ch4's opening has Vance say "I will be at Frostbite Reef" while 4.1/4.7
-  target Pelican Cay (the 2026-09-21 geography overhaul retargeted the objectives, not the line).
-  MainMenu New Game still doesn't reset `CampaignManager`'s in-memory progress (see M27's note).
-- Pre-existing, seen in the Checkpoint B phone sweep: the notoriety card's bottom edge touches the
-  top of the two Combat fire buttons (`test_property_mobile_buttons_never_overlap_hud_panels` does not
-  list the Combat cluster's buttons).
+- ~~Ch4's Frostbite Reef line; New Game not resetting `CampaignManager`~~ — both fixed in the
+  M26-M28 joint wrap-up.
+- ~~The notoriety card touching the phone fire buttons~~ — fixed in the M26-M28 joint wrap-up.
 - `hud_ammo_button` exists only on phones; desktop cycles ammo by key, so the ammo lesson has no
   highlight there.
 
 ### Not verifiable here
 Whether the lessons are *well-timed* for a real new player, and the touch feel of the card on a phone.
+
+## M26-M28 joint wrap-up (2026-09-30)
+
+The check the parallel plan scheduled for after all three milestones landed: re-verify the merged
+`main` against the original asks (endless mode; five-chapter game with a skippable tutorial that
+teaches everything; paid currency that can cover any resource or skip waiting), then close the
+follow-ups the three checkpoints left open.
+
+### Fixed
+- **Cover now reaches every paid purchase.** M27 offered "Cover for N ⚜" on build/upgrade, hull,
+  captain and research only. Ship level-up, component upgrade and module install
+  (`FleetManager.level_up_ship`/`upgrade_component`/`equip_module`, new `allow_cover` param through
+  `ResourceManager.pay()`), crew recruitment and colonizing an island now offer it too. Colonize is a
+  fixed scene button, so it offers the cover on press (same confirm dialog) instead of a second
+  button. `tests/test_eights_sinks.gd` +3.
+- **New Game resets every campaign autoload.** It used to delete the save and reset four
+  resources. In the same session (World -> Main Menu -> New Game), the new game kept the old run's
+  chapter progress, fleet, techs, notoriety/heat, reputation and running timers, and it lost the
+  `eights` key, so `add_resource()` rejected chapter-reward Eights. `SaveManager` now snapshots
+  each campaign manager's `get_save_data()` at boot (deferred, after every autoload's `_ready`,
+  before any save load). `reset_to_new_game()` replays those snapshots plus
+  `ScheduleManager.reset()`, and `MainMenu._start_new_game()` calls it. Owned cosmetics
+  (`EntitlementManager`) deliberately survive. `tests/test_new_game_reset.gd` (4);
+  `test_entitlements` now runs the real reset.
+- **Timer lesson moved to Chapter 1.** Chapter 1's four required builds are 20-40 s jobs, but the
+  timer lesson lived in Chapter 2, so a new player waited through a whole chapter before the game
+  explained timers. It is now `ch1_timers` (`resources/campaign/lessons/Ch1_Timers.tres`, renamed
+  with `git mv`), and its text teaches both speed-ups: island tier (free) and Finish Now (Eights).
+  The coverage test pins it to chapter 1.
+- **Phone thumb cluster** (19.5:9 is the tight case, and `UIScreenSweep --profile=phone` shows it):
+  - The M25 ammo button sat at a fixed offset that landed inside the context action, covering "Set
+    Sail". It now has its own slot at the right end of that row, and the context action is narrowed
+    to match (`_layout_context_row()`, sized from the button's real themed size).
+  - Since M25 the fire buttons are always visible, and their top edge sat under the notoriety card.
+    `WorldHUD._apply_mobile_safe_area()` now passes the bottom edge of whatever sits above the
+    cluster on its side to `MobileControls.fit_combat_cluster_below()`: TopRightPanel when
+    right-handed, the hull bar plus Pause when left-handed. Combat stays stacked above Actions when
+    that fits at the 48dp floor, and otherwise moves beside Actions at the Ability/Broadside row.
+    Actions itself shrinks, bottom-anchored, just enough to clear, never below the floor of its
+    smallest button.
+  - When left-handed, Pause sits beside the hull bar instead of under it: under it collides with the
+    action cluster on a phone.
+  - `test_property_mobile_buttons_never_overlap_hud_panels` never listed the fire or ammo buttons.
+    It does now. The new `test_property_no_two_thumb_buttons_overlap_on_a_real_phone_layout` forces
+    the real phone scaling path and checks every thumb button against every other, the HUD panels,
+    the screen edge and the touch-target floor, in both hands.
+- **Chapter 4's Vance line and log summary** no longer send the player to Frostbite Reef (content-gated
+  off since M24). The Intransigent encounter spawns near the player, not at an island, so only the
+  text was wrong.
+- `TechManager.load_save_data()` `push_error`s on an unresolvable tech path instead of skipping it.
+- `SaveManager` preloads `MaelstromRecord` rather than naming its bare `class_name`.
+- Building rows no longer print "(+0 /0s)" for buildings that produce nothing.
+- `DevConsole`'s ship switch goes through `FleetManager.set_active_ship()`.
+- CLAUDE.md, the `godot-verify` skill, the `checkpoint-reviewer` agent and docs/07 no longer call
+  `test_property_21_lod_distance_transitions` an accepted failure. It has passed since M10.
+
+### Suite
+Entering: 136 scripts / 1027 tests / 1027 passing. After: 137 / 1035 / 1035 (+3 cover, +1 phone
+layout, +4 New Game reset).
+
+### Open, needs a decision
+- New Game wipes the Eights balance along with the save, including **purchased** Eights. That was
+  true before this pass and is unchanged: carrying them over is a product call (it also lets a
+  free player re-earn Chapter 1's Eights on every New Game).
+
+### Not verifiable here
+Whether the smaller phone fire buttons *feel* right (they meet the 48dp floor but are now smaller
+than Ability/Broadside on 19.5:9), real-device touch, and real Play Billing.
+

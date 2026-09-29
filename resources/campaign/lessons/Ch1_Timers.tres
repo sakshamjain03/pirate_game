@@ -4,9 +4,9 @@
 
 [resource]
 script = ExtResource("1_lesson")
-lesson_id = "ch2_timers"
+lesson_id = "ch1_timers"
 title = "Work Takes Time"
-body = "Builds, research, new hulls and repairs take time now. The work carries on while you sail — the island menu shows what's in progress."
+body = "Building takes time, and so will research, new hulls and repairs. The work carries on while you sail. Higher-tier islands build faster, and Pieces of Eight can finish a job early."
 trigger = 7
 trigger_arg = ""
 highlight_group = &""

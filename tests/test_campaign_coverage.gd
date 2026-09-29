@@ -29,8 +29,8 @@ const COVERAGE := {
 	# The Eights clear (EmpireManager.spend_to_reduce_heat) is one of the two
 	# ways to finish 3.8 — the other is free decay, so Eights are never required.
 	"pieces_of_eight":          {"lessons": ["ch3_eights", "ch3_lie_low"], "objectives": ["3.8"]},
-	# Every build is a ScheduleManager job since M27, so 2.2's shipyard is timed.
-	"timers":                   {"lessons": ["ch2_timers"], "objectives": ["2.2"]},
+	# Every build is a ScheduleManager job since M27; Ch1's first build (1.3) is already timed.
+	"timers":                   {"lessons": ["ch1_timers"], "objectives": ["1.3"]},
 	"maelstrom":                {"lessons": ["ch5_maelstrom"], "objectives": []},
 }
 const LESSON_ONLY := ["maelstrom"]
@@ -108,10 +108,12 @@ func test_timers_are_live_not_pending():
 	var schedule := get_tree().root.get_node_or_null("ScheduleManager")
 	assert_not_null(schedule)
 	assert_true(schedule.has_signal("job_started"))
-	assert_true(schedule.KINDS.has("build"), "2.2's shipyard build must be a timed job")
-	var timers := _lesson_chapter("ch2_timers")
+	assert_true(schedule.KINDS.has("build"), "1.3's first build must be a timed job")
+	var timers := _lesson_chapter("ch1_timers")
+	assert_eq(timers.chapter_number, 1,
+		"Ch1's builds are already timed, so the timer lesson must be taught in Ch1, not after it")
 	for lesson in timers.lessons:
-		if lesson.lesson_id == "ch2_timers":
+		if lesson.lesson_id == "ch1_timers":
 			assert_eq(lesson.trigger, LessonData.Trigger.FIRST_JOB_STARTED)
 
 

@@ -25,7 +25,7 @@ mood = 2
 script = ExtResource("3_beat")
 speaker_id = "vance"
 speaker_name = "Admiral Sir Edmund Vance"
-text = "You are not a criminal to me. You are a repetition. I will be at Frostbite Reef."
+text = "You are not a criminal to me. You are a repetition. Plant your flag on one more harbour and I will come to take it down."
 mood = 0
 
 [sub_resource type="Resource" id="Obj_4_1"]
@@ -138,7 +138,7 @@ script = ExtResource("1_chapter")
 chapter_id = "ch4_the_admirals_gambit"
 chapter_number = 4
 title = "The Admiral's Gambit"
-log_summary = "Followed Admiral Vance to Frostbite Reef and sank HMS Intransigent — the first real boss, and the first true loss for the Crown."
+log_summary = "Found Pelican Cay, planted a second flag, and sank HMS Intransigent when Admiral Vance came for it — the first real boss, and the first true loss for the Crown."
 required_previous_chapter = "ch3_the_kings_answer"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
 objectives = Array[ObjectiveData]([SubResource("Obj_4_9"), SubResource("Obj_4_1"), SubResource("Obj_4_2"), SubResource("Obj_4_3"), SubResource("Obj_4_4"), SubResource("Obj_4_10"), SubResource("Obj_4_5"), SubResource("Obj_4_6"), SubResource("Obj_4_7"), SubResource("Obj_4_8")])

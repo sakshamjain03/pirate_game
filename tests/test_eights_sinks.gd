@@ -296,3 +296,65 @@ func test_cover_is_offered_only_when_it_can_succeed() -> void:
 	covers = _all_buttons(menu).filter(func(b): return b.text.begins_with("Cover for"))
 	assert_gt(covers.size(), 0, "an unaffordable purchase offers Cover")
 	menu.close()
+
+
+# ------------------------------------------- Cover on every paid purchase
+# The paid currency must be able to supplement any resource on any purchase the
+# player chose — not only builds, hulls, captains and research. These three
+# FleetManager upgrades (and IslandMenu's crew recruit and colonize, which go
+# through the same ResourceManager.pay()) used to spend without a cover path.
+
+func _with_owned_sloop(level: int, component_level: int) -> int:
+	var owned := OwnedShipData.new()
+	owned.ship_stats = load("res://resources/ships/Sloop.tres")
+	owned.level = level
+	owned.set_all_components(component_level)
+	FleetManager.owned_ships.append(owned)
+	return FleetManager.owned_ships.size() - 1
+
+
+func _cover_exactly(cost: Dictionary) -> void:
+	ResourceManager.current_resources[EIGHTS] = ResourceManager.shortfall_cost_eights(cost)
+
+
+func test_a_ship_level_up_can_be_covered() -> void:
+	var saved := FleetManager.owned_ships.duplicate()
+	var idx := _with_owned_sloop(1, 1)
+	var owned: OwnedShipData = FleetManager.owned_ships[idx]
+	var cost := owned.get_level_up_cost()
+	_cover_exactly(cost)
+	assert_false(FleetManager.level_up_ship(idx), "unaffordable without cover")
+	assert_true(FleetManager.level_up_ship(idx, true), "covered with Eights")
+	assert_eq(owned.level, 2)
+	assert_eq(ResourceManager.get_resource(EIGHTS), 0)
+	FleetManager.owned_ships = saved
+
+
+func test_a_component_upgrade_can_be_covered() -> void:
+	var saved := FleetManager.owned_ships.duplicate()
+	var idx := _with_owned_sloop(2, 1)
+	var owned: OwnedShipData = FleetManager.owned_ships[idx]
+	var comp_id: String = OwnedShipData.get_component_catalog().get_ids()[0]
+	var cost := owned.get_component_upgrade_cost(comp_id)
+	_cover_exactly(cost)
+	assert_false(FleetManager.upgrade_component(idx, comp_id), "unaffordable without cover")
+	assert_true(FleetManager.upgrade_component(idx, comp_id, true), "covered with Eights")
+	assert_eq(owned.get_component_level(comp_id), 2)
+	assert_eq(ResourceManager.get_resource(EIGHTS), 0)
+	FleetManager.owned_ships = saved
+
+
+func test_a_module_install_can_be_covered() -> void:
+	var saved := FleetManager.owned_ships.duplicate()
+	var idx := _with_owned_sloop(1, 1)
+	var module := ShipModuleData.new()
+	module.module_id = "m27_cover_test_module"
+	module.cost_gold = 120
+	module.cost_wood = 30
+	var cost := {"gold": 120, "wood": 30, "iron": 0}
+	_cover_exactly(cost)
+	assert_false(FleetManager.equip_module(idx, module), "unaffordable without cover")
+	assert_true(FleetManager.equip_module(idx, module, true), "covered with Eights")
+	assert_eq(FleetManager.owned_ships[idx].get_module_in_slot(module.slot), module)
+	assert_eq(ResourceManager.get_resource(EIGHTS), 0)
+	FleetManager.owned_ships = saved

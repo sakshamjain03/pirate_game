@@ -89,10 +89,16 @@ func test_entitlement_survives_a_simulated_new_game():
 	EntitlementManager._entitlements.erase(_TEST_COSMETIC_ID)
 	EntitlementManager.grant(_TEST_COSMETIC_ID, "test")
 
-	# MainMenu._on_new_game_pressed()'s own actions: delete the save, reset
-	# ResourceManager. Neither touches EntitlementManager at all — that
+	# MainMenu._start_new_game()'s own actions: delete the save, reset every
+	# campaign autoload. Neither touches EntitlementManager at all — that
 	# absence of interaction IS the requirement (Req 1.3).
+	var saved := {}
+	for m in SaveManager._NEW_GAME_RESET_MANAGERS:
+		saved[m] = get_tree().root.get_node(m).get_save_data().duplicate(true)
 	SaveManager.delete_save()
+	SaveManager.reset_to_new_game()
+	for m in saved:
+		get_tree().root.get_node(m).load_save_data(saved[m])
 
 	assert_true(EntitlementManager.has_entitlement(_TEST_COSMETIC_ID),
 		"an entitlement must survive starting a new game")

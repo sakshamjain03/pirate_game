@@ -218,7 +218,7 @@ func get_active_owned_ship() -> OwnedShipData:
 	return null
 
 
-func level_up_ship(index: int) -> bool:
+func level_up_ship(index: int, allow_cover: bool = false) -> bool:
 	if index < 0 or index >= owned_ships.size():
 		return false
 	var owned := owned_ships[index]
@@ -228,7 +228,7 @@ func level_up_ship(index: int) -> bool:
 	if not owned.can_level_up_ship():
 		return false
 	var cost := owned.get_level_up_cost()
-	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
+	if not ResourceManager or not ResourceManager.pay(cost, allow_cover):
 		return false
 	owned.level += 1
 	if AudioManager: AudioManager.play_sound("level_up")
@@ -237,7 +237,7 @@ func level_up_ship(index: int) -> bool:
 	return true
 
 
-func upgrade_component(index: int, component_id: String) -> bool:
+func upgrade_component(index: int, component_id: String, allow_cover: bool = false) -> bool:
 	## M23 Requirement 3 — raise one part of a hull by a level, capped at the
 	## ship's own level (OwnedShipData.can_upgrade_component).
 	if index < 0 or index >= owned_ships.size():
@@ -246,7 +246,7 @@ func upgrade_component(index: int, component_id: String) -> bool:
 	if not owned.can_upgrade_component(component_id):
 		return false
 	var cost := owned.get_component_upgrade_cost(component_id)
-	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
+	if not ResourceManager or not ResourceManager.pay(cost, allow_cover):
 		return false
 	owned.component_levels[component_id] = owned.get_component_level(component_id) + 1
 	if AudioManager: AudioManager.play_sound("level_up")
@@ -255,14 +255,14 @@ func upgrade_component(index: int, component_id: String) -> bool:
 	return true
 
 
-func equip_module(index: int, module: ShipModuleData) -> bool:
+func equip_module(index: int, module: ShipModuleData, allow_cover: bool = false) -> bool:
 	if index < 0 or index >= owned_ships.size() or not module:
 		return false
 	var owned := owned_ships[index]
 	if owned.ship_stats and not module.is_compatible_with_class(owned.ship_stats.ship_class):
 		return false
 	var cost := {"gold": module.cost_gold, "wood": module.cost_wood, "iron": module.cost_iron}
-	if not ResourceManager or not ResourceManager.can_afford(cost) or not ResourceManager.spend_resources(cost):
+	if not ResourceManager or not ResourceManager.pay(cost, allow_cover):
 		return false
 	owned_ships[index].equip_module(module)
 	fleet_changed.emit()

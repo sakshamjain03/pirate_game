@@ -117,6 +117,12 @@ func load_save_data(data: Dictionary) -> void:
 	unlocked_techs.clear()
 	if data.has("unlocked"):
 		for p in data["unlocked"]:
-			if ResourceLoader.exists(p):
-				unlocked_techs.append(load(p))
+			var tech = load(p) if ResourceLoader.exists(p) else null
+			if tech is TechData:
+				unlocked_techs.append(tech)
+			else:
+				# CLAUDE.md fragile area: an unresolvable id must be loud, never a
+				# silent skip — dropping it here quietly un-researches the tech on
+				# the next save.
+				push_error("TechManager: saved tech '%s' could not be resolved; dropped from unlocked techs." % p)
 	_recalculate_modifiers()

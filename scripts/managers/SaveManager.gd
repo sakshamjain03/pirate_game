@@ -34,6 +34,9 @@ const SAVE_SCHEMA_VERSION := 1
 ## preload rather than the bare global class name — see the matching note in SettingsMenu.gd;
 ## headless GUT runs don't always have a freshly rebuilt global-script-class cache.
 const ChoiceDialogScript := preload("res://scripts/ui/ChoiceDialog.gd")
+## Same reason as ChoiceDialogScript: a bare class_name reference resolves through the
+## global class cache, which a stale .godot/ cache (e.g. a fresh worktree) can miss.
+const MaelstromRecordScript := preload("res://scripts/modes/MaelstromRecord.gd")
 
 var _save_timer: float = 0.0
 var _auto_save_interval: float = 60.0
@@ -81,6 +84,51 @@ func _ready() -> void:
 	# fresh_sign_in, not signed_in — a background token refresh also emits signed_in (for UI
 	# reactivity) and must NOT re-trigger a cloud-conflict check mid-session. See AuthManager.gd.
 	AuthManager.fresh_sign_in.connect(_on_signed_in)
+	# Deferred: this is the first autoload, so the managers below haven't run their own
+	# _ready() yet. By idle time they have, and nothing has loaded a save (Boot only
+	# loads settings), so this captures exactly the state a fresh process starts in.
+	call_deferred("_capture_fresh_state")
+
+
+## The campaign-state autoloads a New Game must return to their boot state. Each one's
+## load_save_data() fully replaces its state when handed a complete get_save_data()
+## snapshot. ScheduleManager has its own reset(); TutorialManager has its own New Game
+## session calls (MainMenu); EntitlementManager (owned cosmetics) deliberately survives.
+const _NEW_GAME_RESET_MANAGERS := [
+	"ResourceManager", "FleetManager", "TechManager", "FactionManager",
+	"EmpireManager", "CampaignManager", "SeasonalEventManager",
+]
+var _fresh_state: Dictionary = {}
+
+
+func _capture_fresh_state() -> void:
+	for manager_name in _NEW_GAME_RESET_MANAGERS:
+		var manager := get_node_or_null("/root/" + manager_name)
+		if manager and manager.has_method("get_save_data"):
+			_fresh_state[manager_name] = manager.get_save_data().duplicate(true)
+
+
+## New Game used to delete the save file and reset four resources, and nothing else.
+## Every other manager is an autoload, and load_game() skips a section a save doesn't
+## have, so a New Game after playing in the same session (World -> Main Menu -> New
+## Game) kept the previous run's chapter progress, fleet, techs, notoriety/heat,
+## reputation and running timers. It also replaced current_resources with a dict with
+## no "eights" key, so add_resource() rejected even chapter-reward Eights as unknown.
+func reset_to_new_game() -> void:
+	# Base caps first: warehouses from the old run no longer exist.
+	if ResourceManager.has_method("recalculate_storage_capacity"):
+		ResourceManager.recalculate_storage_capacity()
+	for manager_name in _NEW_GAME_RESET_MANAGERS:
+		var manager := get_node_or_null("/root/" + manager_name)
+		if not manager or not manager.has_method("load_save_data"):
+			continue
+		if not _fresh_state.has(manager_name):
+			push_error("SaveManager: no boot snapshot for %s; New Game cannot reset it." % manager_name)
+			continue
+		manager.load_save_data(_fresh_state[manager_name].duplicate(true))
+	var schedule := get_node_or_null("/root/ScheduleManager")
+	if schedule and schedule.has_method("reset"):
+		schedule.reset()
 
 func _process(delta: float) -> void:
 	if not get_tree().current_scene or get_tree().current_scene.name != "World":
@@ -721,7 +769,7 @@ func _get_dialog_parent() -> Node:
 ## byte-for-byte as it was. With no campaign save yet, both wait in
 ## MAELSTROM_PENDING_PATH instead. Returns the updated record.
 func save_maelstrom_result(eights: int, seconds: float, level: int) -> Dictionary:
-	var record := MaelstromRecord.new()
+	var record = MaelstromRecordScript.new()
 	record.load_save_data(load_maelstrom_record())
 	record.merge_run(seconds, level)
 	var record_data := record.get_save_data()
@@ -810,7 +858,7 @@ func _patch_eights_outside_world(eights: int, maelstrom_record: Dictionary) -> b
 ## M26 — the record as it stands on disk right now (campaign section + anything
 ## pending), so a run started cold from the main menu still shows the true best.
 func load_maelstrom_record() -> Dictionary:
-	var record := MaelstromRecord.new()
+	var record = MaelstromRecordScript.new()
 	if has_save_data():
 		var data: Dictionary = _read_save_file(SAVE_PATH)["data"]
 		if data.get("maelstrom") is Dictionary:
@@ -842,7 +890,7 @@ func _claim_pending_maelstrom() -> void:
 	if eights > 0:
 		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, eights)
 	if pending.get("record") is Dictionary:
-		var record := MaelstromRecord.new()
+		var record = MaelstromRecordScript.new()
 		record.load_save_data(_maelstrom_data)
 		record.merge_record(pending["record"])
 		_maelstrom_data = record.get_save_data()

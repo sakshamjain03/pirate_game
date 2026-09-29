@@ -340,8 +340,29 @@ func _apply_mobile_safe_area() -> void:
 		var pause_btn_to_nudge: Control = mobile_controls_for_pause.btn_pause \
 			if mobile_controls_for_pause and "btn_pause" in mobile_controls_for_pause else null
 		if pause_btn_to_nudge:
-			pause_btn_to_nudge.position = Vector2(
-				health_container.position.x, health_container.get_global_rect().end.y + 12.0)
+			var hull_rect: Rect2 = health_container.get_global_rect()
+			pause_btn_to_nudge.position = Vector2(hull_rect.position.x, hull_rect.end.y + 12.0)
+			# Left-handed puts the action cluster on this edge, directly under
+			# Pause, and a 19.5:9 phone has no height to spare for both. Beside
+			# the hull bar keeps Pause top-left without costing the cluster its
+			# touch-target size.
+			if MobileLayoutManager.is_left_handed():
+				pause_btn_to_nudge.position = Vector2(hull_rect.end.x + 12.0,
+					hull_rect.get_center().y - pause_btn_to_nudge.size.y * 0.5)
+		# The fire buttons stack above the right-thumb action cluster; keep them
+		# below TopRightPanel's real bottom edge (the notoriety card), which only
+		# this function measures.
+		if mobile_controls_for_pause and top_right_panel \
+				and mobile_controls_for_pause.has_method("fit_combat_cluster_below"):
+			# Whatever sits above the thumb cluster on its own side: the notoriety
+			# card (right-handed) or the hull bar with Pause beside it
+			# (left-handed, where the action cluster moves to the left edge).
+			var limit_rect: Rect2 = top_right_panel.get_global_rect()
+			if MobileLayoutManager.is_left_handed():
+				limit_rect = health_container.get_global_rect()
+				if pause_btn_to_nudge:
+					limit_rect = limit_rect.merge(pause_btn_to_nudge.get_global_rect())
+			mobile_controls_for_pause.fit_combat_cluster_below(limit_rect.end.y + 12.0)
 	if mobile_utility_menu_button:
 		var opener: Control = mobile_utility_menu_button.get_parent()
 		var button_size := opener.get_combined_minimum_size()

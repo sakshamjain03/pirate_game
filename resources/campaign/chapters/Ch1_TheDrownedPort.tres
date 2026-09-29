@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Docking.tres" id="L_Ch1_Docking"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_IslandMenu.tres" id="L_Ch1_IslandMenu"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Building.tres" id="L_Ch1_Building"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Timers.tres" id="L_Ch1_Timers"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Storage.tres" id="L_Ch1_Storage"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_ManualFire.tres" id="L_Ch1_ManualFire"]
 [ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Ammo.tres" id="L_Ch1_Ammo"]
@@ -165,6 +166,6 @@ log_summary = "Claimed and raised Port Royal from the ruin the Crown and every e
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3"), SubResource("Open_4")])
 objectives = Array[ObjectiveData]([SubResource("Obj_1_1"), SubResource("Obj_1_2"), SubResource("Obj_1_3"), SubResource("Obj_1_4"), SubResource("Obj_1_5"), SubResource("Obj_1_6"), SubResource("Obj_1_10"), SubResource("Obj_1_7"), SubResource("Obj_1_8"), SubResource("Obj_1_9")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3"), SubResource("Close_4")])
-lessons = Array[LessonData]([ExtResource("L_Ch1_Sailing"), ExtResource("L_Ch1_Docking"), ExtResource("L_Ch1_IslandMenu"), ExtResource("L_Ch1_Building"), ExtResource("L_Ch1_Storage"), ExtResource("L_Ch1_ManualFire"), ExtResource("L_Ch1_Ammo"), ExtResource("L_Ch1_Captains")])
+lessons = Array[LessonData]([ExtResource("L_Ch1_Sailing"), ExtResource("L_Ch1_Docking"), ExtResource("L_Ch1_IslandMenu"), ExtResource("L_Ch1_Building"), ExtResource("L_Ch1_Timers"), ExtResource("L_Ch1_Storage"), ExtResource("L_Ch1_ManualFire"), ExtResource("L_Ch1_Ammo"), ExtResource("L_Ch1_Captains")])
 reward_gold = 300
 reward_eights = 10

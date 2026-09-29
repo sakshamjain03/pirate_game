@@ -1,8 +1,13 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=16 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
 [ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Repair.tres" id="L_Ch2_Repair"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Timers.tres" id="L_Ch2_Timers"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_ShipClasses.tres" id="L_Ch2_ShipClasses"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Boarding.tres" id="L_Ch2_Boarding"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch2_Capture.tres" id="L_Ch2_Capture"]
 
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
@@ -90,6 +95,22 @@ target_id = "gold"
 target_value = 2000.0
 is_optional = true
 
+[sub_resource type="Resource" id="Obj_2_10"]
+script = ExtResource("2_objective")
+objective_id = "2.10"
+description = "Patch her up in port"
+condition = 21
+target_count = 1
+hint_text = "Dock with a damaged hull and let her mend, or pay the shipyard to repair her."
+
+[sub_resource type="Resource" id="Obj_2_9"]
+script = ExtResource("2_objective")
+objective_id = "2.9"
+description = "Shred a raider's rigging"
+condition = 16
+target_count = 1
+hint_text = "Load chain shot and bring a raider's sails down to nothing."
+
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "higgins"
@@ -114,7 +135,8 @@ title = "Blood in the Shallows"
 log_summary = "Refused Blackjaw Morrow's tithe and took Skull Cove — notoriety enough to draw the Crown's eye."
 required_previous_chapter = "ch1_the_drowned_port"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
-objectives = Array[ObjectiveData]([SubResource("Obj_2_1"), SubResource("Obj_2_2"), SubResource("Obj_2_3"), SubResource("Obj_2_4"), SubResource("Obj_2_5"), SubResource("Obj_2_6"), SubResource("Obj_2_7"), SubResource("Obj_2_8")])
+objectives = Array[ObjectiveData]([SubResource("Obj_2_1"), SubResource("Obj_2_2"), SubResource("Obj_2_10"), SubResource("Obj_2_3"), SubResource("Obj_2_4"), SubResource("Obj_2_9"), SubResource("Obj_2_5"), SubResource("Obj_2_6"), SubResource("Obj_2_7"), SubResource("Obj_2_8")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2")])
+lessons = Array[LessonData]([ExtResource("L_Ch2_Repair"), ExtResource("L_Ch2_Timers"), ExtResource("L_Ch2_ShipClasses"), ExtResource("L_Ch2_Boarding"), ExtResource("L_Ch2_Capture")])
 reward_gold = 800
 reward_eights = 15

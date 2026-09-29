@@ -330,7 +330,10 @@ func test_empty_trigger_arg_matches_any_job():
 
 func test_heat_lesson_fires_only_on_a_rise():
 	var lesson := _lesson("heat", LessonData.Trigger.HEAT_TIER_UP)
-	CampaignManager.chapters = [_chapter("ch1", 1, [], [lesson])]
+	# Pending objective: a downward crossing runs LOWER_HEAT's dispatch, which
+	# would complete an objective-less chapter mid-test.
+	var objectives: Array[ObjectiveData] = [_objective("x.1", ObjectiveData.Condition.DOCK_AT_ISLAND, "far")]
+	CampaignManager.chapters = [_chapter("ch1", 1, objectives, [lesson])]
 	_add_card_marker()
 	CampaignManager._catch_up()
 	watch_signals(CampaignManager)
@@ -534,3 +537,91 @@ func test_a_chapter_started_before_any_dialogue_existed_shows_its_opening_once()
 	dialogue.hide()
 	dialogue.show_missed_opening()
 	assert_false(dialogue.visible, "Continue must never replay an opening already shown")
+
+
+# === Task 8 — skip / replay ===
+
+class MockShip extends Node3D:
+	var faction: Resource = null
+	var ship_stats: ShipStats = null
+
+const _COMPLETION_PATH := "user://tutorial_state.json"
+
+
+func test_new_game_offers_teach_first_to_a_new_player():
+	var labels := MainMenu.new_game_lesson_choices(false)
+	assert_eq(labels[0], "Teach me the ropes")
+	assert_true(MainMenu.wants_lessons_for(0, false))
+	assert_false(MainMenu.wants_lessons_for(1, false))
+
+
+func test_new_game_defaults_a_returning_player_to_skip():
+	## Requirement 3.1 — ChoiceDialog focuses its first button.
+	var labels := MainMenu.new_game_lesson_choices(true)
+	assert_eq(labels[0], "I know these waters")
+	assert_false(MainMenu.wants_lessons_for(0, true))
+	assert_true(MainMenu.wants_lessons_for(1, true))
+
+
+func test_i_know_these_waters_keeps_chapter_1_but_fires_no_lessons():
+	## Requirement 3.2 — a scripted Chapter 1 after "I know these waters": every
+	## tab open, no lesson fires, every objective still completes and the
+	## chapter's rewards are still granted.
+	var had_file := FileAccess.file_exists(_COMPLETION_PATH)
+	var backup := FileAccess.get_file_as_string(_COMPLETION_PATH) if had_file else ""
+	var saved_active: bool = TutorialManager.tutorial_active
+	var saved_completed: bool = TutorialManager.tutorial_completed
+	var saved_unlocked: Array = TutorialManager._unlocked_ui.duplicate()
+
+	TutorialManager.tutorial_completed = false
+	TutorialManager.start_new_game_session()
+	TutorialManager.start_new_game_lessons(false)
+	TutorialManager.skip_tutorial()
+
+	var ch1 := load("res://resources/campaign/chapters/Ch1_TheDrownedPort.tres") as ChapterData
+	CampaignManager.chapters = [ch1]
+	_add_card_marker()
+	ResourceManager.current_resources[ResourceManager.PREMIUM_CURRENCY] = 0
+	watch_signals(CampaignManager)
+	CampaignManager._catch_up()
+
+	for tab in ["tab_fleet", "tab_research", "tab_trade"]:
+		assert_true(TutorialManager.is_ui_unlocked(tab), "%s must be open from the start" % tab)
+
+	CampaignManager._on_player_docked("port_royal")                  # 1.1
+	CampaignManager._on_island_captured("port_royal")                # 1.2
+	for building in ["farm_l1", "lumber_mill_l1", "warehouse_l1", "tavern_l1"]:
+		CampaignManager._on_structure_changed(building, false)       # 1.3 1.4 1.5 1.7
+	var clans := FactionData.new()
+	clans.faction_id = "pirate_clans"
+	for i in 3:                                                      # 1.6
+		var ship := MockShip.new()
+		ship.faction = clans
+		autoqfree(ship)
+		CampaignManager._on_ship_destroyed(ship)
+	CampaignManager._player_ammo_id = "round"
+	CampaignManager._on_player_ammo_changed(load("res://resources/combat/ammo/ChainShot.tres"))  # 1.10
+	CampaignManager._on_captain_recruited(CaptainData.new())         # 1.8
+
+	assert_signal_emitted(CampaignManager, "chapter_completed", "Chapter 1 still completes")
+	assert_signal_emit_count(CampaignManager, "lesson_requested", 0, "no lesson fires when skipped")
+	assert_gt(int(ResourceManager.current_resources.get(ResourceManager.PREMIUM_CURRENCY, 0)), 0,
+		"Chapter 1's rewards are still granted")
+
+	TutorialManager.tutorial_active = saved_active
+	TutorialManager.tutorial_completed = saved_completed
+	TutorialManager._unlocked_ui.assign(saved_unlocked)
+	if had_file:
+		var f := FileAccess.open(_COMPLETION_PATH, FileAccess.WRITE)
+		f.store_string(backup)
+		f.close()
+	elif FileAccess.file_exists(_COMPLETION_PATH):
+		DirAccess.open("user://").remove("tutorial_state.json")
+
+
+func test_replay_after_skipping_turns_lessons_back_on():
+	TutorialManager.start_new_game_lessons(false)
+	TutorialManager.mark_seen("ch1_sailing")
+	TutorialManager.replay_lessons()
+	assert_true(TutorialManager.lessons_enabled)
+	assert_false(TutorialManager.has_seen("ch1_sailing"))

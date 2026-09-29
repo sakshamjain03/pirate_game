@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch4_world_map"
+title = "Charts"
+body = "Open the map to see every island you've found. Pick one and Set Course — a marker guides you there."
+trigger = 1
+trigger_arg = "4.9"
+highlight_group = &"hud_world_map_button"

@@ -31,6 +31,8 @@ const _SECONDARY_SIZE := Vector2(300, 92)
 const _GEAR_SIZE := Vector2(96, 96)
 
 var _tween: Tween
+## Guards a second New Game press while the lessons prompt is already up.
+var _new_game_prompt_open := false
 
 func _ready() -> void:
 	_apply_theme()
@@ -92,6 +94,34 @@ func _on_continue_pressed() -> void:
 	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 func _on_new_game_pressed() -> void:
+	## M28 Requirement 3.1 — lessons are a New Game choice. The story, objectives
+	## and rewards run either way; only the coach-card hints are skipped.
+	if _new_game_prompt_open:
+		return
+	_new_game_prompt_open = true
+	var returning: bool = TutorialManager.tutorial_completed
+	var choice: int = await ChoiceDialog.new(
+		tr("New Game"),
+		tr("Short hints appear as each part of the game comes up. The story plays either way."),
+		new_game_lesson_choices(returning)
+	).ask(self)
+	_new_game_prompt_open = false
+	_start_new_game(wants_lessons_for(choice, returning))
+
+
+## ChoiceDialog focuses its first button, so a returning player (onboarding
+## already finished once on this install) gets "I know these waters" first.
+static func new_game_lesson_choices(returning: bool) -> PackedStringArray:
+	var teach := TranslationServer.translate("Teach me the ropes")
+	var skip := TranslationServer.translate("I know these waters")
+	return PackedStringArray([skip, teach]) if returning else PackedStringArray([teach, skip])
+
+
+static func wants_lessons_for(choice: int, returning: bool) -> bool:
+	return choice == 1 if returning else choice == 0
+
+
+func _start_new_game(wants_lessons: bool) -> void:
 	SaveManager.delete_save()
 	AnalyticsManager.log_first_event("new_game_started")
 	# Reset resources for fresh start since it's an autoload
@@ -99,6 +129,11 @@ func _on_new_game_pressed() -> void:
 		"gold": 200, "wood": 50, "iron": 20, "rum": 10
 	}
 	TutorialManager.start_new_game_session()
+	TutorialManager.start_new_game_lessons(wants_lessons)
+	if not wants_lessons:
+		# "I know these waters": every tab open from the start. Chapter 1's
+		# dialogue, objectives and rewards still run (Requirement 3.2).
+		TutorialManager.skip_tutorial()
 	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 ## M26 Requirement 1.1/1.2 — the endless survival mode, available from a fresh

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch2_capture"
+title = "Taking an Island"
+body = "An enemy island is held by the ship guarding its harbour. Sink that defender and the island is yours."
+trigger = 1
+trigger_arg = "2.7"
+highlight_group = &""

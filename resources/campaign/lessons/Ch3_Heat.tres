@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch3_heat"
+title = "Heat"
+body = "Your notoriety sets your Heat. The hotter you run, the more ships attack on sight and the harder the hunters that come for you."
+trigger = 5
+trigger_arg = ""
+highlight_group = &"hud_notoriety"

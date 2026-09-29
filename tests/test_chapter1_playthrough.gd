@@ -44,7 +44,7 @@ func test_chapter_1_starts_immediately_on_a_new_game():
 	var chapter := CampaignManager._current_chapter()
 	assert_not_null(chapter, "Chapter 1 has no gate — it must be current from the first frame")
 	assert_eq(chapter.chapter_id, "ch1_the_drowned_port")
-	assert_eq(chapter.objectives.size(), 9)
+	assert_eq(chapter.objectives.size(), 10)  # M28 added 1.10 (load chain shot)
 
 
 func test_playing_chapter_1_for_real_completes_it_with_its_authored_reward():
@@ -67,6 +67,8 @@ func test_playing_chapter_1_for_real_completes_it_with_its_authored_reward():
 		ship.faction = pirate_faction
 		add_child_autoqfree(ship)
 		CampaignManager._on_ship_destroyed(ship)
+	# 1.10 (M28) swap to chain shot
+	_swap_to_chain_shot()
 	# 1.8 recruit a captain
 	CampaignManager._on_captain_recruited(null)
 
@@ -90,6 +92,7 @@ func test_the_optional_tier_objective_does_not_block_completion():
 		ship.faction = pirate_faction
 		add_child_autoqfree(ship)
 		CampaignManager._on_ship_destroyed(ship)
+	_swap_to_chain_shot()
 	CampaignManager._on_captain_recruited(null)
 
 	assert_true(CampaignManager.is_chapter_completed("ch1_the_drowned_port"),
@@ -109,8 +112,15 @@ func test_completing_chapter_1_hands_off_to_chapter_2():
 		ship.faction = pirate_faction
 		add_child_autoqfree(ship)
 		CampaignManager._on_ship_destroyed(ship)
+	_swap_to_chain_shot()
 	CampaignManager._on_captain_recruited(null)
 
 	var chapter := CampaignManager._current_chapter()
 	assert_not_null(chapter, "Chapter 2 has no gate beyond ch1's completion — it must become current")
 	assert_eq(chapter.chapter_id, "ch2_blood_in_the_shallows")
+
+
+## M28 — 1.10 "Load chain shot" is mandatory: a change to a different ammo.
+func _swap_to_chain_shot() -> void:
+	CampaignManager._player_ammo_id = "round"
+	CampaignManager._on_player_ammo_changed(load("res://resources/combat/ammo/ChainShot.tres"))

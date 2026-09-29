@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch1_island_menu"
+title = "Your Harbour"
+body = "Docked, the island menu opens: claim, build, trade and outfit from here. Undock when you're ready to sail."
+trigger = 3
+trigger_arg = ""
+highlight_group = &""

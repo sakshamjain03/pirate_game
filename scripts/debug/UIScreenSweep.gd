@@ -282,6 +282,7 @@ func _run_hud_states() -> void:
 		tutorial.hide()
 	await _settle(3)
 	await _capture("00b_world_hud_clean")
+	await _capture_lesson_card()
 
 	var mobile_controls: Node = _hud.get_node_or_null("MobileControls")
 	_hud.set_health(18.0, 100.0)
@@ -348,6 +349,24 @@ The Spanish Empire is hunting you!")
 ## player's capital with a shipyard + tavern IN MEMORY ONLY (duplicated
 ## IslandData, appended BuildingData), capture every tab, then restore both.
 ## Nothing is saved; no building models are spawned.
+## M28 — a real authored lesson on the in-world coach card, with its
+## highlight, to check the card clears the resource bar and the thumb clusters.
+func _capture_lesson_card() -> void:
+	var card: LessonCoachCard = _hud.get_node_or_null("TopRightPanel/LessonCoachCard")
+	if not card:
+		card = get_tree().get_first_node_in_group(LessonCoachCard.GROUP)
+	if not card:
+		push_error("UIScreenSweep: no LessonCoachCard in the HUD")
+		return
+	card.enqueue(load("res://resources/campaign/lessons/Ch1_Ammo.tres"))
+	card.set_process(false)   # hold it on screen past display_seconds
+	await _settle(4)
+	await _capture("00h_lesson_card")
+	card.dismiss()
+	card.set_process(true)
+	await _settle(2)
+
+
 func _capture_owned_island_menu(island: Node3D) -> void:
 	if not ("island_data" in island) or not island.island_data or not ("built_buildings" in island):
 		return
@@ -441,6 +460,12 @@ func _run_standalone_menus() -> void:
 	# the settled screen, not mid-fade (see _wait_seconds()'s own header).
 	await _wait_seconds(1.8)
 	await _capture("10_main_menu")
+	# M28 — the real New Game path: MainMenu asks about lessons before
+	# anything is reset. Never answered here (the menu is freed with the
+	# prompt still up), so no save is deleted and no scene change runs.
+	main_menu._on_new_game_pressed()
+	await _settle(4)
+	await _capture("10b_new_game_lessons_prompt")
 	main_menu.queue_free()
 	await _settle(2)
 

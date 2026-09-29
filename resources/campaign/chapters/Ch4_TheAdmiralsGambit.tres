@@ -1,8 +1,11 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=16 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
 [ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch4_WorldMap.tres" id="L_Ch4_WorldMap"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch4_Research.tres" id="L_Ch4_Research"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch4_Factions.tres" id="L_Ch4_Factions"]
 
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
@@ -90,6 +93,25 @@ target_id = "intransigent"
 target_count = 1
 is_optional = true
 
+[sub_resource type="Resource" id="Obj_4_9"]
+script = ExtResource("2_objective")
+objective_id = "4.9"
+description = "Plot a course to the cay"
+condition = 20
+target_id = "pelican_cay"
+target_count = 1
+hint_text = "Open the map, pick Pelican Cay and Set Course."
+
+[sub_resource type="Resource" id="Obj_4_10"]
+script = ExtResource("2_objective")
+objective_id = "4.10"
+description = "Earn the merchants' trust"
+condition = 19
+target_id = "merchant_guild"
+target_count = 1
+target_value = 35.0
+hint_text = "Run trade routes or patrols, or pay the Guild tribute from the trade tab."
+
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
@@ -119,7 +141,8 @@ title = "The Admiral's Gambit"
 log_summary = "Followed Admiral Vance to Frostbite Reef and sank HMS Intransigent — the first real boss, and the first true loss for the Crown."
 required_previous_chapter = "ch3_the_kings_answer"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
-objectives = Array[ObjectiveData]([SubResource("Obj_4_1"), SubResource("Obj_4_2"), SubResource("Obj_4_3"), SubResource("Obj_4_4"), SubResource("Obj_4_5"), SubResource("Obj_4_6"), SubResource("Obj_4_7"), SubResource("Obj_4_8")])
+objectives = Array[ObjectiveData]([SubResource("Obj_4_9"), SubResource("Obj_4_1"), SubResource("Obj_4_2"), SubResource("Obj_4_3"), SubResource("Obj_4_4"), SubResource("Obj_4_10"), SubResource("Obj_4_5"), SubResource("Obj_4_6"), SubResource("Obj_4_7"), SubResource("Obj_4_8")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+lessons = Array[LessonData]([ExtResource("L_Ch4_WorldMap"), ExtResource("L_Ch4_Research"), ExtResource("L_Ch4_Factions")])
 reward_gold = 3000
 reward_eights = 40

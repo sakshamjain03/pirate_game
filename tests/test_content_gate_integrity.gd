@@ -26,6 +26,7 @@ const ISLAND_CONDITIONS := [
 	ObjectiveData.Condition.CAPTURE_ISLAND,
 	ObjectiveData.Condition.DISCOVER_ISLAND,
 	ObjectiveData.Condition.DOCK_AT_ISLAND,
+	ObjectiveData.Condition.SET_COURSE,   # M28
 ]
 
 var _enabled_island_ids: Array[String] = []

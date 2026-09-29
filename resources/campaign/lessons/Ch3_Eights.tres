@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch3_eights"
+title = "Pieces of Eight"
+body = "Pieces of Eight are rare coin, earned from chapters. Spend them to cool your Heat or finish work early — never needed, always handy."
+trigger = 6
+trigger_arg = ""
+highlight_group = &""

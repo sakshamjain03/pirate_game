@@ -35,6 +35,13 @@ var _completed_objective_ids: Array[String] = []
 ## compare against (a rise/fall is only visible relative to the previous value).
 var _last_heat_level: int = 0
 var _player_pool_last: Dictionary = {}   # pool -> float
+var _player_ammo_id: String = ""
+## Enemy instance ids already counted for CRIPPLE_SAILS — a ship whose sails
+## are shot to zero twice (repair, then again) is still one crippled ship.
+var _crippled_ship_ids: Dictionary = {}
+## The player's DockingSystem (scene-local, replaced per World). Read-only:
+## REPAIR_SHIP only counts a repair made while docked.
+var _docking_system: Node = null
 
 
 func _ready() -> void:
@@ -73,6 +80,10 @@ func _connect_global_signals() -> void:
 	if FleetManager:
 		FleetManager.captain_recruited.connect(_on_captain_recruited)
 		FleetManager.fleet_changed.connect(_on_fleet_changed)
+		if FleetManager.has_signal("active_ship_changed"):
+			FleetManager.active_ship_changed.connect(_on_active_ship_changed)
+	if FactionManager and FactionManager.has_signal("reputation_changed"):
+		FactionManager.reputation_changed.connect(_on_reputation_changed)
 	if TechManager:
 		TechManager.tech_unlocked.connect(_on_tech_unlocked)
 	if ResourceManager:
@@ -122,6 +133,21 @@ func on_world_ready(world_manager: Node) -> void:
 	_connect_player_ship()
 	_connect_schedule_manager()
 	_seed_heat_level()
+	_docking_system = world_manager.get_node_or_null("../DockingSystem") if world_manager else null
+
+	var world_map := get_tree().get_first_node_in_group("world_map_screen")
+	if world_map and world_map.has_signal("course_requested") \
+			and not world_map.course_requested.is_connected(_on_course_requested):
+		world_map.course_requested.connect(_on_course_requested)
+
+	# CRIPPLE_SAILS needs every enemy hull's pools, and enemies arrive by three
+	# routes with no shared spawn signal (EnemySpawner roamers, EncounterManager
+	# compositions, Island defenders added via call_deferred). The "enemy_ship"
+	# scene group is the one thing they share: sweep it now, then catch new ones.
+	for enemy in get_tree().get_nodes_in_group("enemy_ship"):
+		_watch_enemy(enemy)
+	if not get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.connect(_on_node_added)
 	# Deferred: the coach card is created by WorldHUD, and a lesson only fires
 	# (and is marked seen) while a card exists to show it.
 	call_deferred("_refire_world_ready_lessons")
@@ -438,6 +464,87 @@ func _on_resources_changed(resources: Dictionary) -> void:
 	_check_chapter_complete(chapter)
 
 
+# --- M28 conditions ---
+
+## SWAP_AMMO. ammo_changed also fires from any set_ammo(), so only a change to a
+## DIFFERENT ammo counts — re-selecting the loaded shot, or a load/ship-swap that
+## sets the same one, is not a swap.
+func _on_player_ammo_changed(ammo: AmmoData) -> void:
+	var ammo_id: String = ammo.ammo_id if ammo else ""
+	var previous := _player_ammo_id
+	_player_ammo_id = ammo_id
+	if ammo_id.is_empty() or ammo_id == previous:
+		return
+	_for_each_matching(ObjectiveData.Condition.SWAP_AMMO, ammo_id, func(o): _advance_objective(o, 1))
+
+
+func _on_node_added(node: Node) -> void:
+	if node.is_in_group("enemy_ship"):
+		# Deferred: the root enters the tree before its children finish entering.
+		_watch_enemy.call_deferred(node)
+
+
+func _watch_enemy(enemy: Node) -> void:
+	if not is_instance_valid(enemy) or enemy.has_meta(&"_m28_sails_watched"):
+		return
+	var damage := enemy.get_node_or_null("ShipDamage")
+	if not damage or not damage.has_signal("pool_changed"):
+		return
+	enemy.set_meta(&"_m28_sails_watched", true)
+	damage.pool_changed.connect(_on_enemy_pool_changed.bind(enemy))
+
+
+## CRIPPLE_SAILS: an enemy's sails shot to zero, counted once per ship, and
+## only if the player is the one fighting it — EnemyAI.provoke() is set by a
+## player cannonball, ram or boarding attempt, never by enemies hitting each other.
+func _on_enemy_pool_changed(pool: String, current: float, _maximum: float, enemy: Node) -> void:
+	if pool != "sails" or current > 0.0 or not is_instance_valid(enemy):
+		return
+	var key := enemy.get_instance_id()
+	if _crippled_ship_ids.has(key):
+		return
+	var ai := enemy.get_node_or_null("EnemyAI")
+	if not ai or not ai.has_method("is_provoked") or not ai.is_provoked():
+		return
+	_crippled_ship_ids[key] = true
+	var faction_id := ""
+	if "faction" in enemy and enemy.get("faction"):
+		faction_id = str(enemy.get("faction").get("faction_id"))
+	_for_each_matching(ObjectiveData.Condition.CRIPPLE_SAILS, faction_id, func(o): _advance_objective(o, 1))
+
+
+## REPAIR_SHIP: ShipDamage.repaired (repair() only — never restore_all()) while
+## the player is docked. Covers the dock's passive repair and the shipyard's.
+func _on_player_repaired(_pool: String, amount: float) -> void:
+	if amount <= 0.0 or not _is_player_docked():
+		return
+	_for_each_matching(ObjectiveData.Condition.REPAIR_SHIP, "", func(o): _advance_objective(o, 1))
+
+
+func _is_player_docked() -> bool:
+	if not _docking_system or not is_instance_valid(_docking_system):
+		return false
+	return _docking_system.get("current_state") == DockingSystem.DockState.DOCKED
+
+
+func _on_active_ship_changed(_ship_stats: ShipStats, captain: CaptainData) -> void:
+	if captain == null:
+		return
+	_for_each_matching(ObjectiveData.Condition.ASSIGN_CAPTAIN, "", func(o): _advance_objective(o, 1))
+
+
+func _on_reputation_changed(faction_id: String, new_rep: int) -> void:
+	_for_each_matching(ObjectiveData.Condition.CHANGE_REPUTATION, faction_id,
+		func(o): _advance_level(o, float(new_rep)))
+
+
+func _on_course_requested(island: IslandData) -> void:
+	if not island:
+		return
+	_for_each_matching(ObjectiveData.Condition.SET_COURSE, island.island_id,
+		func(o): _advance_objective(o, 1))
+
+
 func _on_raid_resolved(_report: Dictionary) -> void:
 	## Either outcome satisfies SURVIVE_RAID — being robbed is a lesson, not a
 	## fail state (docs/13_CAMPAIGN_LEVELS_1-5.md §5, Chapter 3's 3.4).
@@ -569,6 +676,11 @@ func _connect_player_ship() -> void:
 	if combat and combat.has_signal("arc_lock_changed") \
 			and not combat.arc_lock_changed.is_connected(_on_player_arc_lock_changed):
 		combat.arc_lock_changed.connect(_on_player_arc_lock_changed)
+	if combat and combat.has_signal("ammo_changed"):
+		var loaded = combat.get("current_ammo")
+		_player_ammo_id = loaded.ammo_id if loaded else ""
+		if not combat.ammo_changed.is_connected(_on_player_ammo_changed):
+			combat.ammo_changed.connect(_on_player_ammo_changed)
 	var damage := player.get_node_or_null("ShipDamage")
 	if damage and damage.has_signal("pool_changed"):
 		_player_pool_last.clear()
@@ -577,6 +689,9 @@ func _connect_player_ship() -> void:
 				_player_pool_last[pool] = float(damage.get(pool))
 		if not damage.pool_changed.is_connected(_on_player_pool_changed):
 			damage.pool_changed.connect(_on_player_pool_changed)
+	if damage and damage.has_signal("repaired") \
+			and not damage.repaired.is_connected(_on_player_repaired):
+		damage.repaired.connect(_on_player_repaired)
 
 
 func _on_player_arc_lock_changed(_side: String, locked: bool) -> void:
@@ -602,6 +717,10 @@ func _on_heat_tier_changed(tier: HeatTierData) -> void:
 	_last_heat_level = level
 	if level > previous:
 		_fire_trigger(LessonData.Trigger.HEAT_TIER_UP)
+	elif level < previous:
+		# LOWER_HEAT — any downward crossing while the chapter is current,
+		# whether by free decay or the optional Eights clear.
+		_for_each_matching(ObjectiveData.Condition.LOWER_HEAT, "", func(o): _advance_objective(o, 1))
 
 
 func _on_job_started(job: Dictionary) -> void:

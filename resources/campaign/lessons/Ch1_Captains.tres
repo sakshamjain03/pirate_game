@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch1_captains"
+title = "Captains"
+body = "Hire captains at the tavern. Each brings a bonus and a special ability to whichever ship they command."
+trigger = 1
+trigger_arg = "1.8"
+highlight_group = &""

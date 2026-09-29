@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch2_timers"
+title = "Work Takes Time"
+body = "Builds, research, new hulls and repairs take time now. The work carries on while you sail — the island menu shows what's in progress."
+trigger = 7
+trigger_arg = ""
+highlight_group = &""

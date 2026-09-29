@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch3_fleet"
+title = "Your Fleet"
+body = "Own more than one hull? The Fleet tab picks which ship you sail and which captain commands her."
+trigger = 1
+trigger_arg = "3.9"
+highlight_group = &""

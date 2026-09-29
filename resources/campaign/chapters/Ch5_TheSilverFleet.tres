@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=18 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
 [ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch5_Maelstrom.tres" id="L_Ch5_Maelstrom"]
 
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
@@ -135,5 +136,6 @@ required_region_id = "imperial_waters"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
 objectives = Array[ObjectiveData]([SubResource("Obj_5_1"), SubResource("Obj_5_2"), SubResource("Obj_5_3"), SubResource("Obj_5_4"), SubResource("Obj_5_5"), SubResource("Obj_5_6"), SubResource("Obj_5_7"), SubResource("Obj_5_8")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3"), SubResource("Close_4")])
+lessons = Array[LessonData]([ExtResource("L_Ch5_Maelstrom")])
 reward_gold = 6000
 reward_eights = 60

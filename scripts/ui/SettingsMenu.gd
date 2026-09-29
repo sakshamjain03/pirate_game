@@ -763,9 +763,13 @@ func _on_back_pressed() -> void:
 	SceneManager.go_back()
 
 func _on_replay_tutorial_pressed() -> void:
-	# Non-destructive: World.gd still calls SaveManager.load_game() on load,
-	# so the player's existing save is untouched — only the tutorial re-arms.
-	TutorialManager.reset_and_replay()
+	# M28 Requirement 3.3 — "Replay lessons": clears the seen set and turns
+	# lessons back on. It used to call reset_and_replay(), which re-locked the
+	# Fleet/Research/Trade tabs until Chapter 1 objectives completed again — a
+	# player past Chapter 1 could never earn them back. Non-destructive: the
+	# save is untouched, and the replay survives the load_save_data() that
+	# World's load_game() runs next (TutorialManager._replay_pending).
+	TutorialManager.replay_lessons()
 	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:

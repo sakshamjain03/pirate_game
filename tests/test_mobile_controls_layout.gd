@@ -303,3 +303,47 @@ func test_context_action_is_primary_only_as_set_sail():
 	assert_ne(context_action.theme_type_variation, &"PrimaryButton", "Dock is not the hero action")
 	for child in context_action.get_children():
 		assert_false(child is PrimaryGlow, "an unmarked button must lose its glow too")
+
+
+# M28 Checkpoint B — the headful phone sweep caught the lesson card (then a
+# TopRightPanel child) covering Ability/Broadside and pushing the notoriety card
+# down onto them; GUT missed it because no test ever showed a lesson on a phone
+# layout. On phones the card now lives in its own band between the thumb
+# clusters. Forces the real phone branch (is_mobile()), not just the menu flag.
+func test_property_a_showing_lesson_card_never_overlaps_a_mobile_button():
+	var was_mobile: bool = PirateThemeBuilder.force_mobile_scaling_for_test
+	PirateThemeBuilder.force_mobile_scaling_for_test = true
+	var sizes: Array[Vector2i] = [Vector2i(2340, 1080), Vector2i(1920, 1080), Vector2i(1024, 768)]
+	for size in sizes:
+		_instantiate_mobile_hud_at_size(size)
+		for _i in 30:
+			if _hud.mobile_utility_menu_button:
+				break
+			await wait_frames(1)
+		_hud.cannons_container.hide()
+		var card: LessonCoachCard = _hud.find_child("LessonCoachCard", true, false)
+		assert_not_null(card, "the HUD must build a coach card")
+		if not card:
+			break
+		assert_eq(card.get_parent().name, "LessonBand", "on a phone the card must not sit in TopRightPanel")
+		card.set_process(false)
+		card.enqueue(load("res://resources/campaign/lessons/Ch1_Ammo.tres"))
+		await wait_frames(3)
+		_hud._apply_mobile_safe_area()
+		# Outlast the pop-in (UIMotion, ~450ms, overshooting to ~1.06x) so the
+		# settled rect is measured, not the mid-animation one.
+		await wait_seconds(0.6)
+		assert_true(card.visible)
+		var card_rect: Rect2 = card.get_global_rect()
+		var buttons: Array = _hud.get_node("MobileControls").find_children("*", "BaseButton", true, false)
+		for btn in buttons:
+			if not btn.is_visible_in_tree():
+				continue
+			assert_false(card_rect.intersects(btn.get_global_rect()),
+				"lesson card %s must not cover %s (%s) at %s" % [card_rect, btn.name, btn.get_global_rect(), size])
+		assert_false(card_rect.intersects(_hud.top_right_panel.get_global_rect()),
+			"lesson card %s must not cover the resource/notoriety cluster %s (scale %s) at %s" % [card_rect, _hud.top_right_panel.get_global_rect(), _hud.top_right_panel.scale, size])
+		_viewport.queue_free()
+		_viewport = null
+		_hud = null
+	PirateThemeBuilder.force_mobile_scaling_for_test = was_mobile

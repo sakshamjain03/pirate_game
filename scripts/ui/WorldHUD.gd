@@ -72,6 +72,8 @@ const ENEMY_BAR_DISPLAY_RANGE := 150.0
 @onready var cannons_container: HBoxContainer = %CannonsContainer
 @onready var tutorial_dialogue: TutorialDialogue = %TutorialDialogue
 const LESSON_COACH_CARD_SCENE := preload("res://scenes/ui/LessonCoachCard.tscn")
+const _LESSON_BAND_MAX_WIDTH := 560.0
+var _lesson_band: VBoxContainer
 
 ## M13 Task 16.5 gave the utility buttons usable mobile targets, but five
 ## permanent targets still obscure the world and compete with sailing/combat.
@@ -207,15 +209,46 @@ func _ready() -> void:
 	_create_lesson_coach_card()
 
 
-## M28 — the lesson channel. A child of TopRightPanel (a VBoxContainer), so it
-## stacks under the resource bar, notoriety card and utility rail by their real
-## measured sizes and structurally cannot overlap them (the D36 lesson).
+## M28 — the lesson channel. Desktop: a child of TopRightPanel (a
+## VBoxContainer), so it stacks under the resource bar by real measured size and
+## structurally cannot overlap it (the D36 lesson). Phone: TopRightPanel grows
+## down onto the right-thumb action cluster (Checkpoint B sweep — the card, and
+## the notoriety card it pushed down, covered Ability/Broadside), so the card
+## gets its own container in the free band between the thumb clusters instead,
+## the same band TutorialDialogue uses — the two never show at once (the card
+## queues behind any blocking dialogue).
 func _create_lesson_coach_card() -> void:
-	if not top_right_panel or top_right_panel.get_node_or_null("LessonCoachCard"):
+	if find_child("LessonCoachCard", true, false):
 		return
 	var card: Control = LESSON_COACH_CARD_SCENE.instantiate()
 	card.name = "LessonCoachCard"
-	top_right_panel.add_child(card)
+	if PirateThemeBuilder.is_mobile():
+		_lesson_band = VBoxContainer.new()
+		_lesson_band.name = "LessonBand"
+		_lesson_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_add_hud_widget(_lesson_band)
+		card.size_flags_horizontal = Control.SIZE_FILL
+		_lesson_band.add_child(card)
+		# Centred until _apply_mobile_safe_area() measures the real thumb band.
+		var w := get_viewport().get_visible_rect().size.x
+		_place_lesson_band(w * 0.3, w * 0.7)
+	elif top_right_panel:
+		top_right_panel.add_child(card)
+
+
+## Phone: the lesson band's rect inside the thumb-cluster band (see
+## _fit_tutorial_between_thumb_clusters), below whichever sits lower of
+## TutorialDialogue's own top offset and TopRightPanel's measured bottom edge —
+## never a second hardcoded number that could drift from the panel's real size.
+func _place_lesson_band(left: float, right: float) -> void:
+	if not _lesson_band:
+		return
+	var width := minf(right - left, _LESSON_BAND_MAX_WIDTH)
+	var top := TutorialDialogue._MOBILE_TOP
+	if top_right_panel:
+		top = maxf(top, top_right_panel.get_global_rect().end.y + 12.0)
+	_lesson_band.position = Vector2((left + right) * 0.5 - width * 0.5, top)
+	_lesson_band.size = Vector2(width, 0.0)
 
 func _on_save_load_failed(reason: String) -> void:
 	## M2 Task 12.3 — graceful degradation: a corrupt/unreadable save must not
@@ -369,6 +402,7 @@ func _fit_tutorial_between_thumb_clusters() -> void:
 	const GAP := 24.0
 	if right_edge - left_edge > 400.0:
 		tutorial_dialogue.set_mobile_band(left_edge + GAP, right_edge - GAP)
+		_place_lesson_band(left_edge + GAP, right_edge - GAP)
 
 
 func _check_whats_new() -> void:

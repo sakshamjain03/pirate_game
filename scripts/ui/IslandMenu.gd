@@ -1633,11 +1633,10 @@ func _on_defend_home_pressed(ship_idx: int, defend: bool) -> void:
 		_refresh_fleet()
 
 func _on_make_active_pressed(index: int) -> void:
-	FleetManager.active_ship_index = index
-	# Keep the captain index in lockstep with the ship index, matching the pairing
-	# _create_fleet_entry() displays for this row (cap_index falls back to 0 only
-	# when index is out of range for owned_captains).
-	FleetManager.active_captain_index = index if index < FleetManager.owned_captains.size() else 0
+	# Keeps the captain index in lockstep with the ship index, matching the
+	# pairing _create_fleet_entry() displays for this row, and emits
+	# active_ship_changed (M28 ASSIGN_CAPTAIN).
+	FleetManager.set_active_ship(index)
 	var player = get_tree().get_first_node_in_group("player_ship")
 	if player and "ship_stats" in player:
 		var ship = FleetManager.get_active_ship()

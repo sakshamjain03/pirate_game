@@ -1,8 +1,16 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=20 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=30 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
 [ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Sailing.tres" id="L_Ch1_Sailing"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Docking.tres" id="L_Ch1_Docking"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_IslandMenu.tres" id="L_Ch1_IslandMenu"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Building.tres" id="L_Ch1_Building"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Storage.tres" id="L_Ch1_Storage"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_ManualFire.tres" id="L_Ch1_ManualFire"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Ammo.tres" id="L_Ch1_Ammo"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch1_Captains.tres" id="L_Ch1_Captains"]
 
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
@@ -110,6 +118,15 @@ target_id = "port_royal"
 target_count = 2
 is_optional = true
 
+[sub_resource type="Resource" id="Obj_1_10"]
+script = ExtResource("2_objective")
+objective_id = "1.10"
+description = "Load chain shot"
+condition = 15
+target_id = "chain"
+target_count = 1
+hint_text = "Cycle your shot until chain is loaded — it tears sails and slows a ship."
+
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "hale"
@@ -131,6 +148,14 @@ speaker_name = "Factor Cornelius Hale"
 text = "One more thing, for your ledger's sake. Spain still calls this whole sea her lake, treaty or no — His Majesty's Navy merely patrols it. You'll want to learn the difference before you're rich enough for either to notice you."
 mood = 0
 
+[sub_resource type="Resource" id="Close_4"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
+text = "Hale won't be the last to come calling. Word is Skull Cove takes a cut of anything that floats in these shallows. Keep the guns loaded, Captain."
+mood = 4
+
 [resource]
 script = ExtResource("1_chapter")
 chapter_id = "ch1_the_drowned_port"
@@ -138,7 +163,8 @@ chapter_number = 1
 title = "The Drowned Port"
 log_summary = "Claimed and raised Port Royal from the ruin the Crown and every empire wrote off — a farm, a lumber mill, a warehouse, a tavern, and a captain to your name."
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3"), SubResource("Open_4")])
-objectives = Array[ObjectiveData]([SubResource("Obj_1_1"), SubResource("Obj_1_2"), SubResource("Obj_1_3"), SubResource("Obj_1_4"), SubResource("Obj_1_5"), SubResource("Obj_1_6"), SubResource("Obj_1_7"), SubResource("Obj_1_8"), SubResource("Obj_1_9")])
-closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+objectives = Array[ObjectiveData]([SubResource("Obj_1_1"), SubResource("Obj_1_2"), SubResource("Obj_1_3"), SubResource("Obj_1_4"), SubResource("Obj_1_5"), SubResource("Obj_1_6"), SubResource("Obj_1_10"), SubResource("Obj_1_7"), SubResource("Obj_1_8"), SubResource("Obj_1_9")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3"), SubResource("Close_4")])
+lessons = Array[LessonData]([ExtResource("L_Ch1_Sailing"), ExtResource("L_Ch1_Docking"), ExtResource("L_Ch1_IslandMenu"), ExtResource("L_Ch1_Building"), ExtResource("L_Ch1_Storage"), ExtResource("L_Ch1_ManualFire"), ExtResource("L_Ch1_Ammo"), ExtResource("L_Ch1_Captains")])
 reward_gold = 300
 reward_eights = 10

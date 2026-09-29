@@ -1,6 +1,10 @@
 class_name ShipDamage extends Node
 
 signal pool_changed(pool: String, current: float, maximum: float)
+## M28 — emitted only by repair(), never by restore_all()/set_stats_*: buying,
+## switching or respawning a ship also raises the hull, and pool_changed alone
+## cannot tell those apart from an actual repair (REPAIR_SHIP objective).
+signal repaired(pool: String, amount: float)
 signal destroyed()
 
 @export var ship_stats: ShipStats
@@ -198,6 +202,7 @@ func repair(pool: String, amount: float) -> float:
 		_is_destroyed = false
 
 	pool_changed.emit(pool, after, maximum)
+	repaired.emit(pool, after - before)
 	return after - before
 
 

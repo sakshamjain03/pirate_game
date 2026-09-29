@@ -1,8 +1,13 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=15 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
 [ext_resource type="Script" path="res://scripts/world/DialogueBeatData.gd" id="3_beat"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch3_Heat.tres" id="L_Ch3_Heat"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch3_LieLow.tres" id="L_Ch3_LieLow"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch3_Defence.tres" id="L_Ch3_Defence"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch3_Fleet.tres" id="L_Ch3_Fleet"]
+[ext_resource type="Resource" path="res://resources/campaign/lessons/Ch3_Eights.tres" id="L_Ch3_Eights"]
 
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
@@ -82,6 +87,22 @@ target_id = "royal_navy"
 target_count = 1
 is_optional = true
 
+[sub_resource type="Resource" id="Obj_3_8"]
+script = ExtResource("2_objective")
+objective_id = "3.8"
+description = "Let the Navy lose your scent"
+condition = 17
+target_count = 1
+hint_text = "Lie low in a port you own until your Heat drops a tier."
+
+[sub_resource type="Resource" id="Obj_3_9"]
+script = ExtResource("2_objective")
+objective_id = "3.9"
+description = "Give the new hull a captain"
+condition = 18
+target_count = 1
+hint_text = "In the Fleet tab, make a ship active to put a captain in command of her."
+
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "marguerite"
@@ -96,6 +117,13 @@ speaker_name = "Marguerite"
 text = "So I'll ask what nobody else will. Are you building a port, or are you just building something bigger to lose?"
 mood = 2
 
+[sub_resource type="Resource" id="Close_3"]
+script = ExtResource("3_beat")
+speaker_id = "marguerite"
+speaker_name = "Marguerite"
+text = "If it's something bigger, build it where the Navy isn't looking. There's a cay off their charts. Pelican Cay. Plot a course and see for yourself."
+mood = 2
+
 [resource]
 script = ExtResource("1_chapter")
 chapter_id = "ch3_the_kings_answer"
@@ -104,7 +132,8 @@ title = "The King's Answer"
 log_summary = "Broke the Crown's blockade, built Port Royal's defenses, and survived the first raid the Admiralty sent."
 required_region_id = "contested_waters"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
-objectives = Array[ObjectiveData]([SubResource("Obj_3_1"), SubResource("Obj_3_2"), SubResource("Obj_3_3"), SubResource("Obj_3_4"), SubResource("Obj_3_5"), SubResource("Obj_3_6"), SubResource("Obj_3_7")])
-closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2")])
+objectives = Array[ObjectiveData]([SubResource("Obj_3_1"), SubResource("Obj_3_8"), SubResource("Obj_3_2"), SubResource("Obj_3_3"), SubResource("Obj_3_4"), SubResource("Obj_3_5"), SubResource("Obj_3_9"), SubResource("Obj_3_6"), SubResource("Obj_3_7")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
+lessons = Array[LessonData]([ExtResource("L_Ch3_Heat"), ExtResource("L_Ch3_LieLow"), ExtResource("L_Ch3_Defence"), ExtResource("L_Ch3_Fleet"), ExtResource("L_Ch3_Eights")])
 reward_gold = 1500
 reward_eights = 25

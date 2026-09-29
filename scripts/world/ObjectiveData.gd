@@ -14,20 +14,28 @@ enum Condition {
 	CAPTURE_ISLAND, DISCOVER_ISLAND, DOCK_AT_ISLAND,
 	RECRUIT_CAPTAIN, OWN_SHIP_CLASS, UNLOCK_TECH,
 	ACCUMULATE_RESOURCE, REACH_NOTORIETY, SURVIVE_RAID,
+	# M28 — appended, never inserted: every chapter .tres stores these as ints,
+	# so a value added mid-list silently re-targets every objective after it
+	# (tests/test_new_objective_conditions.gd pins the existing ints).
+	SWAP_AMMO, CRIPPLE_SAILS, LOWER_HEAT, ASSIGN_CAPTAIN,
+	CHANGE_REPUTATION, SET_COURSE, REPAIR_SHIP,
 }
 
 @export var objective_id: String = ""
 @export var description: String = ""
 @export var condition: Condition = Condition.DOCK_AT_ISLAND
 ## Meaning depends on `condition`: a building/island/faction/tech/encounter id
-## for most conditions, a resource key for ACCUMULATE_RESOURCE, empty for
-## conditions with no target (RECRUIT_CAPTAIN, SURVIVE_RAID, REACH_NOTORIETY).
+## for most conditions, a resource key for ACCUMULATE_RESOURCE, an
+## `AmmoData.ammo_id` for SWAP_AMMO, an island id for SET_COURSE, a faction id
+## for CHANGE_REPUTATION/CRIPPLE_SAILS, empty for conditions with no target
+## (RECRUIT_CAPTAIN, SURVIVE_RAID, REACH_NOTORIETY, LOWER_HEAT, ASSIGN_CAPTAIN,
+## REPAIR_SHIP) or to accept any.
 @export var target_id: String = ""
 ## Kill/board/recruit counts. Ignored by the level-check conditions below.
 @export_range(1, 50) var target_count: int = 1
 ## Absolute-value threshold for REACH_ISLAND_TIER / REACH_NOTORIETY /
-## ACCUMULATE_RESOURCE — these set progress to the current value rather than
-## incrementing a counter.
+## ACCUMULATE_RESOURCE / CHANGE_REPUTATION — these set progress to the current
+## value rather than incrementing a counter.
 @export var target_value: float = 0.0
 @export var is_optional: bool = false
 ## Surfaced through WorldHUD.announce_event() if progress stalls.
@@ -36,4 +44,4 @@ enum Condition {
 
 func is_level_check() -> bool:
 	return condition in [Condition.REACH_ISLAND_TIER, Condition.REACH_NOTORIETY,
-		Condition.ACCUMULATE_RESOURCE]
+		Condition.ACCUMULATE_RESOURCE, Condition.CHANGE_REPUTATION]

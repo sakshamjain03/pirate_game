@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch1_docking"
+title = "Coming Alongside"
+body = "Ease off the sail as you near an island and a Dock prompt appears. Come in too fast and the harbour won't take you."
+trigger = 1
+trigger_arg = "1.1"
+highlight_group = &""

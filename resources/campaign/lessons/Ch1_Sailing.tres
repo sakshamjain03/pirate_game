@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LessonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/LessonData.gd" id="1_lesson"]
+
+[resource]
+script = ExtResource("1_lesson")
+lesson_id = "ch1_sailing"
+title = "Under Sail"
+body = "Steer with the helm and raise or lower sail to set your speed. The compass shows the wind — sail with it and she flies."
+trigger = 0
+trigger_arg = ""
+highlight_group = &""

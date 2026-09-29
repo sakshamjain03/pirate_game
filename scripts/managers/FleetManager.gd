@@ -280,6 +280,16 @@ func _refresh_ship_on_deck(index: int) -> void:
 	if player and "ship_stats" in player:
 		player.ship_stats = get_active_ship()
 
+## M28 — the one write path for "which ship am I sailing, under which captain".
+## IslandMenu's Make Active used to write both indices directly, so
+## active_ship_changed (declared long before) never fired and nothing could react
+## to a captain assignment. The captain follows the ship's row pairing, falling
+## back to the first captain, exactly as the fleet list displays it.
+func set_active_ship(index: int) -> void:
+	active_ship_index = index
+	active_captain_index = index if index < owned_captains.size() else 0
+	active_ship_changed.emit(get_active_ship(), get_active_captain())
+
 func get_active_captain() -> CaptainData:
 	if active_captain_index >= 0 and active_captain_index < owned_captains.size():
 		return owned_captains[active_captain_index]

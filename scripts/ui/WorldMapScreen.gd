@@ -78,6 +78,9 @@ var _placed_label_rects: Array[Rect2] = []
 
 func _ready() -> void:
 	hide()
+	# M28 — lets CampaignManager reach course_requested (SET_COURSE) without a
+	# node path, mirroring IslandMenu's "island_menu" group.
+	add_to_group(&"world_map_screen")
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = PirateThemeBuilder.build()
 	PirateThemeBuilder.dress_modal_dim($ColorRect)

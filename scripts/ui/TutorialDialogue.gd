@@ -62,6 +62,13 @@ func _ready() -> void:
 
 	CampaignManager.chapter_started.connect(_on_chapter_started)
 	CampaignManager.chapter_completed.connect(_on_chapter_completed)
+	# M28 — a chapter can start while no dialogue exists: Chapter 1 starts at
+	# autoload boot, on the menu, so its chapter_started fired into nothing and
+	# its opening never rendered on a fresh install. Once this World's load has
+	# settled (game_loaded, then CampaignManager's own deferred _catch_up), show
+	# the current chapter's opening if the player has never actually seen it.
+	if SaveManager and SaveManager.has_signal("game_loaded"):
+		SaveManager.game_loaded.connect(_on_game_loaded, CONNECT_ONE_SHOT)
 
 	name_label.add_theme_font_size_override("font_size", UITokens.FONT_HUD_NUM)
 	resized.connect(_fit_to_content)
@@ -102,6 +109,22 @@ func is_blocking() -> bool:
 
 func _on_chapter_started(chapter: ChapterData) -> void:
 	_show_queue(chapter.opening_beats)
+	if TutorialManager:
+		TutorialManager.mark_opening_shown(chapter.chapter_id)
+
+
+func _on_game_loaded() -> void:
+	show_missed_opening.call_deferred()
+
+
+## See _ready(). A no-op while a queue is already up or once the opening has
+## been shown — Continue never replays an opening.
+func show_missed_opening() -> void:
+	if visible or not TutorialManager:
+		return
+	var chapter: ChapterData = CampaignManager._current_chapter()
+	if chapter and not TutorialManager.has_shown_opening(chapter.chapter_id):
+		_on_chapter_started(chapter)
 
 
 func _on_chapter_completed(chapter: ChapterData) -> void:

@@ -19,6 +19,8 @@ signal chapter_started(chapter: ChapterData)
 signal objective_progressed(objective_id: String, current: int, target: int)
 signal objective_completed(objective_id: String)
 signal chapter_completed(chapter: ChapterData)
+## M28 — a chapter lesson's trigger fired. LessonCoachCard queues and shows it.
+signal lesson_requested(lesson: LessonData)
 
 const CHAPTERS_DIR := "res://resources/campaign/chapters/"
 
@@ -29,10 +31,16 @@ var completed_chapter_ids: Array[String] = []
 var _objective_progress: Dictionary = {}   # objective_id -> int
 var _completed_objective_ids: Array[String] = []
 
+## M28 — last-seen player/heat state the lesson triggers and new conditions
+## compare against (a rise/fall is only visible relative to the previous value).
+var _last_heat_level: int = 0
+var _player_pool_last: Dictionary = {}   # pool -> float
+
 
 func _ready() -> void:
 	_load_chapters()
 	_connect_global_signals()
+	_connect_lesson_signals()
 	call_deferred("_catch_up")
 
 
@@ -52,6 +60,7 @@ func _load_chapters() -> void:
 		file_name = dir.get_next()
 	dir.list_dir_end()
 	chapters.sort_custom(func(a, b): return a.chapter_number < b.chapter_number)
+	_validate_lessons()
 
 
 func _connect_global_signals() -> void:
@@ -68,6 +77,29 @@ func _connect_global_signals() -> void:
 		TechManager.tech_unlocked.connect(_on_tech_unlocked)
 	if ResourceManager:
 		ResourceManager.resources_changed.connect(_on_resources_changed)
+	if EmpireManager and EmpireManager.has_signal("heat_tier_changed"):
+		EmpireManager.heat_tier_changed.connect(_on_heat_tier_changed)
+	if SaveManager and SaveManager.has_signal("game_loaded"):
+		SaveManager.game_loaded.connect(_seed_heat_level)
+	_connect_schedule_manager()
+
+
+## M28 Requirement 4.2 — ScheduleManager (M27) is optional: no autoload, or one
+## without the signal, means the timer lesson simply never fires. No error.
+func _connect_schedule_manager(schedule: Node = null) -> void:
+	if schedule == null:
+		schedule = get_node_or_null("/root/ScheduleManager")
+	if schedule and schedule.has_signal("job_started") \
+			and not schedule.job_started.is_connected(_on_job_started):
+		schedule.job_started.connect(_on_job_started)
+
+
+## Lessons key off this manager's own chapter/objective events, so they fire
+## from exactly the places the story and objectives already do.
+func _connect_lesson_signals() -> void:
+	chapter_started.connect(_on_chapter_started_lessons)
+	chapter_completed.connect(_on_chapter_completed_lessons)
+	objective_completed.connect(_on_objective_completed_lessons)
 
 
 ## Scene-local wiring, called deferred from `World.gd` exactly like
@@ -86,6 +118,13 @@ func on_world_ready(world_manager: Node) -> void:
 	if island_menu and island_menu.has_signal("structure_changed"):
 		if not island_menu.structure_changed.is_connected(_on_structure_changed):
 			island_menu.structure_changed.connect(_on_structure_changed)
+
+	_connect_player_ship()
+	_connect_schedule_manager()
+	_seed_heat_level()
+	# Deferred: the coach card is created by WorldHUD, and a lesson only fires
+	# (and is marked seen) while a card exists to show it.
+	call_deferred("_refire_world_ready_lessons")
 
 	var scene := get_tree().current_scene
 	var systems := scene.get_node_or_null("Systems") if scene else null
@@ -266,6 +305,7 @@ func is_chapter_current(chapter_id: String) -> bool:
 # === Condition handlers — one per real signal, mirroring TutorialManager ===
 
 func _on_player_docked(island_id: String) -> void:
+	_fire_trigger(LessonData.Trigger.FIRST_DOCK, island_id)
 	_on_island_discovered(island_id)
 	_for_each_matching(ObjectiveData.Condition.DOCK_AT_ISLAND, island_id,
 		func(o): _advance_objective(o, 1))
@@ -384,6 +424,8 @@ func _on_notoriety_changed(new_value: float) -> void:
 
 
 func _on_resources_changed(resources: Dictionary) -> void:
+	if ResourceManager and int(resources.get(ResourceManager.PREMIUM_CURRENCY, 0)) > 0:
+		_fire_trigger(LessonData.Trigger.FIRST_EIGHTS)
 	var chapter := _current_chapter()
 	if not chapter:
 		return
@@ -400,6 +442,170 @@ func _on_raid_resolved(_report: Dictionary) -> void:
 	## Either outcome satisfies SURVIVE_RAID — being robbed is a lesson, not a
 	## fail state (docs/13_CAMPAIGN_LEVELS_1-5.md §5, Chapter 3's 3.4).
 	_for_each_matching(ObjectiveData.Condition.SURVIVE_RAID, "", func(o): _advance_objective(o, 1))
+
+
+# === Lessons (M28) ===
+# Lessons are chapter content (ChapterData.lessons), fired from signals this
+# manager already listens to. TutorialManager only holds the on/off flag and
+# the seen set. A lesson fires at most once per profile, only while its own
+# chapter is current, and only while a LessonCoachCard exists to show it —
+# Chapter 1 starts at autoload boot, on the menu, and a lesson "seen" there
+# would be seen by nobody.
+
+func _validate_lessons() -> void:
+	var seen_ids := {}
+	for chapter in chapters:
+		for lesson in chapter.lessons:
+			if lesson == null:
+				push_error("CampaignManager: chapter '%s' has a null lesson" % chapter.chapter_id)
+				continue
+			if lesson.lesson_id.is_empty():
+				push_error("CampaignManager: chapter '%s' has a lesson with no lesson_id" % chapter.chapter_id)
+				continue
+			if seen_ids.has(lesson.lesson_id):
+				push_error("CampaignManager: duplicate lesson_id '%s' (chapters '%s' and '%s')" \
+					% [lesson.lesson_id, seen_ids[lesson.lesson_id], chapter.chapter_id])
+				continue
+			seen_ids[lesson.lesson_id] = chapter.chapter_id
+
+
+func has_lesson(lesson_id: String) -> bool:
+	return _find_lesson(lesson_id) != null
+
+
+## Resolves a lesson id. An unknown id is an authoring or save error and is
+## reported, never skipped silently (M28 Requirement 1.5).
+func get_lesson(lesson_id: String) -> LessonData:
+	var lesson := _find_lesson(lesson_id)
+	if lesson == null:
+		push_error("CampaignManager.get_lesson: unknown lesson_id '%s'" % lesson_id)
+	return lesson
+
+
+func _find_lesson(lesson_id: String) -> LessonData:
+	if lesson_id.is_empty():
+		return null
+	for chapter in chapters:
+		for lesson in chapter.lessons:
+			if lesson and lesson.lesson_id == lesson_id:
+				return lesson
+	return null
+
+
+## The objective a player is "on": the first incomplete, non-optional one in
+## authored order — the same pick WorldHUD's stall hint makes. Objectives all
+## progress in parallel; this only decides which one a lesson introduces.
+func get_current_objective() -> ObjectiveData:
+	var chapter := _current_chapter()
+	if not chapter:
+		return null
+	for objective in chapter.objectives:
+		if objective.is_optional or _completed_objective_ids.has(objective.objective_id):
+			continue
+		return objective
+	return null
+
+
+## `chapter` defaults to the current one; CHAPTER_COMPLETED passes the chapter
+## explicitly because it is no longer "current" once completed.
+func _fire_trigger(trigger: int, arg: String = "", chapter: ChapterData = null) -> void:
+	if chapter == null:
+		chapter = _current_chapter()
+	if chapter == null or not TutorialManager or not TutorialManager.lessons_enabled:
+		return
+	if not _lesson_card_present():
+		return
+	for lesson in chapter.lessons:
+		if lesson == null or lesson.trigger != trigger:
+			continue
+		if not lesson.trigger_arg.is_empty() and lesson.trigger_arg != arg:
+			continue
+		if TutorialManager.has_seen(lesson.lesson_id):
+			continue
+		TutorialManager.mark_seen(lesson.lesson_id)
+		lesson_requested.emit(lesson)
+
+
+func _lesson_card_present() -> bool:
+	return is_inside_tree() and get_tree().get_first_node_in_group(&"lesson_coach_card") != null
+
+
+func _fire_current_objective() -> void:
+	var objective := get_current_objective()
+	if objective:
+		_fire_trigger(LessonData.Trigger.OBJECTIVE_CURRENT, objective.objective_id)
+
+
+func _on_chapter_completed_lessons(chapter: ChapterData) -> void:
+	_fire_trigger(LessonData.Trigger.CHAPTER_COMPLETED, "", chapter)
+
+
+func _on_objective_completed_lessons(_objective_id: String) -> void:
+	_fire_current_objective()
+
+
+func _on_chapter_started_lessons(chapter: ChapterData) -> void:
+	_fire_trigger(LessonData.Trigger.CHAPTER_STARTED, "", chapter)
+	_fire_current_objective()
+
+
+## A chapter that started with no World (Chapter 1 at boot) or during a scene
+## change fires its start/current-objective lessons here instead. The seen set
+## makes a repeat a no-op.
+func _refire_world_ready_lessons() -> void:
+	var chapter := _current_chapter()
+	if chapter:
+		_on_chapter_started_lessons(chapter)
+
+
+## Player-ship sources: the ship is scene-local and replaced per World, so this
+## runs from on_world_ready(), after SaveManager.load_game() (both deferred, in
+## that order, from World.gd).
+func _connect_player_ship() -> void:
+	var player := get_tree().get_first_node_in_group("player_ship")
+	if not player:
+		return
+	var combat := player.get_node_or_null("ShipCombat")
+	if combat and combat.has_signal("arc_lock_changed") \
+			and not combat.arc_lock_changed.is_connected(_on_player_arc_lock_changed):
+		combat.arc_lock_changed.connect(_on_player_arc_lock_changed)
+	var damage := player.get_node_or_null("ShipDamage")
+	if damage and damage.has_signal("pool_changed"):
+		_player_pool_last.clear()
+		for pool in ["hull", "sails", "crew"]:
+			if pool in damage:
+				_player_pool_last[pool] = float(damage.get(pool))
+		if not damage.pool_changed.is_connected(_on_player_pool_changed):
+			damage.pool_changed.connect(_on_player_pool_changed)
+
+
+func _on_player_arc_lock_changed(_side: String, locked: bool) -> void:
+	if locked:
+		_fire_trigger(LessonData.Trigger.FIRST_ENEMY_IN_RANGE)
+
+
+func _on_player_pool_changed(pool: String, current: float, _maximum: float) -> void:
+	var previous: float = _player_pool_last.get(pool, current)
+	_player_pool_last[pool] = current
+	if current < previous:
+		_fire_trigger(LessonData.Trigger.FIRST_DAMAGE_TAKEN)
+
+
+func _seed_heat_level() -> void:
+	if EmpireManager and EmpireManager.has_method("get_heat_level"):
+		_last_heat_level = EmpireManager.get_heat_level()
+
+
+func _on_heat_tier_changed(tier: HeatTierData) -> void:
+	var level: int = tier.tier if tier else 0
+	var previous := _last_heat_level
+	_last_heat_level = level
+	if level > previous:
+		_fire_trigger(LessonData.Trigger.HEAT_TIER_UP)
+
+
+func _on_job_started(job: Dictionary) -> void:
+	_fire_trigger(LessonData.Trigger.FIRST_JOB_STARTED, str(job.get("kind", "")))
 
 
 # === Rewards ===

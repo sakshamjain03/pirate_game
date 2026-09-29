@@ -76,15 +76,37 @@ func test_completing_the_recruit_objective_unlocks_the_fleet_tab():
 	tm.start_new_game_session()
 	assert_false(tm.is_ui_unlocked("tab_fleet"), "Precondition: locked")
 
-	tm._on_objective_completed("1.7")  # docs/13 §3: "Sign your first captain"
+	tm._on_objective_completed("1.8")  # docs/13 §3: "Sign your first captain"
 
 	assert_true(tm.is_ui_unlocked("tab_fleet"))
 	assert_false(tm.is_ui_unlocked("tab_research"), "an unrelated objective must not unlock other tabs")
 
 func test_completing_the_combat_objective_unlocks_the_research_tab():
 	tm.start_new_game_session()
-	tm._on_objective_completed("1.5")  # docs/13 §3: "Sink whatever comes sniffing"
+	tm._on_objective_completed("1.6")  # docs/13 §3: "Sink whatever comes sniffing"
 	assert_true(tm.is_ui_unlocked("tab_research"))
+
+## M28 Requirement 2.5 — the map used to read 1.7 -> Fleet and 1.5 -> Research,
+## but 1.7 is the tavern and 1.5 the warehouse: building either unlocked a tab
+## meant for recruiting/fighting.
+func test_building_the_tavern_or_warehouse_unlocks_nothing():
+	tm.start_new_game_session()
+	tm._on_objective_completed("1.7")  # "A roof for the crew" (tavern)
+	tm._on_objective_completed("1.5")  # "Somewhere to put it all" (warehouse)
+	assert_false(tm.is_ui_unlocked("tab_fleet"))
+	assert_false(tm.is_ui_unlocked("tab_research"))
+
+func test_unlock_map_targets_the_real_chapter_1_objectives():
+	var ch1 := load("res://resources/campaign/chapters/Ch1_TheDrownedPort.tres") as ChapterData
+	var by_id := {}
+	for o in ch1.objectives:
+		by_id[o.objective_id] = o
+	assert_eq(by_id["1.8"].condition, ObjectiveData.Condition.RECRUIT_CAPTAIN,
+		"tab_fleet must unlock on Chapter 1's recruit objective")
+	assert_eq(by_id["1.6"].condition, ObjectiveData.Condition.DESTROY_SHIPS,
+		"tab_research must unlock on Chapter 1's combat objective")
+	for id in tm._UNLOCK_ON_OBJECTIVE:
+		assert_true(by_id.has(id), "unlock map id %s must exist in Chapter 1" % id)
 
 func test_an_unmapped_objective_id_unlocks_nothing():
 	tm.start_new_game_session()
@@ -131,7 +153,7 @@ func test_skip_tutorial_completes_immediately_and_unlocks_all_ui():
 
 func test_save_load_round_trip():
 	tm.start_new_game_session()
-	tm._on_objective_completed("1.7")
+	tm._on_objective_completed("1.8")
 
 	var saved = tm.get_save_data()
 

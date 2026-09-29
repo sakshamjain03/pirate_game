@@ -71,6 +71,7 @@ const ENEMY_BAR_DISPLAY_RANGE := 150.0
 @onready var resource_bar    : PanelContainer = %ResourceBar
 @onready var cannons_container: HBoxContainer = %CannonsContainer
 @onready var tutorial_dialogue: TutorialDialogue = %TutorialDialogue
+const LESSON_COACH_CARD_SCENE := preload("res://scenes/ui/LessonCoachCard.tscn")
 
 ## M13 Task 16.5 gave the utility buttons usable mobile targets, but five
 ## permanent targets still obscure the world and compete with sailing/combat.
@@ -203,6 +204,18 @@ func _ready() -> void:
 		call_deferred("_open_hud_customize_overlay_if_requested")
 	if tutorial_dialogue and not tutorial_dialogue.visibility_changed.is_connected(_on_tutorial_dialogue_visibility_changed):
 		tutorial_dialogue.visibility_changed.connect(_on_tutorial_dialogue_visibility_changed)
+	_create_lesson_coach_card()
+
+
+## M28 — the lesson channel. A child of TopRightPanel (a VBoxContainer), so it
+## stacks under the resource bar, notoriety card and utility rail by their real
+## measured sizes and structurally cannot overlap them (the D36 lesson).
+func _create_lesson_coach_card() -> void:
+	if not top_right_panel or top_right_panel.get_node_or_null("LessonCoachCard"):
+		return
+	var card: Control = LESSON_COACH_CARD_SCENE.instantiate()
+	card.name = "LessonCoachCard"
+	top_right_panel.add_child(card)
 
 func _on_save_load_failed(reason: String) -> void:
 	## M2 Task 12.3 — graceful degradation: a corrupt/unreadable save must not
@@ -967,6 +980,7 @@ func _create_notoriety_label() -> void:
 	col.add_child(_notoriety_bar)
 	chip.mouse_filter = Control.MOUSE_FILTER_STOP
 	chip.gui_input.connect(_on_notoriety_card_input)
+	chip.add_to_group(&"hud_notoriety")   # M28 lesson highlight
 	_notoriety_bar.visible = HudAutoHide.always_show()
 
 	# Added as a sibling of ResourceBar inside TopRightPanel (a VBoxContainer)
@@ -1006,6 +1020,7 @@ func _create_world_map_button() -> void:
 	## independently-hardcoded offset.
 	var map_parts := _make_round_utility_button("UtilityMapButton", "map", tr("Map"), _RAIL_BUTTON_WIDTH)
 	world_map_button = map_parts.button
+	world_map_button.add_to_group(&"hud_world_map_button")   # M28 lesson highlight
 	world_map_button.pressed.connect(func():
 		if world_map_screen:
 			world_map_screen.toggle())

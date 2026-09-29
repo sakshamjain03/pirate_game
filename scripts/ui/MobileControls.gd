@@ -553,6 +553,7 @@ func _create_ammo_selector() -> void:
 	_btn_ammo.position = Vector2((189.0 - size.x) * 0.5, 136.0 - size.y - 12.0)
 	_center_button_content(_btn_ammo)
 	_btn_ammo.pressed.connect(_cycle_ammo)
+	_btn_ammo.add_to_group(&"hud_ammo_button")   # M28 lesson highlight
 	btn_captain_ability.get_parent().add_child(_btn_ammo)
 	_sync_ammo_from_ship()
 	_refresh_ammo_button()

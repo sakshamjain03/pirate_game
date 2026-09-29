@@ -35,6 +35,9 @@ class_name ChapterData extends Resource
 @export var opening_beats: Array[DialogueBeatData] = []
 @export var objectives: Array[ObjectiveData] = []
 @export var closing_beats: Array[DialogueBeatData] = []
+## M28 — this chapter's lessons (short, non-blocking coach cards). Only fire
+## while this chapter is current; see CampaignManager._fire_trigger().
+@export var lessons: Array[LessonData] = []
 
 @export_group("Rewards")
 @export var reward_gold: int = 0

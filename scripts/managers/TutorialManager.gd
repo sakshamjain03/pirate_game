@@ -18,13 +18,15 @@ const COMPLETION_PATH := "user://tutorial_state.json"
 
 ## objective_id -> unlock_id. Maps Chapter 1's real objectives onto the tabs
 ## the old hardcoded step list used to gate — `docs/13_CAMPAIGN_LEVELS_1-5.md`
-## §3's own mapping: 1.7 (recruit) -> Fleet, 1.5 (combat) -> Research. The old
-## "capture" step's tab_trade unlock has no direct successor objective (M7
-## Task 6 grants Port Royal up front instead), so it unlocks on chapter
-## completion rather than a specific objective.
+## §3: 1.8 ("Sign your first captain") -> Fleet, 1.6 ("Sink whatever comes
+## sniffing") -> Research. (M28 Requirement 2.5: this used to read 1.7/1.5,
+## which are the tavern and the warehouse — building either unlocked a tab
+## meant for recruiting/fighting.) The old "capture" step's tab_trade unlock
+## has no direct successor objective (M7 Task 6 grants Port Royal up front
+## instead), so it unlocks on chapter completion rather than a specific objective.
 const _UNLOCK_ON_OBJECTIVE := {
-	"1.7": "tab_fleet",
-	"1.5": "tab_research",
+	"1.8": "tab_fleet",
+	"1.6": "tab_research",
 }
 const _UNLOCK_ON_CHAPTER_COMPLETE := {
 	"ch1_the_drowned_port": "tab_trade",
@@ -37,12 +39,34 @@ var tutorial_completed: bool = false
 
 var _unlocked_ui: Array[String] = []
 
+## M28 — lessons (`LessonData`, fired by CampaignManager). On by default; New
+## Game's "I know these waters" turns them off without touching story or
+## objectives, and Settings' "Replay lessons" turns them back on.
+var lessons_enabled: bool = true
+var _seen_lessons: Array[String] = []
+## Set by replay_lessons(). Settings -> Replay -> Continue runs load_save_data()
+## straight afterwards, which would otherwise restore the pre-replay seen set
+## and flag; cleared once that load (or a no-save boot) has finished.
+var _replay_pending: bool = false
+## M28 — chapters whose opening beats TutorialDialogue actually rendered.
+## CampaignManager can start a chapter while no dialogue exists (Chapter 1
+## starts at autoload boot, on the menu), so "the chapter started" is not proof
+## the player ever saw its opening — this is.
+var _shown_opening_ids: Array[String] = []
+## True after loading a pre-M28 save (no "shown_openings" key) — see
+## _effective_shown_openings().
+var _openings_legacy: bool = false
+
 
 func _ready() -> void:
 	_load_completion_flag()
 	if CampaignManager:
 		CampaignManager.objective_completed.connect(_on_objective_completed)
 		CampaignManager.chapter_completed.connect(_on_chapter_completed)
+	if SaveManager and SaveManager.has_signal("game_loaded"):
+		# A bound method, not a lambda: tests free fresh instances of this
+		# script, and a lambda left on an autoload signal outlives its capture.
+		SaveManager.game_loaded.connect(_on_game_loaded)
 
 
 # --- Session lifecycle ---
@@ -76,6 +100,51 @@ func is_ui_unlocked(id: String) -> bool:
 	return not tutorial_active or _unlocked_ui.has(id)
 
 
+# --- Lessons (M28) ---
+
+## New Game's lessons choice. A new game starts with nothing seen and every
+## opening beat unshown, whichever way the player answered.
+func start_new_game_lessons(enabled: bool) -> void:
+	lessons_enabled = enabled
+	_seen_lessons.clear()
+	_shown_opening_ids.clear()
+	_openings_legacy = false
+	_replay_pending = false
+
+
+func mark_seen(lesson_id: String) -> void:
+	if lesson_id.is_empty():
+		push_error("TutorialManager.mark_seen: empty lesson_id")
+		return
+	if not _seen_lessons.has(lesson_id):
+		_seen_lessons.append(lesson_id)
+
+
+func has_seen(lesson_id: String) -> bool:
+	return _seen_lessons.has(lesson_id)
+
+
+## Settings' "Replay lessons": clears the seen set and turns lessons on. The
+## current chapter's lessons fire again as their triggers recur.
+func replay_lessons() -> void:
+	_seen_lessons.clear()
+	lessons_enabled = true
+	_replay_pending = true
+
+
+func _on_game_loaded() -> void:
+	_replay_pending = false
+
+
+func mark_opening_shown(chapter_id: String) -> void:
+	if not chapter_id.is_empty() and not _shown_opening_ids.has(chapter_id):
+		_shown_opening_ids.append(chapter_id)
+
+
+func has_shown_opening(chapter_id: String) -> bool:
+	return _effective_shown_openings().has(chapter_id)
+
+
 # --- Driven by CampaignManager ---
 
 func _on_objective_completed(objective_id: String) -> void:
@@ -107,6 +176,9 @@ func get_save_data() -> Dictionary:
 	return {
 		"tutorial_active": tutorial_active,
 		"unlocked_ui": _unlocked_ui.duplicate(),
+		"lessons_enabled": lessons_enabled,
+		"seen_lessons": _seen_lessons.duplicate(),
+		"shown_openings": _effective_shown_openings(),
 	}
 
 
@@ -116,6 +188,45 @@ func load_save_data(data: Dictionary) -> void:
 	_unlocked_ui = []
 	for id in unlocked:
 		_unlocked_ui.append(str(id))
+
+	# M28 — a pre-M28 save has none of these keys: lessons on, nothing seen.
+	lessons_enabled = bool(data.get("lessons_enabled", true))
+	_seen_lessons = []
+	for id in data.get("seen_lessons", []):
+		var lesson_id := str(id)
+		# Never dropped — a lesson removed from content just never fires again —
+		# but never skipped silently either (CLAUDE.md resolver rule).
+		if CampaignManager and CampaignManager.has_method("has_lesson") \
+				and not CampaignManager.has_lesson(lesson_id):
+			push_error("TutorialManager: saved lesson id '%s' matches no authored lesson" % lesson_id)
+		_seen_lessons.append(lesson_id)
+	_shown_opening_ids = []
+	for id in data.get("shown_openings", []):
+		_shown_opening_ids.append(str(id))
+	_openings_legacy = not data.has("shown_openings")
+	if _replay_pending:
+		_seen_lessons.clear()
+		lessons_enabled = true
+		_replay_pending = false
+
+
+## A pre-M28 save predates opening tracking, but any chapter it already
+## completed or was part-way through had long since started in a real World
+## session. Those count as shown so Continue never replays an opening the
+## player already sat through. Resolved lazily, not in load_save_data():
+## SaveManager loads this section BEFORE "campaign", so CampaignManager still
+## holds the previous state at that point.
+func _effective_shown_openings() -> Array[String]:
+	var ids: Array[String] = _shown_opening_ids.duplicate()
+	if not _openings_legacy or not CampaignManager:
+		return ids
+	for id in CampaignManager.completed_chapter_ids:
+		if not ids.has(id):
+			ids.append(id)
+	var current: String = CampaignManager._current_chapter_id_or_empty()
+	if not current.is_empty() and not ids.has(current):
+		ids.append(current)
+	return ids
 
 
 func _load_completion_flag() -> void:

@@ -283,6 +283,35 @@ install. They are never only held in memory.
 Real Play Billing `consumePurchase` is a documented TODO in `StoreBackendPlay`, blocked on the same
 unvendored plugin as the rest of billing. Everything above works end to end on the stub backend.
 
+## 4.6 Pieces of Eight never expire and are never deleted (decided 2026-09-30)
+
+The project owner's rule: **a Pieces of Eight balance the player holds — bought or earned — never
+expires and is never taken away by the game.** Nothing times them out. Two paths used to delete
+them, and both are closed:
+
+- **New Game** used to delete the campaign save, and the Eights inside it, along with the empire.
+  `SaveManager.begin_new_game()` now carries the full balance over. That balance comes from
+  `eights_balance()`: memory if the campaign was loaded this session, otherwise the save (or its
+  backup) plus the pending file. The balance goes into the pending file *before* the save is
+  deleted, and the first World load claims it once. If that write fails, nothing is deleted.
+  Owned cosmetics survive as before. Gold, wood, iron, rum and research belong to the empire and
+  reset with it.
+- **"Keep Cloud"** in the cloud-save conflict used to overwrite the local save outright, and
+  with it any Eights bought on this device since the last sync. `_apply_cloud_save()` now keeps
+  whichever copy of the wallet is higher, erring toward the player like §4.5.
+
+**No farm.** Because Eights now outlive a New Game, a chapter's Eights reward pays **once per
+install** (`CampaignManager`'s `user://eights_ledger.json`, kept outside the save). Replaying
+Chapter 1 after a restart gives back its gold and unlocks, but not its Eights again. Maelstrom
+Eights stay per run, capped per run by design.
+
+**One empire, not a restart loop.** This follows the Clash of Clans model. With a save, the main
+menu offers only Continue. Starting over lives in Settings > General > "Start a New Empire",
+behind a confirmation that says what is erased and what stays.
+
+The only deliberate removal is the player's own **account deletion** (the `delete-account` Edge
+Function), which is a privacy obligation (§5), not a game rule.
+
 ---
 
 # 5. Compliance obligations this creates

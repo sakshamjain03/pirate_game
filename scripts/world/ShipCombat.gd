@@ -430,8 +430,8 @@ func take_damage(amount: float, ammo: AmmoData = null, hit_direction: Vector3 = 
 			_fallback_health = 0.0
 			die()
 
-	# Spawn floating text
-	if floating_damage_scene:
+	# Spawn floating text (skipped with no current scene, e.g. a test tree)
+	if floating_damage_scene and get_tree().current_scene:
 		var text = floating_damage_scene.instantiate()
 		text.damage_amount = amount
 		get_tree().current_scene.add_child(text)
@@ -624,6 +624,10 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 	# through the same aim/spread path below, so they fan out naturally.
 	var shot_mods := _get_modifiers()
 	var extra_balls: int = shot_mods.extra_projectiles if shot_mods else 0
+	# Balls live in the scene, not under the ship; with no current scene (a test
+	# tree) there is nowhere to put them.
+	if not get_tree().current_scene:
+		return
 	for i in range(ammo_data.projectiles_per_cannon + extra_balls):
 		var ball = cannonball_scene.instantiate() as RigidBody3D
 		# Add to main world, not as child of ship
@@ -705,6 +709,8 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 func _spawn_muzzle_flash(marker: Node3D) -> void:
 	## A brief bright point light at the cannon mouth — there was previously
 	## no visual event at the firing point at all beyond the ball itself.
+	if not get_tree().current_scene:
+		return
 	var flash = OmniLight3D.new()
 	flash.light_color = Color(1.0, 0.8, 0.4)
 	flash.light_energy = 8.0

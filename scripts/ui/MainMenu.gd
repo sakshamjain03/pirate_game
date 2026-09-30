@@ -64,15 +64,18 @@ func _connect_buttons() -> void:
 	credits_button.pressed.connect(_on_credits_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 
-	# One Primary CTA per screen (design.md §7) — Continue when there's a
-	# save to resume, New Game otherwise. The other stays a brass secondary
-	# rather than hidden: a player with a save may still want to start over.
+	# One Primary CTA per screen (design.md §7). With a save there is only
+	# Continue: this is one empire you keep building, not a game you restart
+	# (owner decision 2026-09-30), so starting over lives in Settings behind a
+	# confirmation instead of sitting beside Continue on every launch.
 	var primary_btn: Button
 	if SaveManager.has_recoverable_save_data():
 		continue_button.visible = true
+		new_game_button.visible = false
 		primary_btn = continue_button
 	else:
 		continue_button.visible = false
+		new_game_button.visible = true
 		primary_btn = new_game_button
 	primary_btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_PRIMARY_SIZE)
 	PirateThemeBuilder.mark_primary(primary_btn)
@@ -122,19 +125,10 @@ static func wants_lessons_for(choice: int, returning: bool) -> bool:
 
 
 func _start_new_game(wants_lessons: bool) -> void:
-	SaveManager.delete_save()
-	AnalyticsManager.log_first_event("new_game_started")
-	# Every campaign autoload back to its boot state, not just resources: a New
-	# Game after playing in the same session used to keep chapter progress,
-	# fleet, techs, heat and timers from the previous run.
-	SaveManager.reset_to_new_game()
-	TutorialManager.start_new_game_session()
-	TutorialManager.start_new_game_lessons(wants_lessons)
-	if not wants_lessons:
-		# "I know these waters": every tab open from the start. Chapter 1's
-		# dialogue, objectives and rewards still run (Requirement 3.2).
-		TutorialManager.skip_tutorial()
-	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
+	# SaveManager owns the whole reset (and keeps the player's Pieces of Eight);
+	# Settings' "Start a New Empire" goes through the same call.
+	if SaveManager.begin_new_game(wants_lessons):
+		SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 ## M26 Requirement 1.1/1.2 — the endless survival mode, available from a fresh
 ## install with no save. A run never touches the campaign save; see MaelstromRun.

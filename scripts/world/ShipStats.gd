@@ -58,7 +58,11 @@ class_name ShipStats extends Resource
 @export_range(0.0, 10.0) var angular_damp: float = 2.0
 
 @export_group("Visual")
-@export var model_path: String = "res://assets/models/ships/player_ship.glb"
+## Every authored hull sets its own. The default is what a bare ShipStats.new()
+## gets (ShipController with no stats assigned, tests): it used to name
+## assets/models/ships/player_ship.glb, which does not exist, so such a ship
+## logged a load error and rendered no hull. Same model ShipVisuals falls back to.
+@export var model_path: String = "res://assets/models/ship-pirate-small.glb"
 ## Empty means "keep the model's own colormap colors". The previous default
 ## pointed at a ShipMaterial.tres that does not exist in the project, so any
 ## ShipStats that didn't override it made KenneyMaterialApplier fail to load a

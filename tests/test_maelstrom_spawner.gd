@@ -55,7 +55,12 @@ func test_unset_override_uses_heat_tier_or_export() -> void:
 
 
 func test_profile_spawn_scales_a_duplicate_never_the_shared_stats() -> void:
-	var shared: ShipStats = (ENEMY_SHIP.instantiate() as ShipController).ship_stats
+	# Read the scene's shared stats, then free the probe hull: left orphaned, this
+	# RigidBody3D outlived the physics server and crashed the process at engine
+	# teardown (the 0xC0000005 every full suite run exited with since M26).
+	var probe := ENEMY_SHIP.instantiate() as ShipController
+	var shared: ShipStats = probe.ship_stats
+	probe.free()
 	var shared_health := shared.max_health
 	var shared_damage := shared.cannon_damage
 	_spawner.spawn_profile_override = _get_profile

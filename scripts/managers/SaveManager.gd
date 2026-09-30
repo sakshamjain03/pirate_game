@@ -114,6 +114,78 @@ func _capture_fresh_state() -> void:
 ## Game) kept the previous run's chapter progress, fleet, techs, notoriety/heat,
 ## reputation and running timers. It also replaced current_resources with a dict with
 ## no "eights" key, so add_resource() rejected even chapter-reward Eights as unknown.
+## True once this session's load_game() has put the on-disk Eights balance into
+## ResourceManager; from then on memory is the current balance (it also holds
+## anything earned since the last save).
+var _wallet_loaded_this_session: bool = false
+
+
+## The player's true Pieces of Eight balance, whether or not the campaign has
+## been loaded this session: memory once it has, otherwise the save (or its
+## backup) plus the pending file, which never overlap (writing one folds the
+## other in).
+func eights_balance() -> int:
+	var key := ResourceManager.PREMIUM_CURRENCY
+	if _wallet_loaded_this_session:
+		return ResourceManager.get_resource(key)
+	var total := 0
+	if has_recoverable_save_data():
+		var data: Dictionary = _read_save_file(SAVE_PATH)["data"]
+		if data.is_empty():
+			data = _read_save_file(BACKUP_PATH)["data"]
+		var economy = data.get("economy", {})
+		if economy is Dictionary:
+			total += int(economy.get(key, 0))
+	total += int(_read_maelstrom_pending().get("eights", 0))
+	return total
+
+
+## Starting over ends the empire, never the wallet: Pieces of Eight (bought or
+## earned) and owned cosmetics carry into the new game; everything else returns
+## to a fresh start. The balance goes into the pending file BEFORE the save is
+## deleted, and the first World load claims it exactly once. Returns false,
+## having deleted nothing, if the Eights could not be put somewhere safe first.
+func begin_new_game(wants_lessons: bool) -> bool:
+	var carried := eights_balance()
+	var pending_before := _read_maelstrom_pending()
+	var pending := pending_before.duplicate(true)
+	pending["eights"] = carried
+	if not _write_pending(pending):
+		push_error("SaveManager: could not carry %d Eights into a new game; New Game aborted." % carried)
+		return false
+	delete_save()
+	if has_save_data():
+		# The old save survived the delete, so load_game() would count it AND the
+		# pending balance. Put the pending file back and change nothing.
+		push_error("SaveManager: the campaign save could not be deleted; New Game aborted.")
+		if pending_before.is_empty():
+			DirAccess.remove_absolute(MAELSTROM_PENDING_PATH)
+		else:
+			_write_pending(pending_before)
+		return false
+	AnalyticsManager.log_first_event("new_game_started")
+	reset_to_new_game()
+	_maelstrom_data = {}
+	_maelstrom_pending_claimed = false
+	_wallet_loaded_this_session = false
+	TutorialManager.start_new_game_session()
+	TutorialManager.start_new_game_lessons(wants_lessons)
+	if not wants_lessons:
+		# "I know these waters": every tab open from the start. Chapter 1's
+		# dialogue, objectives and rewards still run (M28 Requirement 3.2).
+		TutorialManager.skip_tutorial()
+	return true
+
+
+func _write_pending(pending: Dictionary) -> bool:
+	var file := FileAccess.open(MAELSTROM_PENDING_PATH, FileAccess.WRITE)
+	if not file:
+		return false
+	file.store_string(JSON.stringify(pending, "\t"))
+	file.close()
+	return true
+
+
 func reset_to_new_game() -> void:
 	# Base caps first: warehouses from the old run no longer exist.
 	if ResourceManager.has_method("recalculate_storage_capacity"):
@@ -289,7 +361,13 @@ func load_game() -> void:
 	ScheduleManager.reset()
 	if not has_recoverable_save_data():
 		_maelstrom_data = {}
+		# With no campaign save, the pending file is the one record of the Eights
+		# balance (earned in the Maelstrom, bought from the menu, or carried over a
+		# New Game). Anything in memory is a copy of it, so start from zero and
+		# claim it once — adding it on top of memory would count it twice.
+		ResourceManager.current_resources[ResourceManager.PREMIUM_CURRENCY] = 0
 		_claim_pending_maelstrom()   # M26 — runs played before the first campaign save
+		_wallet_loaded_this_session = true
 		game_loaded.emit()
 		return
 
@@ -443,6 +521,7 @@ func load_game() -> void:
 	# 9e. Maelstrom record (M26), then any run waiting in the pending file.
 	_maelstrom_data = data["maelstrom"].duplicate() if data.get("maelstrom") is Dictionary else {}
 	_claim_pending_maelstrom()
+	_wallet_loaded_this_session = true
 
 	# 9f. Running timers (M27). Due jobs complete once game_loaded has fired and the
 	# World's owners are wired — see ScheduleManager's header.
@@ -741,6 +820,17 @@ func _apply_cloud_save(cloud_row: Dictionary) -> void:
 	var save_data = cloud_row.get("save_data", {})
 	if typeof(save_data) != TYPE_DICTIONARY or save_data.is_empty():
 		return
+	# Keeping the cloud EMPIRE must never cost the wallet: Pieces of Eight bought
+	# (or earned) on this device since the last sync would otherwise vanish with
+	# the local save. Both are copies of the one wallet at different times, so
+	# keep the higher — erring toward the player, the same rule StoreManager's
+	# order handling follows. The pending balance is folded in here and cleared
+	# below, so load_game() can't count it a second time.
+	save_data = save_data.duplicate(true)
+	var key := ResourceManager.PREMIUM_CURRENCY
+	var economy: Dictionary = save_data.get("economy", {}) if save_data.get("economy") is Dictionary else {}
+	economy[key] = maxi(int(economy.get(key, 0)), eights_balance())
+	save_data["economy"] = economy
 	var had_existing_save := FileAccess.file_exists(SAVE_PATH)
 	if not _backup_existing_save():
 		return
@@ -748,6 +838,19 @@ func _apply_cloud_save(cloud_row: Dictionary) -> void:
 	if file:
 		file.store_string(JSON.stringify(save_data, "\t"))
 		file.close()
+		var pending := _read_maelstrom_pending()
+		if pending.has("eights"):
+			pending.erase("eights")
+			if pending.is_empty():
+				DirAccess.remove_absolute(MAELSTROM_PENDING_PATH)
+			else:
+				_write_pending(pending)
+		# If memory is the live wallet (campaign loaded this session), give it the
+		# merged balance too, or the World's next autosave would write the
+		# pre-merge figure back over it.
+		if _wallet_loaded_this_session:
+			ResourceManager.current_resources[key] = int(economy[key])
+			ResourceManager.resources_changed.emit(ResourceManager.current_resources)
 	elif had_existing_save:
 		push_error("SaveManager: Failed to write cloud save to local save file.")
 		_restore_backup()

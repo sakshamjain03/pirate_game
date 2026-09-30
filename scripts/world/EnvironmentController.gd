@@ -53,7 +53,7 @@ func _ready() -> void:
 
 	## Find OceanController in the scene (typically a sibling of World).
 	_ocean_controller = get_tree().get_first_node_in_group("ocean_controller")
-	if not _ocean_controller:
+	if not _ocean_controller and get_tree().current_scene:
 		_ocean_controller = get_tree().current_scene.find_child("OceanController", true, false)
 
 	if _ocean_controller and _ocean_controller.ocean_settings:

@@ -23,6 +23,13 @@ signal chapter_completed(chapter: ChapterData)
 signal lesson_requested(lesson: LessonData)
 
 const CHAPTERS_DIR := "res://resources/campaign/chapters/"
+## Chapters whose Eights reward has been paid on this install. Outside the
+## campaign save on purpose: Pieces of Eight survive a New Game (owner decision
+## 2026-09-30), so without this record every restart would pay Chapter 1's Eights
+## again and New Game would become an Eights farm.
+const EIGHTS_LEDGER_PATH := "user://eights_ledger.json"
+var eights_ledger_path := EIGHTS_LEDGER_PATH   # test seam
+var _chapter_eights_paid: Dictionary = {}      # chapter_id -> true
 
 var chapters: Array[ChapterData] = []
 var current_chapter_index: int = -1
@@ -45,6 +52,7 @@ var _docking_system: Node = null
 
 
 func _ready() -> void:
+	_load_eights_ledger()
 	_load_chapters()
 	_connect_global_signals()
 	_connect_lesson_signals()
@@ -732,8 +740,10 @@ func _on_job_started(job: Dictionary) -> void:
 func _grant_rewards(chapter: ChapterData) -> void:
 	if chapter.reward_gold > 0 and ResourceManager:
 		ResourceManager.add_resource("gold", chapter.reward_gold)
-	if chapter.reward_eights > 0 and ResourceManager:
+	if chapter.reward_eights > 0 and ResourceManager and not _chapter_eights_paid.has(chapter.chapter_id):
 		ResourceManager.add_resource(ResourceManager.PREMIUM_CURRENCY, chapter.reward_eights)
+		_chapter_eights_paid[chapter.chapter_id] = true
+		_write_eights_ledger()
 	if not chapter.reward_captain_id.is_empty():
 		var cap := _find_by_id("res://resources/captains/", "captain_id", chapter.reward_captain_id)
 		if cap and FleetManager.has_method("add_captain"):
@@ -773,3 +783,28 @@ func load_save_data(data: Dictionary) -> void:
 	for id in data.get("completed_objective_ids", []):
 		_completed_objective_ids.append(str(id))
 	call_deferred("_catch_up")
+
+
+func has_paid_chapter_eights(chapter_id: String) -> bool:
+	return _chapter_eights_paid.has(chapter_id)
+
+
+func _load_eights_ledger() -> void:
+	_chapter_eights_paid.clear()
+	if not FileAccess.file_exists(eights_ledger_path):
+		return
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(eights_ledger_path))
+	if not (parsed is Dictionary) or not (parsed.get("chapters_paid") is Array):
+		push_error("CampaignManager: %s is unreadable; chapter Eights ledger starts empty." % eights_ledger_path)
+		return
+	for id in parsed["chapters_paid"]:
+		_chapter_eights_paid[str(id)] = true
+
+
+func _write_eights_ledger() -> void:
+	var file := FileAccess.open(eights_ledger_path, FileAccess.WRITE)
+	if not file:
+		push_error("CampaignManager: failed to write %s." % eights_ledger_path)
+		return
+	file.store_string(JSON.stringify({"chapters_paid": _chapter_eights_paid.keys()}, "\t"))
+	file.close()

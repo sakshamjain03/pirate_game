@@ -215,9 +215,9 @@ func _spawn_merchant_convoy() -> void:
 		return
 		
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene.get_node_or_null("Enemies")
+	var container := _spawn_container(true)
 	if not container:
-		container = get_tree().current_scene
+		return
 		
 	for i in range(3):
 		var ship = enemy_scene.instantiate()
@@ -239,7 +239,9 @@ func _spawn_floating_treasure() -> void:
 	if AudioManager: AudioManager.play_sound("treasure_found")
 
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene
+	var container := _spawn_container(false)
+	if not container:
+		return
 
 	for i in range(5):
 		var loot = loot_scene.instantiate()
@@ -267,9 +269,9 @@ func _spawn_ghost_ship_boss() -> void:
 		return
 		
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene.get_node_or_null("Enemies")
+	var container := _spawn_container(true)
 	if not container:
-		container = get_tree().current_scene
+		return
 		
 	var ship = enemy_scene.instantiate()
 	ship.add_to_group("boss_ship")
@@ -299,9 +301,9 @@ func _spawn_iron_vulture_boss() -> void:
 		return
 
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene.get_node_or_null("Enemies")
+	var container := _spawn_container(true)
 	if not container:
-		container = get_tree().current_scene
+		return
 
 	var ship = enemy_scene.instantiate()
 	ship.add_to_group("boss_ship")
@@ -319,9 +321,9 @@ func _spawn_fortunes_toll_boss() -> void:
 		return
 
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene.get_node_or_null("Enemies")
+	var container := _spawn_container(true)
 	if not container:
-		container = get_tree().current_scene
+		return
 
 	var ship = enemy_scene.instantiate()
 	ship.add_to_group("boss_ship")
@@ -342,7 +344,9 @@ func _spawn_loot(count: int, gold_range: Vector2i, wood_range: Vector2i, iron_ra
 	if AudioManager: AudioManager.play_sound("treasure_found")
 
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene
+	var container := _spawn_container(false)
+	if not container:
+		return
 
 	for i in range(count):
 		var loot = loot_scene.instantiate()
@@ -377,9 +381,9 @@ func _spawn_hostile_ships(faction_path: String, count: int) -> void:
 		return
 
 	var center = _get_random_spawn_pos()
-	var container = get_tree().current_scene.get_node_or_null("Enemies")
+	var container := _spawn_container(true)
 	if not container:
-		container = get_tree().current_scene
+		return
 
 	for i in range(count):
 		var ship = enemy_scene.instantiate()
@@ -436,3 +440,17 @@ func _apply_temporary_wind_modifier(multiplier: float, duration: float) -> void:
 	get_tree().create_timer(duration).timeout.connect(func():
 		if is_instance_valid(region):
 			region.wind_strength = original_strength)
+
+
+## Where an event spawns its ships or loot: the scene's "Enemies" node when asked
+## and present, else the scene root. Null with no current scene (a test tree, or
+## mid scene change) — callers return rather than add_child() on nothing.
+func _spawn_container(prefer_enemies: bool) -> Node:
+	var scene := get_tree().current_scene
+	if not scene:
+		return null
+	if prefer_enemies:
+		var enemies := scene.get_node_or_null("Enemies")
+		if enemies:
+			return enemies
+	return scene

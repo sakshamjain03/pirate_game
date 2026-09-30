@@ -27,7 +27,7 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-09-30, M26-M28 joint wrap-up): 137 scripts, 1035 tests, 1035 passing, 0 failing** (M28 Checkpoint B was 136 / 1027; M27 Checkpoint B 133 / 963) (the process still exits 0xC0000005 at engine teardown, after GUT's summary; this was already true at M27 Checkpoint A, so read the Totals block, not the exit code) (M25 Checkpoint B was 828; M26 and M27 added the rest). A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. The long-standing LOD gap (`test_property_21_lod_distance_transitions`) no longer fails. The run still prints 8 `SCRIPT ERROR`s from test fixtures with no `current_scene` (`ShipCombat`/`ShipController`/`EventManager` spawning VFX or loot into a null scene); none fail a test.
+**Current (2026-10-01, M26-M28 wrap-up second pass): 138 scripts, 1046 tests, 1046 passing, 0 failing, 0 `SCRIPT ERROR`s, and the process exits 0.** The engine-teardown crash (0xC0000005 / exit 139 since M26) was one orphaned `EnemyShip` in `test_maelstrom_spawner.gd`, a RigidBody3D outliving the physics server; it is freed now, so the exit code is meaningful again. A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. `res://.gutconfig.json` runs `tests/gut_pre_run.gd` before every CLI run, which points `CampaignManager`'s chapter-Eights ledger at a scratch file so the suite never writes the developer's real one. (Previous: 137 / 1035 at the joint wrap-up; M28 Checkpoint B 136 / 1027; M27 Checkpoint B 133 / 963.)
 
 Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
@@ -3513,10 +3513,42 @@ follow-ups the three checkpoints left open.
 Entering: 136 scripts / 1027 tests / 1027 passing. After: 137 / 1035 / 1035 (+3 cover, +1 phone
 layout, +4 New Game reset).
 
-### Open, needs a decision
-- New Game wipes the Eights balance along with the save, including **purchased** Eights. That was
-  true before this pass and is unchanged: carrying them over is a product call (it also lets a
-  free player re-earn Chapter 1's Eights on every New Game).
+### Decided and done (2026-09-30, second pass)
+The project owner's rule: **Pieces of Eight never expire and are never deleted**, bought or earned,
+and the game is one empire you keep building (Clash of Clans), not something you restart. Full
+rules are in `docs/17_MONETIZATION.md` §4.6.
+- `SaveManager.begin_new_game()` owns New Game (MainMenu and Settings both call it). It carries the
+  balance from `eights_balance()` into the pending file *before* deleting the save, then resets the
+  empire; if the Eights can't be written first, nothing is deleted. The no-save branch of
+  `load_game()` now zeroes the in-memory Eights before claiming pending, so the pending file is the
+  single record there. Before this, a menu purchase with no save could count twice.
+- `_apply_cloud_save()` ("Keep Cloud") keeps the higher copy of the wallet and folds in and clears
+  pending Eights. It used to replace local Eights bought since the last sync.
+- Chapter Eights pay once per install (`CampaignManager`, `user://eights_ledger.json`,
+  `eights_ledger_path` test seam), so New Game is not an Eights farm.
+- With a save, the main menu shows only Continue. "Start a New Empire" is in Settings > General,
+  behind a confirmation that says Pieces of Eight and cosmetics stay.
+- `tests/test_eights_survive_new_game.gd` (11).
+
+Also in the second pass:
+- `ShipStats.model_path` defaulted to `assets/models/ships/player_ship.glb`, which doesn't exist, so a
+  bare `ShipStats.new()` rendered no hull. It now defaults to the model `ShipVisuals` falls back to.
+- The 8 `SCRIPT ERROR`s every suite run printed are gone. `ShipCombat` (floating text, cannonballs,
+  muzzle flash), `ShipController` (explosion, loot), `EventManager` (`_spawn_container()`) and
+  `EnvironmentController` called `get_tree().current_scene.add_child()`/`find_child()` with no
+  current scene. Each now returns at that point instead, which was already the effective
+  behaviour, minus the error.
+- A repo-wide check that every `res://` path referenced by a script, scene or resource exists and
+  is tracked: the only miss was the `model_path` default above (plus debug screenshot outputs).
+- **Suite teardown crash fixed.** Bisected to `test_profile_spawn_scales_a_duplicate_never_the_shared_stats`,
+  which instantiated an `EnemyShip` only to read its `ship_stats` and never freed it.
+- **Chapter-ledger test isolation.** The first run with the ledger wrote the real
+  `user://eights_ledger.json` (Chapter 1 marked paid), so `test_lessons`' Chapter 1 reward check
+  failed. The file was removed, the pre-run hook above now redirects the ledger, and that test
+  asserts a fresh profile.
+- **Settings > General on desktop** was a fixed 340 px centred grid. The Empire row pushed it
+  under the tab bar and the Back button. It now sits in a centred `ScrollContainer`
+  (`_fit_desktop_general_tab()`), like the phone path already did.
 
 ### Not verifiable here
 Whether the smaller phone fire buttons *feel* right (they meet the 48dp floor but are now smaller

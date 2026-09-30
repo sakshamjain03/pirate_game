@@ -582,6 +582,9 @@ func test_i_know_these_waters_keeps_chapter_1_but_fires_no_lessons():
 	CampaignManager.chapters = [ch1]
 	_add_card_marker()
 	ResourceManager.current_resources[ResourceManager.PREMIUM_CURRENCY] = 0
+	# A fresh profile: Chapter 1's Eights not yet paid on this install (another
+	# suite may have completed Chapter 1 earlier in the run).
+	CampaignManager._chapter_eights_paid.erase(ch1.chapter_id)
 	watch_signals(CampaignManager)
 	CampaignManager._catch_up()
 

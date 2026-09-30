@@ -431,6 +431,9 @@ func _spawn_explosion() -> void:
 	mesh.material = mat
 	explosion.mesh = mesh
 	
+	if not get_tree().current_scene:
+		explosion.free()
+		return
 	get_tree().current_scene.add_child(explosion)
 	explosion.global_position = global_position
 	explosion.emitting = true
@@ -445,7 +448,7 @@ func _spawn_explosion() -> void:
 func _spawn_loot() -> void:
 	## Spawn a floating loot crate at the ship's death position
 	var loot_scene = load("res://scenes/combat/LootDrop.tscn") as PackedScene
-	if not loot_scene:
+	if not loot_scene or not get_tree().current_scene:
 		return
 
 	var loot = loot_scene.instantiate()

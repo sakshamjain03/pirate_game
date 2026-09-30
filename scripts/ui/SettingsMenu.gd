@@ -123,6 +123,7 @@ func _ready() -> void:
 	
 	back_button.pressed.connect(_on_back_pressed)
 	replay_tutorial_button.pressed.connect(_on_replay_tutorial_pressed)
+	_add_new_empire_row()
 
 	auth_manager.signed_in.connect(_on_auth_signed_in)
 	auth_manager.signed_out.connect(_on_auth_signed_out)
@@ -138,6 +139,34 @@ func _ready() -> void:
 
 	if _uses_mobile_layout():
 		_apply_mobile_sizing()
+	else:
+		_fit_desktop_general_tab()
+
+
+## Desktop keeps General's centred two-column grid, but inside a scroll view: it
+## was a fixed 340 px box anchored on the tab's centre, so the "Empire" row that
+## appears once a save exists pushed the grid under the tab bar and the Back
+## button. Centred while it fits, scrollable when it doesn't.
+func _fit_desktop_general_tab() -> void:
+	if grid_container.get_parent() != general_tab:
+		return
+	var scroll := ScrollContainer.new()
+	scroll.name = "GeneralScrollContainer"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 12.0
+	scroll.offset_top = 12.0
+	scroll.offset_right = -12.0
+	scroll.offset_bottom = -12.0
+	general_tab.add_child(scroll)
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
+	var width := grid_container.offset_right - grid_container.offset_left
+	grid_container.reparent(center)
+	grid_container.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	grid_container.custom_minimum_size = Vector2(width, 0.0)
 
 
 func _uses_mobile_layout() -> bool:
@@ -771,6 +800,44 @@ func _on_replay_tutorial_pressed() -> void:
 	# World's load_game() runs next (TutorialManager._replay_pending).
 	TutorialManager.replay_lessons()
 	SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
+
+## Owner decision 2026-09-30: this is one empire the player keeps building (the
+## Clash of Clans model), so with a save the main menu offers only Continue and
+## starting over lives here, behind a confirmation that says what survives.
+var new_empire_button: Button = null
+
+func _add_new_empire_row() -> void:
+	if not SaveManager.has_recoverable_save_data():
+		return
+	var grid: Node = replay_tutorial_button.get_parent()
+	var label := Label.new()
+	label.text = tr("Empire")
+	grid.add_child(label)
+	new_empire_button = Button.new()
+	new_empire_button.name = "NewEmpireButton"
+	new_empire_button.text = tr("Start a New Empire")
+	new_empire_button.custom_minimum_size = replay_tutorial_button.custom_minimum_size
+	new_empire_button.pressed.connect(_on_new_empire_pressed)
+	grid.add_child(new_empire_button)
+
+func _on_new_empire_pressed() -> void:
+	var confirm: int = await ChoiceDialogScript.new(
+		tr("Start a New Empire?"),
+		tr("Your islands, fleet, captains, research and chapter progress will be erased. Your Pieces of Eight and cosmetics stay with you."),
+		PackedStringArray([tr("Keep My Empire"), tr("Start Over")])
+	).ask(self)
+	if confirm != 1:
+		return
+	var returning: bool = TutorialManager.tutorial_completed
+	var MainMenuScript: GDScript = load("res://scripts/ui/MainMenu.gd")
+	var choice: int = await ChoiceDialogScript.new(
+		tr("New Game"),
+		tr("Short hints appear as each part of the game comes up. The story plays either way."),
+		MainMenuScript.new_game_lesson_choices(returning)
+	).ask(self)
+	if SaveManager.begin_new_game(MainMenuScript.wants_lessons_for(choice, returning)):
+		get_tree().paused = false
+		SceneManager.change_scene_with_fade("res://scenes/world/World.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

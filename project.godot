@@ -211,3 +211,4 @@ limits/time/time_rollover_secs=86400
 ; project (godotengine/godot community precedent) - testing whether it also
 ; resolves it on this project's 4.3-stable build.
 textures/vram_compression/import_etc2_astc=true
+rendering/renderer/rendering_method.mobile="mobile"

@@ -72,7 +72,8 @@ func _refresh() -> void:
 
 	var current := CampaignManager._current_chapter()
 	if not current:
-		_add_section(tr("No Active Chapter"))
+		_add_section(tr("Free Roam"))
+		_add_body(CampaignManager.get_display_objective())
 		PirateThemeBuilder.apply_mobile_control_scaling(content)
 		return
 

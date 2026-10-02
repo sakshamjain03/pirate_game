@@ -19,6 +19,8 @@ signal chapter_started(chapter: ChapterData)
 signal objective_progressed(objective_id: String, current: int, target: int)
 signal objective_completed(objective_id: String)
 signal chapter_completed(chapter: ChapterData)
+## M29 — the final chapter completed, free roam begins
+signal campaign_completed_signal
 ## M28 — a chapter lesson's trigger fired. LessonCoachCard queues and shows it.
 signal lesson_requested(lesson: LessonData)
 
@@ -34,6 +36,8 @@ var _chapter_eights_paid: Dictionary = {}      # chapter_id -> true
 var chapters: Array[ChapterData] = []
 var current_chapter_index: int = -1
 var completed_chapter_ids: Array[String] = []
+## M29 — true when the final chapter completes, enabling free roam
+var campaign_completed: bool = false
 
 var _objective_progress: Dictionary = {}   # objective_id -> int
 var _completed_objective_ids: Array[String] = []
@@ -320,6 +324,13 @@ func _complete_chapter(chapter: ChapterData) -> void:
 	chapter_completed.emit(chapter)
 	_advance_to_next_chapter()
 
+	# M29 C.1 — if no enabled chapter follows, mark the campaign as complete
+	var next_index := current_chapter_index + 1
+	if next_index >= chapters.size():
+		campaign_completed = true
+		campaign_completed_signal.emit()
+		_queue_campaign_complete_celebration()
+
 
 func is_chapter_completed(chapter_id: String) -> bool:
 	return chapter_id.is_empty() or completed_chapter_ids.has(chapter_id)
@@ -334,6 +345,27 @@ func is_chapter_current(chapter_id: String) -> bool:
 		return true
 	var chapter := _current_chapter()
 	return chapter != null and chapter.chapter_id == chapter_id
+
+
+## M29 C.1 — returns the current objective description, or a free-roam line
+## if the campaign is complete.
+func get_display_objective() -> String:
+	if campaign_completed:
+		return tr("Your empire is yours. Raid, build, and sail the Maelstrom.")
+
+	var chapter := _current_chapter()
+	if not chapter:
+		return ""
+
+	# Find the first incomplete required objective
+	for objective in chapter.objectives:
+		if objective.is_optional:
+			continue
+		if _completed_objective_ids.has(objective.objective_id):
+			continue
+		return objective.description
+
+	return ""
 
 
 # === Condition handlers — one per real signal, mirroring TutorialManager ===
@@ -762,6 +794,79 @@ func _find_by_id(dir_path: String, id_field: String, id_value: String) -> Resour
 	return ResourceLookup.find_by_id(dir_path, id_field, id_value)
 
 
+## M29 C.1 — queue a one-time "Campaign Complete" celebration through CelebrationQueue.
+## The celebration moment is a simple Control showing the campaign completion message.
+func _queue_campaign_complete_celebration() -> void:
+	# Get WorldHUD from the scene tree (it adds itself to the "hud" group)
+	var hud = get_tree().get_first_node_in_group("hud")
+	if not hud:
+		push_error("CampaignManager: WorldHUD not found in scene tree for celebration queue")
+		return
+
+	# Find or create the CelebrationQueue
+	var celebration_queue = hud.find_child("CelebrationQueue", true, false)
+	if not celebration_queue:
+		# If CelebrationQueue doesn't exist as a child, try to get it as a child node with class_name
+		celebration_queue = hud.get_node_or_null("CelebrationQueue")
+
+	if not celebration_queue:
+		# Create the CelebrationQueue if it doesn't exist
+		celebration_queue = CelebrationQueue.new()
+		celebration_queue.name = "CelebrationQueue"
+		celebration_queue.host = hud  # Set the host to WorldHUD
+		hud.add_child(celebration_queue)
+
+	# Create a simple celebration moment (a Control with celebration text)
+	var moment = _create_campaign_complete_moment()
+	if moment:
+		# Extract the CTA button from the moment
+		var cta = moment.get_meta("cta_button", null)
+		# Queue it as a LARGE celebration
+		celebration_queue.play(CelebrationQueue.Tier.LARGE, moment, cta)
+
+
+## M29 C.1 — create a simple Control showing the campaign completion message.
+func _create_campaign_complete_moment() -> Control:
+	var moment = Control.new()
+	moment.name = "CampaignCompleteScreen"
+	moment.custom_minimum_size = Vector2(400, 300)
+
+	# Create a panel for the background
+	var panel = PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	moment.add_child(panel)
+
+	# Create a VBoxContainer for layout
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.add_child(vbox)
+
+	# Add the celebration title
+	var title = Label.new()
+	title.text = tr("Campaign Complete!")
+	title.add_theme_font_size_override("font_size", 32)
+	vbox.add_child(title)
+
+	# Add a message
+	var message = Label.new()
+	message.text = tr("Your empire awaits in the free roam.")
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(message)
+
+	# Add a button to close
+	var button = Button.new()
+	button.text = tr("Continue")
+	vbox.add_child(button)
+
+	# The button is the CTA (close-to-action) that ends the celebration
+	# Store it so the caller can connect it to the queue
+	moment.set_meta("cta_button", button)
+
+	return moment
+
+
 # === Save/load ===
 
 func get_save_data() -> Dictionary:
@@ -770,6 +875,7 @@ func get_save_data() -> Dictionary:
 		"completed_chapter_ids": completed_chapter_ids.duplicate(),
 		"objective_progress": _objective_progress.duplicate(),
 		"completed_objective_ids": _completed_objective_ids.duplicate(),
+		"campaign_completed": campaign_completed,
 	}
 
 
@@ -782,6 +888,7 @@ func load_save_data(data: Dictionary) -> void:
 	_completed_objective_ids = []
 	for id in data.get("completed_objective_ids", []):
 		_completed_objective_ids.append(str(id))
+	campaign_completed = bool(data.get("campaign_completed", false))
 	call_deferred("_catch_up")
 
 

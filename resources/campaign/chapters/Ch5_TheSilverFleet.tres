@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=19 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
@@ -99,6 +99,7 @@ is_optional = true
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "cardenas"
+portrait_path = "res://assets/portraits/Cardenas.png"
 speaker_name = "Almirante Beatriz de Cárdenas"
 text = "You imagine you have taken something from Spain. You have taken one crossing. There will be another in the spring, and I will be commanding it."
 mood = 0
@@ -106,6 +107,7 @@ mood = 0
 [sub_resource type="Resource" id="Close_2"]
 script = ExtResource("3_beat")
 speaker_id = "cardenas"
+portrait_path = "res://assets/portraits/Cardenas.png"
 speaker_name = "Almirante Beatriz de Cárdenas"
 text = "Enjoy your harbour, Captain. It is a very small piece of a very large ocean."
 mood = 0
@@ -126,6 +128,30 @@ portrait_path = "res://assets/portraits/Higgins.svg"
 text = "…I'd very much like you to tell me I'm wrong."
 mood = 3
 
+[sub_resource type="Resource" id="Epilogue_1"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
+text = "You've taken an empire's flagship, Captain, and broken her crossing. Spain will answer that. But you've also taken the thing they couldn't protect — a port the Navy itself couldn't take for a hundred years. You're no longer a captain now. You're an empire yourself."
+mood = 4
+
+[sub_resource type="Resource" id="Epilogue_2"]
+script = ExtResource("3_beat")
+speaker_id = "marguerite"
+speaker_name = "Marguerite"
+portrait_path = "res://assets/portraits/Marguerite.png"
+text = "Something bigger to lose, you said. I wasn't sure then. But you've answered me, haven't you? You built an empire, and now you have to keep it."
+mood = 2
+
+[sub_resource type="Resource" id="Epilogue_3"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
+text = "An island nobody knows, marked by a man nobody remembers. And you're the only captain alive with the chart. That chart says the story goes on, Captain — it says the ocean's bigger than we've been told."
+mood = 4
+
 [resource]
 script = ExtResource("1_chapter")
 chapter_id = "ch5_the_silver_fleet"
@@ -135,7 +161,7 @@ log_summary = "Cut Cárdenas' supply, broke her escort, and took Cartagena — t
 required_region_id = "imperial_waters"
 opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
 objectives = Array[ObjectiveData]([SubResource("Obj_5_1"), SubResource("Obj_5_2"), SubResource("Obj_5_3"), SubResource("Obj_5_4"), SubResource("Obj_5_5"), SubResource("Obj_5_6"), SubResource("Obj_5_7"), SubResource("Obj_5_8")])
-closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3"), SubResource("Close_4")])
+closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3"), SubResource("Close_4"), SubResource("Epilogue_1"), SubResource("Epilogue_2"), SubResource("Epilogue_3")])
 lessons = Array[LessonData]([ExtResource("L_Ch5_Maelstrom")])
 reward_gold = 6000
 reward_eights = 60

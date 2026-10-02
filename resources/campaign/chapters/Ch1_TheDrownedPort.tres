@@ -132,6 +132,7 @@ hint_text = "Cycle your shot until chain is loaded — it tears sails and slows 
 script = ExtResource("3_beat")
 speaker_id = "hale"
 speaker_name = "Factor Cornelius Hale"
+portrait_path = "res://assets/portraits/Hale.png"
 text = "Good afternoon. Cornelius Hale, Merchant Guild. I represent every cargo that passes this water, which until last month included nothing at all bound for here."
 mood = 0
 
@@ -139,6 +140,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "hale"
 speaker_name = "Factor Cornelius Hale"
+portrait_path = "res://assets/portraits/Hale.png"
 text = "There is smoke coming from a harbour that has been dead for four years. My ledger requires a name for it. Whom, precisely, am I invoicing?"
 mood = 0
 
@@ -146,6 +148,7 @@ mood = 0
 script = ExtResource("3_beat")
 speaker_id = "hale"
 speaker_name = "Factor Cornelius Hale"
+portrait_path = "res://assets/portraits/Hale.png"
 text = "One more thing, for your ledger's sake. Spain still calls this whole sea her lake, treaty or no — His Majesty's Navy merely patrols it. You'll want to learn the difference before you're rich enough for either to notice you."
 mood = 0
 

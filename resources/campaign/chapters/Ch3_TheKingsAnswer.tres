@@ -12,6 +12,7 @@
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
 speaker_id = "hollis"
+portrait_path = "res://assets/portraits/Hollis.png"
 speaker_name = "Commander Hollis"
 text = "By order of the Admiralty. The settlement at Port Royal is declared an unlawful occupation of Crown ground. Its harbour is closed. Its trade is contraband."
 mood = 3
@@ -19,6 +20,7 @@ mood = 3
 [sub_resource type="Resource" id="Open_2"]
 script = ExtResource("3_beat")
 speaker_id = "hollis"
+portrait_path = "res://assets/portraits/Hollis.png"
 speaker_name = "Commander Hollis"
 text = "You have no charter, no letters, and no standing. You have a fortnight to disperse."
 mood = 3
@@ -26,6 +28,7 @@ mood = 3
 [sub_resource type="Resource" id="Open_3"]
 script = ExtResource("3_beat")
 speaker_id = "hollis"
+portrait_path = "res://assets/portraits/Hollis.png"
 speaker_name = "Commander Hollis"
 text = "I am required to read that aloud before we begin. It is read."
 mood = 0
@@ -106,6 +109,7 @@ hint_text = "In the Fleet tab, make a ship active to put a captain in command of
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "marguerite"
+portrait_path = "res://assets/portraits/Marguerite.png"
 speaker_name = "Marguerite"
 text = "They read you the same speech they read me. Mine ended with the harbour on fire and the Admiralty calling it a lawful action."
 mood = 2
@@ -113,6 +117,7 @@ mood = 2
 [sub_resource type="Resource" id="Close_2"]
 script = ExtResource("3_beat")
 speaker_id = "marguerite"
+portrait_path = "res://assets/portraits/Marguerite.png"
 speaker_name = "Marguerite"
 text = "So I'll ask what nobody else will. Are you building a port, or are you just building something bigger to lose?"
 mood = 2
@@ -120,6 +125,7 @@ mood = 2
 [sub_resource type="Resource" id="Close_3"]
 script = ExtResource("3_beat")
 speaker_id = "marguerite"
+portrait_path = "res://assets/portraits/Marguerite.png"
 speaker_name = "Marguerite"
 text = "If it's something bigger, build it where the Navy isn't looking. There's a cay off their charts. Pelican Cay. Plot a course and see for yourself."
 mood = 2

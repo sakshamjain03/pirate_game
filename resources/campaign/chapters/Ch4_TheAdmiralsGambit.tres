@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ChapterData" load_steps=21 format=3]
+[gd_resource type="Resource" script_class="ChapterData" load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/ChapterData.gd" id="1_chapter"]
 [ext_resource type="Script" path="res://scripts/world/ObjectiveData.gd" id="2_objective"]
@@ -10,6 +10,7 @@
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "Commander Hollis followed his orders correctly and lost, which tells me the orders were wrong, not the man."
 mood = 0
@@ -17,6 +18,7 @@ mood = 0
 [sub_resource type="Resource" id="Open_2"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "I was at anchor when Port Royal went into the sea. I watched two thousand people drown in a town that had no law in it, and I have spent every year since making certain no other harbour gets the chance."
 mood = 2
@@ -24,9 +26,18 @@ mood = 2
 [sub_resource type="Resource" id="Open_3"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "You are not a criminal to me. You are a repetition. Plant your flag on one more harbour and I will come to take it down."
 mood = 0
+
+[sub_resource type="Resource" id="Open_4"]
+script = ExtResource("3_beat")
+speaker_id = "higgins"
+speaker_name = "Quartermaster Higgins"
+portrait_path = "res://assets/portraits/Higgins.svg"
+text = "Find the second cay, hold it through a Navy raid, and turn this water's balance. Plant a fleet captain where they can't reach her, and the Admiral loses both."
+mood = 1
 
 [sub_resource type="Resource" id="Obj_4_1"]
 script = ExtResource("2_objective")
@@ -112,9 +123,18 @@ target_count = 1
 target_value = 35.0
 hint_text = "Run trade routes or patrols, or pay the Guild tribute from the trade tab."
 
+[sub_resource type="Resource" id="Obj_4_11"]
+script = ExtResource("2_objective")
+objective_id = "4.11"
+description = "Hold Pelican Cay through a raid"
+condition = 14
+target_id = "pelican_cay"
+target_count = 1
+
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "Well. That is that, and I find I mind less than I expected to."
 mood = 0
@@ -122,6 +142,7 @@ mood = 0
 [sub_resource type="Resource" id="Close_2"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "You should know what you have actually won. I was the fence, not the wolf. In six weeks the Spanish treasure fleet crosses this water — a hundred and twenty thousand in silver behind Beatriz de Cárdenas, who has never lost a crossing and does not care whose flag is on your harbour."
 mood = 0
@@ -129,6 +150,7 @@ mood = 0
 [sub_resource type="Resource" id="Close_3"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "I was trying to keep this water boring, Captain. You have made it interesting. I hope you enjoy that."
 mood = 4
@@ -140,8 +162,8 @@ chapter_number = 4
 title = "The Admiral's Gambit"
 log_summary = "Found Pelican Cay, planted a second flag, and sank HMS Intransigent when Admiral Vance came for it — the first real boss, and the first true loss for the Crown."
 required_previous_chapter = "ch3_the_kings_answer"
-opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3")])
-objectives = Array[ObjectiveData]([SubResource("Obj_4_9"), SubResource("Obj_4_1"), SubResource("Obj_4_2"), SubResource("Obj_4_3"), SubResource("Obj_4_4"), SubResource("Obj_4_10"), SubResource("Obj_4_5"), SubResource("Obj_4_6"), SubResource("Obj_4_7"), SubResource("Obj_4_8")])
+opening_beats = Array[DialogueBeatData]([SubResource("Open_1"), SubResource("Open_2"), SubResource("Open_3"), SubResource("Open_4")])
+objectives = Array[ObjectiveData]([SubResource("Obj_4_9"), SubResource("Obj_4_1"), SubResource("Obj_4_2"), SubResource("Obj_4_3"), SubResource("Obj_4_4"), SubResource("Obj_4_10"), SubResource("Obj_4_5"), SubResource("Obj_4_6"), SubResource("Obj_4_7"), SubResource("Obj_4_11"), SubResource("Obj_4_8")])
 closing_beats = Array[DialogueBeatData]([SubResource("Close_1"), SubResource("Close_2"), SubResource("Close_3")])
 lessons = Array[LessonData]([ExtResource("L_Ch4_WorldMap"), ExtResource("L_Ch4_Research"), ExtResource("L_Ch4_Factions")])
 reward_gold = 3000

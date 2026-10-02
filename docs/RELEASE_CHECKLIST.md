@@ -182,12 +182,56 @@ than assumed fine:** multi-monitor/high-DPI behavior, ultrawide aspect ratios, a
 (the Controls tab's Sensitivity/Dead Zone sliders imply it exists, but only keyboard/mouse was
 exercised this pass).
 
-## 7. Store listing update (if changed)
+### 6c. Frame rate measurement on reference device (added M29 — Requirement E1.4)
+
+The game must sustain ≥45fps on the reference device in three gameplay scenarios. The measurement
+protocol (added M29) is:
+
+1. **Choose a reference device** — a specific, named Android device (e.g. "Samsung Galaxy A35 5G")
+   that represents the lower bound of viable target hardware. Record the device name and OS version
+   in this section.
+2. **Run the three probe scenarios:**
+   - **Open ocean:** spawn in open water with no islands or enemies on screen. Record FPS over 30
+     seconds of idle.
+   - **Island approach:** sail to within docking range of an island (closest point without entering
+     combat). Record FPS over 30 seconds of circling the dock.
+   - **Combat:** initiate a 3-hull combat encounter (e.g. `ChainRaid_V4` or equivalent). Sail and
+     fire for 2 full minutes. Record the minimum FPS sustained (not average — the lowest dip).
+
+3. **Record measurements here** (first run 2026-10-XX):
+   - Device: [NAME AND OS VERSION]
+   - Open ocean: [FPS]fps
+   - Island approach: [FPS]fps
+   - Combat (3 hulls): [FPS]fps (minimum dip)
+   - Date: [YYYY-MM-DD]
+
+**Do not estimate, assume, or skip this step.** The FPS floor is a known gap — see Step 6's
+2026-09-19 note: actual device measurement showed 18-27fps across all three scenarios at a time
+when the code appeared correct on inspection alone. Measurement is why this step exists.
+
+## 7. GitHub Pages enable (if needed — M29 Requirement E2)
+
+The privacy and terms pages are hosted on GitHub Pages. **This is an owner action, not a code change**
+— it requires enabling Pages in the repository settings, and it is a permanent change to the
+repository.
+
+The pages are sourced from the `gh-pages` branch and published to:
+- Privacy policy: `https://sakshamjain03.github.io/pirate_game/privacy.html`
+- Terms of service: `https://sakshamjain03.github.io/pirate_game/terms.html`
+
+These URLs are hardcoded in `scripts/ui/SettingsMenu.gd` and must return HTTP 200 before M35
+ships. **Action:** if this is the first release after M29, enable GitHub Pages in the repo settings
+pointing to the `gh-pages` branch, then verify both URLs return HTTP 200 and render correct content.
+Record the date completed here:
+
+- GitHub Pages enabled: [YYYY-MM-DD or "not yet needed"]
+
+## 8. Store listing update (if changed)
 
 If gameplay, UI, or the icon changed since the last release, refresh the store listing copy below
 (Appendix A) — screenshots and description — before updating the Play Console listing.
 
-## 8. Privacy policy / Data Safety re-check
+## 9. Privacy policy / Data Safety re-check
 
 **Re-check this every release, not just the first one.** If any milestone since the last release
 changed what the app collects or transmits (a new account feature, a new analytics event, a new

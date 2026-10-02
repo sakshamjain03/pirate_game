@@ -1,0 +1,41 @@
+[gd_resource type="QualityTierTable" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/managers/QualityTierTable.gd" id="1_table"]
+[ext_resource type="Script" path="res://scripts/managers/QualityTierData.gd" id="1_data"]
+
+[sub_resource type="Resource" id="LowTier"]
+script = ExtResource("1_data")
+shadow_enabled = false
+shadow_distance = 50.0
+msaa_mode = 0
+ssao_enabled = false
+glow_enabled = false
+ocean_sparkle_enabled = false
+ocean_ring_density = 0.5
+ambient_hull_cap = 5
+
+[sub_resource type="Resource" id="MediumTier"]
+script = ExtResource("1_data")
+shadow_enabled = true
+shadow_distance = 80.0
+msaa_mode = 1
+ssao_enabled = true
+glow_enabled = true
+ocean_sparkle_enabled = true
+ocean_ring_density = 1.0
+ambient_hull_cap = 10
+
+[sub_resource type="Resource" id="HighTier"]
+script = ExtResource("1_data")
+shadow_enabled = true
+shadow_distance = 100.0
+msaa_mode = 2
+ssao_enabled = true
+glow_enabled = true
+ocean_sparkle_enabled = true
+ocean_ring_density = 1.0
+ambient_hull_cap = 15
+
+[resource]
+script = ExtResource("1_table")
+tiers = [SubResource("LowTier"), SubResource("MediumTier"), SubResource("HighTier")]

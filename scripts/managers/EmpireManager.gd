@@ -117,9 +117,8 @@ func _process(delta: float) -> void:
 
 func notify_island_captured(island_id: String, previous_faction_id: String = "") -> void:
 	island_captured.emit(island_id)
-	# M29 B.3 — also emit the new signal with the previous owner
-	if not previous_faction_id.is_empty():
-		island_captured_from.emit(island_id, previous_faction_id)
+	# M29 B.3 — also emit the new signal with the previous owner (always, even if empty)
+	island_captured_from.emit(island_id, previous_faction_id)
 
 signal island_tier_changed(island_id: String, new_tier: int)
 

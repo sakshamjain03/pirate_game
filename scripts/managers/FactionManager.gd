@@ -36,6 +36,10 @@ func _ready() -> void:
 	# Use get_tree().node_added to avoid hardcoded node paths
 	get_tree().node_added.connect(_on_node_added)
 
+	# M29 B.3 — connect to EmpireManager's island capture signal
+	if EmpireManager and EmpireManager.has_signal("island_captured_from"):
+		EmpireManager.island_captured_from.connect(_on_island_captured_from)
+
 func _process(delta: float) -> void:
 	if _tribute_cooldown_remaining.is_empty() and _event_hunter_cooldown.is_empty():
 		return
@@ -120,12 +124,20 @@ func get_player_faction() -> Resource:
 	return load("res://resources/factions/PlayerFaction.tres")
 
 func _resolve_faction(faction_id: String) -> FactionData:
-	# M29 — resolve a faction by id, pushing error if unknown
-	var faction = load("res://resources/factions/%s.tres" % faction_id.to_pascal_case()) as FactionData
-	if not faction:
-		push_error("FactionManager: unknown faction_id '%s'" % faction_id)
-		return null
-	return faction
+	# M29 — resolve a faction by id using directory scan (not fragile to_pascal_case)
+	var dir = DirAccess.open("res://resources/factions/")
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".tres"):
+				var faction = load("res://resources/factions/" + file_name) as FactionData
+				if faction and faction.faction_id == faction_id:
+					return faction
+			file_name = dir.get_next()
+
+	push_error("FactionManager: unknown faction_id '%s'" % faction_id)
+	return null
 
 func get_island_owner_display(island_data: IslandData) -> Dictionary:
 	# M29 B.4 — return {faction_id, name, color} for the island owner
@@ -155,6 +167,11 @@ func get_island_owner_display(island_data: IslandData) -> Dictionary:
 
 	return {"faction_id": "", "name": "Unclaimed", "color": Color.GRAY}
 
+func _on_island_captured_from(island_id: String, previous_faction_id: String) -> void:
+	# M29 B.3 — when an island is captured from a faction, try to spawn an event hunter
+	if not previous_faction_id.is_empty():
+		_try_event_hunter(previous_faction_id)
+
 func _try_event_hunter(faction_id: String) -> void:
 	# M29 B.3 — spawn an event hunter for the faction, subject to cooldown
 	var faction = _resolve_faction(faction_id)
@@ -165,8 +182,11 @@ func _try_event_hunter(faction_id: String) -> void:
 	if _event_hunter_cooldown.get(faction_id, 0.0) > 0.0:
 		return
 
-	# Spawn a hunter
-	var spawner = get_tree().current_scene.get_node_or_null("Systems/EnemySpawner")
+	# Spawn a hunter (safely handle absence in test context)
+	var scene = get_tree().current_scene
+	if not scene:
+		return
+	var spawner = scene.get_node_or_null("Systems/EnemySpawner")
 	if spawner and spawner.has_method("spawn_hunter"):
 		spawner.spawn_hunter(faction)
 		# Set cooldown

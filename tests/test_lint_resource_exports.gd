@@ -23,9 +23,6 @@ func _scan_resource_exports() -> Array:
 	## Scan all .tres files in res://resources and check property validity.
 	var violations = []
 	var resources_dir = "res://resources"
-	var current_section = ""
-	var current_script: GDScript = null
-	var script_properties = {}
 
 	var dir = DirAccess.open(resources_dir)
 	if not dir:
@@ -43,27 +40,46 @@ func _scan_resource_exports() -> Array:
 		var content = file_access.get_as_text()
 		var lines = content.split("\n")
 
-		current_script = null
-		script_properties = {}
+		# First pass: build ext_resource id → script path lookup
+		var ext_resource_map: Dictionary = {}
+		for line in lines:
+			line = line.strip_edges()
+			if "type=\"Script\"" in line and "path=" in line:
+				var id = _extract_id_from_line(line)
+				var script_path = _extract_path_from_line(line)
+				if id and script_path:
+					ext_resource_map[id] = script_path
+
+		# Second pass: check properties against the correct script for each section
+		var current_section_id = ""
+		var current_section_type = ""  # "resource" or "sub_resource"
+		var current_script: GDScript = null
+		var script_properties = {}
 
 		for line in lines:
 			line = line.strip_edges()
 
-			# Track section headers [resource] and [sub_resource ...]
+			# Track [resource] and [sub_resource ...]
 			if line.begins_with("[resource]"):
-				current_section = "resource"
+				current_section_type = "resource"
+				current_section_id = ""
+				current_script = null
+				script_properties = {}
 			elif line.begins_with("[sub_resource"):
-				current_section = "sub_resource"
-			elif line.begins_with("[ext_resource"):
-				current_section = "ext_resource"
+				current_section_type = "sub_resource"
+				current_section_id = _extract_sub_resource_id(line)
+				current_script = null
+				script_properties = {}
 
-			# Track script definitions [ext_resource type="Script"
-			if "type=\"Script\"" in line and "path=" in line:
-				var script_path = _extract_path_from_line(line)
-				if script_path:
-					current_script = load(script_path) as GDScript
-					if current_script:
-						script_properties = _get_script_properties(current_script)
+			# Look for script = ExtResource("id") to resolve which script this section uses
+			if current_section_type in ["resource", "sub_resource"]:
+				if line.begins_with("script = ExtResource("):
+					var script_id = _extract_extresource_id_from_assignment(line)
+					if script_id and script_id in ext_resource_map:
+						var script_path = ext_resource_map[script_id]
+						current_script = load(script_path) as GDScript
+						if current_script:
+							script_properties = _get_script_properties(current_script)
 
 			# Check property assignments (key = value)
 			if "=" in line and not line.begins_with("[") and not line.begins_with("#"):
@@ -71,16 +87,19 @@ func _scan_resource_exports() -> Array:
 				if parts.size() >= 1:
 					var key = parts[0].strip_edges()
 
-					# Skip known special properties
+					# Skip script and other special properties
 					if _is_built_in_property(key) or _is_special_property(key):
 						continue
 
-					# If we have a script, check if property exists
-					if current_script and current_section in ["resource", "sub_resource"]:
+					# If we have a script for this section, check if property exists
+					if current_script and current_section_type in ["resource", "sub_resource"]:
 						if key not in script_properties:
+							var section_label = current_section_type
+							if current_section_id:
+								section_label += " [%s]" % current_section_id
 							violations.append({
 								"file": tres_path,
-								"reason": "Property '%s' not defined in script" % key
+								"reason": "Property '%s' not defined in script (in %s)" % [key, section_label]
 							})
 
 	return violations
@@ -111,10 +130,40 @@ func _find_tres_files(dir_path: String) -> Array:
 	return files
 
 
+func _extract_id_from_line(line: String) -> String:
+	## Extract id="..." from [ext_resource ...] line
+	var regex = RegEx.new()
+	regex.compile("id=\"([^\"]+)\"")
+	var match = regex.search(line)
+	if match:
+		return match.get_string(1)
+	return ""
+
+
 func _extract_path_from_line(line: String) -> String:
 	## Extract path="..." from a line
 	var regex = RegEx.new()
 	regex.compile("path=\"([^\"]+)\"")
+	var match = regex.search(line)
+	if match:
+		return match.get_string(1)
+	return ""
+
+
+func _extract_sub_resource_id(line: String) -> String:
+	## Extract id="..." from [sub_resource type="..." id="..."]
+	var regex = RegEx.new()
+	regex.compile("id=\"([^\"]+)\"")
+	var match = regex.search(line)
+	if match:
+		return match.get_string(1)
+	return ""
+
+
+func _extract_extresource_id_from_assignment(line: String) -> String:
+	## Extract id from script = ExtResource("id") line
+	var regex = RegEx.new()
+	regex.compile("ExtResource\\(\"([^\"]+)\"\\)")
 	var match = regex.search(line)
 	if match:
 		return match.get_string(1)

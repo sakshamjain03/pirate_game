@@ -46,6 +46,14 @@ func is_owned_by_player() -> bool:
 enum TerrainTheme { TROPICAL, VOLCANIC, FROZEN, DROWNED_RUIN, FORTIFIED, CALDERA }
 @export var terrain_theme: TerrainTheme = TerrainTheme.TROPICAL
 
+@export_group("Art seams (owner-supplied, M31-M32)")
+## Path to the port-view island scene, for the docking HUD and map inspection.
+## Wired in M32. Empty is the default; no .tres files will have this set until the scene is ready.
+@export var port_scene_path: String = ""
+## Path to the island owner banner/flag display, for the world HUD owner label.
+## Wired in M31. Empty is the default; no .tres files will have this set until the art lands.
+@export var owner_banner_path: String = ""
+
 @export_group("Lore")
 ## One-line dossier — what it gives, what it costs, what story it carries
 ## (docs/11_WORLD_MAP.md §6). Read by WorldMapScreen's tap-to-inspect panel

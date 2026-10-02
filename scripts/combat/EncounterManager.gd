@@ -31,6 +31,8 @@ signal ship_destroyed(ship: Node3D)
 ## active EncounterData authors rather than on a fixed global timer
 ## (`docs/navalCombat.md` §12: ~30–60 s, deliberately not every ten seconds).
 signal upgrade_offer_requested(choices: Array, offer_index: int, total_offers: int)
+## M29 A.4: encounter startup failed validation
+signal encounter_failed(encounter_id: String, reason: String)
 
 enum Outcome { VICTORY, DEFEAT, ESCAPED }
 
@@ -106,12 +108,46 @@ func _process(delta: float) -> void:
 
 # === Lifecycle ===
 
+## M29 A.4: Validate encounter data before spawn. Returns empty string if valid, error reason otherwise.
+func _validate(data: EncounterData) -> String:
+	if not data:
+		return "null data"
+
+	# Check for missing composition
+	var scene = data.enemy_scene
+	if not scene and _spawner and "enemy_scene" in _spawner:
+		scene = _spawner.enemy_scene
+	if not scene:
+		return "encounter_id=%s: missing enemy_scene" % data.encounter_id
+
+	# Check objective-specific requirements
+	match data.objective:
+		EncounterData.Objective.PROTECT_TARGET:
+			if not data.escort_scene:
+				return "encounter_id=%s: PROTECT_TARGET missing escort_scene" % data.encounter_id
+		EncounterData.Objective.SURVIVE_TIME:
+			if data.time_limit <= 0:
+				return "encounter_id=%s: SURVIVE_TIME with time_limit <= 0" % data.encounter_id
+		EncounterData.Objective.DESTROY_COUNT:
+			if data.objective_count <= 0:
+				return "encounter_id=%s: DESTROY_COUNT with target <= 0" % data.encounter_id
+
+	return ""  # Valid
+
 func start_encounter(data: EncounterData) -> bool:
 	if not data or is_active():
 		return false
 	if not _player or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player_ship")
 	if not _player:
+		return false
+
+	# M29 A.4: validate before spawning
+	var validation_error := _validate(data)
+	if validation_error != "":
+		push_error(validation_error)
+		_restore_spawning()
+		encounter_failed.emit(data.encounter_id, validation_error)
 		return false
 
 	active_encounter = data
@@ -140,6 +176,8 @@ func start_encounter(data: EncounterData) -> bool:
 	if _enemies.is_empty() and data.objective != EncounterData.Objective.SURVIVE_TIME:
 		_restore_spawning()
 		active_encounter = null
+		# M29 A.4: emit signal on post-spawn failure (escort spawn failure)
+		encounter_failed.emit(data.encounter_id, "no enemies spawned")
 		return false
 
 	_announce(data.announce_text)

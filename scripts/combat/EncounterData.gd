@@ -47,8 +47,8 @@ enum Objective {
 ## Only read for DESTROY_COUNT.
 @export_range(1, 20) var objective_count: int = 1
 ## Seconds. The pacing target for a normal fight is 2–5 min, elite 5–8, boss 5–12
-## (`docs/navalCombat.md` §13). 0 means no limit.
-@export_range(0.0, 900.0) var time_limit: float = 0.0
+## (`docs/navalCombat.md` §13). 0 means no limit. M29 A.4: capped at 3600s.
+@export_range(0.0, 3600.0) var time_limit: float = 0.0
 
 @export_group("Composition")
 @export var enemy_scene: PackedScene

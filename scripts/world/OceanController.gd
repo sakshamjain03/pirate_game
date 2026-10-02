@@ -6,6 +6,7 @@ class_name OceanController extends Node3D
 
 @export var ocean_settings: OceanSettings
 @export var quality_level: int = 1 # 0: Low, 1: Medium, 2: High
+@export var quality_tier_table: QualityTierTable
 
 ## M10 Requirement 1 — the ocean used to be one uniformly-dense PlaneMesh
 ## (14,641 verts) recentered under the camera every frame. That paid full
@@ -32,6 +33,12 @@ func _ready() -> void:
 	if not ocean_settings:
 		push_warning("OceanController: No OceanSettings resource — using defaults.")
 		ocean_settings = OceanSettings.new()
+
+	# Load quality tier table if not assigned
+	if not quality_tier_table:
+		quality_tier_table = load("res://resources/settings/QualityTiers.tres")
+		if not quality_tier_table:
+			push_error("OceanController: Could not load QualityTiers.tres")
 
 	_setup_material()
 	_apply_settings()
@@ -120,19 +127,20 @@ func _apply_settings() -> void:
 		wave_generator.ocean_settings = ocean_settings
 
 func _apply_quality() -> void:
-	if not material or not ocean_settings:
+	if not material or not ocean_settings or not quality_tier_table:
 		return
 
-	# reflectivity/ROUGHNESS/METALLIC in the shader are inert with
-	# specular_disabled set (intentional — the ocean uses a hand-rolled
-	# sun-sparkle glint for its highlight rather than PBR specular, to stay
-	# visually consistent with the toon-shaded rest of the scene), so the
-	# quality ladder instead scales that sparkle pass, which is genuinely
-	# visible and is the more expensive of the shader's two noise samples.
-	match quality_level:
-		0: # Low
-			material.set_shader_parameter("sparkle_intensity", 0.0)
-		1: # Medium
-			material.set_shader_parameter("sparkle_intensity", _base_sparkle_intensity * 0.5)
-		2: # High
-			material.set_shader_parameter("sparkle_intensity", _base_sparkle_intensity)
+	# Read the quality tier data and apply ocean-specific settings
+	var tier: QualityTierData = quality_tier_table.get_tier(quality_level)
+	if not tier:
+		push_error("OceanController: Could not get tier %d from QualityTierTable" % quality_level)
+		return
+
+	# Apply ocean sparkle intensity based on tier
+	if tier.ocean_sparkle_enabled:
+		material.set_shader_parameter("sparkle_intensity", _base_sparkle_intensity)
+	else:
+		material.set_shader_parameter("sparkle_intensity", 0.0)
+
+	# Apply ring density (currently just stored, can be used for LOD adjustments)
+	# Note: ocean_ring_density affects the LOD level, could influence mesh density in future

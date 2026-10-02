@@ -143,3 +143,9 @@ class_name ShipStats extends Resource
 ## reload, at a damage premium.
 @export_range(1.0, 60.0) var special_broadside_cooldown: float = 12.0
 @export_range(1.0, 5.0) var special_broadside_damage_multiplier: float = 1.75
+
+@export_group("Crew Penalties")
+## M29 A.2: Minimum fire rate multiplier when crew is depleted (0.0 = silenced).
+@export_range(0.0, 1.0) var min_crew_fire_rate_mult: float = 0.25
+## M29 A.2: Maximum reload time in seconds, clamped on crew penalty.
+@export_range(1.0, 100.0) var max_reload_seconds: float = 40.0

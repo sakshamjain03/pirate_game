@@ -374,8 +374,10 @@ func _on_died() -> void:
 	# If this is an enemy, drop loot and despawn. M26: both campaign side effects
 	# (crate of campaign resources, notoriety) are skipped outside the campaign —
 	# a Maelstrom run spawns its own pickups from EnemySpawner.enemy_destroyed.
+	# M29 A.1: skip loot if already granted via boarding
 	if not is_in_group("player_ship") and SceneManager.is_campaign():
-		_spawn_loot()
+		if not get_meta("loot_claimed", false):
+			_spawn_loot()
 		
 		# Add notoriety based on faction
 		if EmpireManager and faction:
@@ -468,14 +470,15 @@ func _spawn_loot() -> void:
 			
 		if loot_table:
 			var rolled = loot_table.roll()
-			var class_mult = clamp(ship_stats.max_crew / 8.0, 1.0, 3.0)
-			var not_mult = 1.0
+			# M29 A.3: use shared loot scaling data
+			var notoriety = 0.0
 			if get_tree().root.has_node("EmpireManager"):
-				var emp = get_tree().root.get_node("EmpireManager")
-				not_mult = 1.0 + (emp.notoriety / 100.0)
-				
+				notoriety = get_tree().root.get_node("EmpireManager").notoriety
+
+			var loot_mult = LootScalingData.multiplier(int(ship_stats.max_crew), notoriety)
+
 			for k in rolled.keys():
-				rolled[k] = int(rolled[k] * class_mult * not_mult)
+				rolled[k] = int(rolled[k] * loot_mult)
 				
 			loot.loot_data = rolled
 		else:

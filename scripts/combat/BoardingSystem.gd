@@ -114,18 +114,16 @@ func attempt_boarding() -> bool:
 			
 		if loot_table:
 			loot = loot_table.roll()
-			
-			var class_mult = 1.0
-			if enemy_dmg.ship_stats:
-				class_mult = clamp(enemy_dmg.ship_stats.max_crew / 8.0, 1.0, 3.0)
-				
-			var not_mult = 1.0
+
+			# M29 A.3: use shared loot scaling data
+			var notoriety = 0.0
 			if get_tree().root.has_node("EmpireManager"):
-				var emp = get_tree().root.get_node("EmpireManager")
-				not_mult = 1.0 + (emp.notoriety / 100.0)
-				
+				notoriety = get_tree().root.get_node("EmpireManager").notoriety
+
+			var loot_mult = LootScalingData.multiplier(int(enemy_dmg.ship_stats.max_crew), notoriety)
+
 			for key in loot.keys():
-				loot[key] = int(loot[key] * boarding_data.loot_multiplier * class_mult * not_mult)
+				loot[key] = int(loot[key] * boarding_data.loot_multiplier * loot_mult)
 			
 			var rm = get_node_or_null("/root/ResourceManager")
 			if rm and rm.has_method("add_resource"):
@@ -136,6 +134,8 @@ func attempt_boarding() -> bool:
 		# emitting `destroyed` directly, so `_is_destroyed` is actually set —
 		# otherwise the wreck stays eligible and a second attempt_boarding()
 		# call re-rolls and re-grants the whole loot table.
+		# M29 A.1: mark loot as claimed so ShipController._on_died() skips _spawn_loot()
+		_eligible_enemy.set_meta("loot_claimed", true)
 		enemy_dmg.hull = 0.0
 		enemy_dmg.mark_destroyed()
 	else:

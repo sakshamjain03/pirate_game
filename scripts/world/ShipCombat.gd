@@ -166,6 +166,8 @@ func _get_modifiers() -> CombatModifiers:
 var _volley_damage_multiplier: float = 1.0
 var _special_cooldown_remaining: float = 0.0
 var _arc_locked := {"port": false, "starboard": false, "bow": false, "stern": false}
+## M29 A.2: generation id to guard deferred callbacks from touching a respawned ship
+var _life_id := 0
 
 func _ready() -> void:
 	_apply_player_auto_fire_setting()
@@ -355,9 +357,12 @@ func get_aim_spread_degrees(side: String) -> float:
 
 func _fire_rippled_gun(marker: Node3D, side: String, volley_mult: float) -> void:
 	## One delayed gun of a rippling broadside: may misfire, else fires.
+	# M29 A.2: guard against freed or respawned ships
 	if not is_instance_valid(marker) or not is_inside_tree() or not get_tree().current_scene:
 		return
 	var parent = get_parent()
+	if not is_instance_valid(parent):
+		return
 	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
 	if dmg and (dmg.is_destroyed() or dmg.crew <= 0.0):
 		return
@@ -441,6 +446,8 @@ func take_damage(amount: float, ammo: AmmoData = null, hit_direction: Vector3 = 
 		text.global_position = parent.global_position + Vector3(0, 3.0, 0) + jitter
 
 func die() -> void:
+	# M29 A.2: invalidate pending reload callbacks
+	_life_id += 1
 	died.emit()
 	# Handled by ShipController._on_died(), connected to this signal.
 
@@ -595,6 +602,8 @@ func fire_broadside(side: String) -> bool:
 	# is captured now — the special broadside resets it right after this call.
 	var ripple: float = cannon_config.ripple_interval if cannon_config else 0.0
 	var volley_mult := _volley_damage_multiplier
+	# M29 A.2: capture life_id for ripple guard
+	var my_life := _life_id
 	for i in markers.size():
 		var marker := markers[i]
 		fired_any = true
@@ -604,7 +613,9 @@ func fire_broadside(side: String) -> bool:
 			_fire_rippled_gun(marker, side, volley_mult)
 		else:
 			get_tree().create_timer(ripple * float(i), false).timeout.connect(
-				_fire_rippled_gun.bind(marker, side, volley_mult))
+				func():
+					if my_life == _life_id:
+						_fire_rippled_gun(marker, side, volley_mult))
 
 	if fired_any:
 		fired.emit(side)
@@ -614,6 +625,12 @@ func fire_broadside(side: String) -> bool:
 
 func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -> void:
 	if not cannonball_scene:
+		return
+
+	# M29 A.2: no cannonballs when crew is depleted
+	var parent = get_parent()
+	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
+	if dmg and dmg.crew <= 0.0:
 		return
 
 	_spawn_muzzle_flash(marker)
@@ -637,7 +654,7 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 		
 		if ball is Cannonball:
 			var dmg_mod = 1.0
-			var parent = get_parent()
+			# parent already obtained above for crew check
 			if parent and "active_captain" in parent and parent.active_captain:
 				dmg_mod = parent.active_captain.damage_modifier
 				
@@ -666,7 +683,7 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 		# Launch direction comes from the ship hull's own basis rather than the
 		# marker's own rotation. Broadside guns fire along the beam (basis.x);
 		# chasers fire along the keel (basis.z) instead.
-		var parent = get_parent()
+		# parent already obtained above for crew check
 		var forward = Vector3.RIGHT
 		if parent is Node3D:
 			match side:
@@ -701,7 +718,7 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 
 		# Also inherit ship's velocity if possible
 		var base_vel = Vector3.ZERO
-		if parent is RigidBody3D:
+		if parent and parent is RigidBody3D:
 			base_vel = parent.linear_velocity
 
 		ball.linear_velocity = base_vel + (forward * ship_stats.cannon_speed * ammo_data.speed_mult)
@@ -724,39 +741,52 @@ func _spawn_muzzle_flash(marker: Node3D) -> void:
 
 func _start_cooldown(side: String) -> void:
 	var rate = ship_stats.fire_rate
-	
+
 	var parent = get_parent()
 	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
 	if dmg and "optimal_crew_fraction" in ship_stats:
 		var crew_pct = dmg.crew / max(ship_stats.max_crew, 1.0)
 		if crew_pct < ship_stats.optimal_crew_fraction and ship_stats.optimal_crew_fraction > 0.0:
 			var penalty = crew_pct / ship_stats.optimal_crew_fraction
-			rate *= max(penalty, 0.1)
-			
+			# M29 A.2: bound the penalty with min_crew_fire_rate_mult
+			rate *= clampf(penalty, ship_stats.min_crew_fire_rate_mult, 1.0)
+
 	# "Rapid Reload"-style upgrades multiply the rate here rather than writing to
 	# ship_stats.fire_rate, which is shared by every hull of this class.
 	var mods := _get_modifiers()
 	if mods:
 		rate *= mods.fire_rate_mult
 
-	var cooldown_time = 1.0 / max(rate, 0.01)
+	var cooldown_time = 1.0 / maxf(rate, 0.01)
+	# M29 A.2: cap the cooldown time with max_reload_seconds
+	cooldown_time = minf(cooldown_time, ship_stats.max_reload_seconds)
 	var diff := _difficulty()
 	if diff:
 		cooldown_time *= diff.reload_time_mult
 
+	# M29 A.2: capture life_id to guard against stale callbacks
+	var my_life := _life_id
 	match side:
 		FiringSolver.SIDE_PORT:
 			can_fire_port = false
-			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_port = true)
+			get_tree().create_timer(cooldown_time).timeout.connect(func():
+				if my_life == _life_id:
+					can_fire_port = true)
 		FiringSolver.SIDE_BOW:
 			can_fire_bow = false
-			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_bow = true)
+			get_tree().create_timer(cooldown_time).timeout.connect(func():
+				if my_life == _life_id:
+					can_fire_bow = true)
 		FiringSolver.SIDE_STERN:
 			can_fire_stern = false
-			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_stern = true)
+			get_tree().create_timer(cooldown_time).timeout.connect(func():
+				if my_life == _life_id:
+					can_fire_stern = true)
 		_:
 			can_fire_starboard = false
-			get_tree().create_timer(cooldown_time).timeout.connect(func(): can_fire_starboard = true)
+			get_tree().create_timer(cooldown_time).timeout.connect(func():
+				if my_life == _life_id:
+					can_fire_starboard = true)
 
 
 ## M25 — the player's hull honours the auto-fire accessibility setting. Read here

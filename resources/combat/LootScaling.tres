@@ -1,0 +1,7 @@
+[gd_resource type="LootScalingData" load_steps=1 format=3]
+
+[resource]
+notoriety_divisor = 100.0
+class_multiplier_max = 3.0
+max_multiplier = 5.0
+crew_per_class_step = 8.0

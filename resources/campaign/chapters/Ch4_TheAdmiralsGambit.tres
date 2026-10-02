@@ -10,6 +10,7 @@
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "Commander Hollis followed his orders correctly and lost, which tells me the orders were wrong, not the man."
 mood = 0
@@ -17,6 +18,7 @@ mood = 0
 [sub_resource type="Resource" id="Open_2"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "I was at anchor when Port Royal went into the sea. I watched two thousand people drown in a town that had no law in it, and I have spent every year since making certain no other harbour gets the chance."
 mood = 2
@@ -24,6 +26,7 @@ mood = 2
 [sub_resource type="Resource" id="Open_3"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "You are not a criminal to me. You are a repetition. Plant your flag on one more harbour and I will come to take it down."
 mood = 0
@@ -131,6 +134,7 @@ target_count = 1
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "Well. That is that, and I find I mind less than I expected to."
 mood = 0
@@ -138,6 +142,7 @@ mood = 0
 [sub_resource type="Resource" id="Close_2"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "You should know what you have actually won. I was the fence, not the wolf. In six weeks the Spanish treasure fleet crosses this water — a hundred and twenty thousand in silver behind Beatriz de Cárdenas, who has never lost a crossing and does not care whose flag is on your harbour."
 mood = 0
@@ -145,6 +150,7 @@ mood = 0
 [sub_resource type="Resource" id="Close_3"]
 script = ExtResource("3_beat")
 speaker_id = "vance"
+portrait_path = "res://assets/portraits/Vance.png"
 speaker_name = "Admiral Sir Edmund Vance"
 text = "I was trying to keep this water boring, Captain. You have made it interesting. I hope you enjoy that."
 mood = 4

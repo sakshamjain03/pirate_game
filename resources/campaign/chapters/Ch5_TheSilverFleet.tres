@@ -99,6 +99,7 @@ is_optional = true
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")
 speaker_id = "cardenas"
+portrait_path = "res://assets/portraits/Cardenas.png"
 speaker_name = "Almirante Beatriz de Cárdenas"
 text = "You imagine you have taken something from Spain. You have taken one crossing. There will be another in the spring, and I will be commanding it."
 mood = 0
@@ -106,6 +107,7 @@ mood = 0
 [sub_resource type="Resource" id="Close_2"]
 script = ExtResource("3_beat")
 speaker_id = "cardenas"
+portrait_path = "res://assets/portraits/Cardenas.png"
 speaker_name = "Almirante Beatriz de Cárdenas"
 text = "Enjoy your harbour, Captain. It is a very small piece of a very large ocean."
 mood = 0

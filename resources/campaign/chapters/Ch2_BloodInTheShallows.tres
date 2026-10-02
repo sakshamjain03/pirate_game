@@ -11,6 +11,7 @@
 [sub_resource type="Resource" id="Open_1"]
 script = ExtResource("3_beat")
 speaker_id = "morrows_messenger"
+portrait_path = "res://assets/portraits/Morrays.png"
 speaker_name = "Morrow's Messenger"
 text = "Compliments of Blackjaw Morrow, out of Skull Cove. He's pleased for you, truly. New port, new flag, all very stirring."
 mood = 0
@@ -18,6 +19,7 @@ mood = 0
 [sub_resource type="Resource" id="Open_2"]
 script = ExtResource("3_beat")
 speaker_id = "morrows_messenger"
+portrait_path = "res://assets/portraits/Morrays.png"
 speaker_name = "Morrow's Messenger"
 text = "The shallows run on a tithe. One part in five, collected quarterly, and in exchange nobody burns your distillery. Blackjaw kept this water free of the King's men for twenty years by making sure no single outfit ever got fat enough to be worth the King's attention."
 mood = 3
@@ -25,6 +27,7 @@ mood = 3
 [sub_resource type="Resource" id="Open_3"]
 script = ExtResource("3_beat")
 speaker_id = "morrows_messenger"
+portrait_path = "res://assets/portraits/Morrays.png"
 speaker_name = "Morrow's Messenger"
 text = "He'll have your answer now, and he's sent three sloops to carry it."
 mood = 3

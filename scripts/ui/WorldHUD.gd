@@ -75,6 +75,12 @@ const LESSON_COACH_CARD_SCENE := preload("res://scenes/ui/LessonCoachCard.tscn")
 const _LESSON_BAND_MAX_WIDTH := 560.0
 var _lesson_band: VBoxContainer
 
+## M29 D.1 — Event banner queue and active banner tracking
+const EventBannerScene := preload("res://scenes/ui/EventBanner.tscn")
+var _event_queue: Array[Dictionary] = []
+var _active_banner: Node = null
+var _event_announcement_data: EventAnnouncementData = null
+
 ## M13 Task 16.5 gave the utility buttons usable mobile targets, but five
 ## permanent targets still obscure the world and compete with sailing/combat.
 ## PC keeps direct mouse-accessible buttons. Phone builds expose one Menu
@@ -207,6 +213,9 @@ func _ready() -> void:
 	if tutorial_dialogue and not tutorial_dialogue.visibility_changed.is_connected(_on_tutorial_dialogue_visibility_changed):
 		tutorial_dialogue.visibility_changed.connect(_on_tutorial_dialogue_visibility_changed)
 	_create_lesson_coach_card()
+
+	## M29 D.1 — Connect event banner signals
+	_setup_event_banner()
 
 
 ## M28 — the lesson channel. Desktop: a child of TopRightPanel (a
@@ -1889,3 +1898,105 @@ func announce_event(text_content: String, is_warning: bool = false) -> void:
 	tween.tween_interval(2.0)
 	tween.tween_property(panel, "modulate:a", 0.0, 1.0)
 	tween.tween_callback(panel.queue_free)
+
+
+## M29 D.1 — Event banner system setup
+func _setup_event_banner() -> void:
+	## Load the event announcement data and connect to EventManager signals.
+	_event_announcement_data = load("res://resources/events/EventAnnouncements.tres") as EventAnnouncementData
+
+	# Connect to EventManager's world_event_triggered signal
+	if EventManager and EventManager.has_signal("world_event_triggered"):
+		if not EventManager.world_event_triggered.is_connected(_on_world_event_triggered):
+			EventManager.world_event_triggered.connect(_on_world_event_triggered)
+
+	# Connect to EncounterManager's encounter_failed signal (needs deferred to catch the signal once it exists)
+	call_deferred("_connect_encounter_failed_signal")
+
+
+func _connect_encounter_failed_signal() -> void:
+	## Deferred connection to EncounterManager.encounter_failed since it may not exist yet.
+	## This is added in Lane A (A.4), so we safely ignore if it doesn't exist yet.
+	var encounter_mgr = get_tree().get_first_node_in_group("encounter_manager") if get_tree() else null
+	if not encounter_mgr:
+		encounter_mgr = EncounterManager
+
+	if encounter_mgr and encounter_mgr.has_signal("encounter_failed"):
+		if not encounter_mgr.encounter_failed.is_connected(_on_encounter_failed):
+			encounter_mgr.encounter_failed.connect(_on_encounter_failed)
+
+
+func _on_world_event_triggered(event_name: String, data: Dictionary) -> void:
+	## M29 D.1 — Queue an event banner for display.
+	if not _event_announcement_data:
+		return
+
+	var announcement = _event_announcement_data.get_announcement(event_name)
+	if announcement.is_empty():
+		push_warning("EventBanner: Unknown event name '%s'" % event_name)
+		return
+
+	var title_key = announcement.get("title_key", "")
+	var title_text = tr(title_key) if title_key else event_name
+
+	# Queue for display
+	_event_queue.append({
+		"title": title_text,
+		"icon_path": announcement.get("icon_path", ""),
+		"severity": "normal"
+	})
+
+	# Show the next banner if no banner is currently active
+	_show_next_banner()
+
+
+func _on_encounter_failed(encounter_id: String, reason: String) -> void:
+	## M29 D.1 — Show encounter_failed as a quiet banner.
+	# Only enqueue a banner for encounter failures (called from Lane A's A.4)
+	_event_queue.append({
+		"title": tr("event_encounter_failed"),
+		"icon_path": "",
+		"severity": "quiet"
+	})
+
+	_show_next_banner()
+
+
+func _show_next_banner() -> void:
+	## Show the next queued banner, if no banner is currently active.
+	if _active_banner:
+		return  # Banner is still showing
+
+	if _event_queue.is_empty():
+		return  # No more banners to show
+
+	var next_event = _event_queue.pop_front()
+
+	var banner: Control = EventBannerScene.instantiate()
+	banner.name = "EventBanner"
+
+	# Place the banner at the top-centre of the HUD in the existing container layout
+	# (not at pixel offsets per AGENTS.md)
+	_add_hud_widget(banner)
+
+	if banner.has_method("set_announcement"):
+		var icon: Texture2D = null
+		if next_event.get("icon_path", ""):
+			icon = load(next_event["icon_path"])
+		banner.set_announcement(next_event["title"], icon)
+
+	if banner.has_method("show_and_dismiss"):
+		banner.show_and_dismiss()
+
+	# Connect to the banner's dismissed signal
+	if banner.has_signal("dismissed"):
+		if not banner.dismissed.is_connected(_on_banner_dismissed):
+			banner.dismissed.connect(_on_banner_dismissed)
+
+	_active_banner = banner
+
+
+func _on_banner_dismissed() -> void:
+	## Called when the current banner finishes dismissing.
+	_active_banner = null
+	_show_next_banner()  # Show the next one in the queue

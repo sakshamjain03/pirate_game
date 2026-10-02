@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/EventBanner.gd" id="1_o3gbh"]
+
+[node name="EventBanner" type="PanelContainer"]
+theme_type_variation = &"WoodFramePanel"
+mouse_filter = 2
+script = ExtResource("1_o3gbh")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+separation = 12
+
+[node name="EventIcon" type="TextureRect" parent="MarginContainer/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 0
+
+[node name="EventTitle" type="Label" parent="MarginContainer/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Event Text"
+theme_type_variation = &"HudNumLabel"
+horizontal_alignment = 0
+vertical_alignment = 1
+autowrap_mode = 2

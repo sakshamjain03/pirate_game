@@ -19,6 +19,8 @@ signal chapter_started(chapter: ChapterData)
 signal objective_progressed(objective_id: String, current: int, target: int)
 signal objective_completed(objective_id: String)
 signal chapter_completed(chapter: ChapterData)
+## M29 — the final chapter completed, free roam begins
+signal campaign_completed_signal
 ## M28 — a chapter lesson's trigger fired. LessonCoachCard queues and shows it.
 signal lesson_requested(lesson: LessonData)
 
@@ -34,6 +36,8 @@ var _chapter_eights_paid: Dictionary = {}      # chapter_id -> true
 var chapters: Array[ChapterData] = []
 var current_chapter_index: int = -1
 var completed_chapter_ids: Array[String] = []
+## M29 — true when the final chapter completes, enabling free roam
+var campaign_completed: bool = false
 
 var _objective_progress: Dictionary = {}   # objective_id -> int
 var _completed_objective_ids: Array[String] = []
@@ -320,6 +324,13 @@ func _complete_chapter(chapter: ChapterData) -> void:
 	chapter_completed.emit(chapter)
 	_advance_to_next_chapter()
 
+	# M29 C.1 — if no enabled chapter follows, mark the campaign as complete
+	var next_index := current_chapter_index + 1
+	if next_index >= chapters.size():
+		campaign_completed = true
+		campaign_completed_signal.emit()
+		# The celebration is triggered when the epilogue dialogue finishes
+
 
 func is_chapter_completed(chapter_id: String) -> bool:
 	return chapter_id.is_empty() or completed_chapter_ids.has(chapter_id)
@@ -334,6 +345,27 @@ func is_chapter_current(chapter_id: String) -> bool:
 		return true
 	var chapter := _current_chapter()
 	return chapter != null and chapter.chapter_id == chapter_id
+
+
+## M29 C.1 — returns the current objective description, or a free-roam line
+## if the campaign is complete.
+func get_display_objective() -> String:
+	if campaign_completed:
+		return tr("Your empire is yours. Raid, build, and sail the Maelstrom.")
+
+	var chapter := _current_chapter()
+	if not chapter:
+		return ""
+
+	# Find the first incomplete required objective
+	for objective in chapter.objectives:
+		if objective.is_optional:
+			continue
+		if _completed_objective_ids.has(objective.objective_id):
+			continue
+		return objective.description
+
+	return ""
 
 
 # === Condition handlers — one per real signal, mirroring TutorialManager ===
@@ -770,6 +802,7 @@ func get_save_data() -> Dictionary:
 		"completed_chapter_ids": completed_chapter_ids.duplicate(),
 		"objective_progress": _objective_progress.duplicate(),
 		"completed_objective_ids": _completed_objective_ids.duplicate(),
+		"campaign_completed": campaign_completed,
 	}
 
 
@@ -782,6 +815,7 @@ func load_save_data(data: Dictionary) -> void:
 	_completed_objective_ids = []
 	for id in data.get("completed_objective_ids", []):
 		_completed_objective_ids.append(str(id))
+	campaign_completed = bool(data.get("campaign_completed", false))
 	call_deferred("_catch_up")
 
 

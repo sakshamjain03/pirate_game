@@ -193,6 +193,11 @@ func capture_island(new_faction: Resource) -> void:
 	if not _should_be_active():
 		return
 	if island_data:
+		# M29 B.3 — record previous owner before reassigning
+		var previous_faction_id = ""
+		if island_data.owner_faction:
+			previous_faction_id = island_data.owner_faction.faction_id
+
 		island_data.owner_faction = new_faction
 		island_data.island_type = IslandData.IslandType.FRIENDLY
 
@@ -200,7 +205,7 @@ func capture_island(new_faction: Resource) -> void:
 			if EmpireManager.home_island_id.is_empty():
 				EmpireManager.home_island_id = get_island_id()
 			EmpireManager.add_notoriety(15.0)
-			EmpireManager.notify_island_captured(get_island_id())
+			EmpireManager.notify_island_captured(get_island_id(), previous_faction_id)
 		
 		# Show announcement
 		var hud = get_tree().get_first_node_in_group("hud")

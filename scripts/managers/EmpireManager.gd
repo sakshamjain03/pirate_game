@@ -12,6 +12,8 @@ extends Node
 signal notoriety_changed(new_value: float)
 signal region_activated(region_id: String)
 signal island_captured(island_id: String)
+## M29 B.3 — emitted when an island is captured from a faction
+signal island_captured_from(island_id: String, previous_faction_id: String)
 ## M25 — emitted only when the band changes, not on every notoriety tick. The
 ## HUD and EnemySpawner both react to this rather than polling.
 signal heat_tier_changed(tier: HeatTierData)
@@ -113,8 +115,10 @@ func _process(delta: float) -> void:
 		_last_raid_check_unix = now
 		_check_raid()
 
-func notify_island_captured(island_id: String) -> void:
+func notify_island_captured(island_id: String, previous_faction_id: String = "") -> void:
 	island_captured.emit(island_id)
+	# M29 B.3 — also emit the new signal with the previous owner (always, even if empty)
+	island_captured_from.emit(island_id, previous_faction_id)
 
 signal island_tier_changed(island_id: String, new_tier: int)
 
@@ -277,6 +281,23 @@ func _check_raid() -> void:
 		
 	# Reverted probability floor
 	var prob = clamp(notoriety / 200.0, 0.05, 0.25)
+
+	# M29 B.4 — apply per-faction raid frequency multiplier if available
+	# (we'll know the attacking faction below, but this is estimated)
+	var avg_frequency_mult = 1.0
+	if not active_empire_regions.is_empty():
+		var mults = []
+		for region in active_empire_regions:
+			var faction = _get_faction_by_id(region.dominant_faction) as FactionData
+			if faction:
+				var mult = faction.raid_frequency_mult
+				mults.append(mult)
+		if not mults.is_empty():
+			avg_frequency_mult = mults.reduce(func(a, b): return a + b) / float(mults.size())
+
+	prob *= avg_frequency_mult
+	prob = clamp(prob, 0.0, 1.0)
+
 	if randf() <= prob:
 		# Pick the highest tier empire region to raid
 		var attacking_region = active_empire_regions[0]

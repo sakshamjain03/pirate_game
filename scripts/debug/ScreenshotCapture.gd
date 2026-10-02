@@ -16,6 +16,8 @@ extends Node
 
 var _frame := 0
 var _dir := ""
+var _perf_log := ""
+var _perf_file: FileAccess = null
 
 # frame number -> label. Physics runs at 60Hz, so these are ~0.03s, 1s, 3s, 7s
 # and 12s. The spread matters: an unstable ship looks fine on frame 2 and only
@@ -33,11 +35,23 @@ func _ready() -> void:
 	for a in OS.get_cmdline_args():
 		if a.begins_with("--capture-dir="):
 			_dir = a.trim_prefix("--capture-dir=")
+		elif a.begins_with("--perf-log="):
+			_perf_log = a.trim_prefix("--perf-log=")
 	if _dir.is_empty():
 		set_process(false)
 		return
 	DirAccess.make_dir_recursive_absolute(_dir)
 	print("[capture] writing to ", _dir)
+
+	# Initialize perf log if requested
+	if not _perf_log.is_empty():
+		_perf_file = FileAccess.open(_perf_log, FileAccess.WRITE)
+		if _perf_file:
+			# Write CSV header
+			_perf_file.store_line("frame,label,fps,time_process_ms,time_physics_ms,draw_calls,objects,primitives")
+			print("[perf] logging to ", _perf_log)
+		else:
+			print("[perf] ERROR: could not open ", _perf_log)
 
 
 func _process(_delta: float) -> void:
@@ -61,6 +75,37 @@ func _process(_delta: float) -> void:
 	var err := img.save_png(path)
 	print("[capture] frame %d -> %s (err=%d, %dx%d)" % [_frame, path, err, img.get_width(), img.get_height()])
 
+	# Log performance metrics if requested
+	if _perf_file:
+		_log_perf_metrics(CAPTURES[_frame])
+
 	if _frame >= 720:
 		print("[capture] done")
+		if _perf_file:
+			_perf_file.flush()
 		get_tree().quit(0)
+
+
+func _log_perf_metrics(label: String) -> void:
+	if not _perf_file:
+		return
+
+	var fps = Performance.get_monitor(Performance.TIME_FPS)
+	var time_process = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0  # Convert to ms
+	var time_physics = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0  # Convert to ms
+	var draw_calls = Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+	var objects = Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
+	var primitives = Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+
+	var csv_line = "%d,%s,%.2f,%.2f,%.2f,%d,%d,%d" % [
+		_frame,
+		label,
+		fps,
+		time_process,
+		time_physics,
+		draw_calls,
+		objects,
+		primitives
+	]
+	_perf_file.store_line(csv_line)
+	print("[perf] frame %d: fps=%.2f draw_calls=%d objects=%d" % [_frame, fps, draw_calls, objects])

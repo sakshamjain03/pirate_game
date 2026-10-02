@@ -532,3 +532,166 @@ To avoid wasted generation effort:
   covers these well (72 models).
 - **Characters or crew figures** — the game has no character models and M6 does not add any.
 - **UI icons** — 2D, handled separately, not part of this request.
+
+---
+
+# M29-M35 Asset Requests
+
+## Overview
+
+This section lists the assets needed for Milestones M29 through M35, organized by the milestone
+that requires each. All assets are optional until their milestone ships; until then, the game uses
+fallbacks.
+
+**How to deliver:** Each seam field below (e.g. `portrait_path`, `flag_texture_path`) is already
+defined in the code as an `@export` string with an empty default. Drop the finished file at the
+exact `res://` path listed — no code changes needed. The fallback system handles missing files:
+portraits show initials (`PortraitFallback`), textures default to a tint-only pass, and UI icons
+render as question marks.
+
+---
+
+## M29 — Story cast portraits
+
+`TutorialDialogue.gd` renders these via `PortraitFallback.apply_to_label()` when a dialogue beat has
+a `speaker_name` and `portrait_path`.
+
+| ID | Character | res:// path | Format | Size | Placeholder | Milestone |
+|---|---|---|---|---|---|---|
+| P.1 | Quartermaster Higgins | `res://assets/portraits/Higgins.png` | PNG, transparent | 512×512 | `Higgins.svg` (initials fallback) | M29 |
+| P.2 | Factor Cornelius Hale | `res://assets/portraits/Hale.png` | PNG, transparent | 512×512 | Monogram fallback (CH) | M29 |
+| P.3 | Morrow | `res://assets/portraits/Morrow.png` | PNG, transparent | 512×512 | Monogram fallback (M) | M29 |
+| P.4 | Commander Hollis | `res://assets/portraits/Hollis.png` | PNG, transparent | 512×512 | Monogram fallback (CH) | M29 |
+| P.5 | Marguerite | `res://assets/portraits/Marguerite.png` | PNG, transparent | 512×512 | `Marguerite.svg` (initials fallback) | M29 |
+| P.6 | Admiral Sir Edmund Vance | `res://assets/portraits/Vance.png` | PNG, transparent | 512×512 | Monogram fallback (AV) | M29 |
+| P.7 | Almirante Beatriz de Cárdenas | `res://assets/portraits/Cardenas.png` | PNG, transparent | 512×512 | Monogram fallback (ABC) | M29 |
+
+**Spec:** Each portrait is a 512×512 PNG bust, transparent background, head-and-shoulders framing,
+suitable for mobile render. Style should match the existing campaign narrative voice (adventurous,
+weathered, period-appropriate pirate Caribbean, 1700s). All 7 are critical for the story's
+opening.
+
+---
+
+## M30 — Retention and engagement UI
+
+| ID | Asset | res:// path | Format | Size | Milestone | Notes |
+|---|---|---|---|---|---|---|
+| U.1 | Streak icon | `res://assets/ui/icons/streak.png` | PNG, 128 DPI | 64×64 | M30 | Daily login bonus |
+| U.2 | Achievement icon | `res://assets/ui/icons/achievement.png` | PNG, 128 DPI | 64×64 | M30 | Goal unlocked badge |
+| U.3 | Daily goal icon | `res://assets/ui/icons/daily_goal.png` | PNG, 128 DPI | 64×64 | M30 | Daily challenge marker |
+
+---
+
+## M31 — Faction visuals and island capture UX
+
+### Faction Flags and Sails
+
+`FactionData.flag_texture_path` and `sail_texture_path` are read by the island-capture and
+faction-color UI systems. Empty paths default to a tint-only pass on the existing geometry.
+
+| ID | Faction | Asset | res:// path | Format | Size | Milestone | Notes |
+|---|---|---|---|---|---|---|---|
+| F.1 | Royal Navy | Flag texture | `res://assets/factions/RoyalNavy/flag.png` | PNG | 256×256 | M31 | Union Jack or British naval ensign |
+| F.2 | Royal Navy | Sail texture | `res://assets/factions/RoyalNavy/sail.png` | PNG | 512×512 | M31 | Cross-hatched linen or emblem overlay |
+| F.3 | Spanish Empire | Flag texture | `res://assets/factions/SpanishEmpire/flag.png` | PNG | 256×256 | M31 | Spanish naval colors and crown |
+| F.4 | Spanish Empire | Sail texture | `res://assets/factions/SpanishEmpire/sail.png` | PNG | 512×512 | M31 | Emblem and royal insignia |
+| F.5 | Merchant Guild | Flag texture | `res://assets/factions/MerchantGuild/flag.png` | PNG | 256×256 | M31 | Merchant mark or trading-post badge |
+| F.6 | Merchant Guild | Sail texture | `res://assets/factions/MerchantGuild/sail.png` | PNG | 512×512 | M31 | Guild seal or commerce symbol |
+| F.7 | Pirate Clans | Flag texture | `res://assets/factions/PirateClans/flag.png` | PNG | 256×256 | M31 | Jolly Roger or clan banner |
+| F.8 | Pirate Clans | Sail texture | `res://assets/factions/PirateClans/sail.png` | PNG | 512×512 | M31 | Skull-and-bones or pirate motif |
+
+### Island Owner Banners
+
+`IslandData.owner_banner_path` (per island) is rendered on the island HUD to show which faction
+controls that island. Five unique banners, one for each island type. Custom art is optional;
+faction flag reuse is acceptable.
+
+| ID | Island/Faction | Asset | res:// path | Format | Size | Milestone | Notes |
+|---|---|---|---|---|---|---|---|
+| B.1 | Port Royal (Friendly) | Owner banner | `res://assets/islands/PortRoyal/owner_banner.png` | PNG | 64×64 | M31 | Player faction banner or coat of arms |
+| B.2 | Santiago (Enemy) | Owner banner | `res://assets/islands/Santiago/owner_banner.png` | PNG | 64×64 | M31 | Spanish Empire colors |
+| B.3 | Tortuga (Pirate) | Owner banner | `res://assets/islands/Tortuga/owner_banner.png` | PNG | 64×64 | M31 | Pirate Clans motif |
+| B.4 | Merchant island | Owner banner | `res://assets/islands/Merchant/owner_banner.png` | PNG | 64×64 | M31 | Merchant Guild seal |
+| B.5 | Neutral island (any) | Owner banner | `res://assets/islands/Neutral/owner_banner.png` | PNG | 64×64 | M31 | Unclaimed / neutral symbol |
+
+---
+
+## M32 — Port-view scenes
+
+Five docking-view scene fragments for island inspection and shore leave. Each is a small 3D scene
+showing the island's dock or port, used in the docking HUD and map-tap inspection UI.
+
+| ID | Island | Asset | res:// path | Format | Approx. budget | Milestone | Notes |
+|---|---|---|---|---|---|---|---|
+| S.1 | Port Royal | Port scene | `res://scenes/islands/port_royal_port.tscn` | Godot scene | 500 verts, 2 materials | M32 | Friendly colonial port |
+| S.2 | Santiago | Port scene | `res://scenes/islands/santiago_port.tscn` | Godot scene | 500 verts, 2 materials | M32 | Enemy Spanish colonial fort |
+| S.3 | Tortuga | Port scene | `res://scenes/islands/tortuga_port.tscn` | Godot scene | 400 verts, 2 materials | M32 | Pirate cove settlement |
+| S.4 | Merchant island (northern) | Port scene | `res://scenes/islands/merchant_island_north_port.tscn` | Godot scene | 300 verts, 1 material | M32 | Guild trading post |
+| S.5 | Merchant island (southern) | Port scene | `res://scenes/islands/merchant_island_south_port.tscn` | Godot scene | 300 verts, 1 material | M32 | Guild trading post (variant) |
+
+Scenes should be authored against the top-down camera perspective used in World.tscn, with the dock
+or port features (buildings, anchors, cargo, guard posts) arranged to be readable from a distance.
+Each reuses the existing `KenneyMaterialApplier` toon-shader system and island terrain materials.
+
+---
+
+## VFX textures (M29-M30)
+
+Visual effect sprite textures for combat and world events. Each is a texture sheet or single frame
+ready for use with Godot's sprite/particle systems.
+
+| ID | Effect | Asset | res:// path | Format | Frames | Size | Milestone | Notes |
+|---|---|---|---|---|---|---|---|---|
+| V.1 | Cannon muzzle flash | Muzzle flash sheet | `res://assets/vfx/cannon_muzzle.png` | PNG | 4–6 frames | 256×256 | M29 | Bright explosive burst |
+| V.2 | Cannonball impact/splash | Water splash sheet | `res://assets/vfx/water_splash.png` | PNG | 6–8 frames | 256×256 | M29 | Water impact rings and spray |
+| V.3 | Ship explosion | Fire/smoke sheet | `res://assets/vfx/explosion_fire.png` | PNG | 8–10 frames | 512×512 | M29 | Large explosion with smoke and flame |
+| V.4 | Smoke plume | Smoke sheet | `res://assets/vfx/smoke.png` | PNG | 6–8 frames | 256×256 | M30 | Lingering smoke cloud |
+
+Provide sprite sheets optimized for typical mobile frame rates (all 60 FPS or 30 FPS playback). Each
+frame should be evenly spaced in a grid; script uses `hframes` and `vframes` to index them.
+
+---
+
+## V7 Ship Models (Optional; M31 backlog)
+
+Two ship classes (V7) currently use untextured placeholder models. Real texturing is optional and
+can be deferred; the game is playable with Kenney's default grey box. If commissioned, both should
+use the existing `KenneyMaterialApplier` atlas-texture pipeline (see `docs/10`'s "Texturing" §1).
+
+| ID | Ship | Asset | res:// path | Format | Budget | Milestone | Notes |
+|---|---|---|---|---|---|---|---|
+| SH.1 | V7 Galleon | Texture atlas | `res://assets/models/ships/v7_galleon_texture.png` | PNG (atlas) | 1024×1024 | M31 | Color atlas for galleon geometry |
+| SH.2 | V7 Brigantine | Texture atlas | `res://assets/models/ships/v7_brigantine_texture.png` | PNG (atlas) | 1024×1024 | M31 | Color atlas for brigantine geometry |
+
+---
+
+## Figurehead customization (M31 backlog)
+
+| ID | Asset | res:// path | Format | Budget | Milestone | Notes |
+|---|---|---|---|---|---|---|
+| FIG.1 | Custom figurehead (bespoke model) | `res://assets/models/figurehead_custom.glb` | glTF/glB | 200–400 tris | M31 | Optional; currently a gold-tinted primitive |
+
+---
+
+## App icon and store artwork (M35)
+
+| ID | Asset | res:// path | Format | Size | Milestone | Notes |
+|---|---|---|---|---|---|---|
+| APP.1 | App icon (Android, iOS) | `res://assets/ui/app_icon.png` | PNG | 512×512 | M35 | Play Store, App Store launcher icon |
+| APP.2 | Feature graphic (Play Store) | Not committed | Publish-time asset | 1024×500 | M35 | Store listing header |
+| APP.3 | Promo art (App Store) | Not committed | Publish-time asset | 1242×2208 | M35 | App Store listing image |
+
+---
+
+## Summary
+
+**Total new assets for M29–M35:** 32 files (7 portraits, 3 UI icons, 8 flags/sails, 5 banners,
+5 port scenes, 4 VFX sheets, 2 ship textures, 1 figurehead, 3 app/store assets).
+
+**Critical path:** Story portraits (M29) are needed for narrative beats; world events need at least
+the VFX sheets (M29–M30). All others are quality-of-life and can be deferred without blocking
+shipping.
+
+**Owner: Project Lead.** Art commissioning and delivery are gated on availability and budget.
+Until art lands, the fallback system ensures the game remains playable and renders meaningful UI.

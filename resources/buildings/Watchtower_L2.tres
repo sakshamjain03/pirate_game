@@ -7,7 +7,7 @@
 script = ExtResource("1_05vgd")
 building_id = "watchtower_l2"
 building_name = "Watchtower Level 2"
-description = "Defensive structure (Future Combat)."
+description = "Boosts your raid defense score. An early-warning outpost that helps protect your port against raids."
 next_upgrade = ExtResource("1_2koj3")
 level = 2
 cost_gold = 0

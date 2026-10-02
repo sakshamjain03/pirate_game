@@ -7,7 +7,7 @@
 script = ExtResource("1_igxro")
 building_id = "fortress_l4"
 building_name = "Fortress Level 4"
-description = "Heavy Island Defense (Future Combat)."
+description = "Boosts your raid defense score. Larger fortresses provide stronger protection against enemy raids."
 next_upgrade = ExtResource("1_u6s3j")
 level = 4
 cost_gold = 8000

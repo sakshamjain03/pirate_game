@@ -57,7 +57,7 @@ hint_text = "A class-2 hull (Schooner or Corvette) — trade income and boarding
 [sub_resource type="Resource" id="Obj_2_4"]
 script = ExtResource("2_objective")
 objective_id = "2.4"
-description = "Take one alive"
+description = "Board two ships"
 condition = 4
 target_count = 2
 

@@ -1,35 +1,45 @@
 extends GutTest
 
-## Lint test: verify all EncounterData .tres files validate correctly
+## M29 A.4 lint: every authored EncounterData .tres must pass
+## EncounterManager._validate(), so no shipped encounter can start unwinnable.
 
-func test_lint_all_encounter_data() -> void:
-	var manager = EncounterManager.new()
-	var dir = DirAccess.open("res://resources/encounters")
+const ENCOUNTER_DIRS := ["res://resources/combat/encounters"]
 
-	if not dir:
-		skip("No encounters directory found")
+
+func _collect(dir_path: String, out: Array) -> void:
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
 		return
-
-	var encounter_count = 0
-	var failed_encounters = []
-
 	dir.list_dir_begin()
-	var filename = dir.get_next()
-	while filename != "":
-		if filename.ends_with(".tres"):
-			var path = "res://resources/encounters/" + filename
-			var data = load(path)
+	var entry := dir.get_next()
+	while entry != "":
+		var path := dir_path.path_join(entry)
+		if dir.current_is_dir():
+			if not entry.begins_with("."):
+				_collect(path, out)
+		elif entry.ends_with(".tres"):
+			out.append(path)
+		entry = dir.get_next()
+	dir.list_dir_end()
 
-			if data is EncounterData:
-				encounter_count += 1
-				var error = manager._validate(data)
-				if error != "":
-					failed_encounters.append("%s: %s" % [filename, error])
 
-		filename = dir.get_next()
+func test_every_encounter_validates() -> void:
+	var manager: Node = autofree(EncounterManager.new())
+	var paths: Array = []
+	for d in ENCOUNTER_DIRS:
+		_collect(d, paths)
 
-	if failed_encounters.size() > 0:
-		push_error("EncounterData lint failed:\n" + "\n".join(failed_encounters))
-		assert_true(false, "Some encounter files failed validation")
+	var checked := 0
+	var failures: Array[String] = []
+	for path in paths:
+		var data = load(path)
+		if not (data is EncounterData):
+			continue
+		checked += 1
+		var reason: String = manager._validate(data)
+		if reason != "":
+			failures.append("%s: %s" % [path, reason])
 
-	assert_greater_than(encounter_count, 0, "Should have found at least one EncounterData file")
+	gut.p("EncounterData lint: %d checked, %d failing" % [checked, failures.size()])
+	assert_gt(checked, 0, "Found no EncounterData resources under %s" % [ENCOUNTER_DIRS])
+	assert_eq(failures.size(), 0, "Invalid encounters:\n" + "\n".join(failures))

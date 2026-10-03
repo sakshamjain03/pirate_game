@@ -1,82 +1,60 @@
 extends GutTest
 
-# M29 B.3 — verify that event hunters spawn when islands are captured from
-# empire factions, subject to per-faction cooldown, and that a second capture
-# inside the cooldown does not spawn another hunter.
+## M29 B.3 — capturing an island from a faction tells FactionManager exactly who
+## lost it (island_captured_from), and that faction sends one hunter, then waits
+## out its hunter_cooldown_seconds.
 
-var faction_manager: FactionManager
-var empire_manager: EmpireManager
+
+class FakeSpawner extends Node:
+	var hunters: Array = []
+	func spawn_hunter(faction: Resource) -> void:
+		hunters.append(faction)
+
+
+var _spawner: FakeSpawner
+var _saved_spawner
+
 
 func before_each() -> void:
-	faction_manager = FactionManager
-	empire_manager = EmpireManager
+	_saved_spawner = FactionManager._spawner
+	_spawner = autofree(FakeSpawner.new())
+	FactionManager._spawner = _spawner
+	FactionManager._event_hunter_cooldown.clear()
 
-	# Reset cooldowns to allow spawning
-	faction_manager._event_hunter_cooldown.clear()
 
-func test_island_captured_from_signal_emitted() -> void:
-	# Test that EmpireManager emits island_captured_from with the previous owner
-	watch_signals(empire_manager)
+func after_each() -> void:
+	FactionManager._spawner = _saved_spawner
+	FactionManager._event_hunter_cooldown.clear()
 
-	# Simulate island capture with a previous owner
-	empire_manager.notify_island_captured("test_island_1", "royal_navy")
 
-	# Should emit both island_captured and island_captured_from
-	assert_signal_emitted_with_parameters(empire_manager, "island_captured", ["test_island_1"])
-	assert_signal_emitted_with_parameters(empire_manager, "island_captured_from", ["test_island_1", "royal_navy"])
+func test_capture_emits_both_signals_old_signature_unchanged() -> void:
+	watch_signals(EmpireManager)
+	EmpireManager.notify_island_captured("test_island_1", "spanish_empire")
+	assert_signal_emitted_with_parameters(EmpireManager, "island_captured", ["test_island_1"])
+	assert_signal_emitted_with_parameters(EmpireManager, "island_captured_from",
+		["test_island_1", "spanish_empire"])
 
-func test_island_captured_from_neutral() -> void:
-	# Test that island_captured_from is emitted even for neutral islands
-	watch_signals(empire_manager)
 
-	# Capturing a neutral island (no previous owner)
-	empire_manager.notify_island_captured("neutral_island", "")
+func test_capture_from_a_faction_sends_one_hunter_then_cools_down() -> void:
+	EmpireManager.notify_island_captured("test_island_1", "spanish_empire")
+	assert_eq(_spawner.hunters.size(), 1, "the losing faction sends a hunter")
+	assert_eq((_spawner.hunters[0] as FactionData).faction_id, "spanish_empire")
 
-	# Should still emit the signal with empty string
-	assert_signal_emitted_with_parameters(empire_manager, "island_captured_from", ["neutral_island", ""])
+	EmpireManager.notify_island_captured("test_island_2", "spanish_empire")
+	assert_eq(_spawner.hunters.size(), 1, "second capture inside the cooldown sends none")
 
-func test_event_hunter_cooldown_tracking() -> void:
-	# Test that _event_hunter_cooldown properly tracks per-faction cooldowns
-	var spain = load("res://resources/factions/SpanishEmpire.tres") as FactionData
-	assert_not_null(spain, "SpanishEmpire.tres should exist")
-	assert_true(spain.hunter_cooldown_seconds > 0, "Spain should have a hunter cooldown")
+	var spain := load("res://resources/factions/SpanishEmpire.tres") as FactionData
+	FactionManager._process(spain.hunter_cooldown_seconds + 0.1)
+	EmpireManager.notify_island_captured("test_island_3", "spanish_empire")
+	assert_eq(_spawner.hunters.size(), 2, "after the cooldown, a new capture sends another")
 
-	# Initially no cooldown
-	assert_eq(faction_manager._event_hunter_cooldown.get("spanish_empire", 0.0), 0.0,
-		"No cooldown should be set initially")
 
-	# Manually set a cooldown to test the tracking (in real gameplay, _try_event_hunter sets it)
-	faction_manager._event_hunter_cooldown["spanish_empire"] = spain.hunter_cooldown_seconds
+func test_capturing_an_unowned_island_sends_no_hunter() -> void:
+	EmpireManager.notify_island_captured("neutral_island", "")
+	assert_eq(_spawner.hunters.size(), 0)
 
-	# Verify the cooldown is tracked
-	assert_true(faction_manager._event_hunter_cooldown.get("spanish_empire", 0.0) > 0.0,
-		"Cooldown should be tracked in the dictionary")
 
-func test_hunter_spawn_respects_cooldown() -> void:
-	# Test that a second spawn attempt within cooldown doesn't spawn again
-	var faction_id = "royal_navy"
-	var navy = load("res://resources/factions/RoyalNavy.tres") as FactionData
-	assert_not_null(navy, "RoyalNavy.tres should exist")
-
-	# Set a fake cooldown to simulate recent spawn
-	faction_manager._event_hunter_cooldown[faction_id] = 60.0  # 60 seconds remaining
-
-	# Try to spawn another hunter - should be blocked by cooldown
-	faction_manager._try_event_hunter(faction_id)
-
-	# Cooldown should still be 60 (not reset)
-	assert_eq(faction_manager._event_hunter_cooldown[faction_id], 60.0,
-		"Cooldown should prevent duplicate spawn")
-
-func test_island_captured_signal_connection() -> void:
-	# Verify that FactionManager connects to island_captured_from signal
-	# This test checks that the connection exists and would be called
-	var signal_connected = false
-
-	# Check if the handler method exists
-	assert_true(faction_manager.has_method("_on_island_captured_from"),
-		"FactionManager should have _on_island_captured_from method")
-
-	# Verify the signal exists on EmpireManager
-	assert_true(empire_manager.has_signal("island_captured_from"),
-		"EmpireManager should have island_captured_from signal")
+func test_cooldowns_are_per_faction() -> void:
+	EmpireManager.notify_island_captured("a", "spanish_empire")
+	EmpireManager.notify_island_captured("b", "royal_navy")
+	assert_eq(_spawner.hunters.size(), 2, "Spain's cooldown doesn't block Britain")

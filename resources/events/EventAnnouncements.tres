@@ -5,52 +5,16 @@
 [resource]
 script = ExtResource("1_data")
 announcements = {
-"drifting_wreckage_spotted": {
-"icon_path": "res://assets/icons/event_wreckage.png",
-"title_key": "event_drifting_wreckage_spotted"
-},
-"floating_treasure_spotted": {
-"icon_path": "res://assets/icons/event_treasure.png",
-"title_key": "event_floating_treasure_spotted"
-},
-"ghost_ship_spotted": {
-"icon_path": "res://assets/icons/event_ghost_ship.png",
-"title_key": "event_ghost_ship_spotted"
-},
-"iron_vulture_spotted": {
-"icon_path": "res://assets/icons/event_iron_vulture.png",
-"title_key": "event_iron_vulture_spotted"
-},
-"island_discovered": {
-"icon_path": "res://assets/icons/event_island.png",
-"title_key": "event_island_discovered"
-},
-"merchant_convoy_spotted": {
-"icon_path": "res://assets/icons/event_merchant.png",
-"title_key": "event_merchant_convoy_spotted"
-},
-"pirate_raiding_party_spotted": {
-"icon_path": "res://assets/icons/event_pirates.png",
-"title_key": "event_pirate_raiding_party_spotted"
-},
-"royal_navy_patrol_spotted": {
-"icon_path": "res://assets/icons/event_navy.png",
-"title_key": "event_royal_navy_patrol_spotted"
-},
-"ship_docked": {
-"icon_path": "res://assets/icons/event_dock.png",
-"title_key": "event_ship_docked"
-},
-"smugglers_cache_spotted": {
-"icon_path": "res://assets/icons/event_smugglers.png",
-"title_key": "event_smugglers_cache_spotted"
-},
-"wind_shifted": {
-"icon_path": "res://assets/icons/event_wind.png",
-"title_key": "event_wind_shifted"
-},
-"fortunes_toll_spotted": {
-"icon_path": "res://assets/icons/event_fortunes_toll.png",
-"title_key": "event_fortunes_toll_spotted"
-}
+"island_discovered": "New waters charted — an island appears on your map.",
+"ship_docked": "",
+"merchant_convoy_spotted": "Merchant convoy sighted — fat holds, light escort.",
+"floating_treasure_spotted": "Something glints on the swell — treasure adrift.",
+"ghost_ship_spotted": "A ghost ship walks the fog. The crew won't look at it.",
+"iron_vulture_spotted": "The Iron Vulture is hunting these waters.",
+"fortunes_toll_spotted": "Fortune's Toll has been sighted. Every captain pays eventually.",
+"drifting_wreckage_spotted": "Drifting wreckage ahead — salvage for the taking.",
+"smugglers_cache_spotted": "A smugglers' cache, half-sunk and unguarded.",
+"pirate_raiding_party_spotted": "Pirate raiding party on the horizon — they've seen you.",
+"royal_navy_patrol_spotted": "Royal Navy patrol sighted — King's colours on the horizon.",
+"wind_shifted": "The wind has shifted — trim your sails."
 }

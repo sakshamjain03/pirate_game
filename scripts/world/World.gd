@@ -5,23 +5,16 @@ var _environment: Environment
 var _directional_light: DirectionalLight3D
 
 func _ready() -> void:
-	# Load quality tier table and find Environment/DirectionalLight nodes
+	# M29 E.2 — graphics-quality tier levers (QualityTierData). Medium matches the
+	# authored scene, so only Low/High change anything on screen.
 	_quality_tier_table = load("res://resources/settings/QualityTiers.tres")
 	if not _quality_tier_table:
-		push_error("World: Could not load QualityTiers.tres")
-
-	var world_env_node = get_node_or_null("WorldEnvironment")
-	if world_env_node and world_env_node is WorldEnvironment:
-		_environment = (world_env_node as WorldEnvironment).environment
-
-	var sun_light = get_node_or_null("SunLight")
-	if sun_light and sun_light is DirectionalLight3D:
-		_directional_light = sun_light as DirectionalLight3D
-
-	# Apply initial quality tier settings
+		push_error("World: Could not load res://resources/settings/QualityTiers.tres")
+	var world_env := get_node_or_null("Environment/WorldEnvironment") as WorldEnvironment
+	if world_env:
+		_environment = world_env.environment
+	_directional_light = get_node_or_null("Environment/DirectionalLight3D") as DirectionalLight3D
 	_apply_quality_tiers()
-
-	# Listen for quality changes
 	SettingsManager.settings_changed.connect(_apply_quality_tiers)
 
 	var ship = get_node_or_null("PlayerShip")
@@ -76,27 +69,15 @@ func _ready() -> void:
 		AnalyticsManager.call_deferred("on_world_ready", self)
 
 
-## Apply quality tier settings to Environment and DirectionalLight based on graphics_quality
+## Applies the tier for the current SettingsManager.graphics_quality.
 func _apply_quality_tiers() -> void:
 	if not _quality_tier_table:
 		return
-
 	var tier := _quality_tier_table.get_tier(SettingsManager.graphics_quality)
 	if not tier:
-		push_error("World: Could not get quality tier %d" % SettingsManager.graphics_quality)
+		push_error("World: no quality tier for graphics_quality %d" % SettingsManager.graphics_quality)
 		return
-
-	# Apply Environment settings (MSAA, SSAO, glow)
-	if _environment:
-		_environment.msaa_3d = tier.msaa_mode
-		_environment.ssao_enabled = tier.ssao_enabled
-		_environment.glow_enabled = tier.glow_enabled
-
-	# Apply DirectionalLight shadow settings
-	if _directional_light:
-		_directional_light.shadow_enabled = tier.shadow_enabled
-		if tier.shadow_enabled:
-			_directional_light.shadow_max_distance = tier.shadow_distance
+	tier.apply_to(_environment, _directional_light, get_viewport())
 
 
 ## M14 Requirement 5.2 — a genuinely new player experiences Ch6-10, Regions

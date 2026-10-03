@@ -1,7 +1,6 @@
-[gd_resource type="LootScalingData" load_steps=1 format=3]
+[gd_resource type="Resource" script_class="LootScalingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/LootScalingData.gd" id="1_loot"]
 
 [resource]
-notoriety_divisor = 100.0
-class_multiplier_max = 3.0
-max_multiplier = 5.0
-crew_per_class_step = 8.0
+script = ExtResource("1_loot")

@@ -73,6 +73,8 @@ var _resolving: bool = false
 
 
 func _ready() -> void:
+	# M29 J.2 — WorldHUD finds this scene node by group to hear encounter_failed.
+	add_to_group("encounter_manager")
 	_ambient_timer = -ambient_initial_delay
 	# Sibling lookup, the same way Island.gd finds Systems/DockingSystem.
 	_spawner = get_parent().get_node_or_null("EnemySpawner") if get_parent() else null
@@ -137,17 +139,19 @@ func _validate(data: EncounterData) -> String:
 func start_encounter(data: EncounterData) -> bool:
 	if not data or is_active():
 		return false
-	if not _player or not is_instance_valid(_player):
-		_player = get_tree().get_first_node_in_group("player_ship")
-	if not _player:
-		return false
 
-	# M29 A.4: validate before spawning
+	# M29 A.4: validate before anything else — bad data is bad with or without a
+	# player ship, and must fail loudly rather than start an unwinnable fight.
 	var validation_error := _validate(data)
 	if validation_error != "":
 		push_error(validation_error)
 		_restore_spawning()
 		encounter_failed.emit(data.encounter_id, validation_error)
+		return false
+
+	if not _player or not is_instance_valid(_player):
+		_player = get_tree().get_first_node_in_group("player_ship")
+	if not _player:
 		return false
 
 	active_encounter = data
@@ -178,6 +182,20 @@ func start_encounter(data: EncounterData) -> bool:
 		active_encounter = null
 		# M29 A.4: emit signal on post-spawn failure (escort spawn failure)
 		encounter_failed.emit(data.encounter_id, "no enemies spawned")
+		return false
+
+	# M29 A.4: PROTECT_TARGET with no escort that actually spawned has nothing to
+	# protect and could never resolve. Validation can't catch an escort scene that
+	# fails to instantiate, so check the spawned node itself.
+	if data.objective == EncounterData.Objective.PROTECT_TARGET 			and (_protect_target == null or not is_instance_valid(_protect_target)):
+		push_error("encounter_id=%s: PROTECT_TARGET escort failed to spawn" % data.encounter_id)
+		for enemy in _enemies:
+			if is_instance_valid(enemy):
+				enemy.queue_free()
+		_enemies.clear()
+		_restore_spawning()
+		active_encounter = null
+		encounter_failed.emit(data.encounter_id, "escort failed to spawn")
 		return false
 
 	_announce(data.announce_text)

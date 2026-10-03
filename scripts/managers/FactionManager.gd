@@ -27,6 +27,8 @@ const _TRIBUTE_COOLDOWN_SAVE_KEY := "_tribute_cooldown_remaining"
 
 var _tribute_cooldown_remaining: Dictionary = {}  # faction_id -> float seconds
 var _event_hunter_cooldown: Dictionary = {}  # faction_id -> float seconds
+var _faction_cache: Dictionary = {}  # faction_id -> FactionData, filled once from res://resources/factions/
+var _spawner: Node = null  # the live World's EnemySpawner, captured in _on_node_added
 
 func _ready() -> void:
 	if ResourceManager.has_signal("global_economy_tick"):
@@ -54,8 +56,10 @@ func _process(delta: float) -> void:
 
 func _on_node_added(node: Node) -> void:
 	# M29 — connect to EnemySpawner and BoardingSystem signals
-	if node is EnemySpawner and not node.enemy_destroyed.is_connected(_on_enemy_destroyed):
-		node.enemy_destroyed.connect(_on_enemy_destroyed)
+	if node is EnemySpawner:
+		_spawner = node
+		if not node.enemy_destroyed.is_connected(_on_enemy_destroyed):
+			node.enemy_destroyed.connect(_on_enemy_destroyed)
 	elif node.get_script() and node.get_script().get_global_name() == "BoardingSystem":
 		if not node.boarding_resolved.is_connected(_on_boarding_resolved):
 			node.boarding_resolved.connect(_on_boarding_resolved)
@@ -81,8 +85,11 @@ func _on_enemy_destroyed(enemy: Node3D) -> void:
 	if enemy.get_meta("loot_claimed", false):
 		return
 
-	# Get the enemy's faction
-	var faction = enemy.get_meta("faction", null) as FactionData
+	# ShipController exposes `faction` as an @export property (same read as
+	# BoardingSystem / EnemyAI), not as node metadata.
+	var faction: FactionData = null
+	if "faction" in enemy:
+		faction = enemy.get("faction") as FactionData
 	if not faction:
 		return
 
@@ -124,20 +131,23 @@ func get_player_faction() -> Resource:
 	return load("res://resources/factions/PlayerFaction.tres")
 
 func _resolve_faction(faction_id: String) -> FactionData:
-	# M29 — resolve a faction by id using directory scan (not fragile to_pascal_case)
-	var dir = DirAccess.open("res://resources/factions/")
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			if not dir.current_is_dir() and file_name.ends_with(".tres"):
-				var faction = load("res://resources/factions/" + file_name) as FactionData
-				if faction and faction.faction_id == faction_id:
-					return faction
-			file_name = dir.get_next()
-
-	push_error("FactionManager: unknown faction_id '%s'" % faction_id)
-	return null
+	# M29 — resolve by the resource's own faction_id (never a guessed file name).
+	# The directory is scanned once and cached; enemy deaths call this often.
+	if _faction_cache.is_empty():
+		var dir := DirAccess.open("res://resources/factions/")
+		if dir:
+			dir.list_dir_begin()
+			var file_name := dir.get_next()
+			while file_name != "":
+				if not dir.current_is_dir() and file_name.ends_with(".tres"):
+					var f := load("res://resources/factions/" + file_name) as FactionData
+					if f:
+						_faction_cache[f.faction_id] = f
+				file_name = dir.get_next()
+	var faction: FactionData = _faction_cache.get(faction_id)
+	if not faction:
+		push_error("FactionManager: unknown faction_id '%s'" % faction_id)
+	return faction
 
 func get_island_owner_display(island_data: IslandData) -> Dictionary:
 	# M29 B.4 — return {faction_id, name, color} for the island owner
@@ -183,14 +193,10 @@ func _try_event_hunter(faction_id: String) -> void:
 		return
 
 	# Spawn a hunter (safely handle absence in test context)
-	var scene = get_tree().current_scene
-	if not scene:
+	if not is_instance_valid(_spawner) or not _spawner.has_method("spawn_hunter"):
 		return
-	var spawner = scene.get_node_or_null("Systems/EnemySpawner")
-	if spawner and spawner.has_method("spawn_hunter"):
-		spawner.spawn_hunter(faction)
-		# Set cooldown
-		_event_hunter_cooldown[faction_id] = faction.hunter_cooldown_seconds
+	_spawner.spawn_hunter(faction)
+	_event_hunter_cooldown[faction_id] = faction.hunter_cooldown_seconds
 
 func get_tribute_cooldown_remaining(faction_id: String) -> float:
 	return _tribute_cooldown_remaining.get(faction_id, 0.0)

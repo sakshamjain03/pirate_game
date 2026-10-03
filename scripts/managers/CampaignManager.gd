@@ -321,15 +321,14 @@ func _complete_chapter(chapter: ChapterData) -> void:
 	# player's progress actually paid off. Never fires per-objective; only
 	# per completed chapter. Gateway is a no-op on PC / when toggle is off.
 	HapticFeedbackManager.reward()
+	# M29 C.1 — decided BEFORE advancing: _advance_to_next_chapter() moves the
+	# index forward, so checking afterwards would end the campaign one chapter early.
+	var was_final := chapters.find(chapter) == chapters.size() - 1
 	chapter_completed.emit(chapter)
 	_advance_to_next_chapter()
-
-	# M29 C.1 — if no enabled chapter follows, mark the campaign as complete
-	var next_index := current_chapter_index + 1
-	if next_index >= chapters.size():
+	if was_final and not campaign_completed:
 		campaign_completed = true
 		campaign_completed_signal.emit()
-		_queue_campaign_complete_celebration()
 
 
 func is_chapter_completed(chapter_id: String) -> bool:
@@ -792,79 +791,6 @@ func _grant_rewards(chapter: ChapterData) -> void:
 
 func _find_by_id(dir_path: String, id_field: String, id_value: String) -> Resource:
 	return ResourceLookup.find_by_id(dir_path, id_field, id_value)
-
-
-## M29 C.1 — queue a one-time "Campaign Complete" celebration through CelebrationQueue.
-## The celebration moment is a simple Control showing the campaign completion message.
-func _queue_campaign_complete_celebration() -> void:
-	# Get WorldHUD from the scene tree (it adds itself to the "hud" group)
-	var hud = get_tree().get_first_node_in_group("hud")
-	if not hud:
-		push_error("CampaignManager: WorldHUD not found in scene tree for celebration queue")
-		return
-
-	# Find or create the CelebrationQueue
-	var celebration_queue = hud.find_child("CelebrationQueue", true, false)
-	if not celebration_queue:
-		# If CelebrationQueue doesn't exist as a child, try to get it as a child node with class_name
-		celebration_queue = hud.get_node_or_null("CelebrationQueue")
-
-	if not celebration_queue:
-		# Create the CelebrationQueue if it doesn't exist
-		celebration_queue = CelebrationQueue.new()
-		celebration_queue.name = "CelebrationQueue"
-		celebration_queue.host = hud  # Set the host to WorldHUD
-		hud.add_child(celebration_queue)
-
-	# Create a simple celebration moment (a Control with celebration text)
-	var moment = _create_campaign_complete_moment()
-	if moment:
-		# Extract the CTA button from the moment
-		var cta = moment.get_meta("cta_button", null)
-		# Queue it as a LARGE celebration
-		celebration_queue.play(CelebrationQueue.Tier.LARGE, moment, cta)
-
-
-## M29 C.1 — create a simple Control showing the campaign completion message.
-func _create_campaign_complete_moment() -> Control:
-	var moment = Control.new()
-	moment.name = "CampaignCompleteScreen"
-	moment.custom_minimum_size = Vector2(400, 300)
-
-	# Create a panel for the background
-	var panel = PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	moment.add_child(panel)
-
-	# Create a VBoxContainer for layout
-	var vbox = VBoxContainer.new()
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_child(vbox)
-
-	# Add the celebration title
-	var title = Label.new()
-	title.text = tr("Campaign Complete!")
-	title.add_theme_font_size_override("font_size", 32)
-	vbox.add_child(title)
-
-	# Add a message
-	var message = Label.new()
-	message.text = tr("Your empire awaits in the free roam.")
-	message.autowrap_mode = TextServer.AUTOWRAP_WORD
-	vbox.add_child(message)
-
-	# Add a button to close
-	var button = Button.new()
-	button.text = tr("Continue")
-	vbox.add_child(button)
-
-	# The button is the CTA (close-to-action) that ends the celebration
-	# Store it so the caller can connect it to the queue
-	moment.set_meta("cta_button", button)
-
-	return moment
 
 
 # === Save/load ===

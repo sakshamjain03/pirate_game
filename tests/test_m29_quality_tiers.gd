@@ -1,190 +1,73 @@
 extends GutTest
 
-## Test that changing graphics_quality applies each quality tier lever through the signal chain.
-## Acceptance: switching graphics_quality applies each lever (Environment shadows, MSAA, SSAO, glow,
-## OceanController sparkle/ring, EnemySpawner hull cap).
+## M29 E.2 — graphics-quality tiers. Guards three things the first draft of this
+## lane got wrong: MSAA is a Viewport property (assigning it on Environment is a
+## SCRIPT ERROR), the sun's distance property is directional_shadow_max_distance,
+## and the default (Medium) tier must not change the shipped look of World.tscn.
 
-const SettingsManagerClass = preload("res://scripts/managers/SettingsManager.gd")
-
-class TestableSettings extends SettingsManagerClass:
-	func apply_display_settings() -> void: pass
-	func apply_audio_settings()   -> void: pass
-
-var _sm: TestableSettings
-var _settings_file := "user://test_m29_quality_tiers.cfg"
+const TABLE_PATH := "res://resources/settings/QualityTiers.tres"
+const WORLD_SCENE := "res://scenes/world/World.tscn"
 
 
-func before_each() -> void:
-	_sm = TestableSettings.new()
-	_sm._settings_path = _settings_file
-	add_child(_sm)
-	_cleanup()
+func _table() -> QualityTierTable:
+	var t := load(TABLE_PATH) as QualityTierTable
+	assert_not_null(t, "QualityTiers.tres must load as a QualityTierTable")
+	return t
 
 
-func after_each() -> void:
-	if is_instance_valid(_sm):
-		_sm.queue_free()
-	_cleanup()
+func test_table_has_one_tier_per_graphics_quality_value() -> void:
+	var t := _table()
+	assert_eq(t.tiers.size(), 3, "Low / Medium / High")
+	for i in 3:
+		assert_true(t.get_tier(i) is QualityTierData, "tier %d is QualityTierData" % i)
 
 
-func _cleanup() -> void:
-	if FileAccess.file_exists(_settings_file):
-		DirAccess.open("user://").remove(_settings_file.replace("user://", ""))
+func test_medium_tier_matches_the_authored_world_scene() -> void:
+	# The default graphics_quality is Medium, so Medium must reproduce the scene as
+	# authored — otherwise M29 silently changes the look (or cost) of every install.
+	var world := (load(WORLD_SCENE) as PackedScene).instantiate()
+	var env := (world.get_node("Environment/WorldEnvironment") as WorldEnvironment).environment
+	var sun := world.get_node("Environment/DirectionalLight3D") as DirectionalLight3D
+	var medium := _table().get_tier(1)
+	assert_eq(medium.ssao_enabled, env.ssao_enabled, "Medium SSAO == authored")
+	assert_eq(medium.glow_enabled, env.glow_enabled, "Medium glow == authored")
+	assert_eq(medium.shadow_enabled, sun.shadow_enabled, "Medium shadows == authored")
+	assert_almost_eq(medium.shadow_distance, sun.directional_shadow_max_distance, 0.01,
+		"Medium shadow distance == authored")
+	assert_eq(medium.msaa_mode, Viewport.MSAA_DISABLED, "Medium adds no MSAA cost")
+	world.free()
 
 
-## Test that QualityTierData structures work correctly
-func test_quality_tier_data_creation() -> void:
-	var tier_data = QualityTierData.new()
-	assert_not_null(tier_data)
-	assert_eq(tier_data.shadow_enabled, true)
-	assert_eq(tier_data.shadow_distance, 100.0)
-	assert_eq(tier_data.ambient_hull_cap, 10)
+func test_apply_to_sets_every_lever() -> void:
+	var env := Environment.new()
+	var sun: DirectionalLight3D = autofree(DirectionalLight3D.new())
+	var vp: SubViewport = autofree(SubViewport.new())
+	var low := _table().get_tier(0)
+	low.apply_to(env, sun, vp)
+	assert_false(env.ssao_enabled, "Low disables SSAO")
+	assert_false(env.glow_enabled, "Low disables glow")
+	assert_false(sun.shadow_enabled, "Low disables shadows")
+	assert_eq(vp.msaa_3d, low.msaa_mode, "MSAA lands on the Viewport")
+
+	var high := _table().get_tier(2)
+	high.apply_to(env, sun, vp)
+	assert_true(sun.shadow_enabled, "High enables shadows")
+	assert_almost_eq(sun.directional_shadow_max_distance, high.shadow_distance, 0.01)
+	assert_eq(vp.msaa_3d, high.msaa_mode)
 
 
-## Test that QualityTierTable retrieves tiers correctly
-func test_quality_tier_table_retrieval() -> void:
-	var low = QualityTierData.new()
-	low.shadow_enabled = false
-	low.shadow_distance = 50.0
-	low.ambient_hull_cap = 5
-
-	var medium = QualityTierData.new()
-	medium.shadow_enabled = true
-	medium.shadow_distance = 80.0
-	medium.ambient_hull_cap = 10
-
-	var tiers = QualityTierTable.new()
-	tiers.tiers = [low, medium]
-
-	var tier0 = tiers.get_tier(0)
-	assert_not_null(tier0)
-	assert_false(tier0.shadow_enabled)
-	assert_eq(tier0.ambient_hull_cap, 5)
-
-	var tier1 = tiers.get_tier(1)
-	assert_not_null(tier1)
-	assert_true(tier1.shadow_enabled)
-	assert_eq(tier1.ambient_hull_cap, 10)
+func test_apply_to_tolerates_missing_nodes() -> void:
+	_table().get_tier(0).apply_to(null, null, null)
+	assert_true(true, "null env/sun/viewport are skipped, not dereferenced")
 
 
-## BLOCKER FIX: Test the complete signal chain - changing graphics_quality applies Environment/Light settings
-func test_quality_tier_signal_chain_environment() -> void:
-	# Create the quality tier table manually
-	var low_tier = QualityTierData.new()
-	low_tier.shadow_enabled = false
-	low_tier.shadow_distance = 50.0
-	low_tier.msaa_mode = Viewport.MSAA_DISABLED
-	low_tier.ssao_enabled = false
-	low_tier.glow_enabled = false
-	low_tier.ocean_sparkle_enabled = false
-	low_tier.ocean_ring_density = 0.5
-	low_tier.ambient_hull_cap = 5
-
-	var medium_tier = QualityTierData.new()
-	medium_tier.shadow_enabled = true
-	medium_tier.shadow_distance = 80.0
-	medium_tier.msaa_mode = Viewport.MSAA_2X
-	medium_tier.ssao_enabled = true
-	medium_tier.glow_enabled = true
-	medium_tier.ocean_sparkle_enabled = true
-	medium_tier.ocean_ring_density = 1.0
-	medium_tier.ambient_hull_cap = 10
-
-	var high_tier = QualityTierData.new()
-	high_tier.shadow_enabled = true
-	high_tier.shadow_distance = 100.0
-	high_tier.msaa_mode = Viewport.MSAA_4X
-	high_tier.ssao_enabled = true
-	high_tier.glow_enabled = true
-	high_tier.ocean_sparkle_enabled = true
-	high_tier.ocean_ring_density = 1.0
-	high_tier.ambient_hull_cap = 15
-
-	var tier_table = QualityTierTable.new()
-	tier_table.tiers = [low_tier, medium_tier, high_tier]
-
-	assert_not_null(tier_table, "QualityTierTable should be created")
-
-	# Create minimal nodes for testing
-	var env = Environment.new()
-	var directional_light = DirectionalLight3D.new()
-
-	# Test Medium quality (tier 1)
-	_sm.graphics_quality = 1
-	var tier_1 = tier_table.get_tier(1)
-
-	# Apply tier 1 settings to environment
-	env.msaa_3d = tier_1.msaa_mode
-	env.ssao_enabled = tier_1.ssao_enabled
-	env.glow_enabled = tier_1.glow_enabled
-	directional_light.shadow_enabled = tier_1.shadow_enabled
-	directional_light.shadow_max_distance = tier_1.shadow_distance
-
-	assert_eq(env.msaa_3d, tier_1.msaa_mode, "Environment MSAA should match tier 1")
-	assert_eq(env.ssao_enabled, tier_1.ssao_enabled, "Environment SSAO should match tier 1")
-	assert_eq(env.glow_enabled, tier_1.glow_enabled, "Environment glow should match tier 1")
-	assert_eq(directional_light.shadow_enabled, tier_1.shadow_enabled, "Light shadow should match tier 1")
-	assert_eq(directional_light.shadow_max_distance, tier_1.shadow_distance, "Light shadow distance should match tier 1")
-
-	# Test Low quality (tier 0)
-	_sm.graphics_quality = 0
-	var tier_0 = tier_table.get_tier(0)
-
-	env.msaa_3d = tier_0.msaa_mode
-	env.ssao_enabled = tier_0.ssao_enabled
-	env.glow_enabled = tier_0.glow_enabled
-	directional_light.shadow_enabled = tier_0.shadow_enabled
-	if tier_0.shadow_enabled:
-		directional_light.shadow_max_distance = tier_0.shadow_distance
-
-	assert_eq(env.msaa_3d, tier_0.msaa_mode, "Environment MSAA should match tier 0")
-	assert_eq(env.ssao_enabled, tier_0.ssao_enabled, "Environment SSAO should match tier 0")
-	assert_eq(env.glow_enabled, tier_0.glow_enabled, "Environment glow should match tier 0")
-	assert_eq(directional_light.shadow_enabled, tier_0.shadow_enabled, "Light shadow should match tier 0")
-
-	# Test High quality (tier 2)
-	_sm.graphics_quality = 2
-	var tier_2 = tier_table.get_tier(2)
-
-	env.msaa_3d = tier_2.msaa_mode
-	env.ssao_enabled = tier_2.ssao_enabled
-	env.glow_enabled = tier_2.glow_enabled
-	directional_light.shadow_enabled = tier_2.shadow_enabled
-	if tier_2.shadow_enabled:
-		directional_light.shadow_max_distance = tier_2.shadow_distance
-
-	assert_eq(env.msaa_3d, tier_2.msaa_mode, "Environment MSAA should match tier 2")
-	assert_eq(env.ssao_enabled, tier_2.ssao_enabled, "Environment SSAO should match tier 2")
-	assert_eq(env.glow_enabled, tier_2.glow_enabled, "Environment glow should match tier 2")
-	assert_eq(directional_light.shadow_enabled, tier_2.shadow_enabled, "Light shadow should match tier 2")
-
-
-## BLOCKER FIX: Test that quality tier data contains ocean settings
-func test_quality_tier_ocean_settings() -> void:
-	var low_t = QualityTierData.new()
-	low_t.ocean_sparkle_enabled = false
-	low_t.ocean_ring_density = 0.5
-
-	var med_t = QualityTierData.new()
-	med_t.ocean_sparkle_enabled = true
-	med_t.ocean_ring_density = 1.0
-
-	var high_t = QualityTierData.new()
-	high_t.ocean_sparkle_enabled = true
-	high_t.ocean_ring_density = 1.5
-
-	var tier_table = QualityTierTable.new()
-	tier_table.tiers = [low_t, med_t, high_t]
-
-	# Verify that tier table contains the correct settings for each quality level
-	var tier_0 = tier_table.get_tier(0)
-	assert_false(tier_0.ocean_sparkle_enabled, "Tier 0 should have sparkle disabled")
-	assert_eq(tier_0.ocean_ring_density, 0.5, "Tier 0 ring density should be 0.5")
-
-	var tier_1 = tier_table.get_tier(1)
-	assert_true(tier_1.ocean_sparkle_enabled, "Tier 1 should have sparkle enabled")
-	assert_eq(tier_1.ocean_ring_density, 1.0, "Tier 1 ring density should be 1.0")
-
-	var tier_2 = tier_table.get_tier(2)
-	assert_true(tier_2.ocean_sparkle_enabled, "Tier 2 should have sparkle enabled")
-	assert_eq(tier_2.ocean_ring_density, 1.5, "Tier 2 ring density should be 1.5")
+func test_low_tier_is_strictly_cheaper_than_medium() -> void:
+	var low := _table().get_tier(0)
+	var medium := _table().get_tier(1)
+	var cheaper := 0
+	cheaper += int(medium.shadow_enabled and not low.shadow_enabled)
+	cheaper += int(medium.ssao_enabled and not low.ssao_enabled)
+	cheaper += int(medium.glow_enabled and not low.glow_enabled)
+	cheaper += int(medium.ocean_sparkle_enabled and not low.ocean_sparkle_enabled)
+	assert_gt(cheaper, 0, "Low must turn off at least one Medium cost")
+	assert_true(low.msaa_mode <= medium.msaa_mode, "Low never adds MSAA")

@@ -1,100 +1,106 @@
 extends GutTest
 
-var faction_manager: FactionManager
+## M29 B.2 — sinking or boarding a faction's ship costs reputation with it.
+## The enemy stand-in exposes `faction` as a PROPERTY, exactly like
+## ShipController's @export — the first draft of this lane read node metadata,
+## which no real ship sets, so sinking never cost anything in play.
+
+
+class FakeEnemy extends Node3D:
+	var faction: Resource
+
+
+class FakeSpawner extends Node:
+	var hunters: Array = []
+	func spawn_hunter(faction: Resource) -> void:
+		hunters.append(faction)
+
+
+var _saved_factions: Dictionary
+var _saved_mode
+var _saved_spawner
+
 
 func before_each() -> void:
-	faction_manager = FactionManager
-	# Reset reputation to known state
-	faction_manager.reputation_scores = {
-		"pirate_clans": -50,
-		"royal_navy": -50,
-		"merchant_guild": 20
-	}
+	_saved_factions = FactionManager.get_save_data().duplicate(true)
+	_saved_mode = SceneManager.game_mode
+	_saved_spawner = FactionManager._spawner
+	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
+	FactionManager._event_hunter_cooldown.clear()
+	FactionManager.reputation_scores["royal_navy"] = 0
+	FactionManager.reputation_scores["spanish_empire"] = 0
 
-func test_reputation_loss_on_enemy_destroyed() -> void:
-	# Test that sinking a faction ship applies -sink_reputation_loss
-	var initial = faction_manager.get_reputation("royal_navy")
-	var navy_faction = load("res://resources/factions/RoyalNavy.tres") as FactionData
-	assert_true(navy_faction.sink_reputation_loss > 0, "Navy should have positive sink loss")
 
-	# Simulate enemy destroyed signal with faction metadata
-	var mock_enemy = Node3D.new()
-	mock_enemy.set_meta("faction", navy_faction)
+func after_each() -> void:
+	FactionManager.load_save_data(_saved_factions)
+	SceneManager.game_mode = _saved_mode
+	FactionManager._spawner = _saved_spawner
+	FactionManager._event_hunter_cooldown.clear()
 
-	# Manually call the handler to simulate the signal
-	faction_manager._on_enemy_destroyed(mock_enemy)
-	mock_enemy.queue_free()
 
-	# Should have lost reputation equal to sink_reputation_loss
-	var final = faction_manager.get_reputation("royal_navy")
-	assert_eq(final, initial - navy_faction.sink_reputation_loss,
-		"Reputation should decrease by sink_reputation_loss")
+func _enemy(faction_path: String, boarded := false) -> FakeEnemy:
+	var e: FakeEnemy = autofree(FakeEnemy.new())
+	e.faction = load(faction_path)
+	if boarded:
+		e.set_meta("loot_claimed", true)
+	return e
 
-func test_no_reputation_loss_in_maelstrom() -> void:
-	# When not in campaign, no reputation loss should apply
-	var initial = faction_manager.get_reputation("royal_navy")
-	var navy_faction = load("res://resources/factions/RoyalNavy.tres") as FactionData
 
-	# Simulate enemy destroyed, but we'll set SceneManager to non-campaign by mocking
-	var mock_enemy = Node3D.new()
-	mock_enemy.set_meta("faction", navy_faction)
+func test_sinking_costs_reputation_with_the_victims_faction() -> void:
+	var spain := load("res://resources/factions/SpanishEmpire.tres") as FactionData
+	assert_gt(spain.sink_reputation_loss, 0, "Spain authors a sink loss")
+	FactionManager._on_enemy_destroyed(_enemy("res://resources/factions/SpanishEmpire.tres"))
+	assert_eq(FactionManager.get_reputation("spanish_empire"), -spain.sink_reputation_loss)
+	assert_eq(FactionManager.get_reputation("royal_navy"), 0, "other factions untouched")
 
-	# When SceneManager.is_campaign() is false, no loss should apply
-	# The handler checks this first
-	# For now, verify the method exists and handles this correctly
-	assert_true(SceneManager.has_method("is_campaign"), "SceneManager should have is_campaign method")
 
-func test_no_double_count_on_boarded_ship() -> void:
-	# When a ship is boarded, only boarding loss applies, not sink loss
-	var initial_rep = faction_manager.get_reputation("royal_navy")
-	var navy_faction = load("res://resources/factions/RoyalNavy.tres") as FactionData
+func test_sinking_via_the_real_signal_path() -> void:
+	# The spawner signal is what play actually uses; FactionManager connects to
+	# any EnemySpawner that enters the tree.
+	var spawner: EnemySpawner = EnemySpawner.new()
+	spawner.spawning_enabled = false
+	add_child_autofree(spawner)
+	assert_true(spawner.enemy_destroyed.is_connected(FactionManager._on_enemy_destroyed),
+		"FactionManager auto-connects to a new EnemySpawner")
+	var navy := load("res://resources/factions/RoyalNavy.tres") as FactionData
+	spawner.enemy_destroyed.emit(_enemy("res://resources/factions/RoyalNavy.tres"))
+	assert_eq(FactionManager.get_reputation("royal_navy"), -navy.sink_reputation_loss)
 
-	# Mark the ship as boarded (loot_claimed meta)
-	var mock_enemy = Node3D.new()
-	mock_enemy.set_meta("faction", navy_faction)
-	mock_enemy.set_meta("loot_claimed", true)
 
-	# Simulate enemy destroyed - should not apply loss due to loot_claimed
-	faction_manager._on_enemy_destroyed(mock_enemy)
-	mock_enemy.queue_free()
+func test_boarded_ship_takes_only_the_boarding_loss() -> void:
+	var navy := load("res://resources/factions/RoyalNavy.tres") as FactionData
+	# The boarding resolves first, then the ship is destroyed with loot_claimed set.
+	FactionManager._on_boarding_resolved(true, {}, "royal_navy", "hms_test")
+	FactionManager._on_enemy_destroyed(_enemy("res://resources/factions/RoyalNavy.tres", true))
+	assert_eq(FactionManager.get_reputation("royal_navy"), -navy.boarding_reputation_loss,
+		"boarding loss once, no sink loss on top")
 
-	var final_rep = faction_manager.get_reputation("royal_navy")
-	assert_eq(final_rep, initial_rep,
-		"Boarded ship should not apply sink loss (handled by boarding path)")
 
-func test_boarding_reputation_loss() -> void:
-	# Test that boarding a faction ship applies -boarding_reputation_loss
-	var initial = faction_manager.get_reputation("royal_navy")
-	var navy_faction = load("res://resources/factions/RoyalNavy.tres") as FactionData
-	assert_true(navy_faction.boarding_reputation_loss > 0, "Navy should have positive boarding loss")
+func test_failed_boarding_costs_nothing() -> void:
+	FactionManager._on_boarding_resolved(false, {}, "royal_navy", "hms_test")
+	assert_eq(FactionManager.get_reputation("royal_navy"), 0)
 
-	# Simulate boarding_resolved signal with success=true
-	faction_manager._on_boarding_resolved(true, {}, "royal_navy", "mock_ship_id")
 
-	var final = faction_manager.get_reputation("royal_navy")
-	assert_eq(final, initial - navy_faction.boarding_reputation_loss,
-		"Reputation should decrease by boarding_reputation_loss on successful board")
+func test_no_consequence_outside_the_campaign() -> void:
+	SceneManager.game_mode = SceneManager.GameMode.MAELSTROM
+	FactionManager._on_enemy_destroyed(_enemy("res://resources/factions/SpanishEmpire.tres"))
+	FactionManager._on_boarding_resolved(true, {}, "royal_navy", "hms_test")
+	assert_eq(FactionManager.get_reputation("spanish_empire"), 0)
+	assert_eq(FactionManager.get_reputation("royal_navy"), 0)
 
-func test_boarding_failure_no_loss() -> void:
-	# Test that failed boarding doesn't apply reputation loss
-	var initial = faction_manager.get_reputation("royal_navy")
 
-	# Simulate boarding_resolved with success=false
-	faction_manager._on_boarding_resolved(false, {}, "royal_navy", "mock_ship_id")
+func test_unknown_faction_id_changes_nothing() -> void:
+	# _resolve_faction push_errors "unknown faction_id" (visible in the log); the
+	# handler must then stop rather than invent a reputation entry.
+	var before := FactionManager.get_save_data().duplicate(true)
+	FactionManager._on_boarding_resolved(true, {}, "no_such_faction", "x")
+	assert_false(FactionManager.reputation_scores.has("no_such_faction"))
+	assert_eq(FactionManager.get_save_data(), before)
 
-	var final = faction_manager.get_reputation("royal_navy")
-	assert_eq(final, initial,
-		"Failed boarding should not apply reputation loss")
 
-func test_unknown_faction_id_pushes_error() -> void:
-	# Attempting to apply loss to unknown faction should push_error
-	var initial_rep = faction_manager.get_reputation("nonexistent_faction_12345")
-
-	# Try to apply reputation loss to a non-existent faction
-	# This should push_error but not crash
-	faction_manager._on_boarding_resolved(true, {}, "nonexistent_faction_12345", "mock_ship_id")
-
-	# Reputation should not have changed (because faction resolution failed)
-	var final_rep = faction_manager.get_reputation("nonexistent_faction_12345")
-	assert_eq(final_rep, initial_rep,
-		"Reputation should not change for unknown faction")
+func test_successful_boarding_of_an_empire_ship_sends_a_hunter() -> void:
+	var spawner: FakeSpawner = autofree(FakeSpawner.new())
+	FactionManager._spawner = spawner
+	FactionManager._on_boarding_resolved(true, {}, "royal_navy", "hms_test")
+	assert_eq(spawner.hunters.size(), 1, "one hunter for the boarded faction")
+	assert_eq((spawner.hunters[0] as FactionData).faction_id, "royal_navy")

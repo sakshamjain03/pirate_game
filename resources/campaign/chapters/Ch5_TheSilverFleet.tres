@@ -133,7 +133,7 @@ script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
 portrait_path = "res://assets/portraits/Higgins.svg"
-text = "You've taken an empire's flagship, Captain, and broken her crossing. Spain will answer that. But you've also taken the thing they couldn't protect — a port the Navy itself couldn't take for a hundred years. You're no longer a captain now. You're an empire yourself."
+text = "I've closed the ledger on the crossing. One silver fleet in our hold, one Spanish admiral promising to come back in the spring, and a harbour nobody in London or Madrid gave us. I crossed out 'captain' at the top of the page. It didn't seem to fit anymore."
 mood = 4
 
 [sub_resource type="Resource" id="Epilogue_2"]
@@ -141,7 +141,7 @@ script = ExtResource("3_beat")
 speaker_id = "marguerite"
 speaker_name = "Marguerite"
 portrait_path = "res://assets/portraits/Marguerite.png"
-text = "Something bigger to lose, you said. I wasn't sure then. But you've answered me, haven't you? You built an empire, and now you have to keep it."
+text = "I asked you once if you were building a port or just something bigger to lose. Look at it. You built both. Now comes the part they don't put in the speeches — keeping it."
 mood = 2
 
 [sub_resource type="Resource" id="Epilogue_3"]
@@ -149,7 +149,7 @@ script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
 portrait_path = "res://assets/portraits/Higgins.svg"
-text = "An island nobody knows, marked by a man nobody remembers. And you're the only captain alive with the chart. That chart says the story goes on, Captain — it says the ocean's bigger than we've been told."
+text = "As for Vane's chart — I've checked it against everything aboard, and nothing agrees with it. Either that island is real, or a dead man went to a great deal of trouble to make us think so. Keep the harbour lit, Captain. This story isn't finished."
 mood = 4
 
 [resource]

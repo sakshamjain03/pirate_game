@@ -142,5 +142,3 @@ func _apply_quality() -> void:
 	else:
 		material.set_shader_parameter("sparkle_intensity", 0.0)
 
-	# Apply ring density (currently just stored, can be used for LOD adjustments)
-	# Note: ocean_ring_density affects the LOD level, could influence mesh density in future

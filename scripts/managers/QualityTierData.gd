@@ -1,17 +1,21 @@
 class_name QualityTierData extends Resource
 
-## Per-quality-tier rendering settings that respond to SettingsManager.graphics_quality.
+## M29 E.2 — one graphics-quality tier. QualityTierTable holds one per
+## SettingsManager.graphics_quality value (0 Low, 1 Medium, 2 High); World and
+## OceanController apply the active tier whenever settings change.
 ##
-## Each tier contains settings for shadows, MSAA, SSAO, glow, ocean effects, and
-## ambient hull spawning caps. Settings are applied via Environment/DirectionalLight3D
-## properties and through OceanController/EnemySpawner.
+## Medium is authored to match World.tscn's look as it shipped before M29, so the
+## default tier changes nothing on screen; Low is where the savings are.
 
 @export_group("Shadows", "shadow_")
 @export var shadow_enabled: bool = true
+## DirectionalLight3D.directional_shadow_max_distance (Godot default 100).
 @export var shadow_distance: float = 100.0
 
 @export_group("Anti-aliasing", "msaa_")
-@export var msaa_mode: Viewport.MSAA = Viewport.MSAA_2X
+## Applied to the Viewport — MSAA is a Viewport property in Godot 4, not an
+## Environment one.
+@export var msaa_mode: Viewport.MSAA = Viewport.MSAA_DISABLED
 
 @export_group("Ambient occlusion", "ssao_")
 @export var ssao_enabled: bool = true
@@ -21,7 +25,16 @@ class_name QualityTierData extends Resource
 
 @export_group("Ocean effects", "ocean_")
 @export var ocean_sparkle_enabled: bool = true
-@export var ocean_ring_density: float = 1.0  # Multiplier for wake ring density
 
-@export_group("Combat", "combat_")
-@export var ambient_hull_cap: int = 10  # Max ambient spawned ships at once
+
+## Applies this tier. Any argument may be null (headless tests, scenes without a
+## sun); each is skipped independently.
+func apply_to(env: Environment, sun: DirectionalLight3D, viewport: Viewport) -> void:
+	if env:
+		env.ssao_enabled = ssao_enabled
+		env.glow_enabled = glow_enabled
+	if sun:
+		sun.shadow_enabled = shadow_enabled
+		sun.directional_shadow_max_distance = shadow_distance
+	if viewport:
+		viewport.msaa_3d = msaa_mode

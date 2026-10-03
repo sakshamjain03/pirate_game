@@ -97,3 +97,43 @@ func test_every_chapter_objective_is_completable():
 				if not objective.target_id.is_empty():
 					assert_true(_ship_ids.has(objective.target_id),
 						"Chapter %d Objective %s ship '%s' exists" % [chapter.chapter_number, objective.objective_id, objective.target_id])
+
+
+## Requirement C2's two other clauses: an island target must be IN the shipping
+## (content_enabled) scope, not merely exist on disk — a cut island is exactly how
+## Ch4/Ch5 shipped uncompletable before — and every condition a chapter uses must
+## be handled by CampaignManager, or it can never progress.
+func test_targets_are_in_scope_and_every_condition_is_handled():
+	var enabled_islands: Array[String] = []
+	var dir := DirAccess.open("res://resources/world/")
+	dir.list_dir_begin()
+	var f := dir.get_next()
+	while f != "":
+		if f.ends_with(".tres"):
+			var res := load("res://resources/world/" + f)
+			if res is IslandData and ResourceLookup.is_content_enabled(res):
+				enabled_islands.append(res.island_id)
+		f = dir.get_next()
+	assert_gt(enabled_islands.size(), 0, "found the enabled islands")
+
+	var source := FileAccess.get_file_as_string("res://scripts/managers/CampaignManager.gd")
+	var names: Array = ObjectiveData.Condition.keys()
+	var island_conditions := [
+		ObjectiveData.Condition.DOCK_AT_ISLAND, ObjectiveData.Condition.REACH_ISLAND_TIER,
+		ObjectiveData.Condition.DISCOVER_ISLAND, ObjectiveData.Condition.CAPTURE_ISLAND,
+		ObjectiveData.Condition.SET_COURSE,
+	]
+	var checked := 0
+	for chapter in CampaignManager.chapters:
+		if not ResourceLookup.is_content_enabled(chapter) or chapter.chapter_number > 5:
+			continue
+		for o in chapter.objectives:
+			checked += 1
+			var cname: String = names[o.condition]
+			assert_true(source.contains("Condition." + cname),
+				"Ch%d %s: condition %s has a CampaignManager handler" % [chapter.chapter_number, o.objective_id, cname])
+			if island_conditions.has(o.condition) and not o.target_id.is_empty():
+				assert_true(enabled_islands.has(o.target_id),
+					"Ch%d %s: island '%s' is content-enabled" % [chapter.chapter_number, o.objective_id, o.target_id])
+	gut.p("golden path: %d objectives checked against %d enabled islands" % [checked, enabled_islands.size()])
+	assert_gt(checked, 20, "Ch1-5 objectives were actually iterated")

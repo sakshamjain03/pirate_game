@@ -72,30 +72,16 @@ func _check_save_roundtrips() -> Array:
 
 
 func _get_autoloads_with_save() -> Array:
-	## Get all autoloads that might have save methods
-	var managers = []
-
-	# List of known manager autoloads
-	var manager_names = [
-		"SaveManager",
-		"ResourceManager",
-		"FleetManager",
-		"TechManager",
-		"EventManager",
-		"FactionManager",
-		"EmpireManager",
-		"CampaignManager",
-		"CelebrationQueue",
-		"EntitlementManager",
-		"LocalNotificationManager",
-		"SeasonalEventManager"
-	]
-
-	for name in manager_names:
-		var node = get_tree().root.get_node_or_null(name)
-		if node:
+	## Every autoload registered in project.godot — the real registry, so a new
+	## persistent manager is covered the day it is added.
+	var managers := []
+	for prop in ProjectSettings.get_property_list():
+		var key: String = prop.name
+		if not key.begins_with("autoload/"):
+			continue
+		var node := get_tree().root.get_node_or_null(key.trim_prefix("autoload/"))
+		if node and node.has_method("get_save_data"):
 			managers.append(node)
-
 	return managers
 
 
@@ -128,3 +114,31 @@ func _normalize_for_json(data: Variant) -> Variant:
 	elif data is float and data == int(data):
 		return int(data)
 	return data
+
+
+## Persistent autoloads that New Game deliberately does NOT reset. Anything with
+## load_save_data() must be either reset by New Game (SaveManager's
+## _NEW_GAME_RESET_MANAGERS) or listed here with the reason it survives.
+const NEW_GAME_SURVIVORS := {
+	"SaveManager": "owns the reset itself",
+	"EntitlementManager": "account-scoped owned cosmetics; deliberately survive New Game",
+	"ScheduleManager": "reset by its own ScheduleManager.reset() in reset_to_new_game()",
+	"TutorialManager": "reset by start_new_game_session()/start_new_game_lessons() in begin_new_game()",
+}
+
+
+func test_every_persistent_autoload_is_reset_or_allowlisted() -> void:
+	var reset_list: Array = SaveManager.get("_NEW_GAME_RESET_MANAGERS")
+	assert_not_null(reset_list, "SaveManager._NEW_GAME_RESET_MANAGERS must exist")
+	var checked := 0
+	var uncovered: Array[String] = []
+	for node in _get_autoloads_with_save():
+		if not node.has_method("load_save_data"):
+			continue
+		checked += 1
+		if not reset_list.has(String(node.name)) and not NEW_GAME_SURVIVORS.has(String(node.name)):
+			uncovered.append(String(node.name))
+	gut.p("New Game coverage: %d persistent autoloads checked" % checked)
+	assert_gt(checked, 5, "expected the project's persistent managers to be found")
+	assert_eq(uncovered.size(), 0,
+		"Persistent autoloads neither reset by New Game nor allowlisted: %s" % [uncovered])

@@ -1,53 +1,90 @@
-## M29 D.1 — EventBanner and EventAnnouncements integration test.
-## Requirements D1: WorldHUD connects world_event_triggered and shows a
-## non-modal announcement banner (FIFO-queued, one at a time, auto-dismisses).
-
 extends GutTest
 
-func test_event_banner_queues_fifo() -> void:
-	## Three trigger_event calls → three banners FIFO, one visible at a time.
+## M29 D.1 / J.1 / J.2 — world events, failed encounters and the campaign's end
+## reach the player through WorldHUD's existing announcer, one at a time; the
+## dock prompt says who holds the island.
 
-	# Sanity: EventManager exists and has the signal
-	assert_not_null(EventManager, "EventManager must be an autoload")
-	assert_true(EventManager.has_signal("world_event_triggered"),
-		"EventManager must have world_event_triggered signal")
+const WorldHUDScene = preload("res://scenes/ui/WorldHUD.tscn")
 
-	# We can't fully test the banner in headless, but we can verify:
-	# 1. The EventAnnouncementData table exists and is loaded
-	# 2. Every trigger_event literal in EventManager has a table entry
+var _viewport: SubViewport
+var _hud: Node
 
-	var announcements = load("res://resources/events/EventAnnouncements.tres")
-	assert_not_null(announcements, "EventAnnouncements.tres must exist and load")
 
-	var announcement_table = announcements.get_announcements() if announcements.has_method("get_announcements") else {}
+func before_each():
+	_viewport = SubViewport.new()
+	_viewport.size = Vector2i(1920, 1080)
+	_viewport.disable_3d = true
+	add_child(_viewport)
+	_hud = WorldHUDScene.instantiate()
+	_viewport.add_child(_hud)
+	await wait_frames(3)
 
-	# These are the 12 event names from EventManager.gd
-	var expected_events = [
-		"merchant_convoy_spotted",
-		"floating_treasure_spotted",
-		"ghost_ship_spotted",
-		"iron_vulture_spotted",
-		"fortunes_toll_spotted",
-		"drifting_wreckage_spotted",
-		"smugglers_cache_spotted",
-		"pirate_raiding_party_spotted",
-		"royal_navy_patrol_spotted",
-		"wind_shifted",
-		"island_discovered",
-		"ship_docked"
-	]
 
-	for event_name in expected_events:
-		assert_true(announcement_table.has(event_name),
-			"EventAnnouncements must have entry for '%s'" % event_name)
+func after_each():
+	if is_instance_valid(_viewport):
+		_viewport.queue_free()
 
-func test_unknown_event_name_shows_nothing() -> void:
-	## An unknown event name → no banner plus a warning.
-	# This is tested in WorldHUD's actual queue logic when it encounters
-	# an event with no table entry. We just verify the table lookup handles it.
-	var announcements = load("res://resources/events/EventAnnouncements.tres")
-	assert_not_null(announcements, "EventAnnouncements.tres must exist")
 
-	var announcement_table = announcements.get_announcements() if announcements.has_method("get_announcements") else {}
-	var unknown = announcement_table.get("unknown_event", null)
-	assert_null(unknown, "Unknown events should not be in the table")
+func _announcements() -> Array:
+	return _hud.find_children("Announcement", "PanelContainer", true, false)
+
+
+func test_every_trigger_event_in_event_manager_has_an_entry() -> void:
+	var table := load("res://resources/events/EventAnnouncements.tres") as EventAnnouncementData
+	assert_not_null(table)
+	var src := FileAccess.get_file_as_string("res://scripts/managers/EventManager.gd")
+	var re := RegEx.new()
+	re.compile('trigger_event[(]"([a-z_]+)"')
+	var names := {}
+	for m in re.search_all(src):
+		names[m.get_string(1)] = true
+	assert_gt(names.size(), 5, "found EventManager's trigger_event literals")
+	for n in names:
+		var title = table.get_title(n)
+		assert_not_null(title, "EventAnnouncements has an entry for '%s'" % n)
+		if title != null and not String(title).is_empty():
+			assert_false(String(title).begins_with("event_"), "'%s' title is player text, not an id" % n)
+
+
+func test_world_events_queue_one_at_a_time_in_order() -> void:
+	EventManager.world_event_triggered.emit("merchant_convoy_spotted", {})
+	EventManager.world_event_triggered.emit("ghost_ship_spotted", {})
+	EventManager.world_event_triggered.emit("iron_vulture_spotted", {})
+	await wait_frames(1)
+	var shown := _announcements()
+	assert_eq(shown.size(), 1, "one announcement on screen at a time")
+	assert_string_contains(shown[0].get_child(0).text, "convoy", "first in, first shown")
+	assert_eq(_hud._announce_queue.size(), 2, "the other two wait their turn")
+	shown[0].queue_free()
+	await wait_frames(2)
+	assert_string_contains(_announcements()[0].get_child(0).text, "ghost ship", "then the next")
+
+
+func test_silent_and_unknown_events_show_nothing() -> void:
+	EventManager.world_event_triggered.emit("ship_docked", {})
+	EventManager.world_event_triggered.emit("no_such_event", {})
+	await wait_frames(1)
+	assert_eq(_announcements().size(), 0)
+
+
+func test_campaign_end_and_failed_encounter_are_announced() -> void:
+	CampaignManager.campaign_completed_signal.emit()
+	_hud._on_encounter_failed("x", "bad data")
+	await wait_frames(1)
+	assert_string_contains(_announcements()[0].get_child(0).text, "Campaign complete")
+	assert_eq(_hud._announce_queue.size(), 1, "the encounter notice queues behind it")
+
+
+func test_dock_owner_line_names_the_owner_in_its_colour() -> void:
+	var spain := load("res://resources/factions/SpanishEmpire.tres") as FactionData
+	var isle := IslandData.new()
+	isle.island_name = "Cartagena"
+	isle.island_type = IslandData.IslandType.ENEMY
+	isle.owner_faction = spain
+	var line: Dictionary = _hud.island_owner_line(isle)
+	assert_string_contains(line["text"], "Cartagena")
+	assert_string_contains(line["text"], spain.faction_name)
+	assert_eq(line["color"], spain.sail_color)
+	assert_eq(_hud.island_owner_line(null)["text"], "", "unknown island: no line, no crash")
+	assert_not_null(_hud._dock_owner_label, "the owner line sits in the dock prompt's column")
+	assert_eq(_hud._dock_owner_label.get_parent().name, "DockColumn")

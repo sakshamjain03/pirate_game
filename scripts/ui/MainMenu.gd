@@ -7,6 +7,7 @@ class_name MainMenu extends CanvasLayer
 ## TODOs: Add confirmation dialog before New Game overwrites an existing save.
 
 @onready var root_control    : Control = $Control
+@onready var main_box        : BoxContainer = $Control/MainVBox
 @onready var button_panel    : PanelContainer = $Control/MainVBox/ButtonPanel
 @onready var continue_button : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/ContinueButton
 @onready var new_game_button : Button = $Control/MainVBox/ButtonPanel/VBoxContainer/NewGameButton
@@ -39,8 +40,10 @@ func _ready() -> void:
 	_animate_title()
 	_connect_buttons()
 	_setup_maelstrom_button()
-	_show_crash_report_notice()
 	if AudioManager: AudioManager.play_music("main_menu")
+	# Size is only known after layout, and changes on rotation/resize.
+	_fit_layout.call_deferred()
+	get_viewport().size_changed.connect(_fit_layout)
 
 func _apply_theme() -> void:
 	var theme := PirateThemeBuilder.build()
@@ -80,6 +83,34 @@ func _connect_buttons() -> void:
 	primary_btn.custom_minimum_size = PirateThemeBuilder.scaled_button_size(_PRIMARY_SIZE)
 	PirateThemeBuilder.mark_primary(primary_btn)
 	primary_btn.grab_focus()
+
+## Margin kept clear above and below the menu, in canvas units.
+const _FIT_MARGIN := 24.0
+
+## Title plaque stacked over the buttons is taller than a wide phone's canvas
+## (the 19.5:9 Galaxy A35 cut both the emblem and Quit off). When the stack
+## does not fit, lay the plaque and the buttons side by side instead of
+## shrinking touch targets below their scaled size.
+func _fit_layout() -> void:
+	if not is_inside_tree():
+		return
+	var screen := root_control.get_viewport_rect().size
+	var available := screen - Vector2.ONE * _FIT_MARGIN * 2.0
+	main_box.scale = Vector2.ONE
+	main_box.vertical = true
+	main_box.reset_size()
+	if main_box.get_combined_minimum_size().y > available.y:
+		main_box.vertical = false
+		main_box.reset_size()
+	main_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	# Still too big (large control_scale on a short canvas): scale the whole
+	# menu about its centre. Buttons scaled by control_scale stay above the
+	# 48dp touch floor at any factor this produces on a phone.
+	var need := main_box.get_combined_minimum_size()
+	var factor := minf(1.0, minf(available.x / need.x, available.y / need.y))
+	main_box.pivot_offset = main_box.size * 0.5
+	main_box.scale = Vector2.ONE * factor
+
 
 func _animate_title() -> void:
 	## Fade in and gentle float animation on the title
@@ -158,20 +189,3 @@ func _on_quit_pressed() -> void:
 	CrashReporter.mark_clean_shutdown()
 	get_tree().quit()
 
-
-func _show_crash_report_notice() -> void:
-	if not CrashReporter.has_pending_report:
-		return
-	# M22 Phase 4.4 — the same parchment ChoiceDialog modal as every other
-	# prompt, not a stock AcceptDialog. The AcceptDialog this replaces was
-	# never actually themed: a Window parented under this CanvasLayer can't
-	# inherit root_control's theme (Godot's theme lookup stops at any
-	# non-Control/non-Window parent), and once themed by hand its embedded title
-	# bar still drew outside its border stylebox. Found by the M22 sweep's
-	# first-ever capture of this notice.
-	await ChoiceDialog.new(
-		tr("Previous Session Ended Unexpectedly"),
-		tr("A local diagnostic report is ready for support. It contains no personal information and will not be sent automatically."),
-		PackedStringArray([tr("OK")])
-	).ask(self)
-	CrashReporter.dismiss_pending_report()

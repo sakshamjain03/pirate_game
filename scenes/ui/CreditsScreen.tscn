@@ -77,16 +77,16 @@ theme_type_variation = &"InkRichTextLabel"
 bbcode_enabled = true
 text = "[center][b]Pirate Empire[/b]
 
-[i]Developed by[/i]
+[i]Created by[/i]
+Saksham Jain
+An independent game by a solo developer
+
+[i]Design, Programming, Writing & Art Direction[/i]
 Saksham Jain
 
-[i]Open Source Software & IP[/i]
+[i]Open Source Software[/i]
 Godot Engine (MIT License)
 GUT (Godot Unit Tests - MIT License)
-
-[i]Programming & AI Engineering[/i]
-Antigravity
-Saksham Jain
 
 [i]Fonts[/i]
 Germania One, Baloo 2 — SIL Open Font License 1.1

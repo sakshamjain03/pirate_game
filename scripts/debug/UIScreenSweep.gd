@@ -491,20 +491,8 @@ func _run_standalone_menus() -> void:
 ## normally opened by AdManager/CrashReporter state that a sweep never
 ## produces, so without this they were never seen at all.
 func _run_modals() -> void:
-	# Crash-recovery notice: MainMenu shows it only when CrashReporter has a
-	# pending report. Set the flag for the capture, then restore it exactly —
-	# never dismiss_pending_report(), which would touch the real report.
-	var had_pending: bool = CrashReporter.has_pending_report
-	CrashReporter.has_pending_report = true
-	var menu = load("res://scenes/ui/MainMenu.tscn").instantiate()
-	add_child(menu)
-	await _settle(5)
-	await _wait_seconds(1.8)
-	await _capture("14_crash_notice")
-	menu.queue_free()
-	CrashReporter.has_pending_report = had_pending
-	await _settle(2)
-
+	# (The crash-recovery notice was removed 2026-10-04, owner decision: an
+	# abnormal exit is recorded silently by CrashReporter, never shown.)
 	var dialog := ChoiceDialog.new("Cloud Save Found",
 		"A newer save exists in the cloud. Which one do you want to keep?",
 		PackedStringArray(["Keep Local", "Keep Cloud"]))

@@ -54,6 +54,22 @@ func _ready() -> void:
 	apply_settings()
 	if SettingsManager.has_signal("settings_changed"):
 		SettingsManager.settings_changed.connect(apply_settings)
+	# Touch drag-scrolling for every ScrollContainer, on every page, including
+	# ones built at runtime (see TouchScrollDriver for why Godot's own doesn't
+	# work on our button/slider-filled pages).
+	get_tree().node_added.connect(_on_node_added)
+
+
+func _on_node_added(node: Node) -> void:
+	if node is ScrollContainer:
+		# Deferred: add_child is not allowed while the parent is still being
+		# added to the tree.
+		_attach_scroll_driver.call_deferred(node)
+
+
+func _attach_scroll_driver(node: Node) -> void:
+	if is_instance_valid(node) and node.is_inside_tree():
+		TouchScrollDriver.attach(node as ScrollContainer)
 
 func apply_settings() -> void:
 	sensitivity = SettingsManager.input_sensitivity

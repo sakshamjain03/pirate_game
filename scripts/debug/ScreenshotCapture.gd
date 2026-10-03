@@ -37,6 +37,11 @@ func _ready() -> void:
 			_dir = a.trim_prefix("--capture-dir=")
 		elif a.begins_with("--perf-log="):
 			_perf_log = a.trim_prefix("--perf-log=")
+		elif a.begins_with("--graphics-quality="):
+			# M29 E.1 — compare tiers without touching user://settings.cfg: set
+			# in memory only (never save_settings()) and let World/Ocean re-apply.
+			SettingsManager.graphics_quality = int(a.trim_prefix("--graphics-quality="))
+			SettingsManager.settings_changed.emit.call_deferred()
 	if _dir.is_empty():
 		set_process(false)
 		return

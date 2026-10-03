@@ -178,3 +178,29 @@ Per CLAUDE.md and spec: "Device FPS is owner-measured. The spec reports it as un
   - Test rewrite for acceptance criteria verification
   - All 4 tests passing
 
+
+## E.1 measured (orchestrator, 2026-10-03, headful desktop proxy)
+
+Command: `Godot_v4.3-stable_win64_console.exe --path . scenes/debug/CaptureHarness.tscn --capture-dir=<dir> --perf-log=<csv> --graphics-quality=<0|1|2>`
+(`--graphics-quality` sets the tier in memory only; user://settings.cfg untouched.)
+
+Settled frames (t=7s / t=12s):
+
+| Tier | Draw calls | Primitives | Desktop FPS |
+|---|---|---|---|
+| Low (0) | 817 / 758 | 70.7k / 57.4k | 120 (vsync cap) |
+| Medium (1, default = authored look) | 1272 / 1265 | 247k / 688k | 120 / 119 |
+| High (2) | 1433 / 1427 | 340k / 322k | 120 |
+
+Findings:
+- Desktop FPS is capped and cannot rank the tiers; draw calls / primitives can.
+- Low cuts draw calls ~40% (shadow passes) and primitives 4-10x.
+- **~1,270 draw calls at the default tier is the headline cost** — a mid-range
+  Android GPU wants ~300-500. objects == draw calls, i.e. every visible mesh is
+  its own draw. This is the most likely cause of the measured 18-27 device FPS.
+  The fix is structural (MultiMesh / merged meshes for repeated island props and
+  buildings, visibility_range culling, fewer ambient hulls in view) — owned by
+  the M33 perf pass (folds in M21's spatial-culling tasks), not M29.
+- Owner decision pending: ship Android with Low as the first-launch default until
+  the draw-call work lands.
+- Device FPS remains owner-measured (RELEASE_CHECKLIST §6) — not claimed here.

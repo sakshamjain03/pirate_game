@@ -137,3 +137,34 @@ func test_targets_are_in_scope_and_every_condition_is_handled():
 					"Ch%d %s: island '%s' is content-enabled" % [chapter.chapter_number, o.objective_id, o.target_id])
 	gut.p("golden path: %d objectives checked against %d enabled islands" % [checked, enabled_islands.size()])
 	assert_gt(checked, 20, "Ch1-5 objectives were actually iterated")
+
+
+## A condition CampaignManager only ever dispatches with an EMPTY target id can
+## never match an objective that names one (ObjectiveDispatch.matches rejects
+## target != ""). M29's first Ch4 raid objective did exactly that
+## (SURVIVE_RAID + target_id "pelican_cay") and would have shipped Ch4
+## uncompletable. Derived from the source so new handlers are covered.
+func test_untargeted_conditions_carry_no_target_id():
+	var source := FileAccess.get_file_as_string("res://scripts/managers/CampaignManager.gd")
+	var re := RegEx.new()
+	re.compile('_for_each_matching[(]ObjectiveData[.]Condition[.]([A-Z_]+), *([^,]+),')
+	var empty_only := {}
+	var targeted := {}
+	for m in re.search_all(source):
+		var cname := m.get_string(1)
+		if m.get_string(2).strip_edges() == '""':
+			empty_only[cname] = true
+		else:
+			targeted[cname] = true
+	for cname in targeted:
+		empty_only.erase(cname)
+	assert_true(empty_only.has("SURVIVE_RAID"), "the scan finds SURVIVE_RAID's untargeted dispatch")
+	var names: Array = ObjectiveData.Condition.keys()
+	for chapter in CampaignManager.chapters:
+		if not ResourceLookup.is_content_enabled(chapter) or chapter.chapter_number > 5:
+			continue
+		for o in chapter.objectives:
+			var cname: String = names[o.condition]
+			if empty_only.has(cname):
+				assert_eq(o.target_id, "",
+					"Ch%d %s: %s is dispatched without a target, so target_id must be empty" % [chapter.chapter_number, o.objective_id, cname])

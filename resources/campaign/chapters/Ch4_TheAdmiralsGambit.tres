@@ -36,7 +36,7 @@ script = ExtResource("3_beat")
 speaker_id = "higgins"
 speaker_name = "Quartermaster Higgins"
 portrait_path = "res://assets/portraits/Higgins.svg"
-text = "Find the second cay, hold it through a Navy raid, and turn this water's balance. Plant a fleet captain where they can't reach her, and the Admiral loses both."
+text = "Find the second cay, make it ours, and turn this water's balance. Plant a fleet captain where they can't reach her, and the Admiral loses both."
 mood = 1
 
 [sub_resource type="Resource" id="Obj_4_1"]
@@ -126,10 +126,10 @@ hint_text = "Run trade routes or patrols, or pay the Guild tribute from the trad
 [sub_resource type="Resource" id="Obj_4_11"]
 script = ExtResource("2_objective")
 objective_id = "4.11"
-description = "Hold Pelican Cay through a raid"
+description = "Weather a Navy raid"
 condition = 14
-target_id = "pelican_cay"
 target_count = 1
+is_optional = true
 
 [sub_resource type="Resource" id="Close_1"]
 script = ExtResource("3_beat")

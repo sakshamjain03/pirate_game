@@ -63,12 +63,13 @@ func test_ch4_pelican_cay_follow_up_objective_exists() -> void:
 			obj_4_11 = obj
 			break
 
-	assert_not_null(obj_4_11, "Obj_4_11 (Pelican Cay follow-up) exists")
-	assert_true(
-		"pelican" in obj_4_11.description.to_lower(),
-		"Obj_4_11 should reference Pelican Cay: '%s'" % obj_4_11.description
-	)
-	assert_eq(obj_4_11.target_id, "pelican_cay", "Obj_4_11 targets pelican_cay")
+	assert_not_null(obj_4_11, "Obj_4_11 (raid follow-up) exists")
+	# SURVIVE_RAID is dispatched with an empty target, so a named target_id could
+	# never match and would make Ch4 uncompletable; and raids are a random roll,
+	# so the objective is optional rather than a pacing gate.
+	assert_eq(obj_4_11.condition, ObjectiveData.Condition.SURVIVE_RAID, "Obj_4_11 is a raid objective")
+	assert_eq(obj_4_11.target_id, "", "Obj_4_11 carries no target (SURVIVE_RAID is untargeted)")
+	assert_true(obj_4_11.is_optional, "Obj_4_11 is optional (random raid timing)")
 
 
 func test_ch4_pelican_cay_objective_passes_golden_path() -> void:

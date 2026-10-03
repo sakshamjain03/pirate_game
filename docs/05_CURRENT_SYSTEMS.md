@@ -3554,3 +3554,166 @@ Also in the second pass:
 Whether the smaller phone fire buttons *feel* right (they meet the 48dp floor but are now smaller
 than Ability/Broadside on 19.5:9), real-device touch, and real Play Billing.
 
+## M29 — Stabilize & Wire (2026-10-03)
+
+Spec: `.kiro/specs/milestone-m29-stabilize-and-wire/`, with per-lane notes in `notes-lane-*.md`. It
+was built as six parallel lanes in worktrees, then merged and re-verified on `m29-integration`. The
+merge pass found real defects that every per-lane reviewer had passed. Those fixes are marked
+**(integration)**.
+
+### Combat (Lane A)
+- **One loot grant per boarding.**
+  - `BoardingSystem` grants the roll and sets `enemy.set_meta("loot_claimed", true)` before
+    `mark_destroyed()`.
+  - `ShipController._on_died()` skips `_spawn_loot()` for a claimed ship.
+  - Notoriety still applies once on both paths.
+- **Crew bounds guns.**
+  - `_spawn_cannonball()` refuses at crew ≤ 0, and every firing path ends there.
+  - The reload penalty is clamped by `ShipStats.min_crew_fire_rate_mult` (0.25) and
+    `max_reload_seconds` (40).
+  - Deferred reload and ripple callbacks carry a `_life_id` and do nothing after death or respawn.
+    (`SceneTreeTimer` has no `kill()` in 4.3.)
+- **Loot scaling is data.**
+  - `LootScalingData` with `resources/combat/LootScaling.tres`: `notoriety_divisor` 100,
+    `class_multiplier_max` 3, `max_multiplier` 5, `crew_per_class_step` 8.
+  - One static `multiplier()` is used by both sinking and boarding.
+  - (integration) The `.tres` named its class instead of its script, so it never loaded and the cap
+    silently fell back to 1.0.
+- **Encounters can't start unwinnable.**
+  - `EncounterManager._validate()` runs first. (integration) It used to run after the player-ship
+    lookup.
+  - It rejects a missing scene, a missing escort, `time_limit ≤ 0` and a count ≤ 0.
+  - On rejection it calls `push_error` and emits `encounter_failed(encounter_id, reason)`.
+  - (integration) A `PROTECT_TARGET` encounter whose escort fails to instantiate is now caught after
+    spawning.
+  - `time_limit` is capped at 3600. `EncounterManager` joins group `encounter_manager`.
+  - `tests/test_lint_encounter_data.gd` validates all 9 encounter resources.
+
+### Faction consequences (Lane B)
+- **Violence costs reputation.**
+  - `FactionManager` connects via `node_added` (no node paths) to any `EnemySpawner` or
+    `BoardingSystem` that enters the tree.
+  - Sinking a ship applies `-FactionData.sink_reputation_loss`, read from the ship's `faction`
+    **property**. (integration) The lane read node metadata that no ship sets, so this never fired
+    in play.
+  - Boarding applies `-boarding_reputation_loss` only. A `loot_claimed` ship skips the sink loss.
+  - Campaign only. Values: RoyalNavy 8/5, SpanishEmpire 7/4, all other factions 0.
+- **Factions respond to actions.**
+  - `Island.capture_island()` passes the previous owner to
+    `EmpireManager.notify_island_captured(id, prev)`.
+  - That still emits `island_captured(id)`, unchanged for its 3 subscribers, and also emits
+    `island_captured_from(id, prev)`.
+  - Capturing an island from a faction, or boarding one of its ships, spawns one hunter, at most
+    once per `hunter_cooldown_seconds` per faction.
+- Tribute cost, tribute cooldown and `raid_frequency_mult` come from `FactionData`. The defaults
+  equal the old constants.
+- `FactionManager.get_island_owner_display(island_data)` returns `{faction_id, name, color}`.
+- Factions are looked up by the resource's own `faction_id`, scanned once and cached.
+- (integration) `FactionManager.load_save_data()` now **replaces** reputation: it applies the
+  defaults, then the save.
+  - It used to merge, so a faction first met during play (a new `spanish_empire` entry) survived
+    New Game.
+  - `test_new_game_reset.gd` caught it once B.2 started creating such entries.
+- Art seams on `FactionData`: `flag_texture_path` and `sail_texture_path`. Nothing reads them yet.
+
+### Campaign ending and story (Lane C)
+- **Campaign completion.**
+  - `CampaignManager.campaign_completed` is saved, and New Game resets it through the snapshot.
+  - `campaign_completed_signal` fires when the **last enabled** chapter completes.
+  - The check runs before `_advance_to_next_chapter()`. (integration) It ran after, which ended the
+    campaign on Chapter 4.
+- **Free roam.** There is no current chapter. `get_display_objective()` returns the free-roam line,
+  which `CaptainsLog` uses. Economy, events, raids and Maelstrom are unaffected.
+- **Epilogue.** It is the last three Ch5 closing beats (rewritten at integration in Higgins's voice):
+  1. Higgins closes the ledger.
+  2. Marguerite answers her own Ch3 "something bigger to lose" line.
+  3. Higgins makes Vane's chart the "story isn't finished" hook.
+- **Text fixes:**
+  - Obj_2_4 now reads "Board two ships".
+  - Ch4 gets an opening beat that states its goals.
+  - Tortuga's codex frames its tavern, contracts and market as rumour (M34 pays it off).
+  - Fortress and Watchtower descriptions now describe raid defence.
+- **Ch4 Obj 4.11 "Weather a Navy raid"** is optional and untargeted. (integration) The lane gave it
+  `target_id = "pelican_cay"`. `SURVIVE_RAID` is dispatched without a target, so it could never
+  match, and Ch4 would have shipped uncompletable.
+- Every named Ch1-5 speaker has a `portrait_path` under `res://assets/portraits/`. `PortraitFallback`
+  shows initials until the file exists. The art is requested in `docs/10`.
+- **`tests/test_campaign_golden_path.gd`** checks every Ch1-5 objective:
+  - its target resolves;
+  - island targets are content-enabled;
+  - its condition has a `CampaignManager` handler;
+  - a condition that is only ever dispatched without a target carries no `target_id`. This check is
+    derived from source and mutation-checked.
+- **Deferred:** a conditional Ch4 line for boarding HMS Intransigent. `DialogueBeatData` has no
+  conditions.
+- `CelebrationQueue` exists but nothing uses it. `WorldHUD` announces the campaign end instead.
+
+### World events, HUD, integrity (Lane D and joins)
+- **World events reach the player.**
+  - `WorldHUD.queue_announcement()` is a FIFO in front of the existing `announce_event()`, which now
+    returns its panel. Bursts of events are shown one at a time.
+  - `EventManager.world_event_triggered` looks up `EventAnnouncementData.get_title(name)` in
+    `resources/events/EventAnnouncements.tres`.
+  - Titles are English, following this project's `tr()` convention.
+  - An empty title means silent (for example `ship_docked`). An unknown name calls `push_warning`.
+  - All 12 `trigger_event` names are covered, asserted against `EventManager.gd`'s source.
+  - (integration) The lane's separate `EventBanner` was removed. It duplicated `announce_event`,
+    showed raw `event_*` ids, loaded icons that don't exist, and announced every dock.
+- `encounter_failed` and `campaign_completed_signal` are announced (J.2).
+- **Owner on approach (J.1).**
+  - Desktop: a tinted "<Island> · <Owner>" label above the dock prompt text, both inside a
+    `DockColumn` VBox.
+  - Phone: a queued announcement, because the dock prompt is a context button there.
+- D3 (ocean-event schedule persistence) is closed as **stale**: a restart can only delay the next
+  event, never duplicate it.
+- **Permanent lint tests.** The resource and signal lints were mutation-checked.
+  - `test_lint_resource_exports` text-parses every `.tres` against its script's properties. Godot
+    drops unknown keys on load, so only text parsing sees them.
+  - `test_lint_save_roundtrip` checks two things:
+    - every autoload in `project.godot` with save data round-trips through JSON;
+    - every persistent autoload is either in `_NEW_GAME_RESET_MANAGERS` or in a commented survivor
+      list (SaveManager, EntitlementManager, ScheduleManager, TutorialManager).
+  - `test_lint_signal_wiring` checks that every `signal` has an emit and a connection, or an
+    allowlisted reason.
+
+### Performance (Lane E)
+- **Quality tiers.**
+  - `QualityTierData`, `QualityTierTable` and `resources/settings/QualityTiers.tres` are applied by
+    `World._apply_quality_tiers()` on `settings_changed`. `OceanController` applies the sparkle.
+  - The only input is `SettingsManager.graphics_quality`.
+  - **Medium, the default, equals the authored scene**, and a test asserts it.
+  - Low turns off shadows, SSAO, glow and ocean sparkle.
+  - High lengthens shadows and adds 2× MSAA.
+  - (integration) The lane had:
+    - set `msaa_3d` on `Environment`, a SCRIPT ERROR (it's a Viewport property);
+    - set `shadow_max_distance`, which isn't a `DirectionalLight3D` property;
+    - looked up node paths that don't exist;
+    - turned MSAA on at the default tier.
+- `project.godot` sets `rendering/renderer/rendering_method.mobile="mobile"` explicitly.
+- **Perf probe:** `CaptureHarness.tscn --perf-log=<csv> --graphics-quality=<0|1|2>`. The tier is set
+  in memory only and never saved.
+- **Desktop results, settled:**
+  - Low: about 760-820 draw calls, 57-71k primitives.
+  - **Medium: about 1,270 draw calls**, 250-690k primitives.
+  - High: about 1,430 draw calls.
+  - Desktop FPS is capped by vsync and can't rank the tiers. Spawns are random, so the enemy count
+    differs between runs.
+- **About 1,270 draw calls at the default tier is the headline mobile cost.** The target is roughly
+  300-500, and today every visible mesh is its own draw call.
+  - The structural fix (MultiMesh and merged props, visibility ranges, M21's culling) belongs to the
+    M33 performance pass.
+  - Device FPS is still measured by the owner (`docs/RELEASE_CHECKLIST.md` §6c).
+
+### Art pipeline (Lane F)
+`docs/10_ASSET_REQUESTS.md` is now a generation prompt pack for owner-supplied art, with 109
+deliverables. Each one has a complete prompt and exact settings.
+- 3D assets get two prompts: a Claude Design concept sheet and a text-to-3D prompt.
+- Ship prompts use the real collision boxes, gun counts and node names, with the bow at -Z.
+- Every building gets 5 level models. Until now, every level shared one placeholder.
+
+`IslandData` gains the `port_scene_path` and `owner_banner_path` seams.
+
+### Not verifiable here
+- Device FPS.
+- Whether the announcement pacing and the dock owner line feel right on a phone.
+- Whether the epilogue lands emotionally.

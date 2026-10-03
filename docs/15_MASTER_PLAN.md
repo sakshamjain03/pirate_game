@@ -39,7 +39,7 @@ Everything sequenced below serves that sentence. Anything that does not is defer
 
 ---
 
-# 2.5 Current Roadmap — M24 through M33 (locked 2026-09-28, re-ordered 2026-09-29)
+# 2.5 Current Roadmap — M24 through M35 (locked 2026-09-28, re-ordered 2026-09-29, M29-M35 re-planned 2026-10-03)
 
 **This supersedes §3 below for anything not yet built.** §3 (M16-M21) is kept as history; several
 of those milestones shipped, and its constitutional note is now **out of date** — see the warning
@@ -53,14 +53,16 @@ Per-milestone specs live in `.kiro/specs/milestone-mNN-*/`; scope detail is in
 |---|---|---|---|---|
 | M24 | MVP Foundations | Constitution amended for F2P; scope cut to 5 chapters / 5 islands / 12 captains; dev console | `milestone-m24-mvp-foundations` | **Complete** (`6c8c820`, `a137563`) |
 | M25 | Heat & Combat Feel | GTA-style wanted level driving ambient danger; manual fire; the hull/sails/crew triangle made legible; Pieces of Eight introduced | `milestone-m25-heat-and-combat-feel` | **Complete** (`f8dffef`, `898da20`, `6e6b6e2`, Checkpoint B) |
-| M26 | The Maelstrom | Endless Vampire-Survivors-style survival mode, isolated from the campaign (was M28) | `milestone-m26-maelstrom` | Planned — **parallel** |
-| M27 | Timers & the Eights Economy | `ScheduleManager` (one clock for builds/research/ships/repairs); Eights finish timers and cover shortfalls; consumable Eights packs on the stub store (the clock from old M27 + the store half of old M31) | `milestone-m27-eights-economy` | Planned — **parallel** |
-| M28 | Lessons & Campaign Cohesion | Skippable non-modal lessons as chapter content; every system taught and used by an objective across Ch1-5 | `milestone-m28-lessons-and-cohesion` | Planned — **parallel** |
-| M29 | Islands as Places | Port view on docking — tap your real 3D buildings; five hand-authored island scenes drawn from their real-world namesakes (was M26) | — | Planned |
-| M30 | Prize Ships | uid-based fleet identity; **capture enemy ships instead of sinking them** (rest of old M27) | — | Planned |
-| M31 | Living Economies & Sieges | Island specialization/security/logistics; playable sieges at any owned island; raiding enemy islands | — | Planned |
-| M32 | Contracts, Treasure & Trade | Port contract boards, buried treasure and exploration, per-island supply/demand and smuggling | — | Planned |
-| M33 | Achievements, Ads & Balance Lock | Rewarded ads, ~30 achievements, real Play Billing, and the zero-spend balance lock for Ch1-5 | — | Planned |
+| M26 | The Maelstrom | Endless Vampire-Survivors-style survival mode, isolated from the campaign (was M28) | `milestone-m26-maelstrom` | **Complete** (`ec0e906`, wrap-up `7e7cbd9`) |
+| M27 | Timers & the Eights Economy | `ScheduleManager` (one clock for builds/research/ships/repairs); Eights finish timers and cover shortfalls; consumable Eights packs on the stub store (the clock from old M27 + the store half of old M31) | `milestone-m27-eights-economy` | **Complete** (`84cff5b`, wrap-up `7e7cbd9`) |
+| M28 | Lessons & Campaign Cohesion | Skippable non-modal lessons as chapter content; every system taught and used by an objective across Ch1-5 | `milestone-m28-lessons-and-cohesion` | **Complete** (`443083f`, wrap-up `7e7cbd9`) |
+| M29 | Stabilize & Wire | Every confirmed bug and unwired system from the 2026-10-03 hit-readiness audit: one loot grant per boarding, crew-bounded guns, unwinnable-encounter guards, reputation loss for violence, event-driven hunters, a real campaign ending into free roam, world-event announcements, island owner on approach, three permanent lint tests, quality tiers + perf probe, asset prompt pack | `milestone-m29-stabilize-and-wire` | In progress |
+| M30 | Rewards & Retention | Captain's Log streak, daily calendar, weekly goals, comeback bonus, offline-return story, ~30 achievements, captain collection, Maelstrom meta, reward inbox, notification scheduler (implements the unchecked M18 spec) | `milestone-m18-retention` (to re-scope) | Planned |
+| M31 | Living Rivals: Britain & Spain | Simulated faction treasuries; Spanish treasure fleet (Flota de Indias) and British patrols/convoys on real routes; raiding drains a faction and it escalates; island specialization | — | Planned |
+| M32 | Islands as Places + Prize Ships | Port view on docking with real buildings in slots (owner art); capture enemy ships instead of sinking | — | Planned |
+| M33 | Visual Uplift, Feel & Performance | Owner-supplied art lands (50 building levels, 14 ships, VFX); shader/VFX/audio pass; draw-call reduction (~1,270 → mobile budget; folds in M21); M19 accessibility | — | Planned |
+| M34 | Contracts, Treasure & Trade | Port contract boards (Tortuga's rumours made real), buried treasure, supply/demand, smuggling | — | Planned |
+| M35 | Launch Gate | Real Play Billing, opt-in rewarded ads behind consent, zero-spend balance lock for Ch1-5, store listing, release checklist | — | Planned |
 
 **Re-ordered 2026-09-29 (project owner).** After M25 the owner asked for the two modes (endless
 Maelstrom, the five-chapter main game with a skippable tutorial) and a working Eights economy

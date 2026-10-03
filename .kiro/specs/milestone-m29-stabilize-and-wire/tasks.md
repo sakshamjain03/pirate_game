@@ -103,7 +103,7 @@ Full suite: the same command with `-gdir=res://tests`. Never use `--check-only`.
   - **Verify:** `tests/test_m29_free_roam_hud.gd`. In free roam the objective label shows the free-roam line. A failed encounter → one quiet banner.
   - _Requirements: C1.4, D1.3_
 
-- [ ] **Checkpoint A**
+- [x] **Checkpoint A** **(2026-10-04: full suite 159 scripts / 1125 tests / 0 failing / 0 SCRIPT ERRORs on merged main; independent checkpoint-reviewer PASS. SelfPlayHarness not run — its `-s` mode fails to resolve autoloads (AudioManager in MainMenu.gd), a harness invocation issue, and it drives the real user:// save; reported unverified)**
   - **Verify:**
     - Full suite passes; count ≥ 1046 + new tests; 0 failures.
     - `checkpoint-reviewer` on Wave 1-2.
@@ -111,7 +111,7 @@ Full suite: the same command with `-gdir=res://tests`. Never use `--check-only`.
     - Commit and push, scoped to M29 files.
 
 ### Wave 3: close-out
-- [ ] Z.1 Docs: an M29 section in `docs/05_CURRENT_SYSTEMS.md` (own section; each lane's changes, the stale-closed findings, perf before/after), plus `docs/15_MASTER_PLAN.md` §2.5 updated to the M29-M35 roadmap
+- [x] Z.1 Docs: an M29 section in `docs/05_CURRENT_SYSTEMS.md` (own section; each lane's changes, the stale-closed findings, perf before/after), plus `docs/15_MASTER_PLAN.md` §2.5 updated to the M29-M35 roadmap
   - **Verify:** `sync-systems-doc` reports nothing undocumented for M29 files.
 - [ ] **Checkpoint B (final)**
   - **Verify:**

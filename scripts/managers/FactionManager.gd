@@ -8,11 +8,12 @@ signal reputation_changed(faction_id: String, new_rep: int)
 # Reputation ranges from -100 to 100.
 # < 0 means Hostile
 # >= 0 means Neutral/Friendly
-var reputation_scores: Dictionary = {
+const _DEFAULT_REPUTATION := {
 	"pirate_clans": -50,
 	"royal_navy": -50,
 	"merchant_guild": 20
 }
+var reputation_scores: Dictionary = _DEFAULT_REPUTATION.duplicate()
 
 ## M11 Requirement 6 — treaty/tribute: the inverse of the existing "attacking
 ## a faction's ship reduces reputation" dynamic (docs/05_CURRENT_SYSTEMS.md).
@@ -239,6 +240,10 @@ func load_save_data(data: Dictionary) -> void:
 	if typeof(data) != TYPE_DICTIONARY:
 		return
 
+	# Replace, never merge: a faction first met during play (M29 B.2 adds an
+	# entry the moment you sink one of its ships) must not survive New Game or
+	# leak into a different save. Keys the save lacks fall back to defaults.
+	reputation_scores = _DEFAULT_REPUTATION.duplicate()
 	_tribute_cooldown_remaining.clear()
 	for key in data:
 		if key == _TRIBUTE_COOLDOWN_SAVE_KEY:

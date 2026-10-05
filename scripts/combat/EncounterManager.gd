@@ -78,6 +78,11 @@ var _offers_made: int = 0
 var _offer_timer: float = 0.0
 var _disengage_timer: float = 0.0
 var _resolving: bool = false
+## M30 1.13 — battle stats for star condition evaluation.
+var _battle_elapsed: float = 0.0
+var _player_damage_taken: float = 0.0
+var _player_crew_lost: float = 0.0
+var _last_encounter_stars: Array = []
 
 
 func _ready() -> void:
@@ -187,6 +192,11 @@ func start_encounter(data: EncounterData) -> bool:
 	_disengage_timer = 0.0
 	_resolving = false
 	_centre = _player.global_position
+	## M30 1.13 — initialize star tracking
+	_battle_elapsed = 0.0
+	_player_damage_taken = 0.0
+	_player_crew_lost = 0.0
+	_last_encounter_stars = []
 
 	# Ambient spawning pauses for the duration: the point of a bounded encounter
 	# is a known composition, which a background spawner would keep polluting.
@@ -232,8 +242,31 @@ func abandon() -> void:
 		_resolve(Outcome.ESCAPED)
 
 
+## M30 1.13 (test seam) — force encounter resolution with a specific outcome
+func end_encounter(outcome: int) -> bool:
+	if is_active():
+		_resolve(outcome)
+		return true
+	return false
+
+
 func _tick_active(delta: float) -> void:
 	_elapsed += delta
+	## M30 1.13 — track elapsed time for star conditions
+	_battle_elapsed += delta
+
+	## M30 1.13 — track player damage for star conditions
+	if _player and is_instance_valid(_player):
+		var dmg := _player.get_node_or_null("ShipDamage") as ShipDamage
+		if dmg:
+			var current_damage := 0.0
+			if dmg.ship_stats:
+				current_damage = dmg.ship_stats.max_health - dmg.hull
+			_player_damage_taken = current_damage
+			var current_crew_loss := 0.0
+			if dmg.ship_stats:
+				current_crew_loss = dmg.ship_stats.max_crew - dmg.crew
+			_player_crew_lost = current_crew_loss
 
 	for i in range(_enemies.size() - 1, -1, -1):
 		if not is_instance_valid(_enemies[i]):
@@ -318,10 +351,14 @@ func _resolve(outcome: int) -> void:
 	if outcome == Outcome.VICTORY:
 		rewards = _grant_rewards(data)
 		_announce("VICTORY — %s\n%s" % [data.display_name, _describe_rewards(rewards)])
+		## M30 1.13 — evaluate star conditions on victory
+		_last_encounter_stars = _evaluate_stars(data)
 	elif outcome == Outcome.ESCAPED:
 		_announce("You broke off from %s." % data.display_name)
+		_last_encounter_stars = []
 	else:
 		_announce("Your ship was lost in %s." % data.display_name)
+		_last_encounter_stars = []
 
 	# Anything the player did not sink sails off with the encounter rather than
 	# lingering as ambient traffic with encounter-scaled stats.
@@ -358,6 +395,30 @@ func _restore_spawning() -> void:
 	if _spawner and "spawning_enabled" in _spawner:
 		_spawner.spawning_enabled = true
 	_unpark_ambient()
+
+
+## M30 1.13 — evaluate each star condition and return the earned ones.
+func _evaluate_stars(data: EncounterData) -> Array:
+	var earned: Array = []
+	if not data or data.star_conditions.is_empty():
+		return earned
+	for cond: StarConditionData in data.star_conditions:
+		if not cond:
+			continue
+		var passed := false
+		match cond.condition:
+			StarConditionData.Condition.QUICK_VICTORY:
+				## win within target_value seconds
+				passed = _battle_elapsed <= cond.target_value
+			StarConditionData.Condition.PERFECT_DEFENSE:
+				## take 0 damage
+				passed = _player_damage_taken <= 0.0
+			StarConditionData.Condition.ZERO_LOSSES:
+				## no crew lost
+				passed = _player_crew_lost <= 0.0
+		if passed:
+			earned.append(cond)
+	return earned
 
 
 ## M30 0.16 (B6) — ambient traffic near the centre sits the battle out:

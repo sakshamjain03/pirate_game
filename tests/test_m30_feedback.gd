@@ -29,3 +29,12 @@ func test_ribbon_stack_can_clear() -> void:
 
 	_ribbons.clear()
 	assert_eq(_ribbons.get_ribbon_count(), 0, "clear removes all ribbons")
+
+
+## NOTE: Task 1.11 is incomplete. The following features are deferred:
+## - Rake cone visual
+## - Colour damage numbers (ammo-type tinting)
+## - Camera offset punch with h/v_offset (no time_scale)
+## - Haptics integration with combat events
+## - Reduced motion setting disable punch
+## Only RibbonStack has been implemented so far.

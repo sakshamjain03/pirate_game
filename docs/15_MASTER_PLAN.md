@@ -39,7 +39,7 @@ Everything sequenced below serves that sentence. Anything that does not is defer
 
 ---
 
-# 2.5 Current Roadmap — M24 through M35 (locked 2026-09-28, re-ordered 2026-09-29, M29-M35 re-planned 2026-10-03)
+# 2.5 Current Roadmap — M24 through M37 (locked 2026-09-28, re-ordered 2026-09-29, M29-M35 re-planned 2026-10-03, M30/M31 inserted and +2 shift 2026-10-05)
 
 **This supersedes §3 below for anything not yet built.** §3 (M16-M21) is kept as history; several
 of those milestones shipped, and its constitutional note is now **out of date** — see the warning
@@ -57,12 +57,15 @@ Per-milestone specs live in `.kiro/specs/milestone-mNN-*/`; scope detail is in
 | M27 | Timers & the Eights Economy | `ScheduleManager` (one clock for builds/research/ships/repairs); Eights finish timers and cover shortfalls; consumable Eights packs on the stub store (the clock from old M27 + the store half of old M31) | `milestone-m27-eights-economy` | **Complete** (`84cff5b`, wrap-up `7e7cbd9`) |
 | M28 | Lessons & Campaign Cohesion | Skippable non-modal lessons as chapter content; every system taught and used by an objective across Ch1-5 | `milestone-m28-lessons-and-cohesion` | **Complete** (`443083f`, wrap-up `7e7cbd9`) |
 | M29 | Stabilize & Wire | Every confirmed bug and unwired system from the 2026-10-03 hit-readiness audit: one loot grant per boarding, crew-bounded guns, unwinnable-encounter guards, reputation loss for violence, event-driven hunters, a real campaign ending into free roam, world-event announcements, island owner on approach, three permanent lint tests, quality tiers + perf probe, asset prompt pack | `milestone-m29-stabilize-and-wire` | In progress |
-| M30 | Rewards & Retention | Captain's Log streak, daily calendar, weekly goals, comeback bonus, offline-return story, ~30 achievements, captain collection, Maelstrom meta, reward inbox, notification scheduler (implements the unchecked M18 spec) | `milestone-m18-retention` (to re-scope) | Planned |
-| M31 | Living Rivals: Britain & Spain | Simulated faction treasuries; Spanish treasure fleet (Flota de Indias) and British patrols/convoys on real routes; raiding drains a faction and it escalates; island specialization | — | Planned |
-| M32 | Islands as Places + Prize Ships | Port view on docking with real buildings in slots (owner art); capture enemy ships instead of sinking | — | Planned |
-| M33 | Visual Uplift, Feel & Performance | Owner-supplied art lands (50 building levels, 14 ships, VFX); shader/VFX/audio pass; draw-call reduction (~1,270 → mobile budget; folds in M21); M19 accessibility | — | Planned |
-| M34 | Contracts, Treasure & Trade | Port contract boards (Tortuga's rumours made real), buried treasure, supply/demand, smuggling | — | Planned |
-| M35 | Launch Gate | Real Play Billing, opt-in rewarded ads behind consent, zero-spend balance lock for Ch1-5, store listing, release checklist | — | Planned |
+| M30 | Battle & Empire Depth | Beta feedback "too basic": save/sync integrity fixes first, then readable enemy tactics + telegraphed broadsides + Brace, squads, kegs, Fury, sortie stars; **boarding as the central pillar** (Three Bells deck tactics + Prize Fleet + Ship's Company); islands that fight back (shore batteries, phased assaults); every sortie a bet (Hold, Colors, telegraphed raids, Harbour Plan); builds-not-buffs; island specialization; AoE-style Ascension | `milestone-m30-battle-and-empire-depth` | Planned (approved 2026-10-05) |
+| M31 | Balance Math Sheet | One power/threat model tuning every M30 placeholder; ship cost-vs-power, payback, TTK bands; PvP loot & ship-strength section; balance-lint test; `.xlsx` sheet | `milestone-m31-balance-math-sheet` (stub) | Planned |
+| M32 | Rewards & Retention | Captain's Log streak, daily calendar, weekly goals, comeback bonus, offline-return story, ~30 achievements, captain collection, Maelstrom meta, reward inbox, notification scheduler (implements the unchecked M18 spec) | `milestone-m18-retention` (to re-scope) | Planned |
+| M33 | Living Rivals: Britain & Spain | Simulated faction treasuries; Spanish treasure fleet (Flota de Indias) and British patrols/convoys on real routes; raiding drains a faction and it escalates | — | Planned |
+| M34 | Islands as Places | Port view on docking with real buildings in slots (owner art). Prize ships moved into M30 | — | Planned |
+| M35 | Visual Uplift, Feel & Performance | Owner-supplied art lands; shader/VFX/audio pass; draw-call reduction (~1,270 → mobile budget; folds in M21); M19 accessibility | — | Planned |
+| M36 | Contracts, Treasure & Trade | Port contract boards, buried treasure, supply/demand, smuggling, expedition board | — | Planned |
+| M37 | Launch Gate | Real Play Billing, opt-in rewarded ads behind consent, zero-spend balance lock for Ch1-5, store listing, release checklist | — | Planned |
+| MP-0..5 | Multiplayer track | Server-authoritative economy → home archipelago (5-12 islands) → async raids → live raids/shields/leagues → real-time brawl. Needs an AGENTS.md amendment; design input in `.kiro/specs/track-multiplayer/` | — | Design input only |
 
 **Re-ordered 2026-09-29 (project owner).** After M25 the owner asked for the two modes (endless
 Maelstrom, the five-chapter main game with a skippable tutorial) and a working Eights economy
@@ -79,7 +82,7 @@ reason to exist. Do not start M29+ before that slice is fun; everything after it
 core that has to feel good first.
 
 **The hard release gate**, from `docs/00_VISION.md` §19.2: **Chapters 1-5 must be completable with
-zero spend**, gate tests in M27 and the full balance pass in M33. That is a gate, not an aspiration.
+zero spend**, gate tests in M27 and the full balance pass in M31. That is a gate, not an aspiration.
 
 ---
 

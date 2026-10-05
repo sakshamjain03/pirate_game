@@ -122,18 +122,10 @@ func _create_backend() -> IStoreBackend:
 
 func _scan_products() -> void:
 	_products_by_sku.clear()
-	var dir := DirAccess.open(PRODUCTS_ROOT)
-	if not dir:
-		return
-	dir.list_dir_begin()
-	var entry := dir.get_next()
-	while entry != "":
-		if entry.ends_with(".tres"):
-			var product := load(PRODUCTS_ROOT.path_join(entry)) as ProductData
-			if product and product.sku != &"":
-				_products_by_sku[product.sku] = product
-		entry = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths(PRODUCTS_ROOT):
+		var product := load(path) as ProductData
+		if product and product.sku != &"":
+			_products_by_sku[product.sku] = product
 
 
 func _on_products_ready(products: Array) -> void:

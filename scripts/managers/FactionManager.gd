@@ -135,16 +135,10 @@ func _resolve_faction(faction_id: String) -> FactionData:
 	# M29 — resolve by the resource's own faction_id (never a guessed file name).
 	# The directory is scanned once and cached; enemy deaths call this often.
 	if _faction_cache.is_empty():
-		var dir := DirAccess.open("res://resources/factions/")
-		if dir:
-			dir.list_dir_begin()
-			var file_name := dir.get_next()
-			while file_name != "":
-				if not dir.current_is_dir() and file_name.ends_with(".tres"):
-					var f := load("res://resources/factions/" + file_name) as FactionData
-					if f:
-						_faction_cache[f.faction_id] = f
-				file_name = dir.get_next()
+		for path in ResourceLookup.list_resource_paths("res://resources/factions/"):
+			var f := load(path) as FactionData
+			if f:
+				_faction_cache[f.faction_id] = f
 	var faction: FactionData = _faction_cache.get(faction_id)
 	if not faction:
 		push_error("FactionManager: unknown faction_id '%s'" % faction_id)

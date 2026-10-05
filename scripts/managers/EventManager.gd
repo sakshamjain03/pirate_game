@@ -74,17 +74,11 @@ func _load_ocean_events() -> void:
 	## Load all EventData resources from resources/world/events/ using the same
 	## DirAccess scan pattern EmpireManager uses for regions — reused, not
 	## reinvented (AGENTS.md principle).
-	var dir = DirAccess.open("res://resources/world/events/")
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			if not dir.current_is_dir() and file_name.ends_with(".tres"):
-				var event = load("res://resources/world/events/" + file_name) as EventData
-				if event:
-					_ocean_events.append(event)
-			file_name = dir.get_next()
-	else:
+	for path in ResourceLookup.list_resource_paths("res://resources/world/events/"):
+		var event = load(path) as EventData
+		if event:
+			_ocean_events.append(event)
+	if _ocean_events.is_empty():
 		push_warning("EventManager: Could not load event data from resources/world/events/")
 
 func _schedule_next_event() -> void:

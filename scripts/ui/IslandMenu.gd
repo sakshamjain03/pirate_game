@@ -144,15 +144,9 @@ func _load_building_data() -> void:
 
 	# Load Techs — M11: scan resources/techs/ instead of a hardcoded filename list,
 	# the same DirAccess scan pattern EventManager uses for resources/world/events/.
-	var tech_dir = DirAccess.open("res://resources/techs/")
-	if tech_dir:
-		tech_dir.list_dir_begin()
-		var file_name = tech_dir.get_next()
-		while file_name != "":
-			if not tech_dir.current_is_dir() and file_name.ends_with(".tres"):
-				var tech = load("res://resources/techs/" + file_name) as TechData
-				if tech: available_techs.append(tech)
-			file_name = tech_dir.get_next()
+	for path in ResourceLookup.list_resource_paths("res://resources/techs/"):
+		var tech = load(path) as TechData
+		if tech: available_techs.append(tech)
 
 func open(island: Node3D) -> void:
 	current_island = island

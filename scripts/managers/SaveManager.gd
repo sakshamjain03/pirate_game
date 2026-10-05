@@ -101,7 +101,7 @@ func _notification(what: int) -> void:
 	# M30 Requirement 1.4 — save when leaving the World
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
 		# Only save in campaign mode (never outside World per M26 rule)
-		if SceneManager.is_campaign() and get_tree().current_scene and get_tree().current_scene.name == "World":
+		if SceneManager.is_campaign() and _in_world():
 			save_game()
 
 
@@ -912,19 +912,25 @@ func _resolve_cloud_conflict(cloud_row: Dictionary) -> void:
 			var cloud_economy: Dictionary = cloud_row.get("save_data", {}).get("economy", {}) if cloud_row.get("save_data", {}).get("economy") is Dictionary else {}
 			economy[key] = maxi(int(economy.get(key, 0)), int(cloud_economy.get(key, 0)))
 			save_data["economy"] = economy
-			# Write the merged save
-			var had_existing_save := FileAccess.file_exists(SAVE_PATH)
+			# Write the merged save, and give a live wallet the merged balance
+			# or the next autosave would write the pre-merge figure back.
 			if _backup_existing_save():
 				var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 				if file:
 					file.store_string(JSON.stringify(save_data, "\t"))
 					file.close()
+			if _wallet_loaded_this_session:
+				ResourceManager.current_resources[key] = int(economy[key])
+				ResourceManager.resources_changed.emit(ResourceManager.current_resources)
 			_sync_to_cloud(save_data)
 	else:
-		# M30 Requirement 1.5 — Keep Cloud: reload the World after applying
+		# M30 0.4 — Keep Cloud only wrote the file before: the live World kept
+		# the local empire in memory, and the next autosave pushed it straight
+		# back over the cloud save the player just chose. Reload the World so it
+		# loads what was kept. Off the World (signing in from Settings) the next
+		# World entry loads the file anyway.
 		_apply_cloud_save(cloud_row)
-		# Reload the World to apply the cloud save to the live game state
-		if SceneManager and SceneManager.is_campaign():
+		if _in_world():
 			SceneManager.change_scene_with_fade("res://scenes/world/World.tscn", 0.4, false)
 
 ## Writes a cloud save row's save_data as the new local save. Applying it to a live in-session
@@ -968,6 +974,11 @@ func _apply_cloud_save(cloud_row: Dictionary) -> void:
 	elif had_existing_save:
 		push_error("SaveManager: Failed to write cloud save to local save file.")
 		_restore_backup()
+
+func _in_world() -> bool:
+	var scene := get_tree().current_scene if is_inside_tree() else null
+	return scene != null and scene.name == "World"
+
 
 func _get_dialog_parent() -> Node:
 	var tree := Engine.get_main_loop()

@@ -82,8 +82,10 @@ static func _scan_directory(path: String) -> void:
 			var full_path := path.path_join(entry)
 			if dir.current_is_dir():
 				_scan_directory(full_path + "/")
-			elif entry.ends_with(".tres"):
-				_register(full_path)
+			elif entry.trim_suffix(".remap").ends_with(".tres"):
+				# An exported build lists `X.tres.remap`; load() resolves the
+				# original path (see ResourceLookup.list_resource_paths()).
+				_register(full_path.trim_suffix(".remap"))
 		entry = dir.get_next()
 	dir.list_dir_end()
 

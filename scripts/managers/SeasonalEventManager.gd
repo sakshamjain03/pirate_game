@@ -55,18 +55,10 @@ func _ready() -> void:
 
 func _load_events() -> void:
 	_events.clear()
-	var dir := DirAccess.open(EVENTS_DIR)
-	if not dir:
-		return
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var event := load(EVENTS_DIR + file_name) as SeasonalEventData
-			if event:
-				_events.append(event)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths(EVENTS_DIR):
+		var event := load(path) as SeasonalEventData
+		if event:
+			_events.append(event)
 
 
 func _connect_global_signals() -> void:

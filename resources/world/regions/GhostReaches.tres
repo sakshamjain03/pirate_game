@@ -1,8 +1,10 @@
-[gd_resource type="Resource" script_class="RegionData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="RegionData" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
 [ext_resource type="Resource" path="res://resources/enemies/GhostRaiderStats.tres" id="2_raider"]
 [ext_resource type="Resource" path="res://resources/enemies/GhostMarauderStats.tres" id="3_marauder"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/AggressiveGalleon.tres" id="ai_0"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="ai_1"]
 
 [resource]
 script = ExtResource("1_reg")
@@ -19,3 +21,5 @@ enemy_ship_pool = Array[ShipStats]([ExtResource("2_raider"), ExtResource("3_mara
 wind_strength = 1.0
 wind_direction_degrees = 0.0
 content_enabled = false
+enemy_profile_pool = Array[AIProfileData]([ExtResource("ai_0"), ExtResource("ai_1")])
+enemy_profile_weights = PackedFloat32Array(2, 1)

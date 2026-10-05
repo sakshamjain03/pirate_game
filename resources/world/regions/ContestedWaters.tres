@@ -1,9 +1,13 @@
-[gd_resource type="Resource" script_class="RegionData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="RegionData" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
 [ext_resource type="Resource" path="res://resources/ships/Schooner.tres" id="2_schooner"]
 [ext_resource type="Resource" path="res://resources/ships/Brigantine.tres" id="3_brigantine"]
 [ext_resource type="Resource" path="res://resources/ships/Corvette.tres" id="4_corvette"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/StandardEnemy.tres" id="ai_0"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="ai_1"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/ArtilleryFrigate.tres" id="ai_2"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/SupportGalleon.tres" id="ai_3"]
 
 [resource]
 script = ExtResource("1_reg")
@@ -19,3 +23,5 @@ fog_density_multiplier = 1.2
 enemy_ship_pool = Array[ShipStats]([ExtResource("2_schooner"), ExtResource("3_brigantine"), ExtResource("4_corvette")])
 wind_strength = 0.5
 wind_direction_degrees = 315.0
+enemy_profile_pool = Array[AIProfileData]([ExtResource("ai_0"), ExtResource("ai_1"), ExtResource("ai_2"), ExtResource("ai_3")])
+enemy_profile_weights = PackedFloat32Array(2, 2, 1, 1)

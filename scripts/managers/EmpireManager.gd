@@ -49,21 +49,15 @@ func _ready() -> void:
 	if not heat_config:
 		push_error("EmpireManager: could not load the heat curve at %s. Ambient danger will not scale." % HEAT_CURVE_PATH)
 	
-	var dir = DirAccess.open("res://resources/world/regions/")
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			if not dir.current_is_dir() and file_name.ends_with(".tres"):
-				var region = load("res://resources/world/regions/" + file_name) as RegionData
-				# MVP scope gate — regions 4-5 are authored but not shipped.
-				if region and ResourceLookup.is_content_enabled(region):
-					if region.tier <= 0:
-						push_error("EmpireManager: RegionData %s has no authored tier (got %d) - raid difficulty for this region will be wrong." % [file_name, region.tier])
-					_regions.append(region)
-					# Region 1 is true, others false initially
-					_region_active[region.id] = (region.tier == 1)
-			file_name = dir.get_next()
+	for path in ResourceLookup.list_resource_paths("res://resources/world/regions/"):
+		var region = load(path) as RegionData
+		# MVP scope gate — regions 4-5 are authored but not shipped.
+		if region and ResourceLookup.is_content_enabled(region):
+			if region.tier <= 0:
+				push_error("EmpireManager: RegionData %s has no authored tier (got %d) - raid difficulty for this region will be wrong." % [path.get_file(), region.tier])
+			_regions.append(region)
+			# Region 1 is true, others false initially
+			_region_active[region.id] = (region.tier == 1)
 			
 	notoriety_changed.connect(_check_region_activation)
 	_refresh_heat_tier(false)
@@ -253,16 +247,10 @@ func _compute_attack_score() -> float:
 	return float(highest_tier * 25.0) + (notoriety * 0.3)
 
 func _get_faction_by_id(f_id: String) -> Resource:
-	var dir = DirAccess.open("res://resources/factions/")
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			if not dir.current_is_dir() and file_name.ends_with(".tres"):
-				var res = load("res://resources/factions/" + file_name)
-				if res and res.get("faction_id") == f_id:
-					return res
-			file_name = dir.get_next()
+	for path in ResourceLookup.list_resource_paths("res://resources/factions/"):
+		var res = load(path)
+		if res and res.get("faction_id") == f_id:
+			return res
 	return null
 
 func _check_raid() -> void:

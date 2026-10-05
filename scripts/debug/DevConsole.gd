@@ -393,21 +393,12 @@ func _cheat_complete_chapter(chapter_id: String) -> void:
 
 
 func _cheat_unlock_all_techs() -> void:
-	var dir := DirAccess.open("res://resources/techs/")
-	if not dir:
-		_say("no resources/techs/ directory")
-		return
 	var count := 0
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var tech = load("res://resources/techs/" + file_name)
-			if tech and not TechManager.is_unlocked(tech.tech_id):
-				TechManager.unlock_tech(tech)
-				count += 1
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths("res://resources/techs/"):
+		var tech = load(path)
+		if tech and not TechManager.is_unlocked(tech.tech_id):
+			TechManager.unlock_tech(tech)
+			count += 1
 	_say("unlocked %d tech(s)" % count)
 
 
@@ -524,43 +515,25 @@ func _reapply_active_ship() -> void:
 
 func _cheat_grant_all_hulls() -> void:
 	var count := 0
-	var dir := DirAccess.open("res://resources/ships/")
-	if not dir:
-		_say("no resources/ships/ directory")
-		return
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var hull = load("res://resources/ships/" + file_name)
-			if hull is ShipStats and not FleetManager.owns_ship_stats(hull):
-				FleetManager.add_ship(hull)
-				count += 1
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths("res://resources/ships/"):
+		var hull = load(path)
+		if hull is ShipStats and not FleetManager.owns_ship_stats(hull):
+			FleetManager.add_ship(hull)
+			count += 1
 	_say("granted %d hull(s)" % count)
 	_fill_fleet()
 
 
 func _cheat_grant_all_captains() -> void:
 	var count := 0
-	var dir := DirAccess.open("res://resources/captains/")
-	if not dir:
-		_say("no resources/captains/ directory")
-		return
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var cap = load("res://resources/captains/" + file_name)
-			# Respects the MVP content gate on purpose: the console is for
-			# testing the game that ships, not the one that does not.
-			if cap is CaptainData and ResourceLookup.is_content_enabled(cap) \
-					and not FleetManager.owned_captains.has(cap):
-				FleetManager.add_captain(cap)
-				count += 1
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths("res://resources/captains/"):
+		var cap = load(path)
+		# Respects the MVP content gate on purpose: the console is for
+		# testing the game that ships, not the one that does not.
+		if cap is CaptainData and ResourceLookup.is_content_enabled(cap) \
+				and not FleetManager.owned_captains.has(cap):
+			FleetManager.add_captain(cap)
+			count += 1
 	_say("granted %d captain(s)" % count)
 	_fill_fleet()
 

@@ -65,19 +65,11 @@ func _ready() -> void:
 
 func _load_chapters() -> void:
 	chapters.clear()
-	var dir := DirAccess.open(CHAPTERS_DIR)
-	if not dir:
-		return
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var chapter := load(CHAPTERS_DIR + file_name) as ChapterData
-			# MVP scope gate — chapters 6-10 are authored but not shipped.
-			if chapter and ResourceLookup.is_content_enabled(chapter):
-				chapters.append(chapter)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths(CHAPTERS_DIR):
+		var chapter := load(path) as ChapterData
+		# MVP scope gate — chapters 6-10 are authored but not shipped.
+		if chapter and ResourceLookup.is_content_enabled(chapter):
+			chapters.append(chapter)
 	chapters.sort_custom(func(a, b): return a.chapter_number < b.chapter_number)
 	_validate_lessons()
 

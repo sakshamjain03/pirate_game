@@ -134,17 +134,11 @@ func _load_regions() -> void:
 	# for region/chapter resources — reused here rather than adding a public
 	# getter to EmpireManager's own (intentionally private) region list.
 	_regions.clear()
-	var dir := DirAccess.open("res://resources/world/regions/")
-	if dir:
-		dir.list_dir_begin()
-		var file_name := dir.get_next()
-		while file_name != "":
-			if not dir.current_is_dir() and file_name.ends_with(".tres"):
-				var region := load("res://resources/world/regions/" + file_name) as RegionData
-				# MVP scope gate — regions 4-5 are authored but not shipped.
-				if region and ResourceLookup.is_content_enabled(region):
-					_regions.append(region)
-			file_name = dir.get_next()
+	for path in ResourceLookup.list_resource_paths("res://resources/world/regions/"):
+		var region := load(path) as RegionData
+		# MVP scope gate — regions 4-5 are authored but not shipped.
+		if region and ResourceLookup.is_content_enabled(region):
+			_regions.append(region)
 	for region in _regions:
 		_world_radius = max(_world_radius, region.display_ring_radius)
 

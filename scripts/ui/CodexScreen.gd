@@ -180,19 +180,11 @@ func _load_discovered_islands() -> Array[IslandData]:
 
 func _load_captains() -> Array[CaptainData]:
 	var result: Array[CaptainData] = []
-	var dir := DirAccess.open("res://resources/captains/")
-	if not dir:
-		return result
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var captain := load("res://resources/captains/" + file_name) as CaptainData
-			# MVP scope gate — eight captains are authored but not shipped.
-			if captain and ResourceLookup.is_content_enabled(captain):
-				result.append(captain)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths("res://resources/captains/"):
+		var captain := load(path) as CaptainData
+		# MVP scope gate — eight captains are authored but not shipped.
+		if captain and ResourceLookup.is_content_enabled(captain):
+			result.append(captain)
 	result.sort_custom(func(a, b): return a.captain_name < b.captain_name)
 	return result
 
@@ -203,16 +195,8 @@ func _load_encountered_factions() -> Array[FactionData]:
 		if _captain_is_encountered(captain) and not captain.allegiance_faction_id.is_empty():
 			faction_ids[captain.allegiance_faction_id] = true
 	var result: Array[FactionData] = []
-	var dir := DirAccess.open("res://resources/factions/")
-	if not dir:
-		return result
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			var faction := load("res://resources/factions/" + file_name) as FactionData
-			if faction and faction_ids.has(faction.faction_id):
-				result.append(faction)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for path in ResourceLookup.list_resource_paths("res://resources/factions/"):
+		var faction := load(path) as FactionData
+		if faction and faction_ids.has(faction.faction_id):
+			result.append(faction)
 	return result

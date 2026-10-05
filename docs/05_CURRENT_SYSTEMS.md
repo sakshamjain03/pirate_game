@@ -27,7 +27,7 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-10-05, M29 Checkpoint B): 162 scripts, 1137 tests, 1137 passing, 0 failing, 0 `SCRIPT ERROR`s** (the M30 spec commit 053ff83 started from 160 / 1134; Checkpoint B added the enemy-island-owner and phone-dialogue-fit guards). Previous (2026-10-04, M29 Checkpoint A): 159 scripts, 1125 tests, 1125 passing, 0 failing, 0 `SCRIPT ERROR`s. M29 added 21 test scripts, including three permanent lints (`test_lint_resource_exports`, `test_lint_save_roundtrip`, `test_lint_signal_wiring`) plus `test_lint_encounter_data` and `test_campaign_golden_path`. Previous (2026-10-01, M26-M28 wrap-up second pass): 138 scripts, 1046 tests, 1046 passing, 0 failing, 0 `SCRIPT ERROR`s, and the process exits 0. The engine-teardown crash (0xC0000005 / exit 139 since M26) was one orphaned `EnemyShip` in `test_maelstrom_spawner.gd`, a RigidBody3D outliving the physics server; it is freed now, so the exit code is meaningful again. A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. `res://.gutconfig.json` runs `tests/gut_pre_run.gd` before every CLI run, which points `CampaignManager`'s chapter-Eights ledger at a scratch file so the suite never writes the developer's real one. (Previous: 137 / 1035 at the joint wrap-up; M28 Checkpoint B 136 / 1027; M27 Checkpoint B 133 / 963.)
+**Current (2026-10-06, M30 Wave 0): 176 scripts, 1215 tests, 1215 passing, 0 failing, 0 `SCRIPT ERROR`s.** The suite can also run sharded over isolated worktrees (each with its own `config/custom_user_dir_name`), ~85 s instead of ~190 s; never run two tests that write `user://` saves concurrently in one project directory, they collide. Previous (2026-10-05, M29 Checkpoint B): 162 scripts, 1137 tests, 1137 passing, 0 failing, 0 `SCRIPT ERROR`s (the M30 spec commit 053ff83 started from 160 / 1134; Checkpoint B added the enemy-island-owner and phone-dialogue-fit guards). Previous (2026-10-04, M29 Checkpoint A): 159 scripts, 1125 tests, 1125 passing, 0 failing, 0 `SCRIPT ERROR`s. M29 added 21 test scripts, including three permanent lints (`test_lint_resource_exports`, `test_lint_save_roundtrip`, `test_lint_signal_wiring`) plus `test_lint_encounter_data` and `test_campaign_golden_path`. Previous (2026-10-01, M26-M28 wrap-up second pass): 138 scripts, 1046 tests, 1046 passing, 0 failing, 0 `SCRIPT ERROR`s, and the process exits 0. The engine-teardown crash (0xC0000005 / exit 139 since M26) was one orphaned `EnemyShip` in `test_maelstrom_spawner.gd`, a RigidBody3D outliving the physics server; it is freed now, so the exit code is meaningful again. A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. `res://.gutconfig.json` runs `tests/gut_pre_run.gd` before every CLI run, which points `CampaignManager`'s chapter-Eights ledger at a scratch file so the suite never writes the developer's real one. (Previous: 137 / 1035 at the joint wrap-up; M28 Checkpoint B 136 / 1027; M27 Checkpoint B 133 / 963.)
 
 Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
@@ -3744,3 +3744,87 @@ same mid-screen band as the lesson coach card and briefly cover it. The free-roa
 the full completed-chapter list in the Captain's Log, so a finished player scrolls to find it.
 
 Suite: 162 scripts / 1137 tests / 0 failing / 0 `SCRIPT ERROR`s.
+
+## M30 — Battle & Empire Depth: Wave 0 foundations (2026-10-06)
+
+Spec: `.kiro/specs/milestone-m30-battle-and-empire-depth/`. Wave 0 fixes the progress-loss and
+combat-foundation defects the M30 audit confirmed, before any new mechanic lands. Built on branch
+`m30-w0-int` (the five parallel lanes of run `wf_2865603d-124` came back partial; their work was
+merged, reviewed and largely reworked by hand).
+
+### Save integrity (SaveManager, FleetManager)
+- **Island ownership is saved (B1).** Each `islands` entry also holds `island_type` and
+  `owner_faction_id` (`SaveManager.island_save_entry()` / `restore_island_ownership()`), restored
+  before buildings and the offline catch-up. Pre-M30 entries with buildings, or the home island,
+  migrate to FRIENDLY without ever downgrading a CAPITAL. An unknown faction id `push_error`s and
+  keeps the authored owner. Entries for islands missing from the World (content-gated) are carried
+  forward (`_carried_island_entries`). `IslandData` is a shared cached resource, so New Game puts
+  every island back to its authored owner (`_restore_authored_island_ownership()`).
+- **Captain level and XP are saved.** `owned_captains` entries are `{path, level, current_xp}`;
+  bare paths load as level 1. Captains stay the shared resource (not a duplicate), because the
+  Tavern, Codex and DevConsole test ownership by identity. Unresolvable paths are kept in the save.
+- **Save on exit.** `NOTIFICATION_APPLICATION_PAUSED`/`WM_CLOSE_REQUEST` and PauseMenu Quit/Settings
+  save, only inside the campaign World (the M26 rule).
+- **Raids never take Eights** (`EmpireManager._resolve_raid` skips `is_premium_currency`).
+
+### Cloud sync (SaveManager, AuthManager)
+- `AuthManager.refresh_session()` clears the session only for a dead refresh token (GoTrue
+  `invalid_grant`, `refresh_token_not_found`, `refresh_token_already_used`, …, in `error` or
+  `error_code`); network/5xx keep it and set `session_degraded`. One refresh in flight, its result
+  shared; a one-shot refresh 60 s before expiry.
+- `_fetch_cloud_save_result()` returns `{status: ok|none|error, row}`. **No upload runs until
+  `_sync_with_cloud()` has checked the signed-in user's row** (`_cloud_baseline_user`); a failed
+  fetch holds uploads and retries with backoff (30/120/600 s). A cloud row with a newer
+  `save_schema_version`, or a local one, blocks saving (`_load_blocked`).
+- Upload queue: one request in flight (15 s HTTP timeout), only the newest snapshot queued, an
+  unchanged snapshot skipped (SHA-1 of the save minus `last_saved_unix`/`save_revision`), and a
+  `user://cloud_pending.json` flag that survives restarts and flushes once the cloud is checked.
+- Saves carry `owner_user_id` and `save_revision`. Signing into a different account than the
+  save's owner asks first ("Load This Account's Empire" / "Move This Empire…" / "Don't Sync This
+  Device"). A conflict is asked about when the cloud row is newer by clock **or** by revision.
+- **Keep Cloud reloads the World** (it used to write only the file, and the next autosave pushed the
+  old state back). **Keep This Device** max-merges Eights into the save and the live wallet.
+- The chapter-Eights ledger also rides in the save (`chapter_eights_paid`, merged on load, never
+  shrinks). The device file `user://eights_ledger.json` stays as the New Game guard; it is not
+  deleted (a deliberate deviation from task 0.9's "migrate once").
+- Status: `SaveManager.sync_status_changed(state, since)` with `get_sync_status_text()`, shown in
+  Settings > Account; the HUD announces once when sync starts failing or saving is paused.
+- **Supabase migrations 0001-0006 are authored, not applied.** Applying them changes the live
+  project and needs the owner's go-ahead. Until 0005 is applied the revision check is client-side.
+
+### Store safety
+- Release builds never use `StoreBackendStub`; non-Android release builds get
+  `StoreBackendUnavailable`, which never grants.
+
+### Combat foundations
+- Range bonuses scale cannonball launch speed (B2); direction stays the hull-basis broadside.
+- `ShipDamage.hit_resolved(source, facing, pool_deltas, ammo_id, hit_tags)` is emitted before
+  `destroyed`, with applied (clamped) deltas; `Cannonball` passes its shooter. Floating damage now
+  hangs off it, so cannon hits show numbers (B12); collisions keep their own.
+- `UpgradeRoller.roll(pool, count, mods, rng)` is the one battle-upgrade roll (B8).
+- Encounters: a second `start_encounter` emits `encounter_failed(id, "busy")` (the HUD ignores
+  "busy"); unprovoked ambient hulls within `EncounterData.ambient_clear_radius` are parked
+  (hidden, `PROCESS_MODE_DISABLED`, off the targeting groups) and restored on resolve (B6).
+  `CombatModifiers.reset()` keeps `set_persistent_layer()` layers (B7).
+- Friendly support heals allies and the player, never enemies (B4); allies skip passive ambient
+  traffic (B5). `EnemyAI.apply_profile()`; `RegionData.enemy_profile_pool`/`_weights` are authored
+  for every region (B17).
+- `ContextVerbArbiter` (owned by WorldManager, group `world_manager`) decides the one context
+  button: Repel > Brace > Board/Take Prize > Keg > Land > Assault > Spyglass > Dock. Board and dock
+  are registered today; a declined board falls through to dock, as before. MobileControls labels
+  the button from it.
+- Data instead of constants: `WindConfigData` (head/tailwind 0.85/1.15), `DefeatPenaltyData`
+  (20% gold), `NotorietyGainsData` (capture 15, sink empire 5, other 1).
+
+### Export safety (found during Wave 0)
+Every scan of authored `.tres` content now goes through `ResourceLookup.list_resource_paths()`.
+An exported build lists `X.tres.remap`, so the old raw `ends_with(".tres")` scans would have found
+**no chapters, factions, regions, events or store products on Android**. `test_m30_export_safe_scans`
+lints for any new raw scan. (No `export_presets.cfg` exists yet; this was caught by reading, not on
+a device.)
+
+### Not verified here
+Real-device sync (two devices, two accounts, offline to online, a paused project) is the owner's
+manual checklist. `SelfPlayHarness` still cannot run in `-s` mode (it fails to compile against
+autoloads such as `AudioManager`), so it was not run.
+

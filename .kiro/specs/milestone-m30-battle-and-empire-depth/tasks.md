@@ -33,102 +33,102 @@ fix and watch the test fail.
 ### Wave 0 — Foundations, save integrity, sync safety
 
 **0-A Save integrity** (these protect beta players' saves now, so do them first)
-- [ ] 0.1 Island ownership persists, with migration and carry-forward of gated islands. Files: `SaveManager.gd` (islands save/load), `Island.gd` (an ownership getter/setter, if needed)
+- [x] 0.1 Island ownership persists, with migration and carry-forward of gated islands. Files: `SaveManager.gd` (islands save/load), `Island.gd` (an ownership getter/setter, if needed)
   - **Verify:** `tests/test_m30_island_ownership_save.gd`
     - Colonize and capture, save, reload: still FRIENDLY with the right owner, and production ticks.
     - An old-format entry with buildings migrates to FRIENDLY.
     - An unknown faction id → `push_error`, and the authored value is kept.
     - A gated island's entry survives a save.
   - _Requirements: W0-1.1, W0-1.2, W0-1.7_
-- [ ] 0.2 Captain level and XP persist; captains are duplicated on load. Files: `FleetManager.gd`, `CaptainData.gd`
+- [x] 0.2 Captain level and XP persist; captains are duplicated on load. Files: `FleetManager.gd`, `CaptainData.gd` **(Done 2026-10-06. Deviation: captains are NOT duplicated on load. The Tavern/Codex/DevConsole test ownership by identity, so a copy reads as un-hired; level/XP are set on the shared resource and saved.)**
   - **Verify:** `tests/test_m30_captain_progress_save.gd`
     - Level a captain, save, reload: same level and XP.
     - The `.tres` on disk is unchanged.
     - An old bare-path save loads at level 1.
     - An unresolvable path is kept in the save, with a `push_error`.
   - _Requirements: W0-1.3, W0-1.8_
-- [ ] 0.3 Save when leaving the World. Files: `SaveManager.gd` (`_notification`), `PauseMenu.gd`
+- [x] 0.3 Save when leaving the World. Files: `SaveManager.gd` (`_notification`), `PauseMenu.gd`
   - **Verify:** `tests/test_m30_save_on_exit.gd`
     - A simulated `NOTIFICATION_APPLICATION_PAUSED` in campaign mode writes the save.
     - PauseMenu Settings and Quit call `save_game` first.
     - In Maelstrom mode nothing is written.
   - _Requirements: W0-1.4_
-- [ ] 0.4 Keep Cloud reloads the World; Keep This Device max-merges Eights; autosave is suspended while the dialog is open; the dialog is parented to root. Files: `SaveManager.gd`
+- [x] 0.4 Keep Cloud reloads the World; Keep This Device max-merges Eights; autosave is suspended while the dialog is open; the dialog is parented to root. Files: `SaveManager.gd`
   - **Verify:** `tests/test_m30_cloud_conflict.gd`, with a stubbed fetch
     - After Keep Cloud, the in-memory state matches the cloud row.
     - No upload happens while the dialog is open.
     - After Keep This Device, eights = max.
   - _Requirements: W0-1.5, W0-1.6, W0-2.5_
-- [ ] 0.5 Raids never steal Eights. Files: `EmpireManager.gd`
+- [x] 0.5 Raids never steal Eights. Files: `EmpireManager.gd`
   - **Verify:** `tests/test_m30_raid_no_eights.gd`. Force a lost raid with eights = 500: eights stay 500, and the other resources drop. `test_empire_manager.gd` passes unmodified.
   - _Requirements: W0-3.2_
 
 **0-B Sync resilience**
-- [ ] 0.6 `refresh_session` keeps the session on network or 5xx errors; refresh before expiry; one refresh at a time; `_clear_session` emits `signed_out`. Files: `AuthManager.gd`
+- [x] 0.6 `refresh_session` keeps the session on network or 5xx errors; refresh before expiry; one refresh at a time; `_clear_session` emits `signed_out`. Files: `AuthManager.gd`
   - **Verify:** `tests/test_m30_auth_refresh.gd`, with a stubbed transport
     - code 0 → still signed in, and degraded.
     - 400 `invalid_grant` → signed out, and the signal fires.
     - Two concurrent callers → one request.
   - _Requirements: W0-2.1, W0-2.2_
-- [ ] 0.7 The fetch result distinguishes ok/none/error; uploads wait for a known baseline; `_load_blocked` on a failed load or a newer schema. Files: `SaveManager.gd`
+- [x] 0.7 The fetch result distinguishes ok/none/error; uploads wait for a known baseline; `_load_blocked` on a failed load or a newer schema. Files: `SaveManager.gd`
   - **Verify:** `tests/test_m30_cloud_fetch_guard.gd`
     - A fetch error → no upload, even after autosave.
     - A newer-schema row → `save_game` is a no-op and the HUD flag is set.
     - Status `none` → uploads are allowed.
   - _Requirements: W0-2.3, W0-2.4_
-- [ ] 0.8 Upload queue: one in flight, the latest snapshot queued, a 15s timeout, backoff, a persisted pending flag, a hash skip. Files: `SaveManager.gd`
+- [x] 0.8 Upload queue: one in flight, the latest snapshot queued, a 15s timeout, backoff, a persisted pending flag, a hash skip. Files: `SaveManager.gd`
   - **Verify:** `tests/test_m30_upload_queue.gd`
     - 3 rapid saves → at most 2 requests, and the last payload equals the final state.
     - An unchanged snapshot → 0 requests.
     - The pending flag survives a simulated restart.
   - _Requirements: W0-2.6_
-- [ ] 0.9 `owner_user_id` stamp plus an account-mismatch prompt; the chapter-Eights ledger moves into the save; `save_revision`. Files: `SaveManager.gd`, `CampaignManager.gd`
+- [x] 0.9 `owner_user_id` stamp plus an account-mismatch prompt; the chapter-Eights ledger moves into the save; `save_revision`. Files: `SaveManager.gd`, `CampaignManager.gd` **(Done 2026-10-06. Deviation: the ledger rides in the save and merges on load, but the device file stays as the New Game guard rather than being deleted.)**
   - **Verify:** `tests/test_m30_account_scope.gd`
     - Sign in as B over A's save → the prompt shows and no upload happens.
     - The ledger round-trips inside the save, and the old file is migrated once.
     - The revision increments on every save.
   - _Requirements: W0-2.8, W0-2.9_
-- [ ] 0.10 Sync status line ("Cloud sync failing since X"). Files: `SaveManager.gd` (signal), `WorldHUD.gd` or the Settings Account tab
+- [x] 0.10 Sync status line ("Cloud sync failing since X"). Files: `SaveManager.gd` (signal), `WorldHUD.gd` or the Settings Account tab
   - **Verify:** `tests/test_m30_sync_status.gd`. Failures → the status `failing` with `since`. A success → `ok`. The label shows the text.
   - _Requirements: W0-2.7_
 
 **0-C Store and backend safety**
-- [ ] 0.11 Release builds never use `StoreBackendStub`. Files: `StoreManager.gd` (plus a `StoreBackendUnavailable.gd`)
+- [x] 0.11 Release builds never use `StoreBackendStub`. Files: `StoreManager.gd` (plus a `StoreBackendUnavailable.gd`)
   - **Verify:** `tests/test_m30_store_release_guard.gd`. With `is_debug_build` stubbed false on a non-Android platform → the backend is unavailable, the Buy button is disabled, and `begin_purchase` grants nothing.
   - _Requirements: W0-3.1_
-- [ ] 0.12 Author `supabase/migrations/0001–0006` and the updated `delete-account`; update `docs/SUPABASE_SETUP.md` (3 tables, how to apply, keep-alive). **Do not apply to the live project without owner approval.**
+- [x] 0.12 Author `supabase/migrations/0001–0006` and the updated `delete-account`; update `docs/SUPABASE_SETUP.md` (3 tables, how to apply, keep-alive). **Do not apply to the live project without owner approval.** **(Done 2026-10-06; lane drafts fixed after review: client-insertable eights_ledger, premature entitlement lock (moved to 0007, do-not-apply-yet), trigger-before-function, wrong policy name. NOT applied: needs the owner.)**
   - **Verify:** the files exist. Each migration is idempotent (`if exists`/`if not exists`). `delete-account` deletes every user table. The doc lists `player_entitlements`. The owner confirms before applying.
   - _Requirements: W0-3.3_
 
 **0-D Combat foundations**
-- [ ] 0.13 Range multipliers scale launch speed (the velocity line only). Files: `ShipCombat.gd`
+- [x] 0.13 Range multipliers scale launch speed (the velocity line only). Files: `ShipCombat.gd`
   - **Verify:** `tests/test_m30_range_velocity.gd`. With ×1.2 range, the ball lands at ≥ 0.95 × the solver range. The direction equals the basis-derived forward. `test_ship_combat.gd` passes unmodified.
   - _Requirements: W0-4.1_
-- [ ] 0.14 Friendly support heals only its own side; friendly AI engages only provoked or engaging hostiles. Files: `EnemyAI.gd` (`_find_wounded_ally`, `_find_nearest_hostile_enemy` only)
+- [x] 0.14 Friendly support heals only its own side; friendly AI engages only provoked or engaging hostiles. Files: `EnemyAI.gd` (`_find_wounded_ally`, `_find_nearest_hostile_enemy` only)
   - **Verify:** `tests/test_m30_friendly_ai_side.gd`. A friendly Tender never repairs an `enemy_ship`. A friendly ally ignores a passive ambient hull. Avoidance functions are byte-identical (`git diff` shows no hunks in them).
   - _Requirements: W0-4.2, W0-4.3_
-- [ ] 0.15 Shared `UpgradeRoller`, used by `EncounterManager` and `MaelstromRun`. Files: `scripts/combat/UpgradeRoller.gd`, both callers
+- [x] 0.15 Shared `UpgradeRoller`, used by `EncounterManager` and `MaelstromRun`. Files: `scripts/combat/UpgradeRoller.gd`, both callers
   - **Verify:** `tests/test_m30_upgrade_roller.gd` (seeded, same distribution for both callers). `test_battle_upgrades.gd` and the Maelstrom tests pass.
   - _Requirements: W0-4.4_
-- [ ] 0.16 Encounter exclusivity plus ambient parking; `CombatModifiers` layer lifetimes. Files: `EncounterManager.gd`, `CombatModifiers.gd`
+- [x] 0.16 Encounter exclusivity plus ambient parking; `CombatModifiers` layer lifetimes. Files: `EncounterManager.gd`, `CombatModifiers.gd`
   - **Verify:** `tests/test_m30_encounter_exclusive.gd`
     - A second `start_encounter` → false plus `encounter_failed`.
     - Ambient hulls inside the radius are parked during the encounter and restored after.
     - `reset()` keeps PERSISTENT layers.
   - _Requirements: W0-4.5, W0-4.6_
-- [ ] 0.17 `EnemyAI.apply_profile()`; `RegionData.enemy_profile_pool` assigned before `add_child`. Files: `EnemyAI.gd` (refactor of the `_ready` profile block), `RegionData.gd`, `EnemySpawner.gd`, region `.tres`
+- [x] 0.17 `EnemyAI.apply_profile()`; `RegionData.enemy_profile_pool` assigned before `add_child`. Files: `EnemyAI.gd` (refactor of the `_ready` profile block), `RegionData.gd`, `EnemySpawner.gd`, region `.tres`
   - **Verify:** `tests/test_m30_profile_pool.gd`. Across 200 seeded spawns, the profile distribution matches the weights. `apply_profile` after `_ready` changes the behaviour fields.
   - _Requirements: W0-4.7, W0-4.9_
-- [ ] 0.18 `ShipDamage.hit_resolved` plus `hit_tags`; crew writes through `pool_changed`; FloatingDamage on every cannon hit. Files: `ShipDamage.gd`, `Cannonball.gd`, `FloatingDamage.gd`, `BoardingSystem.gd` (crew write)
+- [x] 0.18 `ShipDamage.hit_resolved` plus `hit_tags`; crew writes through `pool_changed`; FloatingDamage on every cannon hit. Files: `ShipDamage.gd`, `Cannonball.gd`, `FloatingDamage.gd`, `BoardingSystem.gd` (crew write)
   - **Verify:** `tests/test_m30_hit_resolved.gd`. One hit → exactly one signal with facing, deltas and ammo. The stern arc → `&"stern"`. A boarding crew loss emits `pool_changed`.
   - _Requirements: W0-4.8_
-- [ ] 0.19 Data-drive the hardcoded numbers: `WindConfigData` (`ShipMovement.gd` lines 88–92 only), `DefeatPenaltyData` (`DeathScreen.gd`), capture notoriety (`Island.gd`)
+- [x] 0.19 Data-drive the hardcoded numbers: `WindConfigData` (`ShipMovement.gd` lines 88–92 only), `DefeatPenaltyData` (`DeathScreen.gd`), capture notoriety (`Island.gd`)
   - **Verify:** `tests/test_m30_data_driven_numbers.gd`. Default `.tres` values reproduce the old behaviour exactly. `grep -n "lerp(0.85" scripts/` and `grep -n "0\.2)" scripts/ui/DeathScreen.gd` return nothing.
   - _Requirements: W0-4.10_
-- [ ] 0.20 Context-button arbiter with registered providers. Files: `WorldManager.gd`, `MobileControls.gd`
+- [x] 0.20 Context-button arbiter with registered providers. Files: `WorldManager.gd`, `MobileControls.gd`
   - **Verify:** `tests/test_m30_context_arbiter.gd`. Board beats Dock when eligible. The registered priority order holds. The icon and label update. Existing dock and board tests pass.
   - _Requirements: W0-4.11_
-- [ ] 0.21 Rewrite `docs/navalCombat.md` §14 (now unlocked vs still out) and add a `docs/05` M30 section skeleton.
+- [x] 0.21 Rewrite `docs/navalCombat.md` §14 (now unlocked vs still out) and add a `docs/05` M30 section skeleton.
   - **Verify:** both are present. `sync-systems-doc` raises no M30 Wave 0 gaps.
   - _Requirements: all W0_
 - [ ] **Checkpoint W0**

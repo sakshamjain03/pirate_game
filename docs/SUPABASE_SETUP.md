@@ -44,18 +44,26 @@ Base schema checked in as `supabase/schema.sql`. Migrations applied via Supabase
 The following migrations are authored and checked in at `supabase/migrations/`. Each is idempotent
 and can be applied via Supabase CLI (`supabase db push`) or dashboard SQL editor:
 
-- **`0001_fk_on_delete_cascade.sql`** — Add cascade-on-delete to foreign keys for account deletion
-  atomicity. Fixes: FK constraints were missing cascade behavior, causing failed deletes.
-- **`0002_entitlement_ledger.sql`** — Create `entitlement_grants` table for audit trail and refund
-  support. Makes `player_entitlements` read-only for clients (insert/update/delete revoked).
-- **`0003_purchases.sql`** — Create `purchases` table (service-role-only) for verified store
-  purchases. No client write access via RLS.
-- **`0004_wallet.sql`** — Create `player_wallet` (server-side balance) and `eights_ledger`
-  (append-only transaction log). Prevents client-side premium-currency manipulation.
-- **`0005_player_saves_hardening.sql`** — Add `save_revision` column, size check, server-set
-  `updated_at`. Hardens saves against conflicts and oversized payloads.
-- **`0006_grant_hygiene.sql`** — Revoke truncate, references, trigger permissions from clients on
-  all tables, and revoke modify permissions on `remote_config`.
+- **`0001_fk_on_delete_cascade.sql`** — Cascade-on-delete for `player_saves`/`player_entitlements`
+  foreign keys, so deleting an account never half-fails on a dangling row.
+- **`0002_entitlement_ledger.sql`** — Creates the `entitlement_grants` audit ledger (clients read
+  their own rows; only the service role writes). Additive: does **not** lock client writes to
+  `player_entitlements`, which the shipped client still makes.
+- **`0003_purchases.sql`** — `purchases` table for verified store orders, service role only.
+- **`0004_wallet.sql`** — `player_wallet` and append-only `eights_ledger`. Clients can read their
+  own and write **neither**; only the service role changes them. Nothing reads them until MP-0
+  moves the wallet server-side.
+- **`0005_player_saves_hardening.sql`** — `save_revision` column, a 1 MB `save_data` cap, a
+  server-set `updated_at` trigger, and `WITH CHECK` on the update policies.
+- **`0006_grant_hygiene.sql`** — Revokes truncate/references/trigger from clients on every table,
+  and makes `remote_config` read-only for clients.
+- **`0007_lock_client_entitlement_writes.sql`** — **Do not apply yet.** Removes clients' write
+  access to `player_entitlements`; it waits for the server-side grant path (MP-0), or entitlement
+  sync breaks.
+
+Reviewed 2026-10-06: the lane-authored first drafts let clients insert into `eights_ledger`
+(minting Eights), locked entitlement writes the client still needs, created a trigger before its
+function, and dropped a policy by the wrong name. All fixed above; none of it was ever applied.
 
 **How to apply:**
 1. Back up the live project data.

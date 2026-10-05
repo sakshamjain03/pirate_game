@@ -54,54 +54,12 @@ Deno.serve(async (req: Request) => {
   // why player_saves has no delete policy of its own (see supabase/schema.sql).
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-  // W0-3.3: Delete all user-owned data before account deletion
-  // The foreign keys have cascade deletes, so these deletions cascade to related tables.
-  // Execute in dependency order for clarity and atomicity.
-
-  const { error: deleteEntitlementGrantsError } = await adminClient
-    .from("entitlement_grants")
-    .delete()
-    .eq("user_id", userId);
-  if (deleteEntitlementGrantsError) {
-    return new Response(JSON.stringify({ error: "Failed to delete entitlement grants" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const { error: deletePurchasesError } = await adminClient
-    .from("purchases")
-    .delete()
-    .eq("user_id", userId);
-  if (deletePurchasesError) {
-    return new Response(JSON.stringify({ error: "Failed to delete purchases" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const { error: deleteWalletError } = await adminClient
-    .from("player_wallet")
-    .delete()
-    .eq("user_id", userId);
-  if (deleteWalletError) {
-    return new Response(JSON.stringify({ error: "Failed to delete wallet" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const { error: deleteEightsLedgerError } = await adminClient
-    .from("eights_ledger")
-    .delete()
-    .eq("user_id", userId);
-  if (deleteEightsLedgerError) {
-    return new Response(JSON.stringify({ error: "Failed to delete eights ledger" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
+  // M30 Wave 0 (0.12): delete every table that exists TODAY explicitly.
+  // player_entitlements had no ON DELETE CASCADE before migration 0001, so
+  // deleting the auth user failed on it. The M30 tables (entitlement_grants,
+  // purchases, player_wallet, eights_ledger) are created WITH a cascade and
+  // go with the auth user; naming them here would make this function fail
+  // for every account whenever it is deployed before those migrations.
   const { error: deleteEntitlementsError } = await adminClient
     .from("player_entitlements")
     .delete()

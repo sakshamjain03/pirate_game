@@ -56,11 +56,28 @@ func test_rebinding_a_key_actually_changes_the_input_map():
 
 
 func test_reset_to_defaults_reaches_the_input_map():
-	for e in InputMap.action_get_events("sail_level_up"):
-		InputMap.action_erase_event("sail_level_up", e)
+	# action_erase_events(), not a per-event erase loop: an event that matches
+	# nothing (an "(Unset)" key) survives action_erase_event(), which made this
+	# precondition fail whenever an earlier test left one behind.
+	InputMap.action_erase_events("sail_level_up")
 	assert_eq(InputMap.action_get_events("sail_level_up").size(), 0, "Precondition: unbound")
 
 	InputManager.reset_to_defaults()
 
 	assert_gt(InputMap.action_get_events("sail_level_up").size(), 0,
 		"Reset to defaults must reload real bindings from project settings, not leave the action unbound")
+
+
+func test_invalid_saved_keycode_is_not_bound() -> void:
+	# M30 Wave 0 (found by sharded runs): a 0 keycode in settings.cfg created an
+	# "(Unset)" key event that action_erase_event() can never remove.
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "sail_level_up", [0, KEY_W])
+	InputMap.action_erase_events("sail_level_up")
+	SettingsManager.load_input_bindings(cfg)
+	var keys: Array = []
+	for e in InputMap.action_get_events("sail_level_up"):
+		if e is InputEventKey:
+			keys.append(e.keycode)
+	InputMap.load_from_project_settings()
+	assert_eq(keys, [KEY_W], "the valid key binds and the 0 keycode is skipped")

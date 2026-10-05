@@ -219,6 +219,13 @@ func load_input_bindings(config: ConfigFile) -> void:
 			if e is InputEventKey:
 				InputMap.action_erase_event(action, e)
 		for code in keycodes:
+			# A 0 keycode makes an "(Unset)" key event that matches nothing and
+			# can never be erased again (InputMap.action_erase_event() finds
+			# events by matching), so a bad settings.cfg would leave a dead,
+			# undeletable binding. Skip it loudly instead.
+			if int(code) <= 0:
+				push_warning("SettingsManager: ignoring invalid keycode %s for '%s'" % [code, action])
+				continue
 			var new_event := InputEventKey.new()
 			new_event.keycode = int(code)
 			InputMap.action_add_event(action, new_event)
@@ -347,7 +354,13 @@ func save_settings() -> void:
 		var keycodes := []
 		for e in InputMap.action_get_events(action):
 			if e is InputEventKey:
-				keycodes.append(e.keycode)
+				# An event captured with only a physical keycode has keycode 0,
+				# which would load back as an unerasable "(Unset)" binding.
+				var code: int = e.keycode
+				if code == 0 and e.physical_keycode != 0:
+					code = DisplayServer.keyboard_get_keycode_from_physical(e.physical_keycode)
+				if code > 0:
+					keycodes.append(code)
 		if not keycodes.is_empty():
 			config.set_value("input", action, keycodes)
 

@@ -88,7 +88,8 @@ func apply_movement(forward_input: float, turn_input: float, delta: float) -> vo
 			var wind_rad = deg_to_rad(region.wind_direction_degrees)
 			var wind_dir = Vector3(-sin(wind_rad), 0.0, -cos(wind_rad))
 			var wind_dot = clamp(forward_dir.dot(wind_dir), -1.0, 1.0)
-			var wind_term = lerp(0.85, 1.15, (wind_dot + 1.0) * 0.5)
+			var wind_cfg := WindConfigData.get_default()  # M30 0.19 — the head/tailwind multipliers are data
+			var wind_term = lerp(wind_cfg.headwind_speed_mult, wind_cfg.tailwind_speed_mult, (wind_dot + 1.0) * 0.5)
 			speed_mod *= lerp(1.0, wind_term, region.wind_strength)
 
 	if forward_input != 0:

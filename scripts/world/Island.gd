@@ -204,7 +204,7 @@ func capture_island(new_faction: Resource) -> void:
 		if EmpireManager:
 			if EmpireManager.home_island_id.is_empty():
 				EmpireManager.home_island_id = get_island_id()
-			EmpireManager.add_notoriety(15.0)
+			EmpireManager.add_notoriety(NotorietyGainsData.get_default().island_capture)
 			EmpireManager.notify_island_captured(get_island_id(), previous_faction_id)
 		
 		# Show announcement

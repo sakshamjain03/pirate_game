@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="NotorietyGainsData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/NotorietyGainsData.gd" id="1_notoriety"]
+
+[resource]
+script = ExtResource("1_notoriety")
+island_capture = 15.0
+sink_empire_ship = 5.0
+sink_other_ship = 1.0

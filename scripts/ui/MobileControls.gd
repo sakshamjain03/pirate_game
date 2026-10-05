@@ -452,12 +452,14 @@ func _refresh_context_action(_unused = null, _unused_b = null) -> void:
 		return
 	var ship := get_tree().get_first_node_in_group("player_ship")
 	_context_action_name = ""
-	if _board_available:
+	# M30 0.20 — the verb (and so the label) comes from WorldManager's
+	# arbiter, the same one that performs the press; every verb is sent as the
+	# "dock" action. The board/dock flags are the fallback when no World
+	# arbiter exists yet (scene start, or a test tree).
+	var verb := _arbitrated_context_verb()
+	if not verb.is_empty():
 		_context_action_name = "dock"
-		_context_action.text = tr("Board Enemy")
-	elif _dock_available:
-		_context_action_name = "dock"
-		_context_action.text = tr("Dock")
+		_context_action.text = tr(_context_verb_label(verb))
 	elif ship and not bool(ship.get("is_docked")):
 		if bool(ship.get("is_anchored")):
 			_context_action_name = "anchor"
@@ -475,6 +477,26 @@ func _refresh_context_action(_unused = null, _unused_b = null) -> void:
 		PirateThemeBuilder.mark_primary(_context_action)
 	else:
 		PirateThemeBuilder.unmark_primary(_context_action)
+
+
+func _arbitrated_context_verb() -> StringName:
+	var wm := get_tree().get_first_node_in_group("world_manager") if is_inside_tree() else null
+	if wm and wm.has_method("get_context_verb"):
+		var verb: StringName = wm.get_context_verb()
+		if not verb.is_empty():
+			return verb
+	for verb in ContextVerbArbiter.PRIORITY:
+		if (verb == &"board" and _board_available) or (verb == &"dock" and _dock_available):
+			return verb
+	return &""
+
+
+func _context_verb_label(verb: StringName) -> String:
+	var wm := get_tree().get_first_node_in_group("world_manager")
+	var label: String = wm.get_context_label(verb) if wm and wm.has_method("get_context_label") else ""
+	if label.is_empty():
+		label = "Board Enemy" if verb == &"board" else "Dock"
+	return label
 
 
 func _on_context_action_pressed() -> void:

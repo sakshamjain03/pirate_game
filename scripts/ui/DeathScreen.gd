@@ -36,9 +36,9 @@ func _ready() -> void:
 func open(ship: ShipController) -> void:
 	player_ship = ship
 	
-	# Calculate 20% gold penalty
+	# M30 0.19 — the gold penalty fraction is data (DefeatPenalty.tres).
 	var current_gold = ResourceManager.get_resource("gold")
-	_penalty_amount = int(current_gold * 0.2)
+	_penalty_amount = DefeatPenaltyData.load_default().gold_lost(int(current_gold))
 	
 	penalty_label.text = tr("Your crew salvaged the ship, but %d Gold was lost to the sea.") % _penalty_amount
 	

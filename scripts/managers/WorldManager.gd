@@ -31,6 +31,10 @@ var _docking_system: Node = null
 var _boarding_system: Node = null
 var _input_manager: Node = null
 var _camera_rig: Node = null
+## M30 0.20 — what the one context button / "dock" action does right now.
+## Wave 0 registers board and dock; later waves add brace, repel, prize, keg,
+## land, assault and spyglass through register_context_provider().
+var _context_arbiter := ContextVerbArbiter.new()
 
 const CAMERA_ROTATE_SPEED: float = 90.0 # degrees/sec while held
 const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
@@ -38,6 +42,9 @@ const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
 func _ready() -> void:
 	_docking_system = get_node_or_null("../DockingSystem")
 	_boarding_system = get_node_or_null("../BoardingSystem")
+	# MobileControls labels the context button from this node's arbiter.
+	add_to_group("world_manager")
+	_register_wave0_context_verbs()
 	# InputManager was promoted to an autoload in M7 (D57): rebinding is reachable
 	# from the main menu, where no World scene — and so no scene-local
 	# InputManager — exists.
@@ -82,14 +89,10 @@ func _process(delta: float) -> void:
 			if Input.is_action_just_pressed("anchor") and player_ship.has_method("toggle_anchor"):
 				player_ship.toggle_anchor()
 
-		# Process dock/undock input
+		# The context action (keyboard/gamepad "dock", or the phone's context
+		# button) goes to whichever verb wins right now — M30 0.20.
 		if Input.is_action_just_pressed("dock"):
-			var boarded = false
-			if _boarding_system and _boarding_system.get("_eligible_enemy") != null:
-				if _boarding_system.has_method("attempt_boarding"):
-					boarded = _boarding_system.attempt_boarding()
-			if not boarded:
-				_toggle_docking()
+			_context_arbiter.perform()
 
 		# Process camera input
 		if _camera_rig:
@@ -182,6 +185,47 @@ func _handle_camera_drag(event: InputEvent) -> bool:
 	_camera_rig.add_yaw(drag_delta.x * settings.drag_yaw_degrees_per_pixel)
 	_camera_rig.add_pitch(drag_delta.y * settings.drag_pitch_degrees_per_pixel)
 	return true
+
+## M30 0.20 — the old hard-coded "board, else dock" as two providers. A
+## boarding attempt that declines falls through to dock, as before.
+func _register_wave0_context_verbs() -> void:
+	_context_arbiter.register_provider(&"board",
+		func(): return _boarding_system != null and _boarding_system.get("_eligible_enemy") != null,
+		func(): return _boarding_system.has_method("attempt_boarding") and bool(_boarding_system.attempt_boarding()),
+		"Board Enemy", "board")
+	_context_arbiter.register_provider(&"dock",
+		_can_toggle_docking,
+		func(): _toggle_docking(); return true,
+		"Dock", "dock")
+
+
+func _can_toggle_docking() -> bool:
+	if not _docking_system:
+		return false
+	var state = _docking_system.current_state
+	return state == _docking_system.DockState.DOCKED or state == _docking_system.DockState.APPROACHING
+
+
+func register_context_provider(verb: StringName, available: Callable, perform: Callable,
+		label: String, icon: String = "") -> void:
+	_context_arbiter.register_provider(verb, available, perform, label, icon)
+
+
+func unregister_context_provider(verb: StringName) -> void:
+	_context_arbiter.unregister_provider(verb)
+
+
+func get_context_verb() -> StringName:
+	return _context_arbiter.get_context_verb()
+
+
+func get_context_label(verb: StringName) -> String:
+	return _context_arbiter.get_label(verb)
+
+
+func get_context_icon(verb: StringName) -> String:
+	return _context_arbiter.get_icon(verb)
+
 
 func _toggle_docking() -> void:
 	if not _docking_system:

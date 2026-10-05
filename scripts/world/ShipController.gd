@@ -381,10 +381,11 @@ func _on_died() -> void:
 		
 		# Add notoriety based on faction
 		if EmpireManager and faction:
+			var gains := NotorietyGainsData.get_default()
 			if faction.get("is_empire"):
-				EmpireManager.add_notoriety(5.0)
+				EmpireManager.add_notoriety(gains.sink_empire_ship)
 			else:
-				EmpireManager.add_notoriety(1.0)
+				EmpireManager.add_notoriety(gains.sink_other_ship)
 		
 	_spawn_explosion()
 	if AudioManager: AudioManager.play_sound("explosion")

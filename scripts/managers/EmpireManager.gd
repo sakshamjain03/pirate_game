@@ -25,6 +25,9 @@ signal heat_tier_changed(tier: HeatTierData)
 ## must NEVER gate sailing, combat or boarding: that line is what keeps it a
 ## pressure system rather than the energy meter docs/00_VISION.md §19.2 forbids.
 const HEAT_CURVE_PATH := "res://resources/balance/HeatCurve.tres"
+## The only resources an AI raid may take. Never Eights or research
+## (docs/00_VISION.md §19.2; Multiplayer Charter rule 4 uses the same list).
+const RAID_LOOTABLE: Array[String] = ["gold", "wood", "iron", "rum"]
 var heat_config: HeatConfigData
 var _current_tier: HeatTierData = null
 ## Set by WorldManager from DockingSystem. Docked at an owned island = "lying
@@ -309,9 +312,10 @@ func _resolve_raid(attacking_faction: Resource, region: RegionData) -> Dictionar
 	if not repelled:
 		var steal_fraction = clamp((attack_score - defense_score) / attack_score, 0.05, 0.25)
 		var current_resources = ResourceManager.current_resources
-		for res_name in current_resources.keys():
-			# M30 0.3 — raids never steal Eights (AGENTS.md never-list)
-			if ResourceManager.is_premium_currency(res_name):
+		for res_name in RAID_LOOTABLE:
+			# M30 0.3 — raids never steal Eights (AGENTS.md never-list); the
+			# whitelist also keeps research and any future key out of loot.
+			if ResourceManager.is_premium_currency(res_name) or not current_resources.has(res_name):
 				continue
 			var current_amount = current_resources[res_name]
 			var amount = floor(current_amount * steal_fraction)

@@ -460,7 +460,7 @@ fires once on load if that much time has passed), a raid attempt is rolled with 
 - **Attack score** = `highest_active_region_tier * 25 + notoriety * 0.3`
 
 If defense ≥ attack, the raid is repelled (no losses). Otherwise a fraction of stored resources
-is stolen via `ResourceManager.spend_resource()` and the result is stored as
+(gold, wood, iron and rum only: `RAID_LOOTABLE`) is stolen via `ResourceManager.spend_resource()` and the result is stored as
 `EmpireManager.pending_raid_report` (overwriting any previous unshown report), then
 `raid_resolved` emits. `WorldManager.gd` auto-instantiates `RaidReportScreen.tscn` on World scene
 load whenever a pending report exists, and clears it on dismiss.
@@ -3765,7 +3765,18 @@ merged, reviewed and largely reworked by hand).
   Tavern, Codex and DevConsole test ownership by identity. Unresolvable paths are kept in the save.
 - **Save on exit.** `NOTIFICATION_APPLICATION_PAUSED`/`WM_CLOSE_REQUEST` and PauseMenu Quit/Settings
   save, only inside the campaign World (the M26 rule).
-- **Raids never take Eights** (`EmpireManager._resolve_raid` skips `is_premium_currency`).
+- **Raids take only gold, wood, iron and rum** (`EmpireManager.RAID_LOOTABLE`, 2026-10-06). Eights
+  were already skipped (`is_premium_currency`); research was still being stolen until then
+  (`tests/test_raid_never_takes_premium.gd`).
+- **Storage techs apply (2026-10-06).** `recalculate_storage_capacity()` multiplies the gold, wood,
+  iron and rum caps by `TechManager.global_storage_mod` (LargerStorage ×1.25, DeepHold and
+  GrandCargo ×1.2), and recalculates on `TechManager.tech_recalculated`. Research and Eights caps
+  are unchanged. Before this the modifier was computed but never read.
+- **Saved overflow survives a load (2026-10-06).** `load_game()` loads the economy (step 2) before
+  islands (5) and techs (6) restore the real caps, so every load clamped Warehouse/tech overflow
+  back to the base caps. `ResourceManager.begin_bulk_load()`/`end_bulk_load()` now hold the clamp
+  across steps 2–6 and clamp once against the final caps (`test_saved_storage_overflow_survives_load`,
+  `tests/test_storage_tech_applies.gd`).
 
 ### Cloud sync (SaveManager, AuthManager)
 - `AuthManager.refresh_session()` clears the session only for a dead refresh token (GoTrue

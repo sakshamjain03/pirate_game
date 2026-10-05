@@ -42,9 +42,16 @@ var max_storage: Dictionary = {
 	"eights": 999999
 }
 
+## True while SaveManager.load_game() is restoring economy, islands and techs.
+## Caps are only final once all three have loaded, so clamping in between
+## silently destroyed anything a Warehouse or storage tech allowed above base.
+var _bulk_loading := false
+
 func _ready() -> void:
 	# Emit initial state
 	call_deferred("emit_signal", "resources_changed", current_resources)
+	# Storage techs (LargerStorage, DeepHold, GrandCargo) scale every cap.
+	TechManager.tech_recalculated.connect(recalculate_storage_capacity)
 
 func _process(delta: float) -> void:
 	if get_tree().current_scene and get_tree().current_scene.name == "World":
@@ -200,10 +207,23 @@ func load_save_data(data: Dictionary) -> void:
 		return
 
 	for key in data:
-		var cap = max_storage.get(key, 999999)
-		current_resources[key] = min(int(data[key]), cap)
+		if _bulk_loading:
+			current_resources[key] = int(data[key])
+		else:
+			var cap = max_storage.get(key, 999999)
+			current_resources[key] = min(int(data[key]), cap)
 
 	resources_changed.emit(current_resources)
+
+
+## Hold the storage clamp until end_bulk_load(); see _bulk_loading.
+func begin_bulk_load() -> void:
+	_bulk_loading = true
+
+
+func end_bulk_load() -> void:
+	_bulk_loading = false
+	recalculate_storage_capacity()
 
 func recalculate_storage_capacity() -> void:
 	# Must list every key that `max_storage` is initialised with — this function
@@ -232,6 +252,12 @@ func recalculate_storage_capacity() -> void:
 							max_storage[res_type] += val
 						else:
 							max_storage[res_type] = val
+
+	# Premium currency is never a balance lever (see max_storage), and research
+	# has its own practical ceiling.
+	for res_type in max_storage.keys():
+		if res_type != "research" and not is_premium_currency(res_type):
+			max_storage[res_type] = int(max_storage[res_type] * TechManager.global_storage_mod)
 			
 	var changed = false
 	# Union of both key sets: a type that only exists in max_storage so far
@@ -249,7 +275,7 @@ func recalculate_storage_capacity() -> void:
 		if not current_resources.has(type):
 			current_resources[type] = 0
 			changed = true
-		if current_resources[type] > cap:
+		if current_resources[type] > cap and not _bulk_loading:
 			current_resources[type] = cap
 			changed = true
 

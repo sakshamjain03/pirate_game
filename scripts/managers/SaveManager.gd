@@ -576,7 +576,10 @@ func load_game() -> void:
 
 			# Health will be set after fleet loads
 
-	# 2. Economy State
+	# 2. Economy State. The storage clamp waits until islands (5) and techs (6)
+	# have restored the real caps; clamping here cut saved Warehouse/tech
+	# overflow back to base caps on every load.
+	ResourceManager.begin_bulk_load()
 	if data.has("economy") and ResourceManager.has_method("load_save_data"):
 		ResourceManager.load_save_data(data["economy"])
 
@@ -652,6 +655,7 @@ func load_game() -> void:
 	# 6. Tech State
 	if data.has("tech") and TechManager.has_method("load_save_data"):
 		TechManager.load_save_data(data["tech"])
+	ResourceManager.end_bulk_load()
 
 	# 7. Faction State
 	if data.has("factions") and FactionManager.has_method("load_save_data"):

@@ -142,3 +142,24 @@ func test_save_and_load_round_trips_every_system_together():
 
 	assert_eq(EmpireManager.notoriety, 88.0, "Empire notoriety must round-trip")
 	assert_eq(EmpireManager.home_island_id, "port_royal", "Empire home_island_id must round-trip")
+
+
+## Load order: economy (step 2) loads before islands (5) and techs (6) restore
+## the real caps. Saved gold above the base cap must not be clamped on load.
+func test_saved_storage_overflow_survives_load():
+	var tech: Resource = load("res://resources/techs/LargerStorage.tres")
+	TechManager.unlocked_techs = [tech]
+	TechManager._recalculate_modifiers()  # gold cap 5000 -> 6250
+	ResourceManager.current_resources["gold"] = 6000
+	SaveManager.save_game()
+
+	# A fresh launch: no techs yet, base caps.
+	TechManager.unlocked_techs.clear()
+	TechManager._recalculate_modifiers()
+	ResourceManager.current_resources["gold"] = 0
+
+	SaveManager.load_game()
+
+	assert_eq(ResourceManager.get_resource("gold"), 6000, "gold above the base cap must survive the load")
+	TechManager.unlocked_techs.clear()
+	TechManager._recalculate_modifiers()

@@ -26,3 +26,4 @@ upgrade_offers = 2
 upgrade_interval = 35.0
 disengage_distance = 220.0
 disengage_grace = 6.0
+use_heat_squad = true

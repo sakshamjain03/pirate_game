@@ -33,6 +33,12 @@ class_name HeatTierData extends Resource
 ## is already hostile. A new player cannot be farmed before learning to steer.
 @export var engages_unprovoked: bool = true
 
+@export_group("Squads")
+## M30 1.7 — the squads an ambient encounter that opts in
+## (`EncounterData.use_heat_squad`) draws from at this tier. Higher tiers author
+## bigger, nastier mixes; `test_m30_squads` pins that the average never drops.
+@export var squad_pool: Array[SquadData] = []
+
 @export_group("Cooling off")
 ## Free decay, applied after EmpireManager's grace window and doubled while the
 ## player is docked at an owned island. Free decay must always be able to reach

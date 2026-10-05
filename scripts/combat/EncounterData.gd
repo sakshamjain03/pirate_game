@@ -63,6 +63,16 @@ enum Objective {
 ## are parked (hidden, out of physics and targeting) for the battle and
 ## restored after, so a bounded fight is the composition authored above.
 @export_range(0.0, 600.0) var ambient_clear_radius: float = 160.0  # placeholder: tune in M31
+## M30 1.7 — a mixed composition: hull + AI profile + count per slot, capped at
+## `EncounterManager.MAX_SQUAD_HOSTILES`. Empty = the old `enemy_scene` ×
+## `enemy_count` path, unchanged.
+@export var squad: Array[SquadSlotData] = []
+## Gives each squad slot a bearing around the target and names the formation.
+@export var squad_tactic: SquadTacticData
+## M30 1.7 — when this encounter has no squad of its own, the ambient picker
+## gives it one from the current heat tier's `squad_pool` (higher heat, harder
+## squads). Off for authored set pieces (bosses, convoys, chapter fights).
+@export var use_heat_squad: bool = false
 
 @export_group("Escort")
 ## Only used when `objective == PROTECT_TARGET` — DEFENSE's "protect a friendly

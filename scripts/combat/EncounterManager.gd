@@ -36,6 +36,9 @@ signal encounter_failed(encounter_id: String, reason: String)
 ## M30 0.16 — encounter_failed's reason when one is already running. Callers
 ## (and tests) see the refusal; the HUD stays quiet about it.
 const REASON_BUSY := "busy"
+## M30 1.7 (W1-1.4) — a squad never fields more than this many hostiles: a
+## readable fight on a phone screen and the ship budget, not a balance number.
+const MAX_SQUAD_HOSTILES := 4
 
 enum Outcome { VICTORY, DEFEAT, ESCAPED }
 
@@ -75,6 +78,11 @@ var _offers_made: int = 0
 var _offer_timer: float = 0.0
 var _disengage_timer: float = 0.0
 var _resolving: bool = false
+## M30 1.13 — battle stats for star condition evaluation.
+var _battle_elapsed: float = 0.0
+var _player_damage_taken: float = 0.0
+var _player_crew_lost: float = 0.0
+var _last_encounter_stars: Array = []
 
 
 func _ready() -> void:
@@ -124,7 +132,16 @@ func _validate(data: EncounterData) -> String:
 	var scene = data.enemy_scene
 	if not scene and _spawner and "enemy_scene" in _spawner:
 		scene = _spawner.enemy_scene
-	if not scene:
+	if not data.squad.is_empty():
+		# M30 1.7 — a squad is a composition on its own; every slot needs a hull
+		# (its own, or the encounter's/spawner's fallback).
+		for i in range(data.squad.size()):
+			var slot: SquadSlotData = data.squad[i]
+			if not slot:
+				return "encounter_id=%s: squad slot %d is empty" % [data.encounter_id, i]
+			if not slot.hull_scene and not scene:
+				return "encounter_id=%s: squad slot %d has no hull_scene" % [data.encounter_id, i]
+	elif not scene:
 		return "encounter_id=%s: missing enemy_scene" % data.encounter_id
 
 	# Check objective-specific requirements
@@ -175,6 +192,11 @@ func start_encounter(data: EncounterData) -> bool:
 	_disengage_timer = 0.0
 	_resolving = false
 	_centre = _player.global_position
+	## M30 1.13 — initialize star tracking
+	_battle_elapsed = 0.0
+	_player_damage_taken = 0.0
+	_player_crew_lost = 0.0
+	_last_encounter_stars = []
 
 	# Ambient spawning pauses for the duration: the point of a bounded encounter
 	# is a known composition, which a background spawner would keep polluting.
@@ -220,8 +242,31 @@ func abandon() -> void:
 		_resolve(Outcome.ESCAPED)
 
 
+## M30 1.13 (test seam) — force encounter resolution with a specific outcome
+func end_encounter(outcome: int) -> bool:
+	if is_active():
+		_resolve(outcome)
+		return true
+	return false
+
+
 func _tick_active(delta: float) -> void:
 	_elapsed += delta
+	## M30 1.13 — track elapsed time for star conditions
+	_battle_elapsed += delta
+
+	## M30 1.13 — track player damage for star conditions
+	if _player and is_instance_valid(_player):
+		var dmg := _player.get_node_or_null("ShipDamage") as ShipDamage
+		if dmg:
+			var current_damage := 0.0
+			if dmg.ship_stats:
+				current_damage = dmg.ship_stats.max_health - dmg.hull
+			_player_damage_taken = current_damage
+			var current_crew_loss := 0.0
+			if dmg.ship_stats:
+				current_crew_loss = dmg.ship_stats.max_crew - dmg.crew
+			_player_crew_lost = current_crew_loss
 
 	for i in range(_enemies.size() - 1, -1, -1):
 		if not is_instance_valid(_enemies[i]):
@@ -306,10 +351,14 @@ func _resolve(outcome: int) -> void:
 	if outcome == Outcome.VICTORY:
 		rewards = _grant_rewards(data)
 		_announce("VICTORY — %s\n%s" % [data.display_name, _describe_rewards(rewards)])
+		## M30 1.13 — evaluate star conditions on victory
+		_last_encounter_stars = _evaluate_stars(data)
 	elif outcome == Outcome.ESCAPED:
 		_announce("You broke off from %s." % data.display_name)
+		_last_encounter_stars = []
 	else:
 		_announce("Your ship was lost in %s." % data.display_name)
+		_last_encounter_stars = []
 
 	# Anything the player did not sink sails off with the encounter rather than
 	# lingering as ambient traffic with encounter-scaled stats.
@@ -346,6 +395,30 @@ func _restore_spawning() -> void:
 	if _spawner and "spawning_enabled" in _spawner:
 		_spawner.spawning_enabled = true
 	_unpark_ambient()
+
+
+## M30 1.13 — evaluate each star condition and return the earned ones.
+func _evaluate_stars(data: EncounterData) -> Array:
+	var earned: Array = []
+	if not data or data.star_conditions.is_empty():
+		return earned
+	for cond: StarConditionData in data.star_conditions:
+		if not cond:
+			continue
+		var passed := false
+		match cond.condition:
+			StarConditionData.Condition.QUICK_VICTORY:
+				## win within target_value seconds
+				passed = _battle_elapsed <= cond.target_value
+			StarConditionData.Condition.PERFECT_DEFENSE:
+				## take 0 damage
+				passed = _player_damage_taken <= 0.0
+			StarConditionData.Condition.ZERO_LOSSES:
+				## no crew lost
+				passed = _player_crew_lost <= 0.0
+		if passed:
+			earned.append(cond)
+	return earned
 
 
 ## M30 0.16 (B6) — ambient traffic near the centre sits the battle out:
@@ -402,7 +475,8 @@ func _spawn_composition(data: EncounterData) -> void:
 	var scene: PackedScene = data.enemy_scene
 	if not scene and _spawner and "enemy_scene" in _spawner:
 		scene = _spawner.enemy_scene
-	if not scene:
+	var plan := build_spawn_plan(data, scene)
+	if plan.is_empty():
 		push_error("EncounterManager: encounter '%s' has no enemy scene" % data.encounter_id)
 		return
 
@@ -410,19 +484,72 @@ func _spawn_composition(data: EncounterData) -> void:
 	if not container or not is_instance_valid(container):
 		container = get_tree().current_scene
 
-	for i in range(data.enemy_count):
-		var enemy = scene.instantiate() as Node3D
+	for i in range(plan.size()):
+		var entry: Dictionary = plan[i]
+		var enemy = (entry["scene"] as PackedScene).instantiate() as Node3D
 		if not enemy:
 			continue
+		# M30 1.7 — EnemyAI reads ai_profile in _ready(), so a squad slot's
+		# profile (and its formation bearing) must be on the node before add_child.
+		_assign_slot_profile(enemy, entry, data.squad_tactic)
 		container.add_child(enemy)
 		enemy.global_transform = Transform3D(
-			Basis(Vector3.UP, randf() * TAU), _pick_spawn_position(data, i, data.enemy_count))
+			Basis(Vector3.UP, randf() * TAU), _pick_spawn_position(data, i, plan.size()))
 		if enemy is RigidBody3D:
 			enemy.linear_velocity = Vector3.ZERO
 			enemy.angular_velocity = Vector3.ZERO
 
 		_apply_strength(enemy, data)
 		_track(enemy)
+
+
+## M30 1.7 — what to spawn, in order: one `{scene, profile, slot}` per hull.
+## A non-empty `data.squad` expands its slots (capped at MAX_SQUAD_HOSTILES,
+## slot order kept, so the last slots are the ones cut); an empty squad is the
+## pre-M30 `enemy_scene` × `enemy_count` with the scene's own profile.
+## `fallback_scene` stands in for a slot (or encounter) without a hull scene.
+static func build_spawn_plan(data: EncounterData, fallback_scene: PackedScene) -> Array:
+	var plan: Array = []
+	if data.squad.is_empty():
+		if fallback_scene:
+			for i in range(data.enemy_count):
+				plan.append({"scene": fallback_scene, "profile": null, "slot": -1})
+		return plan
+	for slot_index in range(data.squad.size()):
+		var slot: SquadSlotData = data.squad[slot_index]
+		if not slot:
+			push_error("EncounterManager: encounter '%s' squad slot %d is empty" % [data.encounter_id, slot_index])
+			continue
+		var scene: PackedScene = slot.hull_scene if slot.hull_scene else fallback_scene
+		if not scene:
+			push_error("EncounterManager: encounter '%s' squad slot %d has no hull scene" % [data.encounter_id, slot_index])
+			continue
+		for n in range(slot.count):
+			if plan.size() >= MAX_SQUAD_HOSTILES:
+				return plan
+			plan.append({"scene": scene, "profile": slot.ai_profile, "slot": slot_index})
+	return plan
+
+
+func _assign_slot_profile(enemy: Node3D, entry: Dictionary, tactic: SquadTacticData) -> void:
+	var slot_index: int = entry["slot"]
+	if slot_index < 0:
+		return
+	var ai = enemy.get_node_or_null("EnemyAI")
+	if not ai:
+		return
+	var profile: AIProfileData = entry["profile"]
+	var has_bearing := tactic != null and tactic.has_bearing_for_slot(slot_index)
+	if has_bearing:
+		var bearing := tactic.bearing_for_slot(slot_index)
+		ai.set_meta(&"squad_bearing_deg", bearing)
+		# Profiles are shared resources: a per-hull bearing goes on a duplicate.
+		# `preferred_bearing_deg` is read by EnemyAI's tactic positioning (M30 1.1).
+		if profile and "preferred_bearing_deg" in profile:
+			profile = profile.duplicate() as AIProfileData
+			profile.set("preferred_bearing_deg", bearing)
+	if profile:
+		ai.ai_profile = profile
 
 
 func _spawn_escort(data: EncounterData) -> void:
@@ -640,7 +767,28 @@ func _start_random_ambient() -> void:
 		candidates.append(e)
 	if candidates.is_empty():
 		return
-	start_encounter(candidates.pick_random())
+	var tier: HeatTierData = null
+	if EmpireManager and EmpireManager.has_method("get_heat_tier"):
+		tier = EmpireManager.get_heat_tier()
+	start_encounter(encounter_with_heat_squad(candidates.pick_random(), tier))
+
+
+## M30 1.7 (W1-1.5) — an encounter that opts in (`use_heat_squad`) and has no
+## squad of its own fights a squad drawn from the heat tier's pool. Returns a
+## copy; the authored resource is shared and never mutated.
+func encounter_with_heat_squad(data: EncounterData, tier: HeatTierData) -> EncounterData:
+	if not data or not data.use_heat_squad or not data.squad.is_empty():
+		return data
+	if not tier or tier.squad_pool.is_empty():
+		return data
+	var squad: SquadData = tier.squad_pool.pick_random()
+	if not squad or squad.slots.is_empty():
+		push_error("EncounterManager: heat tier %d has an empty squad in its pool" % tier.tier)
+		return data
+	var copy := data.duplicate() as EncounterData
+	copy.squad = squad.slots.duplicate()
+	copy.squad_tactic = squad.tactic
+	return copy
 
 
 func _announce(text: String) -> void:

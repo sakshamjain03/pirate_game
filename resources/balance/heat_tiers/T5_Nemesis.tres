@@ -1,15 +1,18 @@
-[gd_resource type="Resource" script_class="HeatTierData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="HeatTierData" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
+[ext_resource type="Resource" path="res://resources/combat/squads/Squad5_DualAggressive.tres" id="2_sq5"]
+[ext_resource type="Resource" path="res://resources/combat/squads/Squad6_MultiTactic.tres" id="3_sq6"]
 
 [resource]
 script = ExtResource("1_heat")
 tier = 5
 display_name = "Nemesis"
-min_notoriety = 220.0
-max_ambient_enemies = 8
-spawn_interval_seconds = 15.0
-enemy_strength_multiplier = 1.75
+min_notoriety = 100.0
+max_ambient_enemies = 5
+spawn_interval_seconds = 20.0
+enemy_strength_multiplier = 1.4
 engages_unprovoked = true
+squad_pool = [ExtResource("2_sq5"), ExtResource("3_sq6")]
 decay_per_minute = 6.0
-clear_cost_eights = 60
+clear_cost_eights = 80

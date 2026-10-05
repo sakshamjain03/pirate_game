@@ -62,9 +62,13 @@ func _on_settings_pressed() -> void:
 	# already returns to whatever pushed it via SceneManager.go_back() — since
 	# World.tscn was pushed to history on the way in, this correctly resumes
 	# gameplay rather than needing special-case return logic here.
+	# M30 Requirement 1.4 — save before leaving World
+	SaveManager.save_game()
 	get_tree().paused = false
 	SceneManager.change_scene_with_fade("res://scenes/ui/SettingsMenu.tscn")
 
 func _on_quit_pressed() -> void:
+	# M30 Requirement 1.4 — save before leaving World
+	SaveManager.save_game()
 	get_tree().paused = false
 	SceneManager.change_scene_with_fade("res://scenes/ui/MainMenu.tscn")

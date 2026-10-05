@@ -90,6 +90,14 @@ func _ready() -> void:
 	call_deferred("_capture_fresh_state")
 
 
+func _notification(what: int) -> void:
+	# M30 Requirement 1.4 — save when leaving the World
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		# Only save in campaign mode (never outside World per M26 rule)
+		if SceneManager.is_campaign() and get_tree().current_scene and get_tree().current_scene.name == "World":
+			save_game()
+
+
 ## The campaign-state autoloads a New Game must return to their boot state. Each one's
 ## load_save_data() fully replaces its state when handed a complete get_save_data()
 ## snapshot. ScheduleManager has its own reset(); TutorialManager has its own New Game
@@ -273,16 +281,37 @@ func save_game() -> void:
 		save_dict["economy"] = ResourceManager.get_save_data()
 
 	# 3. Islands State
+	# M30 Requirement 1.1 — save island ownership (island_type and owner_faction)
+	# Start from the previous save to carry forward gated islands (1.7)
+	var islands_data: Dictionary = {}
+	if FileAccess.file_exists(SAVE_PATH):
+		var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+		if file:
+			var json = JSON.new()
+			json.parse(file.get_as_text())
+			var old_save = json.data
+			if old_save and old_save.has("islands"):
+				islands_data = old_save["islands"].duplicate()
+
 	var islands = get_tree().get_nodes_in_group("islands")
 	for island in islands:
 		if island.has_method("get_island_id") and island.has_method("get_built_building_ids"):
-			save_dict["islands"][island.get_island_id()] = {
+			var island_id = island.get_island_id()
+			var owner_faction_id = ""
+			if island.island_data and island.island_data.owner_faction:
+				owner_faction_id = island.island_data.owner_faction.faction_id
+
+			islands_data[island_id] = {
 				"buildings": island.get_built_building_ids(),
 				# M10 Requirement 4 — IslandData.discovered was never actually
 				# persisted before this; the write path (dock/proximity) set
 				# it at runtime but every load silently reset it to false.
 				"discovered": island.island_data.discovered if island.island_data else false,
+				# M30 Requirement 1.1 — persist island ownership
+				"island_type": int(island.island_data.island_type) if island.island_data else int(IslandData.IslandType.NEUTRAL),
+				"owner_faction_id": owner_faction_id,
 			}
+	save_dict["islands"] = islands_data
 
 	# 4. Fleet State
 	if FleetManager.has_method("get_save_data"):
@@ -476,9 +505,50 @@ func load_game() -> void:
 			visuals.load_save_data(player_data["cosmetics"])
 
 	# 5. Islands State
+	# M30 Requirement 1.1 — restore island ownership BEFORE buildings and offline catch-up
 	if data.has("islands"):
 		var islands_data = data["islands"]
 		var active_islands = get_tree().get_nodes_in_group("islands")
+
+		# First pass: restore ownership (island_type and owner_faction)
+		for island in active_islands:
+			var island_id = island.get_island_id() if island.has_method("get_island_id") else ""
+			if island_id == "" or not islands_data.has(island_id):
+				continue
+			var entry = islands_data[island_id]
+			if not entry is Dictionary:
+				continue
+			if not island.island_data:
+				continue
+
+			# M30 Requirement 1.2 — migration: old saves without island_type/owner_faction_id
+			# If buildings exist or this is the home_island, mark as FRIENDLY with player faction
+			var should_migrate = false
+			if not entry.has("island_type"):
+				var has_buildings = len(entry.get("buildings", [])) > 0
+				var is_home_island = island_id == data.get("empire", {}).get("home_island_id", "")
+				if has_buildings or is_home_island:
+					should_migrate = true
+
+			if should_migrate:
+				# Migrate to FRIENDLY with player faction
+				island.island_data.island_type = IslandData.IslandType.FRIENDLY
+				island.island_data.owner_faction = FactionManager.get_player_faction()
+			else:
+				# Restore from save
+				var saved_type = entry.get("island_type", int(IslandData.IslandType.NEUTRAL))
+				island.island_data.island_type = saved_type
+
+				var owner_faction_id = entry.get("owner_faction_id", "")
+				if owner_faction_id != "":
+					var faction = EmpireManager._get_faction_by_id(owner_faction_id)
+					if faction:
+						island.island_data.owner_faction = faction
+					else:
+						push_error("SaveManager: unresolvable faction_id '%s' for island '%s'" % [owner_faction_id, island_id])
+						# Keep the authored value
+
+		# Second pass: restore buildings and discovered flag
 		for island in active_islands:
 			var island_id = island.get_island_id() if island.has_method("get_island_id") else ""
 			if island_id == "" or not islands_data.has(island_id):
@@ -800,18 +870,42 @@ func _resolve_cloud_conflict(cloud_row: Dictionary) -> void:
 		# the same save, nothing to ask.
 		return
 
+	# M30 Requirement 2.5 — suspend autosave while the conflict dialog is open
+	_suspend_autosave = true
+
+	# M30 Requirement 2.5 — parent the dialog to root to survive scene changes
 	var choice: int = await ChoiceDialogScript.new(
 		tr("Cloud Save Found"),
 		tr("This device's empire and your cloud save differ. Which one do you want to keep?"),
 		PackedStringArray([tr("Keep This Device"), tr("Keep Cloud")])
-	).ask(_get_dialog_parent())
+	).ask(get_tree().root)
+
+	_suspend_autosave = false
 
 	if choice == 0:
+		# M30 Requirement 1.6 — Keep This Device: max-merge Eights
 		var local_result := _read_save_file(SAVE_PATH)
 		if not local_result["data"].is_empty():
-			_sync_to_cloud(local_result["data"])
+			var save_data = local_result["data"].duplicate(true)
+			var key := ResourceManager.PREMIUM_CURRENCY
+			var economy: Dictionary = save_data.get("economy", {}) if save_data.get("economy") is Dictionary else {}
+			var cloud_economy: Dictionary = cloud_row.get("save_data", {}).get("economy", {}) if cloud_row.get("save_data", {}).get("economy") is Dictionary else {}
+			economy[key] = maxi(int(economy.get(key, 0)), int(cloud_economy.get(key, 0)))
+			save_data["economy"] = economy
+			# Write the merged save
+			var had_existing_save := FileAccess.file_exists(SAVE_PATH)
+			if _backup_existing_save():
+				var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+				if file:
+					file.store_string(JSON.stringify(save_data, "\t"))
+					file.close()
+			_sync_to_cloud(save_data)
 	else:
+		# M30 Requirement 1.5 — Keep Cloud: reload the World after applying
 		_apply_cloud_save(cloud_row)
+		# Reload the World to apply the cloud save to the live game state
+		if SceneManager and SceneManager.is_campaign():
+			SceneManager.change_scene_with_fade("res://scenes/world/World.tscn", 0.4, false)
 
 ## Writes a cloud save row's save_data as the new local save. Applying it to a live in-session
 ## World is out of scope for this milestone — the normal load_game() path on the next scene

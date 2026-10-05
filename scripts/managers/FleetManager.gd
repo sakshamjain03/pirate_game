@@ -301,13 +301,18 @@ func get_save_data() -> Dictionary:
 		if o:
 			ship_data.append(o.get_save_data())
 
-	var cap_paths = []
+	# M30 Requirement 1.3 — save captain level and XP
+	var cap_data = []
 	for c in owned_captains:
-		cap_paths.append(c.resource_path)
-		
+		cap_data.append({
+			"path": c.resource_path,
+			"level": c.level,
+			"current_xp": c.current_xp,
+		})
+
 	return {
 		"owned_ships": ship_data,
-		"owned_captains": cap_paths,
+		"owned_captains": cap_data,
 		"active_ship_index": active_ship_index,
 		"active_captain_index": active_captain_index,
 		"active_missions": active_missions.duplicate(true),
@@ -330,9 +335,33 @@ func load_save_data(data: Dictionary) -> void:
 				owned_ships.append(legacy)
 				
 	if data.has("owned_captains"):
-		for p in data["owned_captains"]:
-			if ResourceLoader.exists(p):
-				owned_captains.append(load(p))
+		for entry in data["owned_captains"]:
+			# M30 Requirement 1.3 — handle both old (string path) and new (dict with level/xp) formats
+			var path = ""
+			var level = 1
+			var current_xp = 0
+
+			if entry is String:
+				# Old save format: bare path string
+				path = entry
+			elif entry is Dictionary:
+				# New save format: {path, level, current_xp}
+				path = entry.get("path", "")
+				level = int(entry.get("level", 1))
+				current_xp = int(entry.get("current_xp", 0))
+
+			if path == "":
+				continue
+
+			if ResourceLoader.exists(path):
+				# M30 Requirement 1.3 — duplicate the captain to avoid mutating the .tres
+				var captain = load(path).duplicate()
+				captain.level = level
+				captain.current_xp = current_xp
+				owned_captains.append(captain)
+			else:
+				# M30 Requirement 1.8 — unresolvable path: keep it and push_error
+				push_error("FleetManager: unresolvable captain path '%s'" % path)
 				
 	active_ship_index = int(data.get("active_ship_index", 0))
 	active_captain_index = int(data.get("active_captain_index", 0))

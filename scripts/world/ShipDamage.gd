@@ -191,7 +191,7 @@ func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: floa
 	hull = clamp(hull - modified_amount, 0.0, get_pool_maximum("hull"))
 	pool_changed.emit("hull", hull, get_pool_maximum("hull"))
 
-	var crew_dmg: float = amount * crew_fraction
+	var crew_dmg: float = modified_amount * crew_fraction
 	if crew_dmg > 0.0:
 		crew = clamp(crew - crew_dmg, 0.0, ship_stats.max_crew)
 		pool_changed.emit("crew", crew, ship_stats.max_crew)

@@ -512,9 +512,7 @@ func apply_brace(brace_data: BraceData, is_perfect: bool = false) -> bool:
 
 		# Perfect brace grants Fury
 		if is_perfect:
-			var fury_data = load("res://resources/balance/Fury.tres") as FuryData
-			if fury_data:
-				fury = minf(fury + brace_data.perfect_fury_grant, 1.0)
+			fury = minf(fury + brace_data.perfect_fury_grant, 1.0)
 
 	return true
 

@@ -55,3 +55,68 @@ func test_brace_has_cooldown():
 func test_brace_fury_grant_is_valid():
 	assert_gte(brace_data.perfect_fury_grant, 0.0)
 	assert_lte(brace_data.perfect_fury_grant, 1.0)
+
+
+## Test that firing while bracing returns false (requirement W1-1.3)
+func test_fire_broadside_blocked_while_bracing():
+	var ship_node = Node3D.new()
+	var ship_stats_obj = load("res://resources/ships/Sloop.tres") as ShipStats
+	var ship_combat = ShipCombat.new()
+	ship_combat.ship_stats = ship_stats_obj
+
+	# Create a minimal scene tree for ship_combat
+	var root = Node3D.new()
+	root.add_child(ship_node)
+	ship_node.add_child(ship_combat)
+	ship_node.add_child(modifiers)
+
+	# Get the tree ready
+	if get_tree():
+		get_tree().root.add_child(root)
+
+	# Simulate bracing
+	ship_combat.is_bracing = true
+
+	# Try to fire while bracing - should return false
+	var result = ship_combat.fire_broadside("port")
+	assert_false(result, "fire_broadside should return false while is_bracing=true")
+
+	# Clean up
+	if get_tree():
+		root.queue_free()
+
+
+## Test that apply_brace returns false during cooldown (requirement W1-1.3)
+func test_brace_cooldown_blocks_reapplication():
+	var ship_node = Node3D.new()
+	var ship_stats_obj = load("res://resources/ships/Sloop.tres") as ShipStats
+	var ship_combat = ShipCombat.new()
+	ship_combat.ship_stats = ship_stats_obj
+
+	# Create a minimal scene tree for ship_combat
+	var root = Node3D.new()
+	root.add_child(ship_node)
+	ship_node.add_child(ship_combat)
+	ship_node.add_child(modifiers)
+
+	# Get the tree ready
+	if get_tree():
+		get_tree().root.add_child(root)
+
+	# Apply brace once successfully
+	var first_brace = ship_combat.apply_brace(brace_data, false)
+	assert_true(first_brace, "First brace should succeed")
+
+	# Manually set cooldown to simulate the end of the brace window
+	# (normally done in _physics_process)
+	ship_combat._brace_cooldown_remaining = brace_data.cooldown
+	ship_combat.is_bracing = false
+
+	# Try to apply brace again while cooldown is active - should return false
+	var second_brace = ship_combat.apply_brace(brace_data, false)
+	assert_false(second_brace, "apply_brace should return false while on cooldown")
+
+	# Clean up
+	if get_tree():
+		root.queue_free()
+

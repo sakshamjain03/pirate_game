@@ -15,6 +15,12 @@ signal special_broadside_fired()
 signal special_broadside_ready()
 ## M23 — a gun in a rippling broadside failed to fire.
 signal misfired(side: String)
+## M30 W1 (1.4) — a hostile hull's auto-fire broadside is about to go off on
+## `side` in `duration` seconds, aimed at `target`. The telegraph the threat
+## decals draw and Brace answers. Never emitted by player-side hulls.
+signal broadside_windup(side: String, duration: float, target: Node3D)
+## The wind-up on `side` ended without firing (the target left the arc).
+signal broadside_windup_cancelled(side: String)
 
 @export var ship_stats: ShipStats
 @export var current_ammo: AmmoData
@@ -166,6 +172,8 @@ func _get_modifiers() -> CombatModifiers:
 var _volley_damage_multiplier: float = 1.0
 var _special_cooldown_remaining: float = 0.0
 var _arc_locked := {"port": false, "starboard": false, "bow": false, "stern": false}
+## M30 W1 (1.4) — side -> seconds left on an in-progress auto-fire wind-up.
+var _windup_t: Dictionary = {}
 ## M29 A.2: generation id to guard deferred callbacks from touching a respawned ship
 var _life_id := 0
 
@@ -470,6 +478,7 @@ func _spawn_floating_damage(amount: float) -> void:
 func die() -> void:
 	# M29 A.2: invalidate pending reload callbacks
 	_life_id += 1
+	_cancel_windups()
 	died.emit()
 	# Handled by ShipController._on_died(), connected to this signal.
 
@@ -501,17 +510,64 @@ func _physics_process(delta: float) -> void:
 			arc_lock_changed.emit(side, locked)
 
 	if not auto_fire_enabled:
+		_cancel_windups()
 		return
 
 	var parent = get_parent()
 	if parent and "is_docked" in parent and parent.is_docked:
+		_cancel_windups()
 		return
 
 	# Automatic fire: the reload gate is the existing per-side cooldown, and the
 	# aim gate is the solver. Nothing else — positioning is the whole skill.
+	# M30 W1 (1.4) — a hostile hull's broadside first winds up (telegraphs) for
+	# get_broadside_windup_seconds(), and fires only if the arc is still locked
+	# when it elapses. Player-side hulls (0 s) fire on lock exactly as before.
+	var windup := get_broadside_windup_seconds()
 	for side in sides:
-		if _arc_locked[side]:
+		if not _arc_locked[side]:
+			if _windup_t.has(side):
+				_windup_t.erase(side)
+				broadside_windup_cancelled.emit(side)
+			continue
+		var is_broadside: bool = side == FiringSolver.SIDE_PORT or side == FiringSolver.SIDE_STARBOARD
+		if windup <= 0.0 or not is_broadside:
 			_fire_through_controller(side)
+		elif _windup_t.has(side):
+			_windup_t[side] -= delta
+			if _windup_t[side] <= 0.0:
+				_windup_t.erase(side)
+				_fire_through_controller(side)
+		elif _side_reloaded(side):
+			_windup_t[side] = windup
+			broadside_windup.emit(side, windup, solver.get_target(side))
+
+
+## M30 W1 (1.4) — the auto-fire wind-up for this hull: the active difficulty's
+## broadside_windup_seconds for hostile hulls, 0 for player-side ones.
+func get_broadside_windup_seconds() -> float:
+	var diff := _difficulty()
+	return maxf(diff.broadside_windup_seconds, 0.0) if diff else 0.0
+
+
+## Seconds left on `side`'s wind-up, or -1 when none is running.
+func get_windup_remaining(side: String) -> float:
+	return float(_windup_t.get(side, -1.0))
+
+
+func _side_reloaded(side: String) -> bool:
+	match side:
+		FiringSolver.SIDE_PORT: return can_fire_port
+		FiringSolver.SIDE_STARBOARD: return can_fire_starboard
+		FiringSolver.SIDE_BOW: return can_fire_bow
+		FiringSolver.SIDE_STERN: return can_fire_stern
+	return false
+
+
+func _cancel_windups() -> void:
+	for side in _windup_t.keys():
+		_windup_t.erase(side)
+		broadside_windup_cancelled.emit(side)
 
 
 func _fire_through_controller(side: String) -> void:

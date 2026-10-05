@@ -15,6 +15,11 @@ class_name AIDifficultyData extends Resource
 @export_range(0.1, 3.0) var spread_mult: float = 1.0
 @export_range(0.1, 3.0) var detection_range_mult: float = 1.0
 @export_range(0.0, 3.0) var ram_tendency_mult: float = 1.0
+## M30 W1 (1.4) — seconds a hostile hull's auto-fire broadside telegraphs
+## (`ShipCombat.broadside_windup`) before it goes off: the window the player
+## reads and answers with Brace or a turn. 0 = fire on lock (pre-M30).
+## Player-side hulls never wind up (for_ship() returns null for them).
+@export_range(0.0, 3.0) var broadside_windup_seconds: float = 0.8 # placeholder: tune in M31
 
 
 static func applies_to(ship: Node) -> bool:

@@ -721,7 +721,12 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 		if parent and parent is RigidBody3D:
 			base_vel = parent.linear_velocity
 
-		ball.linear_velocity = base_vel + (forward * ship_stats.cannon_speed * ammo_data.speed_mult)
+		# W0-4.1: range multiplier scales launch speed so shots reach the solver range
+		var range_mult = 1.0
+		var mods := _get_modifiers()
+		if mods:
+			range_mult = mods.range_mult
+		ball.linear_velocity = base_vel + (forward * ship_stats.cannon_speed * ammo_data.speed_mult * range_mult)
 
 func _spawn_muzzle_flash(marker: Node3D) -> void:
 	## A brief bright point light at the cannon mouth — there was previously

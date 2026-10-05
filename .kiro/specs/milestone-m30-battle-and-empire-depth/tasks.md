@@ -131,7 +131,7 @@ fix and watch the test fail.
 - [x] 0.21 Rewrite `docs/navalCombat.md` §14 (now unlocked vs still out) and add a `docs/05` M30 section skeleton.
   - **Verify:** both are present. `sync-systems-doc` raises no M30 Wave 0 gaps.
   - _Requirements: all W0_
-- [x] **Checkpoint W0** — passed 2026-10-06: full suite 176 scripts / 1216 tests / 0 failing / 0 SCRIPT ERRORs (sharded over 4 isolated worktrees, ~80 s); independent checkpoint-reviewer PASS, no defects. Sharding exposed a pre-existing order-dependent failure (a 0 keycode in settings.cfg bound an unerasable "(Unset)" key) — fixed in SettingsManager. SelfPlayHarness not run: its `-s` mode fails to compile against autoloads (AudioManager); recorded, not claimed. Headful CombatCaptureHarness renders cleanly; B12 floating damage is pinned by test, not visually confirmed (no shot landed in the capture frames). Owner checklist below.
+- [x] **Checkpoint W0** — passed 2026-10-06: full suite 176 scripts / 1216 tests / 0 failing / 0 SCRIPT ERRORs (sharded over 4 isolated worktrees, ~80 s); independent checkpoint-reviewer PASS, no defects. Sharding exposed a pre-existing order-dependent failure (a 0 keycode in settings.cfg bound an unerasable "(Unset)" key) — fixed in SettingsManager. SelfPlayHarness not run: its `-s` mode fails to compile against autoloads (AudioManager); recorded, not claimed. Headful CombatCaptureHarness renders cleanly; B12 floating damage is pinned by test, not visually confirmed (no shot landed in the capture frames). Owner manual sync checklist: see docs/05 M30 section.
   - Full suite, with a count ≥ the baseline plus the new tests and 0 failures.
   - `checkpoint-reviewer`.
   - `SelfPlayHarness` headless grep, or a recorded reason it couldn't run.

@@ -3830,6 +3830,13 @@ captured with only a physical keycode. Load now skips non-positive codes; save c
 codes. This was why `test_input_rebinding` failed only when run right after
 `test_navigation_integration`.
 
+### Owner manual checklist (real devices; cannot run here)
+1. Two devices, one account: play on A, quit; open B — B is asked (cloud newer) and Keep Cloud shows A's progress after the World reloads.
+2. Two accounts, one device: sign out of A, sign in as B — the "Different Account" prompt appears and nothing of A's empire reaches B's cloud row unless you pick Move.
+3. Offline then online: play in airplane mode (Settings > Account shows "Cloud sync failing since …"), reconnect — it returns to "up to date" within ~10 min (backoff 30/120/600 s) without losing progress.
+4. Paused Supabase project: same as 3 — the player stays signed in, nothing is lost, the status line says failing.
+5. Quit from the pause menu and by swiping the app away — progress since the last autosave is kept.
+
 ### Not verified here
 Real-device sync (two devices, two accounts, offline to online, a paused project) is the owner's
 manual checklist. `SelfPlayHarness` still cannot run in `-s` mode (it fails to compile against

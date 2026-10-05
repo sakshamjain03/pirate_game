@@ -178,6 +178,15 @@ be needed (force-push, rewriting existing commits, resolving a real conflict aga
 session's push) — stop and ask, per this project's general safety rules; a plain fast-forward
 commit+push is not itself something to ask permission for anymore.
 
+### Delegate mechanical work; verify in parallel
+
+Owner direction (2026-10-06): the main model's effort goes on design, review and hard debugging; token-heavy, low-judgement work goes to cheaper models, run in parallel wherever it can be.
+
+- **Haiku:** running GUT files or the full suite and summarising results, mutation-check runs, bisecting an order-dependent failure, grep/inventory sweeps, git status/log summaries.
+- **Sonnet:** ticking `tasks.md`, updating docs counts and sections from a given summary, commit + fast-forward merge + push with a given message, authoring repetitive `.tres` data from a given table, applying exact edits.
+- **Opus (main session or implementation lanes):** gameplay design, non-trivial implementation, adversarial review, root-causing real bugs. Give every lane an explicit model; an unset model has silently run lanes on a weaker one.
+- **Parallel verification:** run independent test files as concurrent Godot processes (`tools/gut/ptest.sh <project-dir> test_a test_b …`), and the full suite sharded over four isolated worktrees (`tools/gut/psuite.sh <sha>`, ~80 s vs ~190 s serial). Each worktree needs an uncommitted `project.godot` edit with its own `config/custom_user_dir_name`. Never run two tests that write `user://` saves (SaveManager, AuthManager, Eights, sync tests) concurrently in the same project directory: they collide and fail spuriously, so re-run any such failure alone before believing it. Never `Stop-Process` every Godot process while other sessions or shards may be running.
+
 ### AI agent workflow (this repo specifically)
 
 **As of 2026-08-26, this project is built entirely by Claude Code** — planning, implementation, and

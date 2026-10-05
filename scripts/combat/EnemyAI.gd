@@ -21,6 +21,9 @@ class_name EnemyAI extends Node
 ##   - M6: Add captain trait modifiers to AI behavior
 
 signal state_changed(new_state: String)
+## M30 W1-1.1 — a profile with `ram_telegraph_seconds > 0` has committed to a
+## ram on `target`; the run starts `seconds` later. The player's read window.
+signal ram_telegraphed(target: Node3D, seconds: float)
 
 enum AIState {
 	IDLE,
@@ -115,6 +118,15 @@ var _attack_repositioning: bool = false
 var _ram_active: bool = false
 var _ram_elapsed: float = 0.0
 var _ram_eval_timer: float = 0.0
+var _ram_telegraph_t: float = 0.0
+
+# M30 W1-1.1 — tactic positioning. The ideal point the ATTACK state steered for
+# on its last tick (read by tests and future threat decals), and the low-pass
+# filtered bearing off the target's heading that non-STANDARD tactics hold.
+var last_ideal_position: Vector3 = Vector3.ZERO
+var _smoothed_bearing: float = 0.0
+var _bearing_valid: bool = false
+var _ammo_rule_id: String = ""
 
 
 func _ready() -> void:
@@ -160,6 +172,8 @@ func apply_profile(p: AIProfileData) -> void:
 	if "ram_tendency" in p:
 		ram_tendency = p.ram_tendency
 		ram_max_distance = p.ram_max_distance
+	_bearing_valid = false
+	_ammo_rule_id = ""
 
 	# Feed the profile's gun-crew discipline into the shared solver instead of
 	# keeping a second copy of the arc check here.
@@ -349,7 +363,24 @@ func _process_attack(delta: float) -> void:
 	if _ram_active:
 		_process_ram(delta)
 		return
+	if _ram_telegraph_t > 0.0:
+		_ram_telegraph_t -= delta
+		if _ram_telegraph_t > 0.0:
+			# Telegraph: bow onto the target and hold there, a visible pause
+			# before the lunge rather than an instant one.
+			_steer_towards(player_ship.global_position, _attack_throttle())
+			return
+		_ram_telegraph_t = 0.0
+		_start_ram_run()
+		_process_ram(delta)
+		return
 	if _should_start_ram(delta):
+		var telegraph := _ram_telegraph_seconds()
+		if telegraph > 0.0:
+			_ram_telegraph_t = telegraph
+			ram_telegraphed.emit(player_ship, telegraph)
+			_steer_towards(player_ship.global_position, _attack_throttle())
+			return
 		_start_ram_run()
 		_process_ram(delta)
 		return
@@ -377,13 +408,20 @@ func _process_attack(delta: float) -> void:
 	# toward the ideal position, which immediately shifts that position,
 	# which changes the heading again — a wobble/circling-of-death instead
 	# of a stable approach to broadside range.
-	var perp = Vector3(-to_player_flat.z, 0.0, to_player_flat.x)
-	var perpendicular_offset: Vector3 = (perp if broadside_side == "starboard" else -perp) * preferred_combat_distance
-
-	var ideal_position = player_ship.global_position + perpendicular_offset
+	var ideal_position: Vector3
+	if _tactic() == AIProfileData.Tactic.STANDARD:
+		var perp = Vector3(-to_player_flat.z, 0.0, to_player_flat.x)
+		var perpendicular_offset: Vector3 = (perp if broadside_side == "starboard" else -perp) * preferred_combat_distance
+		ideal_position = player_ship.global_position + perpendicular_offset
+	else:
+		# M30 W1-1.1 — every other tactic only moves this point; steering and the
+		# avoidance turn below it are the same code for every hull.
+		ideal_position = _tactic_ideal_position(delta, dist)
+	last_ideal_position = ideal_position
+	_apply_ammo_rules(dist)
 
 	# Steer towards the ideal broadside position
-	_steer_towards(ideal_position, 0.5)
+	_steer_towards(ideal_position, _attack_throttle())
 
 	# Firing itself is no longer the AI's job. ShipCombat's auto-fire loop reads
 	# the same FiringSolver and pulls the trigger the instant the arc lines up,
@@ -396,6 +434,93 @@ func _process_attack(delta: float) -> void:
 		var angle: float = rad_to_deg(acos(clamp(abs(right_flat.dot(to_player_flat)), 0.0, 1.0)))
 		if angle < broadside_angle_tolerance and dist < _get_attack_range():
 			ship_controller.fire_cannons(broadside_side)
+
+
+# === TACTICS (M30 W1-1.1) ===
+
+func _tactic() -> int:
+	if ai_profile and "tactic" in ai_profile:
+		return int(ai_profile.tactic)
+	return AIProfileData.Tactic.STANDARD
+
+
+func _attack_throttle() -> float:
+	if ai_profile and "attack_throttle" in ai_profile:
+		return float(ai_profile.attack_throttle)
+	return 0.5
+
+
+func _ram_telegraph_seconds() -> float:
+	if ai_profile and "ram_telegraph_seconds" in ai_profile:
+		return float(ai_profile.ram_telegraph_seconds)
+	return 0.0
+
+
+func is_ram_telegraphing() -> bool:
+	return _ram_telegraph_t > 0.0
+
+
+func _tactic_ideal_position(delta: float, dist: float) -> Vector3:
+	## Where a non-STANDARD tactic wants to be: `preferred_bearing_deg` off the
+	## TARGET's heading at `preferred_combat_distance`, on whichever side of the
+	## target this hull is already on. The bearing is low-pass filtered
+	## (`lerp_angle(prev, goal, 1 - exp(-dt / tau))`): the ideal point is defined
+	## relative to the target, which moves and turns, and an unfiltered goal
+	## re-creates the circling-of-death the STANDARD branch's comment describes.
+	var t_pos: Vector3 = player_ship.global_position
+	var fwd: Vector3 = -player_ship.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var right: Vector3 = player_ship.global_transform.basis.x
+	right.y = 0.0
+	right = right.normalized()
+	var rel: Vector3 = ship_controller.global_position - t_pos
+	rel.y = 0.0
+
+	# LONG_GUNNER kite: inside its minimum range it simply opens the distance,
+	# aiming as far beyond the line as it is inside it.
+	var kite_min: float = float(ai_profile.kite_min_distance)
+	if _tactic() == AIProfileData.Tactic.LONG_GUNNER and dist < kite_min:
+		var away: Vector3 = rel.normalized() if rel.length_squared() > 0.0001 else -fwd
+		return t_pos + away * (kite_min + (kite_min - dist))
+
+	if not _bearing_valid:
+		# Start the filter where the hull actually is, so it swings round smoothly.
+		_smoothed_bearing = atan2(rel.dot(right), rel.dot(fwd))
+		_bearing_valid = true
+	var side: float = 1.0 if _smoothed_bearing >= 0.0 else -1.0
+	var goal: float = side * deg_to_rad(float(ai_profile.preferred_bearing_deg))
+	var tau: float = maxf(float(ai_profile.bearing_filter_seconds), 0.001)
+	_smoothed_bearing = wrapf(lerp_angle(_smoothed_bearing, goal, 1.0 - exp(-delta / tau)), -PI, PI)
+	var dir: Vector3 = fwd * cos(_smoothed_bearing) + right * sin(_smoothed_bearing)
+	return t_pos + dir * preferred_combat_distance
+
+
+func _apply_ammo_rules(dist: float) -> void:
+	## `AIProfileData.ammo_rules` — `{ammo id: max distance}`; the tightest band
+	## that still covers `dist` wins, otherwise `ammo_preference`.
+	if not ai_profile or not ship_combat or not ("ammo_rules" in ai_profile):
+		return
+	var rules: Dictionary = ai_profile.ammo_rules
+	if rules.is_empty():
+		return
+	var pick: String = str(ai_profile.ammo_preference)
+	var best: float = INF
+	for id in rules:
+		var max_d: float = float(rules[id])
+		if dist <= max_d and max_d < best:
+			best = max_d
+			pick = str(id)
+	if pick == _ammo_rule_id:
+		return
+	_ammo_rule_id = pick
+	var path := "res://resources/combat/ammo/%s.tres" % pick
+	if not ResourceLoader.exists(path):
+		push_error("EnemyAI: ammo_rules names unknown ammo id '%s'" % pick)
+		return
+	var ammo := load(path) as AmmoData
+	if ammo:
+		ship_combat.set_ammo(ammo)
 
 
 func _process_support(delta: float, ally: Node3D) -> void:
@@ -862,6 +987,10 @@ func _difficulty_detection_mult() -> float:
 func _change_state(new_state: AIState) -> void:
 	if new_state != AIState.ATTACK and _ram_active:
 		_end_ram_run()
+	if new_state != AIState.ATTACK:
+		_ram_telegraph_t = 0.0
+	if new_state != current_state:
+		_bearing_valid = false
 	if new_state == current_state:
 		return
 

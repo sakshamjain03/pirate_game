@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="KegConfigData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/KegConfigData.gd" id="1_keg"]
+
+; M30 W1 powder keg configuration (task 1.10).
+; Kegs are droppable consumables with area-of-effect detonation.
+[resource]
+script = ExtResource("1_keg")
+stock_per_sortie = 3
+detonation_radius = 30.0
+detonation_damage = 80.0

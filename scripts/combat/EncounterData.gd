@@ -98,6 +98,9 @@ enum Objective {
 @export_range(0, 5000) var bonus_gold: int = 0
 @export_range(0, 1000) var captain_xp: int = 50
 @export_range(0.0, 100.0) var notoriety_reward: float = 5.0
+## M30 1.13 — cosmetic achievements for this encounter (never gate content).
+## Each condition is evaluated on resolve; best count per encounter is saved.
+@export var star_conditions: Array[StarConditionData] = []
 
 @export_group("Pacing")
 ## How many temporary upgrade choices this battle offers (`docs/navalCombat.md`

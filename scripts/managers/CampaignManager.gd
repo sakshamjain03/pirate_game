@@ -41,6 +41,8 @@ var campaign_completed: bool = false
 
 var _objective_progress: Dictionary = {}   # objective_id -> int
 var _completed_objective_ids: Array[String] = []
+## M30 1.13 — best stars per encounter id, saved and omitted when empty
+var _encounter_best_stars: Dictionary = {}  # encounter_id -> Array of StarConditionData
 
 ## M28 — last-seen player/heat state the lesson triggers and new conditions
 ## compare against (a rise/fall is only visible relative to the previous value).
@@ -788,13 +790,17 @@ func _find_by_id(dir_path: String, id_field: String, id_value: String) -> Resour
 # === Save/load ===
 
 func get_save_data() -> Dictionary:
-	return {
+	var save_dict = {
 		"current_chapter_index": current_chapter_index,
 		"completed_chapter_ids": completed_chapter_ids.duplicate(),
 		"objective_progress": _objective_progress.duplicate(),
 		"completed_objective_ids": _completed_objective_ids.duplicate(),
 		"campaign_completed": campaign_completed,
 	}
+	## M30 1.13 — omit empty encounter_best_stars
+	if not _encounter_best_stars.is_empty():
+		save_dict["encounter_best_stars"] = _encounter_best_stars.duplicate()
+	return save_dict
 
 
 func load_save_data(data: Dictionary) -> void:
@@ -807,6 +813,8 @@ func load_save_data(data: Dictionary) -> void:
 	for id in data.get("completed_objective_ids", []):
 		_completed_objective_ids.append(str(id))
 	campaign_completed = bool(data.get("campaign_completed", false))
+	## M30 1.13 — restore encounter_best_stars (omitted when empty)
+	_encounter_best_stars = data.get("encounter_best_stars", {}).duplicate()
 	call_deferred("_catch_up")
 
 
@@ -830,6 +838,26 @@ func merge_eights_ledger(chapter_ids: Array) -> void:
 
 func has_paid_chapter_eights(chapter_id: String) -> bool:
 	return _chapter_eights_paid.has(chapter_id)
+
+
+## M30 1.13 — record encounter stars, keeping the best count if already recorded
+func record_encounter_stars(encounter_id: String, stars: Array) -> void:
+	if stars.is_empty():
+		# Omit empty entries
+		_encounter_best_stars.erase(encounter_id)
+		return
+	if not _encounter_best_stars.has(encounter_id):
+		_encounter_best_stars[encounter_id] = stars
+	else:
+		# Keep the best (most stars)
+		var existing = _encounter_best_stars[encounter_id] as Array
+		if stars.size() > existing.size():
+			_encounter_best_stars[encounter_id] = stars
+
+
+## M30 1.13 — retrieve best stars for an encounter, empty if never recorded
+func get_encounter_best_stars(encounter_id: String) -> Array:
+	return _encounter_best_stars.get(encounter_id, [])
 
 
 func _load_eights_ledger() -> void:

@@ -177,6 +177,15 @@ var _windup_t: Dictionary = {}
 ## M29 A.2: generation id to guard deferred callbacks from touching a respawned ship
 var _life_id := 0
 
+## M30 W1 (1.6) — Brace state and tracking
+var is_bracing: bool = false
+var is_perfect_bracing: bool = false
+var _brace_t: float = 0.0
+var _brace_cooldown_remaining: float = 0.0
+
+## M30 W1 (1.12) — Fury charge (0.0 to 1.0), fills from hits, rakes, perfect braces, kills.
+var fury: float = 0.0
+
 func _ready() -> void:
 	_apply_player_auto_fire_setting()
 	if not ship_stats:
@@ -479,11 +488,87 @@ func die() -> void:
 	# M29 A.2: invalidate pending reload callbacks
 	_life_id += 1
 	_cancel_windups()
+	cancel_brace()
 	died.emit()
 	# Handled by ShipController._on_died(), connected to this signal.
 
 
+## M30 W1 (1.6) — Apply Brace: reduce damage for a window, block firing.
+## Returns true if brace was applied, false if on cooldown or invalid.
+func apply_brace(brace_data: BraceData, is_perfect: bool = false) -> bool:
+	if not brace_data or is_brace_on_cooldown():
+		return false
+
+	is_bracing = true
+	is_perfect_bracing = is_perfect
+	_brace_t = brace_data.window
+
+	# Set damage reduction through CombatModifiers
+	var modifiers = _get_modifiers()
+	if modifiers:
+		var reduction = brace_data.perfect_reduction if is_perfect else brace_data.reduction
+		var damage_mult = 1.0 - reduction
+		modifiers.set_persistent_layer(&"brace", {"damage_taken": damage_mult})
+
+		# Perfect brace grants Fury
+		if is_perfect:
+			var fury_data = load("res://resources/balance/Fury.tres") as FuryData
+			if fury_data:
+				fury = minf(fury + brace_data.perfect_fury_grant, 1.0)
+
+	return true
+
+
+## M30 W1 (1.6) — Cancel Brace manually
+func cancel_brace() -> void:
+	if not is_bracing:
+		return
+
+	is_bracing = false
+	is_perfect_bracing = false
+	_brace_t = 0.0
+	_brace_cooldown_remaining = 0.0
+
+	var modifiers = _get_modifiers()
+	if modifiers:
+		modifiers.clear_persistent_layer(&"brace")
+
+
+## M30 W1 (1.6) — Check if Brace is on cooldown
+func is_brace_on_cooldown() -> bool:
+	return _brace_cooldown_remaining > 0.0
+
+
+## M30 W1 (1.12) — Check if special broadside is ready (cooldown or Fury)
+func is_special_ready() -> bool:
+	return is_special_broadside_ready() or fury >= 1.0
+
+
 func _physics_process(delta: float) -> void:
+	# M30 W1 (1.6) — Handle Brace duration
+	if is_bracing and _brace_t > 0.0:
+		_brace_t -= delta
+		if _brace_t <= 0.0:
+			_brace_t = 0.0
+			is_bracing = false
+			is_perfect_bracing = false
+
+			# Start cooldown
+			var brace_data = load("res://resources/balance/Brace.tres") as BraceData
+			if brace_data:
+				_brace_cooldown_remaining = brace_data.cooldown
+
+			# Remove damage reduction
+			var modifiers = _get_modifiers()
+			if modifiers:
+				modifiers.clear_persistent_layer(&"brace")
+
+	# M30 W1 (1.6) — Handle Brace cooldown
+	if _brace_cooldown_remaining > 0.0:
+		_brace_cooldown_remaining -= delta
+		if _brace_cooldown_remaining <= 0.0:
+			_brace_cooldown_remaining = 0.0
+
 	if _special_cooldown_remaining > 0.0:
 		_special_cooldown_remaining -= delta
 		if _special_cooldown_remaining <= 0.0:
@@ -597,7 +682,8 @@ func fire_special_broadside() -> bool:
 	## The player-timed full volley of `docs/navalCombat.md` §4: both sides at
 	## once, at a damage premium, ignoring the per-side reload but gated on its
 	## own longer cooldown. This is the active verb that replaces tapping.
-	if not ship_stats or not is_special_broadside_ready():
+	## M30 W1 (1.12) — Fury also makes the special ready early.
+	if not ship_stats or not is_special_ready():
 		return false
 
 	var dmg = _get_damage()
@@ -642,7 +728,11 @@ func fire_special_broadside() -> bool:
 func fire_broadside(side: String) -> bool:
 	if not ship_stats:
 		return false
-		
+
+	# M30 W1 (1.6) — Cannot fire while bracing
+	if is_bracing:
+		return false
+
 	var parent = get_parent()
 	var dmg = parent.get_node_or_null("ShipDamage") if parent else null
 	if dmg and dmg.crew <= 0.0:

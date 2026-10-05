@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BraceData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/BraceData.gd" id="1_brace"]
+
+[resource]
+script = ExtResource("1_brace")
+reduction = 0.4
+window = 1.0
+perfect_window = 0.2
+perfect_reduction = 0.6
+cooldown = 3.0
+perfect_fury_grant = 0.25

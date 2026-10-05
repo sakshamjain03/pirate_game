@@ -77,7 +77,7 @@ func get_pool_maximum(pool: String) -> float:
 func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: Node = null) -> void:
 	if _is_destroyed or not ship_stats or not ammo:
 		return
-		
+
 	var total_amount = amount
 
 	# M11 Requirement 4 — per-facing armor, extending the existing stern-crit
@@ -86,6 +86,11 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 	var facing_mult = ship_stats.broadside_armor_multiplier
 	var facing: StringName = &"beam"
 	var parent = get_parent()
+
+	# M30 W1 (1.6) — Brace and other effects reduce incoming damage
+	var modifiers = parent.get_node_or_null("CombatModifiers") if parent else null
+	if modifiers:
+		total_amount *= modifiers.damage_taken_mult
 	if parent and parent is Node3D:
 		var hit_dir_flat = Vector3(hit_direction.x, 0.0, hit_direction.z).normalized()
 		if hit_dir_flat.length_squared() > 0.01:
@@ -135,11 +140,34 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 		apply_speed_penalty(ammo.speed_penalty, ammo.speed_penalty_duration)
 
 	var ammo_id := StringName(ammo.ammo_id)
-	hit_resolved.emit(source, facing, _applied_deltas(before), ammo_id,
-		PackedStringArray(["ammo:%s" % ammo_id, "facing:%s" % facing]))
+	var hit_tags = PackedStringArray(["ammo:%s" % ammo_id, "facing:%s" % facing])
+	hit_resolved.emit(source, facing, _applied_deltas(before), ammo_id, hit_tags)
+
+	# M30 W1 (1.12) — Fill the attacker's Fury when they hit
+	if source and source.has_node("ShipCombat"):
+		var source_combat = source.get_node("ShipCombat") as ShipCombat
+		if source_combat:
+			var damage_dealt = float(_applied_deltas(before).get("hull", 0.0))
+			if damage_dealt > 0.0:
+				var fury_data = load("res://resources/balance/Fury.tres") as FuryData
+				if fury_data:
+					var is_rake = facing == &"stern" or facing == &"bow"
+					var fill = damage_dealt * fury_data.fury_per_hit
+					if is_rake:
+						fill *= fury_data.rake_multiplier
+					source_combat.fury = minf(source_combat.fury + fill, 1.0)
 
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
+
+		# M30 W1 (1.12) — Grant Fury to the killer
+		if source and source.has_node("ShipCombat"):
+			var source_combat = source.get_node("ShipCombat") as ShipCombat
+			if source_combat:
+				var fury_data = load("res://resources/balance/Fury.tres") as FuryData
+				if fury_data:
+					source_combat.fury = minf(source_combat.fury + fury_data.fury_on_kill, 1.0)
+
 		destroyed.emit()
 
 func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: float = 0.0,
@@ -151,8 +179,16 @@ func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: floa
 	## already accounts for where the hulls met. Same pool/destroyed contract.
 	if _is_destroyed or not ship_stats or amount <= 0.0:
 		return
+
+	# M30 W1 (1.6) — Brace and other effects reduce incoming damage
+	var modified_amount = amount
+	var parent = get_parent()
+	var modifiers = parent.get_node_or_null("CombatModifiers") if parent else null
+	if modifiers:
+		modified_amount *= modifiers.damage_taken_mult
+
 	var before := {"hull": hull, "sails": sails, "crew": crew}
-	hull = clamp(hull - amount, 0.0, get_pool_maximum("hull"))
+	hull = clamp(hull - modified_amount, 0.0, get_pool_maximum("hull"))
 	pool_changed.emit("hull", hull, get_pool_maximum("hull"))
 
 	var crew_dmg: float = amount * crew_fraction

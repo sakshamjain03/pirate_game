@@ -6,7 +6,13 @@ signal pool_changed(pool: String, current: float, maximum: float)
 ## cannot tell those apart from an actual repair (REPAIR_SHIP objective).
 signal repaired(pool: String, amount: float)
 signal destroyed()
-## W0-4.8: emitted on every hit and impact for damage feedback and W2 boarding deck builder
+## M30 0.18 — one event per resolved cannon hit or collision, emitted BEFORE
+## `destroyed` so a killing blow is seen as a hit first. The single bus for
+## combat feedback (floating damage, Fury, ribbons, statuses, morale, the
+## Wave 2 boarding deck). `source` is the firing ship when known (else null);
+## `facing` is &"stern"/&"bow"/&"beam" (&"impact" for collisions);
+## `pool_deltas` holds the damage actually applied per pool (positive,
+## after clamping); `hit_tags` are "ammo:<id>" and "facing:<facing>".
 signal hit_resolved(source: Node, facing: StringName, pool_deltas: Dictionary, ammo_id: StringName, hit_tags: PackedStringArray)
 
 @export var ship_stats: ShipStats
@@ -68,7 +74,7 @@ func get_pool_maximum(pool: String) -> float:
 		"crew": return ship_stats.max_crew
 	return 0.0
 
-func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
+func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: Node = null) -> void:
 	if _is_destroyed or not ship_stats or not ammo:
 		return
 		
@@ -78,6 +84,7 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 	# model. Priority: stern (unchanged, existing behavior) > bow > broadside
 	# baseline default — a hit lands in exactly one facing.
 	var facing_mult = ship_stats.broadside_armor_multiplier
+	var facing: StringName = &"beam"
 	var parent = get_parent()
 	if parent and parent is Node3D:
 		var hit_dir_flat = Vector3(hit_direction.x, 0.0, hit_direction.z).normalized()
@@ -92,6 +99,7 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 				# If the hit came from within the stern arc
 				if angle <= ship_stats.stern_arc_degrees * 0.5:
 					facing_mult = ship_stats.stern_crit_multiplier
+					facing = &"stern"
 					stern_hit = true
 
 			if not stern_hit and ship_stats.bow_arc_degrees > 0.0:
@@ -102,13 +110,15 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 
 				if bow_angle <= ship_stats.bow_arc_degrees * 0.5:
 					facing_mult = ship_stats.bow_armor_multiplier
+					facing = &"bow"
 
 	total_amount *= facing_mult
 
 	var hull_dmg = total_amount * ammo.hull_damage_mult
 	var sail_dmg = total_amount * ammo.sail_damage_mult
 	var crew_dmg = total_amount * ammo.crew_damage_mult
-	
+	var before := {"hull": hull, "sails": sails, "crew": crew}
+
 	if hull_dmg > 0.0:
 		hull = clamp(hull - hull_dmg, 0.0, get_pool_maximum("hull"))
 		pool_changed.emit("hull", hull, get_pool_maximum("hull"))
@@ -124,19 +134,13 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 	if ammo.speed_penalty > 0.0 and ammo.speed_penalty_duration > 0.0:
 		apply_speed_penalty(ammo.speed_penalty, ammo.speed_penalty_duration)
 
+	var ammo_id := StringName(ammo.ammo_id)
+	hit_resolved.emit(source, facing, _applied_deltas(before), ammo_id,
+		PackedStringArray(["ammo:%s" % ammo_id, "facing:%s" % facing]))
+
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
 		destroyed.emit()
-
-	# W0-4.8: emit hit_resolved for damage feedback and boarding deck builder
-	var facing: StringName = &"beam"
-	if facing_mult == ship_stats.stern_crit_multiplier:
-		facing = &"stern"
-	elif facing_mult == ship_stats.bow_armor_multiplier:
-		facing = &"bow"
-	var pool_deltas = {"hull": -hull_dmg, "sails": -sail_dmg, "crew": -crew_dmg}
-	var ammo_id = ammo.resource_name if ammo else &""
-	hit_resolved.emit(null, facing, pool_deltas, ammo_id, PackedStringArray())
 
 func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: float = 0.0,
 		penalty_duration: float = 0.0) -> void:
@@ -147,6 +151,7 @@ func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: floa
 	## already accounts for where the hulls met. Same pool/destroyed contract.
 	if _is_destroyed or not ship_stats or amount <= 0.0:
 		return
+	var before := {"hull": hull, "sails": sails, "crew": crew}
 	hull = clamp(hull - amount, 0.0, get_pool_maximum("hull"))
 	pool_changed.emit("hull", hull, get_pool_maximum("hull"))
 
@@ -158,13 +163,24 @@ func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: floa
 	if speed_penalty > 0.0 and penalty_duration > 0.0:
 		apply_speed_penalty(speed_penalty, penalty_duration)
 
+	hit_resolved.emit(null, &"impact", _applied_deltas(before), &"impact",
+		PackedStringArray(["ammo:impact", "facing:impact"]))
+
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
 		destroyed.emit()
 
-	# W0-4.8: emit hit_resolved for damage feedback
-	var pool_deltas = {"hull": -amount, "crew": -crew_dmg}
-	hit_resolved.emit(null, &"beam", pool_deltas, &"impact", PackedStringArray())
+
+## Damage actually applied per pool since `before` (positive; pools that took
+## none are omitted).
+func _applied_deltas(before: Dictionary) -> Dictionary:
+	var out := {}
+	var now := {"hull": hull, "sails": sails, "crew": crew}
+	for pool in now:
+		var d: float = float(before[pool]) - float(now[pool])
+		if d > 0.0:
+			out[pool] = d
+	return out
 
 
 func is_destroyed() -> bool:

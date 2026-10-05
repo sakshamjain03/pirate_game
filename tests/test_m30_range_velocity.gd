@@ -1,53 +1,74 @@
 extends GutTest
+## M30 Wave 0 (0.13, B2): CombatModifiers.range_mult widened the FiringSolver's
+## reach but never the ball's launch speed, so every range bonus (the existing
+## CANNON_RANGE upgrade included) aimed at targets its shots fell short of. A
+## level shot's flight time is set by height and gravity alone, so reach is
+## proportional to launch speed: range_mult must scale that speed. Direction
+## must stay the hull-basis broadside (CLAUDE.md fragile area).
 
-# test_m30_range_velocity.gd
-# Task 0.13: cannonball speed scales with range multiplier, direction stays basis-derived.
+class MockShip extends RigidBody3D:
+	var active_captain: CaptainData = null
 
-var _mods: CombatModifiers
-
-
-func before_each():
-	_mods = CombatModifiers.new()
-
-
-func test_modifiers_range_mult_applies():
-	# Verify that CombatModifiers properly exposes and recomputes range_mult
-	assert_eq(_mods.range_mult, 1.0, "Default range_mult should be 1.0")
-
-	# Apply a range multiplier upgrade
-	var upgrade = BattleUpgradeData.new()
-	upgrade.effect = BattleUpgradeData.Effect.CANNON_RANGE
-	upgrade.magnitude = 1.2
-	upgrade.upgrade_id = "test_range"
-	upgrade.max_stacks = 1
-
-	_mods.apply_upgrade(upgrade)
-	assert_eq(_mods.range_mult, 1.2, "Range mult should be 1.2 after upgrade")
+var _scene: Node3D
 
 
-func test_range_multiplier_stacks():
-	# Multiple range upgrades should stack multiplicatively
-	_mods._base["range"] = 1.5
-	_mods._recompute()
-
-	assert_eq(_mods.range_mult, 1.5, "Range mult should be 1.5")
-
-	# A second upgrade should stack multiplicatively
-	var upgrade = BattleUpgradeData.new()
-	upgrade.effect = BattleUpgradeData.Effect.CANNON_RANGE
-	upgrade.magnitude = 1.2
-	upgrade.upgrade_id = "test_range_2"
-	upgrade.max_stacks = 1
-
-	_mods.apply_upgrade(upgrade)
-	assert_almost_eq(_mods.range_mult, 1.8, 0.001, "Range mult should be 1.5 * 1.2 = 1.8")
+func before_each() -> void:
+	_scene = Node3D.new()
+	get_tree().root.add_child(_scene)
+	get_tree().current_scene = _scene
 
 
-func test_reset_clears_range_modifiers():
-	# Verify that reset() clears all modifiers including range
-	_mods._base["range"] = 2.0
-	_mods._recompute()
-	assert_eq(_mods.range_mult, 2.0)
+func after_each() -> void:
+	if get_tree().current_scene == _scene:
+		get_tree().current_scene = null
+	_scene.queue_free()
 
-	_mods.reset()
-	assert_eq(_mods.range_mult, 1.0, "Range mult should be 1.0 after reset")
+
+func _launch_speed(range_mult: float) -> Vector3:
+	var stats := ShipStats.new()
+	stats.cannon_speed = 100.0
+	var ship := MockShip.new()
+	ship.freeze = true
+	var m := Marker3D.new()
+	m.name = "StarboardMarker1"
+	m.position = Vector3(2.2, 1.7, 0.0)
+	ship.add_child(m)
+	var mods := CombatModifiers.new()
+	mods.name = "CombatModifiers"
+	ship.add_child(mods)
+	var combat := ShipCombat.new()
+	combat.name = "ShipCombat"
+	combat.ship_stats = stats
+	combat.auto_fire_enabled = false
+	# No aim error: this pins speed and direction, not the M23 spread.
+	var cfg: CannonConfigData = load("res://resources/combat/CannonConfig.tres").duplicate()
+	cfg.base_spread_degrees = 0.0
+	cfg.off_beam_spread_degrees = 0.0
+	cfg.range_spread_degrees = 0.0
+	combat.cannon_config = cfg
+	ship.add_child(combat)
+	_scene.add_child(ship)
+	mods._base["range"] = range_mult
+	mods._recompute()
+	combat._spawn_cannonball(m, "starboard")
+	var ball: Cannonball = null
+	for c in _scene.get_children():
+		if c is Cannonball:
+			ball = c  # the newest one: earlier calls in this test share _scene
+	ship.queue_free()
+	return ball.linear_velocity if ball else Vector3.ZERO
+
+
+func test_range_bonus_scales_launch_speed() -> void:
+	var base := _launch_speed(1.0)
+	var boosted := _launch_speed(1.5)
+	assert_gt(base.length(), 0.0, "no cannonball was spawned")
+	assert_almost_eq(boosted.length() / base.length(), 1.5, 0.05,
+		"a 1.5x range bonus must launch the ball 1.5x as fast, or it falls short")
+
+
+func test_range_bonus_never_turns_the_shot() -> void:
+	var boosted := _launch_speed(1.5)
+	var flat := Vector3(boosted.x, 0.0, boosted.z).normalized()
+	assert_gt(flat.dot(Vector3.RIGHT), 0.95,
+		"starboard shot must still leave along the hull's +X beam")

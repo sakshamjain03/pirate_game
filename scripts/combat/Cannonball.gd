@@ -91,7 +91,7 @@ func _on_body_entered(body: Node) -> void:
 
 		var dmg = body.get_node_or_null("ShipDamage")
 		if dmg:
-			dmg.apply_hit(hit_damage, hit_ammo, hit_dir)
+			dmg.apply_hit(hit_damage, hit_ammo, hit_dir, source_ship if is_instance_valid(source_ship) else null)
 		elif body.has_method("take_damage"):
 			body.take_damage(hit_damage, hit_ammo, hit_dir)
 		elif body.has_node("ShipCombat"):

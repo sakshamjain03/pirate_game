@@ -200,6 +200,11 @@ func _ready() -> void:
 			dmg.destroyed.connect(Callable(self, "die"))
 		if not dmg.is_connected("pool_changed", Callable(self, "_on_pool_changed")):
 			dmg.pool_changed.connect(Callable(self, "_on_pool_changed"))
+		# M30 0.18 / B12 — floating damage follows every resolved hit, so a
+		# cannonball (which calls ShipDamage.apply_hit() directly, never
+		# take_damage()) finally shows its number.
+		if not dmg.hit_resolved.is_connected(_on_hit_resolved):
+			dmg.hit_resolved.connect(_on_hit_resolved)
 			
 		call_deferred("emit_signal", "health_changed", dmg.hull, dmg.get_effective_max_health())
 	else:
@@ -434,16 +439,33 @@ func take_damage(amount: float, ammo: AmmoData = null, hit_direction: Vector3 = 
 		if _fallback_health <= 0:
 			_fallback_health = 0.0
 			die()
+		# The ShipDamage path above shows its number via hit_resolved.
+		_spawn_floating_damage(amount)
 
-	# Spawn floating text (skipped with no current scene, e.g. a test tree)
-	if floating_damage_scene and get_tree().current_scene:
-		var text = floating_damage_scene.instantiate()
-		text.damage_amount = amount
-		get_tree().current_scene.add_child(text)
-		
-		# Position slightly above the ship with random jitter
-		var jitter = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0))
-		text.global_position = parent.global_position + Vector3(0, 3.0, 0) + jitter
+
+func _on_hit_resolved(_source: Node, facing: StringName, pool_deltas: Dictionary,
+		_ammo_id: StringName, _hit_tags: PackedStringArray) -> void:
+	# Collisions already show their own number (ShipCollisionHandler).
+	if facing == &"impact":
+		return
+	var total := 0.0
+	for pool in pool_deltas:
+		total += float(pool_deltas[pool])
+	if total > 0.0:
+		_spawn_floating_damage(total)
+
+
+func _spawn_floating_damage(amount: float) -> void:
+	# Skipped with no current scene, e.g. a test tree.
+	var parent = get_parent()
+	if not floating_damage_scene or not get_tree() or not get_tree().current_scene or not parent:
+		return
+	var text = floating_damage_scene.instantiate()
+	text.damage_amount = amount
+	get_tree().current_scene.add_child(text)
+	# Position slightly above the ship with random jitter
+	var jitter = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0))
+	text.global_position = parent.global_position + Vector3(0, 3.0, 0) + jitter
 
 func die() -> void:
 	# M29 A.2: invalidate pending reload callbacks

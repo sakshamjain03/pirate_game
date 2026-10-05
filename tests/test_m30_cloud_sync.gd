@@ -275,3 +275,12 @@ func test_status_reports_failing_since_and_recovers() -> void:
 	await wait_process_frames(3)
 	assert_eq(SaveManager.sync_state, SaveManager.SYNC_OK)
 	assert_string_contains(SaveManager.get_sync_status_text(), "up to date")
+
+
+func test_settings_and_hud_listen_for_sync_status() -> void:
+	var settings_src := FileAccess.get_file_as_string("res://scripts/ui/SettingsMenu.gd")
+	assert_string_contains(settings_src, "SaveManager.get_sync_status_text()",
+		"Settings > Account shows the sync line")
+	var hud: Node = load("res://scripts/ui/WorldHUD.gd").new()
+	assert_true(hud.has_method("_on_sync_status_changed"), "the HUD announces failing/blocked sync")
+	hud.free()

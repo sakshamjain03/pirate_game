@@ -988,6 +988,15 @@ func _build_signed_in_account_ui() -> void:
 	var status_label := _make_row_label(tr("Signed in"))
 	card.add_child(status_label)
 
+	# M30 0.10 — cloud sync health, so a paused backend or a held upload is
+	# visible instead of failing silently.
+	var sync_label := _make_row_label(SaveManager.get_sync_status_text())
+	sync_label.name = "SyncStatusLabel"
+	sync_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.add_child(sync_label)
+	if not SaveManager.sync_status_changed.is_connected(_on_sync_status_changed):
+		SaveManager.sync_status_changed.connect(_on_sync_status_changed)
+
 	var sign_out_button := Button.new()
 	sign_out_button.text = tr("Sign Out")
 	sign_out_button.custom_minimum_size = Vector2(0, 44)
@@ -1001,6 +1010,12 @@ func _build_signed_in_account_ui() -> void:
 	delete_button.custom_minimum_size = Vector2(0, 44)
 	delete_button.pressed.connect(_on_delete_account_pressed)
 	card.add_child(delete_button)
+
+func _on_sync_status_changed(_state: StringName, _since: int) -> void:
+	var label := account_vbox.find_child("SyncStatusLabel", true, false) as Label
+	if label:
+		label.text = SaveManager.get_sync_status_text()
+
 
 func _on_sign_up_pressed() -> void:
 	auth_manager.sign_up(_account_email_field.text, _account_password_field.text)

@@ -179,6 +179,10 @@ func _ready() -> void:
 		SaveManager.game_loaded.connect(_check_offline_return)
 	if SaveManager.has_signal("load_failed") and not SaveManager.load_failed.is_connected(_on_save_load_failed):
 		SaveManager.load_failed.connect(_on_save_load_failed)
+	# M30 0.10 — say once when cloud sync starts failing or saving is paused;
+	# the full line lives in Settings > Account.
+	if SaveManager.has_signal("sync_status_changed") and not SaveManager.sync_status_changed.is_connected(_on_sync_status_changed):
+		SaveManager.sync_status_changed.connect(_on_sync_status_changed)
 	# M14 Requirement 5.2 — deliberately no immediate call here (unlike
 	# _check_offline_return() above): a version-string comparison has no safe
 	# default before World._seed_whats_new_version()/SaveManager.load_game()
@@ -1947,6 +1951,11 @@ func _on_world_event_triggered(event_name: String, _data: Dictionary) -> void:
 	if String(title).is_empty():
 		return  # deliberately silent (e.g. ship_docked — the dock UI already says it)
 	queue_announcement(tr(title))
+
+
+func _on_sync_status_changed(state: StringName, _since: int) -> void:
+	if state == SaveManager.SYNC_FAILING or state == SaveManager.SYNC_BLOCKED:
+		queue_announcement(SaveManager.get_sync_status_text())
 
 
 func _on_encounter_failed(_encounter_id: String, reason: String) -> void:

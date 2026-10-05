@@ -118,15 +118,6 @@ var _ram_eval_timer: float = 0.0
 
 
 func _ready() -> void:
-	if ai_profile:
-		aggression = ai_profile.get("aggression")
-		preferred_combat_distance = ai_profile.get("preferred_combat_distance")
-		flee_health_threshold = ai_profile.get("flee_health_threshold")
-		broadside_angle_tolerance = ai_profile.get("broadside_angle_tolerance")
-		if "ram_tendency" in ai_profile:
-			ram_tendency = ai_profile.ram_tendency
-			ram_max_distance = ai_profile.ram_max_distance
-		
 	ship_controller = get_parent() as ShipController
 	if not ship_controller:
 		push_error("EnemyAI: Must be a child of a ShipController!")
@@ -139,16 +130,9 @@ func _ready() -> void:
 	# which runs after this child's.
 	call_deferred("_connect_collision_handler")
 
-	# Feed the profile's gun-crew discipline into the shared solver instead of
-	# keeping a second copy of the arc check here.
-	if firing_solver and broadside_angle_tolerance > 0.0:
-		firing_solver.arc_override_degrees = broadside_angle_tolerance
-
-	if ai_profile and ship_combat:
-		var ammo_path = "res://resources/combat/ammo/" + ai_profile.get("ammo_preference") + ".tres"
-		var ammo_res = load(ammo_path)
-		if ammo_res:
-			ship_combat.current_ammo = ammo_res
+	# Apply the AI profile (behavior, ammo, etc.)
+	if ai_profile:
+		apply_profile(ai_profile)
 
 	# Remember spawn position as home for patrol routes
 	home_position = ship_controller.global_position
@@ -160,6 +144,33 @@ func _ready() -> void:
 	call_deferred("_find_player")
 
 	_change_state(AIState.PATROL)
+
+
+func apply_profile(p: AIProfileData) -> void:
+	## Apply or re-apply an AI profile to this ship after _ready().
+	## Updates behavior parameters, firing solver settings, and ammo.
+	if not p:
+		return
+
+	ai_profile = p
+	aggression = p.get("aggression")
+	preferred_combat_distance = p.get("preferred_combat_distance")
+	flee_health_threshold = p.get("flee_health_threshold")
+	broadside_angle_tolerance = p.get("broadside_angle_tolerance")
+	if "ram_tendency" in p:
+		ram_tendency = p.ram_tendency
+		ram_max_distance = p.ram_max_distance
+
+	# Feed the profile's gun-crew discipline into the shared solver instead of
+	# keeping a second copy of the arc check here.
+	if firing_solver and broadside_angle_tolerance > 0.0:
+		firing_solver.arc_override_degrees = broadside_angle_tolerance
+
+	if ship_combat:
+		var ammo_path = "res://resources/combat/ammo/" + p.get("ammo_preference") + ".tres"
+		var ammo_res = load(ammo_path)
+		if ammo_res:
+			ship_combat.current_ammo = ammo_res
 
 
 func _connect_collision_handler() -> void:
@@ -202,6 +213,16 @@ func _find_nearest_hostile_enemy() -> ShipController:
 		var dmg = node.get_node_or_null("ShipDamage")
 		if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
 			continue
+
+		# Friendly AI only engages provoked or engaging hostiles.
+		# If this ship is friendly, check if the target's AI would engage.
+		if ship_controller.is_in_group("friendly_ship"):
+			var target_ai = node.get_node_or_null("EnemyAI")
+			if target_ai:
+				# Skip passive enemies (not provoked and would not engage without provocation)
+				if not target_ai.is_provoked() and not target_ai._may_engage_player():
+					continue
+
 		var d: float = ship_controller.global_position.distance_to(node.global_position)
 		# Bounded like every other detection path here (_can_detect_player()) —
 		# an ally has no reason to omnisciently lock onto a hostile clear across
@@ -402,7 +423,13 @@ func _find_wounded_ally() -> Node3D:
 
 	var best: Node3D = null
 	var best_dist := INF
-	for node in get_tree().get_nodes_in_group("enemy_ship"):
+
+	# Friendly support heals only its own side (friendly ships).
+	# If the support ship is in the friendly_ship group, search friendly_ship.
+	# Otherwise (enemy support), search enemy_ship.
+	var search_group := "friendly_ship" if ship_controller.is_in_group("friendly_ship") else "enemy_ship"
+
+	for node in get_tree().get_nodes_in_group(search_group):
 		if node == ship_controller or not is_instance_valid(node):
 			continue
 		var dmg = node.get_node_or_null("ShipDamage")

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="HeatTierData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
-[ext_resource type="Resource" path="res://resources/combat/squads/TestSquad1_RaiderSupport.tres" id="2_squad1"]
+[ext_resource type="Resource" path="res://resources/combat/squads/Squad1_RaiderSupport.tres" id="2_sq1"]
 
 [resource]
 script = ExtResource("1_heat")
@@ -12,6 +12,6 @@ max_ambient_enemies = 2
 spawn_interval_seconds = 45.0
 enemy_strength_multiplier = 1.0
 engages_unprovoked = false
-squad_pool = [ExtResource("2_squad1")]
+squad_pool = [ExtResource("2_sq1")]
 decay_per_minute = 1.0
 clear_cost_eights = 0

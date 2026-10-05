@@ -1,19 +1,18 @@
-[gd_resource type="Resource" script_class="HeatTierData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="HeatTierData" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
-[ext_resource type="Resource" path="res://resources/combat/squads/TestSquad4_RaiderDuo.tres" id="2_sq4"]
-[ext_resource type="Resource" path="res://resources/combat/squads/TestSquad5_TankDuo.tres" id="3_sq5"]
-[ext_resource type="Resource" path="res://resources/combat/squads/TestSquad6_Mixed.tres" id="4_sq6"]
+[ext_resource type="Resource" path="res://resources/combat/squads/Squad4_RakerLongGunner.tres" id="2_sq4"]
+[ext_resource type="Resource" path="res://resources/combat/squads/Squad5_DualAggressive.tres" id="3_sq5"]
 
 [resource]
 script = ExtResource("1_heat")
 tier = 4
 display_name = "Scourge"
-min_notoriety = 150.0
-max_ambient_enemies = 6
-spawn_interval_seconds = 20.0
-enemy_strength_multiplier = 1.5
+min_notoriety = 80.0
+max_ambient_enemies = 5
+spawn_interval_seconds = 25.0
+enemy_strength_multiplier = 1.3
 engages_unprovoked = true
-squad_pool = [ExtResource("2_sq4"), ExtResource("3_sq5"), ExtResource("4_sq6")]
+squad_pool = [ExtResource("2_sq4"), ExtResource("3_sq5")]
 decay_per_minute = 5.0
-clear_cost_eights = 35
+clear_cost_eights = 40

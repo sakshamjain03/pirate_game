@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="RegionData" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="RegionData" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
 [ext_resource type="Resource" path="res://resources/ships/Galleon.tres" id="2_galleon"]
@@ -6,6 +6,7 @@
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/AggressiveGalleon.tres" id="ai_0"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/ArtilleryFrigate.tres" id="ai_1"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/SupportGalleon.tres" id="ai_2"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/RamRunner.tres" id="ai_3"]
 
 [resource]
 script = ExtResource("1_reg")
@@ -22,5 +23,5 @@ enemy_ship_pool = Array[ShipStats]([ExtResource("2_galleon"), ExtResource("3_man
 wind_strength = 0.9
 wind_direction_degrees = 270.0
 content_enabled = false
-enemy_profile_pool = Array[AIProfileData]([ExtResource("ai_0"), ExtResource("ai_1"), ExtResource("ai_2")])
-enemy_profile_weights = PackedFloat32Array(2, 1, 1)
+enemy_profile_pool = Array[AIProfileData]([ExtResource("ai_0"), ExtResource("ai_1"), ExtResource("ai_2"), ExtResource("ai_3")])
+enemy_profile_weights = PackedFloat32Array(2, 1, 1, 1)

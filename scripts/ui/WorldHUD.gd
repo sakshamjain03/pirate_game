@@ -1949,7 +1949,10 @@ func _on_world_event_triggered(event_name: String, _data: Dictionary) -> void:
 	queue_announcement(tr(title))
 
 
-func _on_encounter_failed(_encounter_id: String, _reason: String) -> void:
+func _on_encounter_failed(_encounter_id: String, reason: String) -> void:
+	# A refusal because a battle is already running is not news to the player.
+	if reason == EncounterManager.REASON_BUSY:
+		return
 	# Quiet: the details are in the push_error log; the player only needs to know
 	# nothing is coming.
 	queue_announcement(tr("The encounter never formed — the sea is quiet again."))

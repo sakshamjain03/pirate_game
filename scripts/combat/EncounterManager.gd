@@ -33,6 +33,9 @@ signal ship_destroyed(ship: Node3D)
 signal upgrade_offer_requested(choices: Array, offer_index: int, total_offers: int)
 ## M29 A.4: encounter startup failed validation
 signal encounter_failed(encounter_id: String, reason: String)
+## M30 0.16 — encounter_failed's reason when one is already running. Callers
+## (and tests) see the refusal; the HUD stays quiet about it.
+const REASON_BUSY := "busy"
 
 enum Outcome { VICTORY, DEFEAT, ESCAPED }
 
@@ -65,6 +68,8 @@ var _allies: Array[Node3D] = []
 var _kills: int = 0
 var _elapsed: float = 0.0
 var _centre: Vector3 = Vector3.ZERO
+## M30 0.16 — ambient hulls parked for the current encounter (see _park_ambient).
+var _parked: Array = []
 var _ambient_timer: float = 0.0
 var _offers_made: int = 0
 var _offer_timer: float = 0.0
@@ -137,7 +142,12 @@ func _validate(data: EncounterData) -> String:
 	return ""  # Valid
 
 func start_encounter(data: EncounterData) -> bool:
-	if not data or is_active():
+	if not data:
+		return false
+	# M30 0.16 (B6) — one encounter at a time. A second used to return false
+	# silently, which callers could not tell from a broken encounter.
+	if is_active():
+		encounter_failed.emit(data.encounter_id, REASON_BUSY)
 		return false
 
 	# M29 A.4: validate before anything else — bad data is bad with or without a
@@ -171,6 +181,7 @@ func start_encounter(data: EncounterData) -> bool:
 	if _spawner and "spawning_enabled" in _spawner:
 		_spawner.spawning_enabled = false
 
+	_park_ambient(data)
 	_spawn_composition(data)
 	if data.objective == EncounterData.Objective.PROTECT_TARGET:
 		_spawn_escort(data)
@@ -334,6 +345,49 @@ func _resolve(outcome: int) -> void:
 func _restore_spawning() -> void:
 	if _spawner and "spawning_enabled" in _spawner:
 		_spawner.spawning_enabled = true
+	_unpark_ambient()
+
+
+## M30 0.16 (B6) — ambient traffic near the centre sits the battle out:
+## hidden, removed from physics (PROCESS_MODE_DISABLED drops a body from the
+## space) and from the targeting groups, then restored where it was. A hull
+## the player has already provoked stays in — it is part of this fight.
+func _park_ambient(data: EncounterData) -> void:
+	_parked.clear()
+	if data.ambient_clear_radius <= 0.0:
+		return
+	for node in get_tree().get_nodes_in_group("ambient_enemy"):
+		if not is_instance_valid(node) or not (node is Node3D):
+			continue
+		var offset: Vector3 = node.global_position - _centre
+		if Vector2(offset.x, offset.z).length() > data.ambient_clear_radius:
+			continue
+		var ai = node.get_node_or_null("EnemyAI")
+		if ai and ai.has_method("is_provoked") and ai.is_provoked():
+			continue
+		var groups: Array = []
+		for g in ["enemy_ship", "ambient_enemy"]:
+			if node.is_in_group(g):
+				groups.append(g)
+				node.remove_from_group(g)
+		_parked.append({"node": node, "groups": groups,
+			"process_mode": node.process_mode, "visible": node.visible})
+		node.add_to_group("parked_ambient")
+		node.process_mode = Node.PROCESS_MODE_DISABLED
+		node.visible = false
+
+
+func _unpark_ambient() -> void:
+	for p in _parked:
+		var node = p["node"]
+		if not is_instance_valid(node):
+			continue
+		node.remove_from_group("parked_ambient")
+		for g in p["groups"]:
+			node.add_to_group(g)
+		node.process_mode = p["process_mode"]
+		node.visible = p["visible"]
+	_parked.clear()
 
 
 func _despawn_remaining() -> void:

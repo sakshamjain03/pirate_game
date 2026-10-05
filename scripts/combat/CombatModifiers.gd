@@ -49,6 +49,15 @@ var _base := _neutral()
 var _timed: Array[Dictionary] = []
 
 var _applied: Array[BattleUpgradeData] = []
+# M30 0.16 (B7) — persistent layer: effects owned by something that outlives a
+# battle (crew stations, statuses, Fury, Brace), keyed by source id and set /
+# cleared only by that owner. reset() used to wipe every layer at encounter end.
+var _persistent: Dictionary = {}
+
+## M30 0.16 — how long a layer lives. ENCOUNTER = battle upgrades (_base),
+## cleared by reset(); TIMED = add_timed_effect(), expires on its own clock;
+## PERSISTENT = set_persistent_layer(), only its owner clears it.
+enum Lifetime { ENCOUNTER, TIMED, PERSISTENT }
 
 
 static func _neutral() -> Dictionary:
@@ -59,11 +68,27 @@ static func _neutral() -> Dictionary:
 	}
 
 
+## Clears the ENCOUNTER layer only (M30 0.16): battle upgrades end with the
+## battle; timed effects run out their own clock; persistent layers belong to
+## their owners.
 func reset() -> void:
 	_base = _neutral()
-	_timed.clear()
 	_applied.clear()
 	_recompute()
+
+
+func set_persistent_layer(id: StringName, effects: Dictionary) -> void:
+	_persistent[id] = effects.duplicate()
+	_recompute()
+
+
+func clear_persistent_layer(id: StringName) -> void:
+	if _persistent.erase(id):
+		_recompute()
+
+
+func has_persistent_layer(id: StringName) -> bool:
+	return _persistent.has(id)
 
 
 func _process(delta: float) -> void:
@@ -93,7 +118,10 @@ func _recompute() -> void:
 	var extra: float = _base["extra_projectiles"]
 	var ram: float = _base["ram_damage"]
 
-	for t in _timed:
+	var layers: Array = []
+	layers.append_array(_timed)
+	layers.append_array(_persistent.values())
+	for t in layers:
 		pickup *= float(t.get("pickup_radius", 1.0))
 		regen += float(t.get("regen", 0.0))
 		extra += float(t.get("extra_projectiles", 0.0))

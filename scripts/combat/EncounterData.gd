@@ -59,6 +59,10 @@ enum Objective {
 @export_range(0.1, 10.0) var strength_multiplier: float = 1.0
 @export_range(10.0, 400.0) var spawn_distance_min: float = 55.0
 @export_range(10.0, 400.0) var spawn_distance_max: float = 90.0
+## M30 0.16 (B6) — ambient hulls within this distance of the encounter centre
+## are parked (hidden, out of physics and targeting) for the battle and
+## restored after, so a bounded fight is the composition authored above.
+@export_range(0.0, 600.0) var ambient_clear_radius: float = 160.0  # placeholder: tune in M31
 
 @export_group("Escort")
 ## Only used when `objective == PROTECT_TARGET` — DEFENSE's "protect a friendly

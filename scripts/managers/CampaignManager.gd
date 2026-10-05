@@ -810,6 +810,24 @@ func load_save_data(data: Dictionary) -> void:
 	call_deferred("_catch_up")
 
 
+## M30 0.9 — the ledger also rides in the save (SaveManager writes it, and
+## merges it back on load) so it follows the account across devices. Merge
+## only ever adds: a chapter's Eights, once paid, are never payable again.
+func get_eights_ledger() -> Array:
+	return _chapter_eights_paid.keys()
+
+
+func merge_eights_ledger(chapter_ids: Array) -> void:
+	var added := false
+	for id in chapter_ids:
+		var key := str(id)
+		if not _chapter_eights_paid.has(key):
+			_chapter_eights_paid[key] = true
+			added = true
+	if added:
+		_write_eights_ledger()
+
+
 func has_paid_chapter_eights(chapter_id: String) -> bool:
 	return _chapter_eights_paid.has(chapter_id)
 

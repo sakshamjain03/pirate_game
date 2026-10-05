@@ -21,6 +21,10 @@ signal game_loaded()
 ## surfaces this to the player via announce_event() rather than leaving a
 ## lost save unexplained.
 signal load_failed(reason: String)
+## M30 0.10 — cloud sync health for the Settings Account line and the HUD.
+## `state` is one of the SYNC_* names below; `since_unix` is when the current
+## state began (the first failure, for "failing since X").
+signal sync_status_changed(state: StringName, since_unix: int)
 
 const SAVE_PATH := "user://save_data.json"
 const BACKUP_PATH := "user://save_data.json.bak"
@@ -43,6 +47,45 @@ var _auto_save_interval: float = 60.0
 ## M30 0.4 — true while the cloud-conflict dialog is open; the autosave must
 ## not write (and upload) the in-memory World before the player has chosen.
 var _suspend_autosave := false
+
+# --- M30 0.7-0.10: cloud sync safety ---------------------------------------
+const SYNC_OFF := &"off"          # signed out
+const SYNC_OK := &"ok"            # last upload succeeded
+const SYNC_PENDING := &"pending"  # waiting: cloud state not yet known, or retry queued
+const SYNC_FAILING := &"failing"  # uploads/fetches failing (network, paused project)
+const SYNC_BLOCKED := &"blocked"  # saving refused: newer-version save, or another account's empire
+const CLOUD_PENDING_PATH := "user://cloud_pending.json"
+const UPLOAD_TIMEOUT_SECONDS := 15.0
+const UPLOAD_BACKOFF_SECONDS: Array[float] = [30.0, 120.0, 600.0]
+## Never part of the "did anything change" hash: they change on every save.
+const _VOLATILE_SAVE_KEYS := ["last_saved_unix", "save_revision"]
+
+var sync_state: StringName = SYNC_OFF
+var sync_since_unix: int = 0
+var sync_detail: String = ""
+## M30 0.7 — whose cloud row has been checked this session. Until it matches
+## the signed-in user, no upload runs: an upload made before the launch check
+## (or after a failed fetch) could overwrite a newer cloud save with this
+## device's older one — or with defaults after a failed load.
+var _cloud_baseline_user: String = ""
+## M30 0.7 — set when this build must not write saves at all: a save (local or
+## cloud) from a newer game version, which this build would downgrade.
+var _load_blocked := false
+var load_blocked_reason := ""
+## M30 0.9 — a user who chose "Don't sync" for another account's empire.
+var _sync_refused_user: String = ""
+## M30 0.8 — upload queue: one request in flight, only the newest snapshot
+## waits behind it, identical snapshots are skipped, failures back off.
+var _upload_in_flight := false
+var _queued_upload: Dictionary = {}
+var _last_uploaded_hash := ""
+var _backoff_step := 0
+var _retry_timer: Timer = null
+## M30 0.9 — increments on every save; also compared on launch, so a cloud row
+## from another device is caught even when the device clocks disagree.
+var _save_revision: int = 0
+## M30 0.9 — the account this save belongs to ("" = never synced).
+var _save_owner_user_id: String = ""
 ## M30 0.1 — saved entries for islands absent from this World (an island
 ## disabled by the content gate frees itself before joining "islands"). Kept
 ## from the last load and written back unchanged, or the next save erased them.
@@ -91,6 +134,10 @@ func _ready() -> void:
 	# fresh_sign_in, not signed_in — a background token refresh also emits signed_in (for UI
 	# reactivity) and must NOT re-trigger a cloud-conflict check mid-session. See AuthManager.gd.
 	AuthManager.fresh_sign_in.connect(_on_signed_in)
+	AuthManager.signed_out.connect(_on_signed_out)
+	# M30 0.8 — an upload that never landed before the app closed is retried
+	# once this session knows the cloud state (see _accept_cloud_baseline()).
+	_cloud_sync_pending = FileAccess.file_exists(CLOUD_PENDING_PATH)
 	# Deferred: this is the first autoload, so the managers below haven't run their own
 	# _ready() yet. By idle time they have, and nothing has loaded a save (Boot only
 	# loads settings), so this captures exactly the state a fresh process starts in.
@@ -296,6 +343,10 @@ func restore_island_ownership(island: Node, entry, home_island_id: String) -> vo
 		data.owner_faction = FactionManager.get_player_faction()
 
 func save_game() -> void:
+	# M30 0.7 — never overwrite a save this build cannot fully read.
+	if _load_blocked:
+		return
+	_save_revision += 1
 	var save_dict = {
 		"save_schema_version": SAVE_SCHEMA_VERSION,
 		"last_seen_whats_new_version": last_seen_whats_new_version,
@@ -306,8 +357,20 @@ func save_game() -> void:
 		"factions": {},
 		"empire": {},
 		"tutorial": {},
-		"last_saved_unix": Time.get_unix_time_from_system()
+		"last_saved_unix": Time.get_unix_time_from_system(),
+		"save_revision": _save_revision,
 	}
+	# M30 0.9 — which account this empire belongs to. Stamped with the signed-in
+	# user once their cloud state is known; otherwise the last known owner.
+	if AuthManager.is_signed_in() and _cloud_baseline_user == AuthManager.get_user_id():
+		_save_owner_user_id = _cloud_baseline_user
+	if not _save_owner_user_id.is_empty():
+		save_dict["owner_user_id"] = _save_owner_user_id
+	# M30 0.9 — the chapter-Eights ledger rides in the save so it follows the
+	# account; the device file stays too, as the New Game guard (see CampaignManager).
+	var ledger: Array = CampaignManager.get_eights_ledger() if CampaignManager.has_method("get_eights_ledger") else []
+	if not ledger.is_empty():
+		save_dict["chapter_eights_paid"] = ledger
 
 	# 1. Player State
 	# No "player" key at all when no player_ship exists to read from (a
@@ -433,8 +496,7 @@ func save_game() -> void:
 	# M15 Requirement 3.4/4.2 — mirrors the existing local format exactly, no second schema.
 	# Fire-and-forget: never awaited here, so a slow/failed network call can't delay or block
 	# the caller (auto-save timer, dock completion, etc.) — Requirement 4.2.
-	if AuthManager.is_signed_in():
-		_sync_to_cloud(save_dict)
+	_queue_cloud_upload(save_dict)
 
 func load_game() -> void:
 	# M27 — "schedule" is omitted when no job is running, so a stale job from an
@@ -467,6 +529,7 @@ func load_game() -> void:
 	var loaded_schema_version: int = data.get("save_schema_version", 0)
 	if loaded_schema_version > SAVE_SCHEMA_VERSION:
 		push_error("SaveManager: save schema is newer than this build.")
+		_block_saving("This save is from a newer version of the game. Update to keep playing it.")
 		load_failed.emit("save was created by a newer version")
 		game_loaded.emit()
 		return
@@ -479,6 +542,10 @@ func load_game() -> void:
 
 	if data.has("last_seen_whats_new_version"):
 		last_seen_whats_new_version = str(data["last_seen_whats_new_version"])
+	_save_revision = int(data.get("save_revision", 0))
+	_save_owner_user_id = str(data.get("owner_user_id", ""))
+	if data.get("chapter_eights_paid") is Array and CampaignManager.has_method("merge_eights_ledger"):
+		CampaignManager.merge_eights_ledger(data["chapter_eights_paid"])
 
 	# 1. Player State
 	if data.has("player"):
@@ -753,7 +820,7 @@ func delete_save() -> void:
 ## M15 Requirement 4.2 — pushes the given save dict to Supabase as an upsert (one row per
 ## account, enforced by the unique constraint on player_saves.user_id — see supabase/schema.sql).
 ## Never awaited by save_game(); this coroutine runs on its own.
-func _sync_to_cloud(data: Dictionary) -> void:
+func _sync_to_cloud(data: Dictionary) -> bool:
 	var client_updated_at := Time.get_datetime_string_from_unix_time(int(data.get("last_saved_unix", Time.get_unix_time_from_system())), true) + "Z"
 	var payload := {
 		"user_id": AuthManager.get_user_id(),
@@ -780,29 +847,35 @@ func _sync_to_cloud(data: Dictionary) -> void:
 			code = result.get("code", 0)
 
 	_cloud_sync_pending = not (code >= 200 and code < 300)
+	return not _cloud_sync_pending
 
-## Returns the signed-in player's cloud save row, or {} if none exists / the request failed.
-## RLS already scopes this to the caller's own row (see supabase/schema.sql) — no user_id filter
-## needed client-side.
-func _fetch_cloud_save() -> Dictionary:
-	var result := await _send_cloud_request(
-		HTTPClient.METHOD_GET,
-		"/rest/v1/player_saves?select=save_data,save_schema_version,client_updated_at",
-		[], "")
+## M30 0.7 — the signed-in player's cloud row, with a status that tells a
+## real "no cloud save" apart from a failed request: {status: "ok"|"none"|
+## "error", row}. Before M30 both returned {}, so a failed fetch read as "no
+## cloud save" and the device's state (even fresh defaults) got uploaded.
+## RLS already scopes this to the caller's own row (see supabase/schema.sql).
+func _fetch_cloud_save_result() -> Dictionary:
+	var endpoint := "/rest/v1/player_saves?select=save_data,save_schema_version,client_updated_at"
+	var result := await _send_cloud_request(HTTPClient.METHOD_GET, endpoint, [], "")
 	var code: int = result.get("code", 0)
 	if code == 401:
 		if await AuthManager.refresh_session():
-			result = await _send_cloud_request(
-				HTTPClient.METHOD_GET,
-				"/rest/v1/player_saves?select=save_data,save_schema_version,client_updated_at",
-				[], "")
+			result = await _send_cloud_request(HTTPClient.METHOD_GET, endpoint, [], "")
 			code = result.get("code", 0)
 	if code < 200 or code >= 300:
-		return {}
+		return {"status": "error", "row": {}}
 	var body = result.get("body", [])
-	if body is Array and body.size() > 0 and body[0] is Dictionary:
-		return body[0]
-	return {}
+	if not (body is Array):
+		return {"status": "error", "row": {}}
+	if body.size() > 0 and body[0] is Dictionary:
+		return {"status": "ok", "row": body[0]}
+	return {"status": "none", "row": {}}
+
+
+## Back-compat wrapper: the row, or {} for none AND for error.
+func _fetch_cloud_save() -> Dictionary:
+	var result: Dictionary = await _fetch_cloud_save_result()
+	return result["row"] if result["status"] == "ok" else {}
 
 func _send_cloud_request(method: HTTPClient.Method, endpoint: String, extra_headers: Array, body: String) -> Dictionary:
 	if _request_override.is_valid():
@@ -817,6 +890,9 @@ func _send_cloud_request(method: HTTPClient.Method, endpoint: String, extra_head
 		headers.append(h)
 
 	var http := HTTPRequest.new()
+	# M30 0.8 — a hung request (a paused free-tier project can accept the
+	# connection and never answer) must not hold the upload queue forever.
+	http.timeout = UPLOAD_TIMEOUT_SECONDS
 	add_child(http)
 	var err := http.request(AuthManager.SUPABASE_URL + endpoint, headers, method, body)
 	if err != OK:
@@ -838,19 +914,12 @@ func _send_cloud_request(method: HTTPClient.Method, endpoint: String, extra_head
 
 ## Requirement 4.1 — first sign-in on a device with existing local data.
 func _on_signed_in(_user_id: String) -> void:
-	if not has_save_data():
-		# Nothing local to conflict with — just adopt whatever's in the cloud, if anything.
-		var cloud_row := await _fetch_cloud_save()
-		if not cloud_row.is_empty():
-			_apply_cloud_save(cloud_row)
-		return
+	await _sync_with_cloud(true)
 
-	var cloud_row := await _fetch_cloud_save()
-	await _resolve_cloud_conflict(cloud_row)
 
 ## Requirement 4.3 — called once per app session (World.gd, alongside the existing load_game()
 ## call) after AuthManager's own initial session-restore attempt completes, so is_signed_in() is
-## accurate. A no-op for a signed-out player or a player with no cloud save.
+## accurate. A no-op for a signed-out player.
 func check_cloud_save_on_launch() -> void:
 	if _did_launch_cloud_check:
 		return
@@ -858,20 +927,228 @@ func check_cloud_save_on_launch() -> void:
 
 	await AuthManager.await_initial_check()
 	if not AuthManager.is_signed_in():
+		_set_sync_status(SYNC_OFF)
+		return
+	await _sync_with_cloud(false)
+
+
+## M30 0.7/0.9 — the one place this session learns the cloud state for the
+## signed-in user: fetch, refuse a newer-version row, ask on another account's
+## empire, resolve a conflict, and only then allow uploads (flushing anything
+## that waited). A failed fetch leaves uploads held and retries with backoff.
+func _sync_with_cloud(fresh_sign_in: bool) -> void:
+	var user := AuthManager.get_user_id()
+	if user.is_empty():
+		return
+	_set_sync_status(SYNC_PENDING, "Checking your cloud save…")
+	var result: Dictionary = await _fetch_cloud_save_result()
+	if result["status"] == "error":
+		_on_cloud_failure("Can't reach the cloud")
+		return
+	var cloud_row: Dictionary = result["row"]
+	if int(cloud_row.get("save_schema_version", 0)) > SAVE_SCHEMA_VERSION:
+		_block_saving("Your cloud save is from a newer version of the game. Update to keep playing it.")
 		return
 
-	var cloud_row := await _fetch_cloud_save()
-	if cloud_row.is_empty():
-		return
-
-	var local_unix := 0
-	if has_save_data():
-		var local_result := _read_save_file(SAVE_PATH)
-		local_unix = int(local_result["data"].get("last_saved_unix", 0))
-	var cloud_unix := int(Time.get_unix_time_from_datetime_string(String(cloud_row.get("client_updated_at", "")).trim_suffix("Z")))
-
-	if cloud_unix > local_unix:
+	var local: Dictionary = _read_save_file(SAVE_PATH)["data"] if has_save_data() else {}
+	var local_owner := str(local.get("owner_user_id", ""))
+	if not local.is_empty() and not local_owner.is_empty() and local_owner != user:
+		if not await _resolve_account_mismatch(cloud_row):
+			return
+	elif local.is_empty():
+		# Nothing local to conflict with — adopt the cloud empire, if any.
+		if not cloud_row.is_empty():
+			_apply_cloud_save(cloud_row)
+			if _in_world():
+				SceneManager.change_scene_with_fade("res://scenes/world/World.tscn", 0.4, false)
+	elif fresh_sign_in or _cloud_is_newer(cloud_row, local):
 		await _resolve_cloud_conflict(cloud_row)
+	_accept_cloud_baseline(user)
+
+
+func _cloud_is_newer(cloud_row: Dictionary, local: Dictionary) -> bool:
+	if cloud_row.is_empty():
+		return false
+	var cloud_unix := int(Time.get_unix_time_from_datetime_string(String(cloud_row.get("client_updated_at", "")).trim_suffix("Z")))
+	var cloud_rev := int(cloud_row.get("save_data", {}).get("save_revision", 0)) if cloud_row.get("save_data") is Dictionary else 0
+	# Either signal is enough to ask: the clock catches a device that played
+	# from the same revision, the revision catches a device whose clock is off.
+	return cloud_unix > int(local.get("last_saved_unix", 0)) or cloud_rev > int(local.get("save_revision", 0))
+
+
+## M30 0.9 — this device's empire belongs to a different account than the one
+## now signed in. Never upload it silently into that account's row. Returns
+## true if uploads may proceed for the signed-in user.
+func _resolve_account_mismatch(cloud_row: Dictionary) -> bool:
+	_suspend_autosave = true
+	var options := PackedStringArray([
+		tr("Load This Account's Empire") if not cloud_row.is_empty() else tr("Move This Empire to This Account"),
+		tr("Don't Sync This Device"),
+	])
+	var choice: int = await ChoiceDialogScript.new(
+		tr("Different Account"),
+		tr("The empire on this device belongs to another account. What should happen?"),
+		options).ask(get_tree().root)
+	_suspend_autosave = false
+	if choice == 1:
+		_sync_refused_user = AuthManager.get_user_id()
+		_set_sync_status(SYNC_BLOCKED, "This device's empire belongs to another account")
+		return false
+	if not cloud_row.is_empty():
+		_apply_cloud_save(cloud_row)
+		if _in_world():
+			SceneManager.change_scene_with_fade("res://scenes/world/World.tscn", 0.4, false)
+	return true
+
+
+func _accept_cloud_baseline(user: String) -> void:
+	_cloud_baseline_user = user
+	_backoff_step = 0
+	if _cloud_sync_pending and has_save_data():
+		var local: Dictionary = _read_save_file(SAVE_PATH)["data"]
+		if not local.is_empty():
+			_queue_cloud_upload(local)
+			return
+	_set_sync_status(SYNC_OK)
+
+
+func _on_signed_out() -> void:
+	_cloud_baseline_user = ""
+	_sync_refused_user = ""
+	_queued_upload = {}
+	_last_uploaded_hash = ""
+	_cancel_retry()
+	_set_sync_status(SYNC_OFF)
+
+
+## M30 0.8 — every upload goes through here (save_game, Keep This Device).
+func _queue_cloud_upload(data: Dictionary) -> void:
+	if not AuthManager.is_signed_in() or _load_blocked:
+		return
+	var user := AuthManager.get_user_id()
+	if user == _sync_refused_user:
+		return
+	if _cloud_baseline_user != user:
+		# Cloud state unknown: hold this until the launch/sign-in check (or its
+		# retry) has run. The newest local save is what gets sent then.
+		_mark_cloud_pending(true)
+		if sync_state != SYNC_FAILING:
+			_set_sync_status(SYNC_PENDING, "Waiting to check your cloud save")
+		return
+	var h := _snapshot_hash(data)
+	if h == _last_uploaded_hash:
+		return
+	if _upload_in_flight:
+		_queued_upload = data
+		return
+	_run_upload(data, h)
+
+
+func _run_upload(data: Dictionary, h: String) -> void:
+	_upload_in_flight = true
+	_mark_cloud_pending(true)
+	var ok: bool = await _sync_to_cloud(data)
+	_upload_in_flight = false
+	if ok:
+		_last_uploaded_hash = h
+		_backoff_step = 0
+		_cancel_retry()
+		if _queued_upload.is_empty():
+			_mark_cloud_pending(false)
+			_set_sync_status(SYNC_OK)
+	else:
+		_on_cloud_failure("Upload failed")
+	if not _queued_upload.is_empty():
+		var next := _queued_upload
+		_queued_upload = {}
+		_queue_cloud_upload(next)
+
+
+func _on_cloud_failure(detail: String) -> void:
+	if sync_state != SYNC_FAILING:
+		_set_sync_status(SYNC_FAILING, detail)
+	_schedule_retry()
+
+
+func _schedule_retry() -> void:
+	if _retry_timer and is_instance_valid(_retry_timer) and not _retry_timer.is_stopped():
+		return
+	var wait: float = UPLOAD_BACKOFF_SECONDS[mini(_backoff_step, UPLOAD_BACKOFF_SECONDS.size() - 1)]
+	_backoff_step += 1
+	if not is_inside_tree():
+		return
+	if not _retry_timer or not is_instance_valid(_retry_timer):
+		_retry_timer = Timer.new()
+		_retry_timer.one_shot = true
+		_retry_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+		_retry_timer.timeout.connect(_on_retry_timeout)
+		add_child(_retry_timer)
+	_retry_timer.start(wait)
+
+
+func _cancel_retry() -> void:
+	if _retry_timer and is_instance_valid(_retry_timer):
+		_retry_timer.stop()
+
+
+func _on_retry_timeout() -> void:
+	if not AuthManager.is_signed_in() or _load_blocked:
+		return
+	if _cloud_baseline_user != AuthManager.get_user_id():
+		await _sync_with_cloud(false)
+	elif has_save_data():
+		var local: Dictionary = _read_save_file(SAVE_PATH)["data"]
+		if not local.is_empty():
+			_last_uploaded_hash = ""   # a failed upload never recorded one; force the resend
+			_queue_cloud_upload(local)
+
+
+func _snapshot_hash(data: Dictionary) -> String:
+	var copy := data.duplicate()
+	for k in _VOLATILE_SAVE_KEYS:
+		copy.erase(k)
+	return JSON.stringify(copy, "", true).sha1_text()
+
+
+func _mark_cloud_pending(pending: bool) -> void:
+	_cloud_sync_pending = pending
+	if pending:
+		var f := FileAccess.open(CLOUD_PENDING_PATH, FileAccess.WRITE)
+		if f:
+			f.store_string(JSON.stringify({"user_id": AuthManager.get_user_id()}))
+			f.close()
+	elif FileAccess.file_exists(CLOUD_PENDING_PATH):
+		DirAccess.remove_absolute(CLOUD_PENDING_PATH)
+
+
+func _block_saving(reason: String) -> void:
+	_load_blocked = true
+	load_blocked_reason = reason
+	_set_sync_status(SYNC_BLOCKED, reason)
+
+
+func _set_sync_status(state: StringName, detail: String = "") -> void:
+	if state == sync_state and detail == sync_detail:
+		return
+	if state != sync_state:
+		sync_since_unix = int(Time.get_unix_time_from_system())
+	sync_state = state
+	sync_detail = detail
+	sync_status_changed.emit(sync_state, sync_since_unix)
+
+
+## M30 0.10 — the one-line status the Settings Account tab shows.
+func get_sync_status_text() -> String:
+	match sync_state:
+		SYNC_OK:
+			return tr("Cloud save: up to date")
+		SYNC_PENDING:
+			return tr("Cloud save: waiting to sync")
+		SYNC_FAILING:
+			return tr("Cloud sync failing since %s — your progress is safe on this device") % Time.get_datetime_string_from_unix_time(sync_since_unix, true).substr(0, 16)
+		SYNC_BLOCKED:
+			return tr("Saving paused: %s") % sync_detail
+	return tr("Not signed in — progress is saved on this device only")
 
 ## Shared by both conflict-trigger points (Requirements 4.1 and 4.3). Never silently picks a
 ## side — always either skips (identical saves) or asks (design.md's Requirement 4 section).
@@ -922,7 +1199,8 @@ func _resolve_cloud_conflict(cloud_row: Dictionary) -> void:
 			if _wallet_loaded_this_session:
 				ResourceManager.current_resources[key] = int(economy[key])
 				ResourceManager.resources_changed.emit(ResourceManager.current_resources)
-			_sync_to_cloud(save_data)
+			# Uploaded once _sync_with_cloud() accepts the baseline right after this.
+			_mark_cloud_pending(true)
 	else:
 		# M30 0.4 — Keep Cloud only wrote the file before: the live World kept
 		# the local empire in memory, and the next autosave pushed it straight
@@ -1062,8 +1340,7 @@ func _patch_eights_outside_world(eights: int, maelstrom_record: Dictionary) -> b
 		file.close()
 		if FileAccess.file_exists(MAELSTROM_PENDING_PATH):
 			DirAccess.remove_absolute(MAELSTROM_PENDING_PATH)
-		if AuthManager.is_signed_in():
-			_sync_to_cloud(data)
+		_queue_cloud_upload(data)
 	else:
 		var pending := _read_maelstrom_pending()
 		pending["eights"] = int(pending.get("eights", 0)) + eights

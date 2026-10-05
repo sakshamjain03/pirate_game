@@ -38,6 +38,7 @@ func before_each():
 
 	SaveManager._request_override = Callable()
 	AuthManager._request_override = Callable()
+	_reset_m30_sync_state()
 
 func after_each():
 	AuthManager._access_token = _saved_access_token
@@ -46,6 +47,7 @@ func after_each():
 	AuthManager._request_override = _saved_auth_override
 	SaveManager._request_override = _saved_save_override
 	SaveManager._cloud_sync_pending = _saved_cloud_sync_pending
+	_reset_m30_sync_state()
 
 	if _had_backup:
 		var src = FileAccess.open(_backup_path, FileAccess.READ)
@@ -59,10 +61,27 @@ func after_each():
 		SaveManager.delete_save()
 	_had_backup = false
 
+## M30 0.7 — uploads wait until this session has checked the signed-in
+## user's cloud row. These M15 tests exercise the upload path itself, so they
+## start from "cloud state already known" (the launch check is pinned in
+## test_m30_cloud_sync.gd).
 func _sign_in_fake(user_id: String = "user-abc") -> void:
 	AuthManager._access_token = "tok_access"
 	AuthManager._refresh_token = "tok_refresh"
 	AuthManager._user_id = user_id
+	SaveManager._cloud_baseline_user = user_id
+
+
+func _reset_m30_sync_state() -> void:
+	SaveManager._cloud_baseline_user = ""
+	SaveManager._sync_refused_user = ""
+	SaveManager._last_uploaded_hash = ""
+	SaveManager._queued_upload = {}
+	SaveManager._upload_in_flight = false
+	SaveManager._backoff_step = 0
+	SaveManager._cancel_retry()
+	if FileAccess.file_exists(SaveManager.CLOUD_PENDING_PATH):
+		DirAccess.remove_absolute(SaveManager.CLOUD_PENDING_PATH)
 
 func test_save_game_does_not_sync_when_signed_out():
 	var calls := [0]

@@ -350,10 +350,20 @@ func _process_attack(delta: float) -> void:
 	if not is_instance_valid(player_ship):
 		_change_state(AIState.PATROL)
 		return
-		
+
 	if not _is_hostile_to_player():
 		_change_state(AIState.PATROL)
 		return
+
+	# M30 W1-1.1 — Fireship detonation on contact
+	if _tactic() == AIProfileData.Tactic.FIRESHIP:
+		var dist = _flat_distance_to(player_ship.global_position)
+		var contact_dist: float = 9.0
+		if ai_profile and "fireship_contact_distance" in ai_profile:
+			contact_dist = float(ai_profile.fireship_contact_distance)
+		if dist <= contact_dist:
+			_detonate_fireship()
+			return
 
 	# Check flee condition
 	if _should_flee():
@@ -521,6 +531,28 @@ func _apply_ammo_rules(dist: float) -> void:
 	var ammo := load(path) as AmmoData
 	if ammo:
 		ship_combat.set_ammo(ammo)
+
+
+func _detonate_fireship() -> void:
+	## M30 W1-1.1 — Fireship contact detonation. Applies area damage to all
+	## hulls within the fireship_radius and frees the ship.
+	if not ship_controller or not ai_profile:
+		return
+
+	var radius: float = ai_profile.get("fireship_radius") if ai_profile else 18.0
+	var damage: float = ai_profile.get("fireship_damage") if ai_profile else 60.0
+
+	# Gather all valid hulls in the scene (both enemies and friendly/player ships)
+	var all_hulls: Array[Node3D] = []
+	all_hulls.append_array(get_tree().get_nodes_in_group("enemy_ship"))
+	all_hulls.append_array(get_tree().get_nodes_in_group("friendly_ship"))
+	all_hulls.append_array(get_tree().get_nodes_in_group("player_ship"))
+
+	# Apply area damage
+	AreaDamage.apply_damage(ship_controller.global_position, radius, damage, all_hulls)
+
+	# Free the fireship
+	ship_controller.queue_free()
 
 
 func _process_support(delta: float, ally: Node3D) -> void:

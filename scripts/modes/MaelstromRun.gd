@@ -229,17 +229,10 @@ func _on_pickup(data: Dictionary, at: Vector3 = Vector3.ZERO) -> void:
 func _detonate_keg(at: Vector3) -> void:
 	## Area damage through each hull's normal ShipCombat.take_damage() path, so a
 	## keg kill sinks, drops and counts exactly like a cannon kill.
-	if AudioManager: AudioManager.play_sound("explosion")
+	## Uses the shared AreaDamage utility (M30 W1).
 	if not _spawner:
 		return
-	for enemy in _spawner._active_enemies.duplicate():
-		if not is_instance_valid(enemy):
-			continue
-		if enemy.global_position.distance_to(at) > curve.keg_radius:
-			continue
-		var combat = enemy.get_node_or_null("ShipCombat")
-		if combat and combat.has_method("take_damage"):
-			combat.take_damage(curve.keg_damage)
+	AreaDamage.apply_damage(at, curve.keg_radius, curve.keg_damage, _spawner._active_enemies.duplicate())
 
 
 func add_plunder(amount: float) -> void:

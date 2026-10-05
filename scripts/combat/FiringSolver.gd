@@ -42,6 +42,13 @@ var _targets: Dictionary = {SIDE_PORT: null, SIDE_STARBOARD: null, SIDE_BOW: nul
 ## broadside-on would swallow the opening volley.
 var _scan_accumulator: float = INF
 
+## M30 W1-1.6: targeting mode. "aim_by_bearing" prefers hulls nearest the
+## arc's centre line (most perpendicular); empty string (default) keeps
+## nearest-distance. Only the player uses aim_by_bearing; AI keeps nearest.
+var priority_mode: String = ""
+## M30 W1-1.6: when set, this hull overrides priority_mode for all sides.
+var priority_target: Node3D = null
+
 
 static func are_hostile(shooter: Node, target: Node) -> bool:
 	## The authoritative "may A shoot B" rule, shared with `Cannonball._is_friendly()`
@@ -235,11 +242,40 @@ func _rescan() -> void:
 	if broadside_range <= 0.0 and chaser_range <= 0.0:
 		return
 
-	# Nearest valid target per side wins: closest is the one most likely to
-	# actually be hit, given projectiles are unguided.
+	# M30 W1-1.6: aim-by-bearing mode prefers angle over distance.
+	# Normal mode: nearest valid target per side wins (closest is most likely to hit).
 	var best := {SIDE_PORT: INF, SIDE_STARBOARD: INF, SIDE_BOW: INF, SIDE_STERN: INF}
+	var best_angle := {SIDE_PORT: 180.0, SIDE_STARBOARD: 180.0, SIDE_BOW: 180.0, SIDE_STERN: 180.0}
 	var fwd := -_ship.global_transform.basis.z.normalized()
 	var fwd_flat := Vector3(fwd.x, 0.0, fwd.z).normalized()
+
+	# Priority target (tap-to-mark) overrides all ranking.
+	var priority_valid: bool = is_instance_valid(priority_target) and are_hostile(_ship, priority_target)
+	if priority_valid:
+		var dmg = priority_target.get_node_or_null("ShipDamage")
+		if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
+			priority_valid = false
+	if priority_valid:
+		var to_priority: Vector3 = priority_target.global_position - _ship.global_position
+		var flat := Vector3(to_priority.x, 0.0, to_priority.z)
+		var dist_sq := flat.length_squared()
+		if dist_sq >= 0.01:
+			var dir := flat.normalized()
+			if broadside_range > 0.0 and dist_sq <= broadside_range * broadside_range:
+				if get_broadside_angle(dir) <= broadside_arc:
+					var side := side_for_direction(dir)
+					_targets[side] = priority_target
+			if chaser_range > 0.0 and dist_sq <= chaser_range * chaser_range:
+				var fwd_dot: float = fwd_flat.dot(dir)
+				if has_bow and fwd_dot > 0.0:
+					var bow_angle: float = rad_to_deg(acos(clamp(fwd_dot, 0.0, 1.0)))
+					if bow_angle <= chaser_arc:
+						_targets[SIDE_BOW] = priority_target
+				elif has_stern and fwd_dot < 0.0:
+					var stern_angle: float = rad_to_deg(acos(clamp(-fwd_dot, 0.0, 1.0)))
+					if stern_angle <= chaser_arc:
+						_targets[SIDE_STERN] = priority_target
+		return
 
 	for candidate in _gather_candidates():
 		if not is_instance_valid(candidate) or candidate == _ship:
@@ -262,22 +298,45 @@ func _rescan() -> void:
 		if broadside_range > 0.0 and dist_sq <= broadside_range * broadside_range:
 			if get_broadside_angle(dir) <= broadside_arc:
 				var side := side_for_direction(dir)
-				if dist_sq < best[side]:
-					best[side] = dist_sq
-					_targets[side] = candidate
+				var angle := get_broadside_angle(dir)
+				if priority_mode == "aim_by_bearing":
+					# Prefer smallest angle; use distance as tiebreaker.
+					if angle < best_angle[side] or (is_equal_approx(angle, best_angle[side]) and dist_sq < best[side]):
+						best_angle[side] = angle
+						best[side] = dist_sq
+						_targets[side] = candidate
+				else:
+					# Normal mode: prefer nearest distance.
+					if dist_sq < best[side]:
+						best[side] = dist_sq
+						_targets[side] = candidate
 
 		if chaser_range > 0.0 and dist_sq <= chaser_range * chaser_range:
 			var fwd_dot: float = fwd_flat.dot(dir)
 			if has_bow and fwd_dot > 0.0:
 				var bow_angle: float = rad_to_deg(acos(clamp(fwd_dot, 0.0, 1.0)))
-				if bow_angle <= chaser_arc and dist_sq < best[SIDE_BOW]:
-					best[SIDE_BOW] = dist_sq
-					_targets[SIDE_BOW] = candidate
+				if bow_angle <= chaser_arc:
+					if priority_mode == "aim_by_bearing":
+						if bow_angle < best_angle[SIDE_BOW] or (is_equal_approx(bow_angle, best_angle[SIDE_BOW]) and dist_sq < best[SIDE_BOW]):
+							best_angle[SIDE_BOW] = bow_angle
+							best[SIDE_BOW] = dist_sq
+							_targets[SIDE_BOW] = candidate
+					else:
+						if dist_sq < best[SIDE_BOW]:
+							best[SIDE_BOW] = dist_sq
+							_targets[SIDE_BOW] = candidate
 			elif has_stern and fwd_dot < 0.0:
 				var stern_angle: float = rad_to_deg(acos(clamp(-fwd_dot, 0.0, 1.0)))
-				if stern_angle <= chaser_arc and dist_sq < best[SIDE_STERN]:
-					best[SIDE_STERN] = dist_sq
-					_targets[SIDE_STERN] = candidate
+				if stern_angle <= chaser_arc:
+					if priority_mode == "aim_by_bearing":
+						if stern_angle < best_angle[SIDE_STERN] or (is_equal_approx(stern_angle, best_angle[SIDE_STERN]) and dist_sq < best[SIDE_STERN]):
+							best_angle[SIDE_STERN] = stern_angle
+							best[SIDE_STERN] = dist_sq
+							_targets[SIDE_STERN] = candidate
+					else:
+						if dist_sq < best[SIDE_STERN]:
+							best[SIDE_STERN] = dist_sq
+							_targets[SIDE_STERN] = candidate
 
 
 func _gather_candidates() -> Array:

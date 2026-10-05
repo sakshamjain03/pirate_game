@@ -21,9 +21,9 @@ per `.kiro/specs/milestone-m15-backend-cloud-services/requirements.md` Requireme
 
 ## Schema
 
-Checked in as `supabase/schema.sql`, applied via the Supabase MCP server's `apply_migration` tool
-(functionally equivalent to the dashboard's SQL editor this project has no local CLI/migration
-tooling for — see the milestone's Non-Goals). Two tables:
+Base schema checked in as `supabase/schema.sql`. Migrations applied via Supabase dashboard or CLI:
+
+### Base tables (from schema.sql)
 
 - **`player_saves`** — `id` (uuid, pk), `user_id` (uuid, unique, references `auth.users`),
   `save_data` (jsonb, mirrors `SaveManager`'s local save format exactly), `save_schema_version`
@@ -31,9 +31,42 @@ tooling for — see the milestone's Non-Goals). Two tables:
   RLS enabled: `select`/`insert`/`update` policies all scope to `auth.uid() = user_id`; no `delete`
   policy exists at all, so delete is denied by default even with RLS enabled — the only sanctioned
   removal path is the `delete-account` Edge Function, which bypasses RLS via `service_role`.
+- **`player_entitlements`** — `user_id` (uuid, pk, references `auth.users`), `entitlements` (jsonb).
+  RLS enabled: clients can read and insert/update their own row only.
 - **`remote_config`** — `key` (text, pk), `value` (jsonb). RLS enabled with a single permissive
   `select` policy (`using (true)`) — public data, no per-row restriction, same anon-key access
   pattern as any other public read.
+
+### M30 migrations (W0-3.3)
+
+**Status: NOT YET APPLIED — requires owner approval before deploying to live project**
+
+The following migrations are authored and checked in at `supabase/migrations/`. Each is idempotent
+and can be applied via Supabase CLI (`supabase db push`) or dashboard SQL editor:
+
+- **`0001_fk_on_delete_cascade.sql`** — Add cascade-on-delete to foreign keys for account deletion
+  atomicity. Fixes: FK constraints were missing cascade behavior, causing failed deletes.
+- **`0002_entitlement_ledger.sql`** — Create `entitlement_grants` table for audit trail and refund
+  support. Makes `player_entitlements` read-only for clients (insert/update/delete revoked).
+- **`0003_purchases.sql`** — Create `purchases` table (service-role-only) for verified store
+  purchases. No client write access via RLS.
+- **`0004_wallet.sql`** — Create `player_wallet` (server-side balance) and `eights_ledger`
+  (append-only transaction log). Prevents client-side premium-currency manipulation.
+- **`0005_player_saves_hardening.sql`** — Add `save_revision` column, size check, server-set
+  `updated_at`. Hardens saves against conflicts and oversized payloads.
+- **`0006_grant_hygiene.sql`** — Revoke truncate, references, trigger permissions from clients on
+  all tables, and revoke modify permissions on `remote_config`.
+
+**How to apply:**
+1. Back up the live project data.
+2. Review each migration file for correctness.
+3. Run via Supabase CLI: `supabase db push --linked` (with `supabase link` to the live project).
+4. Or paste each migration's SQL into the Supabase dashboard's SQL editor and run.
+5. Verify with a manual test: sign in, make a save, check that saves sync correctly.
+
+**Keep-alive note:** Free-tier projects pause after 7 days of inactivity. If the project pauses
+while a migration is in progress, the connection will time out. Resume it via the dashboard and
+re-run the migration.
 
 **RLS verified, twice:**
 1. Anon key alone, no session: `player_saves` `SELECT` returns `[]`, `INSERT` returns `42501`
@@ -88,6 +121,9 @@ works (one throwaway key was inserted, fetched with just the anon key, then remo
 
 ## What's not yet done here
 
+- **M30 migrations application:** The six migrations in `supabase/migrations/0001-0006` are
+  authored but **NOT YET APPLIED** to the live project. Applying them requires explicit owner
+  approval (security-critical schema changes). See the "M30 migrations" section above.
 - Leaked-password protection toggle (see above).
 - Google OAuth provider configuration (blocked on the deep-link plugin work, itself blocked on
   M13's Android export pipeline).

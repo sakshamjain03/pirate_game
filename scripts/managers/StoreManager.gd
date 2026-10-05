@@ -114,6 +114,9 @@ func reconcile_owned_purchases() -> void:
 func _create_backend() -> IStoreBackend:
 	if OS.get_name() == "Android":
 		return StoreBackendPlay.new()
+	# W0-3.1: Release builds on non-Android platforms use unavailable backend
+	if not OS.is_debug_build():
+		return StoreBackendUnavailable.new()
 	return StoreBackendStub.new()
 
 

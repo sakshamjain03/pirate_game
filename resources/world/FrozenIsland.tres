@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="IslandData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="IslandData" load_steps=3 format=3]
 
+[ext_resource type="Resource" path="res://resources/factions/RoyalNavy.tres" id="9_owner"]
 [ext_resource type="Script" path="res://scripts/world/IslandData.gd" id="1_fis"]
 
 [resource]
@@ -7,6 +8,7 @@ script = ExtResource("1_fis")
 island_id = "frozen_island"
 island_name = "Frostbite Reef"
 island_type = 2
+owner_faction = ExtResource("9_owner")
 terrain_theme = 2
 world_position = Vector2(280, -340)
 region_id = "contested_waters"

@@ -17,6 +17,8 @@ signal captain_recruited(captain: CaptainData)
 ## owned Sloops must not share one mutable record.
 var owned_ships: Array[OwnedShipData] = []
 var owned_captains: Array[CaptainData] = []
+## M30 0.2 — save entries whose captain .tres failed to resolve; re-saved as-is.
+var _unresolved_captains: Array = []
 var active_ship_index: int = 0
 var active_captain_index: int = 0
 var defend_home_ship_indices: Array = []
@@ -301,7 +303,8 @@ func get_save_data() -> Dictionary:
 		if o:
 			ship_data.append(o.get_save_data())
 
-	# M30 Requirement 1.3 — save captain level and XP
+	# M30 0.2 — captain level/XP live on the CaptainData itself (add_xp()), so
+	# the bare path this used to save reset every captain to level 1 on load.
 	var cap_data = []
 	for c in owned_captains:
 		cap_data.append({
@@ -309,6 +312,9 @@ func get_save_data() -> Dictionary:
 			"level": c.level,
 			"current_xp": c.current_xp,
 		})
+	# Entries whose .tres no longer resolves are carried forward untouched, so
+	# a missing file (content gating, a rename) never deletes the captain.
+	cap_data.append_array(_unresolved_captains)
 
 	return {
 		"owned_ships": ship_data,
@@ -334,35 +340,33 @@ func load_save_data(data: Dictionary) -> void:
 				legacy.ship_stats = load(entry)
 				owned_ships.append(legacy)
 				
+	_unresolved_captains.clear()
 	if data.has("owned_captains"):
 		for entry in data["owned_captains"]:
-			# M30 Requirement 1.3 — handle both old (string path) and new (dict with level/xp) formats
-			var path = ""
-			var level = 1
-			var current_xp = 0
-
+			# Pre-M30 saves hold a bare path (level 1, no XP); M30 saves a dict.
+			var path := ""
+			var level := 1
+			var current_xp := 0
 			if entry is String:
-				# Old save format: bare path string
 				path = entry
 			elif entry is Dictionary:
-				# New save format: {path, level, current_xp}
-				path = entry.get("path", "")
+				path = str(entry.get("path", ""))
 				level = int(entry.get("level", 1))
 				current_xp = int(entry.get("current_xp", 0))
-
-			if path == "":
+			if path.is_empty():
 				continue
+			if not ResourceLoader.exists(path):
+				push_error("FleetManager: unresolvable captain path '%s' (kept in the save)" % path)
+				_unresolved_captains.append(entry if entry is Dictionary else {"path": path, "level": level, "current_xp": current_xp})
+				continue
+			# Deliberately the shared cached resource, not a duplicate(): the
+			# Tavern, Codex and DevConsole test ownership by identity
+			# (`cap in owned_captains`), and a copy would read as un-hired.
+			var captain: CaptainData = load(path)
+			captain.level = maxi(1, level)
+			captain.current_xp = maxi(0, current_xp)
+			owned_captains.append(captain)
 
-			if ResourceLoader.exists(path):
-				# M30 Requirement 1.3 — duplicate the captain to avoid mutating the .tres
-				var captain = load(path).duplicate()
-				captain.level = level
-				captain.current_xp = current_xp
-				owned_captains.append(captain)
-			else:
-				# M30 Requirement 1.8 — unresolvable path: keep it and push_error
-				push_error("FleetManager: unresolvable captain path '%s'" % path)
-				
 	active_ship_index = int(data.get("active_ship_index", 0))
 	active_captain_index = int(data.get("active_captain_index", 0))
 	if data.has("active_missions"):

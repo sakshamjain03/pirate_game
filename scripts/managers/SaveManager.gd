@@ -40,6 +40,9 @@ const MaelstromRecordScript := preload("res://scripts/modes/MaelstromRecord.gd")
 
 var _save_timer: float = 0.0
 var _auto_save_interval: float = 60.0
+## M30 0.4 — true while the cloud-conflict dialog is open; the autosave must
+## not write (and upload) the in-memory World before the player has chosen.
+var _suspend_autosave := false
 var _pending_offline_ticks: int = 0
 
 ## M17 Requirement 6.1/6.5 — the resource delta actually gained during the
@@ -214,6 +217,8 @@ func _process(delta: float) -> void:
 	if not get_tree().current_scene or get_tree().current_scene.name != "World":
 		return
 
+	if _suspend_autosave:
+		return
 	_save_timer += delta
 	if _save_timer >= _auto_save_interval:
 		_save_timer = 0.0

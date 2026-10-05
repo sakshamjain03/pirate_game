@@ -8,30 +8,32 @@ var _solver: FiringSolver
 var _ship: Node3D
 var _scope: String = ""
 var _scope_counter: int = 0
+var _target_group: String = ""
 
 
 func before_each() -> void:
-	if not get_tree().current_scene:
-		var scene = Node3D.new()
-		scene.name = "TestScene"
-		get_tree().root.add_child(scene)
-		get_tree().current_scene = scene
+	# Create a fresh isolated scene for each test with a unique target group
+	var scene = Node3D.new()
+	scene.name = "TestScene"
+	get_tree().root.add_child(scene)
+	get_tree().current_scene = scene
 
 	_scope_counter += 1
 	_scope = "aim_bearing_scope_%d" % _scope_counter
+	_target_group = "test_enemies_%d" % _scope_counter
 
 	_ship = Node3D.new()
 	_ship.name = "Player"
 	_ship.add_to_group("player_ship")
 	_ship.add_to_group(_scope)
-	get_tree().current_scene.add_child(_ship)
+	scene.add_child(_ship)
 
 	_solver = FiringSolver.new()
 	var stats = ShipStats.new()
 	stats.cannon_range = 100.0
 	stats.firing_arc_degrees = 35.0
 	_solver.ship_stats = stats
-	_solver.target_groups = ["enemy_ship"]
+	_solver.target_groups = [_target_group]
 	_ship.add_child(_solver)
 
 
@@ -40,7 +42,7 @@ func _make_enemy(pos: Vector3) -> Node3D:
 	var dmg = Node.new()
 	dmg.name = "ShipDamage"
 	e.add_child(dmg)
-	e.add_to_group("enemy_ship")
+	e.add_to_group(_target_group)
 	e.add_to_group(_scope)
 	get_tree().current_scene.add_child(e)
 	e.global_position = pos

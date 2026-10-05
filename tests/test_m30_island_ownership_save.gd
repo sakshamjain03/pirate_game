@@ -1,279 +1,138 @@
 extends GutTest
+## M30 Wave 0 (0.1): island ownership was never saved. SaveManager wrote only
+## `buildings`/`discovered` per island, so a captured or colonised island
+## reverted to its authored owner on restart — it stopped producing, and the
+## dock asked the player to colonise it again. These pin the entry shape, the
+## pre-M30 migration, the unknown-faction resolver contract, and New Game.
+##
+## Islands here are bare stand-ins (Island.gd's _ready() needs a live World);
+## restore_island_ownership()/island_save_entry() are the exact functions
+## save_game()/load_game() call per island.
 
-# test_m30_island_ownership_save.gd
-# Verifies island ownership persists through save/load cycles
-#
-# Responsibilities:
-# - Test island_type and owner_faction round-trip
-# - Test migration of old saves (buildings or home_island)
-# - Test unknown faction id handling
-# - Test carry-forward of gated islands
-#
-# Dependencies:
-# - SaveManager
-# - Island
-# - FactionManager
-
-var world: Node
-var player_ship: Node
-var islands: Array
+const SKULL_COVE := "res://resources/world/SkullCove.tres"
 
 
-func before_all():
-	# Load the test save
-	load_test_save()
+class FakeIsland extends Node:
+	var island_data: IslandData
+	var buildings: Array = []
+
+	func get_island_id() -> String:
+		return island_data.island_id
+
+	func get_built_building_ids() -> Array:
+		return buildings
 
 
-func after_all():
-	# Clean up
-	if world and is_instance_valid(world):
-		world.queue_free()
-	if SaveManager:
-		var path = SaveManager.SAVE_PATH
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)
-		var backup_path = SaveManager.BACKUP_PATH
-		if FileAccess.file_exists(backup_path):
-			DirAccess.remove_absolute(backup_path)
+var _data: IslandData
+var _authored_type: int
+var _authored_owner: Resource
 
 
-func load_test_save():
-	"""Load World scene and wait for initialization."""
-	world = load("res://scenes/world/World.tscn").instantiate()
-	get_tree().root.add_child(world)
-	await get_tree().process_frame
-	player_ship = world.get_node_or_null("PlayerShip")
-	islands = get_tree().get_nodes_in_group("islands")
+func before_each() -> void:
+	_data = load(SKULL_COVE)
+	_authored_type = _data.island_type
+	_authored_owner = _data.owner_faction
 
 
-func test_property_1_capture_and_save_island_ownership():
-	"""Test that captured island ownership persists through save/load."""
-	# Given: an island that's NEUTRAL
-	var port_royal = _find_island_by_id("port_royal")
-	assert_not_null(port_royal, "Port Royal should exist")
-	assert_eq(port_royal.island_data.island_type, IslandData.IslandType.NEUTRAL)
-
-	# When: we capture it
-	var player_faction = FactionManager.get_player_faction()
-	port_royal.capture_island(player_faction)
-
-	# Then: it should be FRIENDLY with player faction
-	assert_eq(port_royal.island_data.island_type, IslandData.IslandType.FRIENDLY)
-	assert_eq(port_royal.island_data.owner_faction, player_faction)
-
-	# When: we save the game
-	SaveManager.save_game()
-
-	# Then: reload and verify
-	var saved_data = _load_json(SaveManager.SAVE_PATH)
-	assert_not_null(saved_data.islands, "Islands data should exist in save")
-	assert_true(saved_data.islands.has("port_royal"), "Port Royal should be in save")
-
-	var port_data = saved_data.islands["port_royal"]
-	assert_eq(port_data.get("island_type"), int(IslandData.IslandType.FRIENDLY),
-		"Island type should be saved as enum int")
-	assert_eq(port_data.get("owner_faction_id"), player_faction.faction_id,
-		"Owner faction ID should be saved")
+func after_each() -> void:
+	_data.island_type = _authored_type
+	_data.owner_faction = _authored_owner
 
 
-func test_property_2_colonize_and_restore():
-	"""Test that colonized islands restore ownership correctly."""
-	# Given: Port Royal is captured
-	var port_royal = _find_island_by_id("port_royal")
-	var player_faction = FactionManager.get_player_faction()
-	port_royal.capture_island(player_faction)
-	SaveManager.save_game()
-
-	# When: we reload
-	_reload_world()
-	port_royal = _find_island_by_id("port_royal")
-
-	# Then: it should still be FRIENDLY and owned by the player
-	assert_eq(port_royal.island_data.island_type, IslandData.IslandType.FRIENDLY)
-	assert_eq(port_royal.island_data.owner_faction, player_faction)
+func _island(data: IslandData, buildings: Array = []) -> FakeIsland:
+	var island := FakeIsland.new()
+	island.island_data = data
+	island.buildings = buildings
+	autofree(island)
+	return island
 
 
-func test_property_3_migration_old_save_with_buildings():
-	"""Test that old saves with buildings migrate to FRIENDLY."""
-	# Given: an old save format (no island_type, but has buildings)
-	var old_save = {
-		"version": 1,
-		"last_saved_unix": int(Time.get_unix_time_from_system()),
-		"player": {},
-		"economy": {"gold": 1000},
-		"islands": {
-			"port_royal": {
-				"buildings": ["warehouse_l1"],  # Has buildings but no island_type
-				"discovered": true
-			}
-		},
-		"fleet": {},
-		"tech": {},
-		"factions": {},
-		"empire": {},
-		"campaign": {},
-		"tutorial": {}
-	}
-
-	# When: we save and reload
-	_write_json(SaveManager.SAVE_PATH, old_save)
-	_reload_world()
-
-	# Then: Port Royal should migrate to FRIENDLY
-	var port_royal = _find_island_by_id("port_royal")
-	assert_eq(port_royal.island_data.island_type, IslandData.IslandType.FRIENDLY,
-		"Island with buildings should migrate to FRIENDLY")
+func _fresh_neutral() -> IslandData:
+	var d := IslandData.new()
+	d.island_id = "test_isle"
+	d.island_type = IslandData.IslandType.NEUTRAL
+	return d
 
 
-func test_property_4_migration_home_island():
-	"""Test that home island migrates to FRIENDLY."""
-	# Given: an old save with home_island_id
-	var home_id = "port_royal"
-	var old_save = {
-		"version": 1,
-		"last_saved_unix": int(Time.get_unix_time_from_system()),
-		"player": {},
-		"economy": {"gold": 1000},
-		"islands": {
-			"port_royal": {
-				"buildings": [],
-				"discovered": true
-			}
-		},
-		"fleet": {},
-		"tech": {},
-		"factions": {},
-		"empire": {"home_island_id": home_id},
-		"campaign": {},
-		"tutorial": {}
-	}
+func test_captured_island_round_trips() -> void:
+	var island := _island(_data, ["farm_l1"])
+	_data.island_type = IslandData.IslandType.FRIENDLY
+	_data.owner_faction = FactionManager.get_player_faction()
+	var entry := SaveManager.island_save_entry(island)
+	assert_eq(entry.get("island_type"), int(IslandData.IslandType.FRIENDLY))
+	assert_eq(entry.get("owner_faction_id"), "player")
 
-	# When: we load
-	_write_json(SaveManager.SAVE_PATH, old_save)
-	_reload_world()
-
-	# Then: home island should be FRIENDLY
-	var port_royal = _find_island_by_id("port_royal")
-	assert_eq(port_royal.island_data.island_type, IslandData.IslandType.FRIENDLY,
-		"Home island should migrate to FRIENDLY")
+	# Restart: the cached resource is back to its authored (ENEMY, pirate_clans) state.
+	_data.island_type = _authored_type
+	_data.owner_faction = _authored_owner
+	SaveManager.restore_island_ownership(island, JSON.parse_string(JSON.stringify(entry)), "")
+	assert_eq(_data.island_type, IslandData.IslandType.FRIENDLY, "capture lost on reload")
+	assert_true(_data.is_owned_by_player(), "a captured island must produce after reload")
+	assert_eq(_data.owner_faction, FactionManager.get_player_faction(),
+		"owner must be the shared FactionData, not a copy")
 
 
-func test_property_5_unresolvable_faction_id():
-	"""Test that unresolvable faction IDs are kept and push_error."""
-	# Given: a save with an invalid faction ID
-	var bad_faction_id = "nonexistent_faction_999"
-	var save_with_bad_faction = {
-		"version": 1,
-		"last_saved_unix": int(Time.get_unix_time_from_system()),
-		"player": {},
-		"economy": {"gold": 1000},
-		"islands": {
-			"port_royal": {
-				"buildings": [],
-				"discovered": true,
-				"island_type": int(IslandData.IslandType.FRIENDLY),
-				"owner_faction_id": bad_faction_id
-			}
-		},
-		"fleet": {},
-		"tech": {},
-		"factions": {},
-		"empire": {},
-		"campaign": {},
-		"tutorial": {}
-	}
-
-	# When: we load
-	_write_json(SaveManager.SAVE_PATH, save_with_bad_faction)
-	_reload_world()
-
-	# Then: should have logged an error and kept the authored value
+func test_unowned_island_saves_no_owner_and_restores_none() -> void:
+	var d := _fresh_neutral()
+	var entry := SaveManager.island_save_entry(_island(d))
+	assert_false(entry.has("owner_faction_id"), "no owner means no key, not an empty one")
+	d.owner_faction = FactionManager.get_player_faction()
+	SaveManager.restore_island_ownership(_island(d), entry, "")
+	assert_null(d.owner_faction)
 
 
-func test_property_6_gated_island_carry_forward():
-	"""Test that disabled/gated islands survive a save."""
-	# Given: a save that references a gated island
-	var gated_island_id = "skull_cove"  # Example gated island
-	var save_with_gated = {
-		"version": 1,
-		"last_saved_unix": int(Time.get_unix_time_from_system()),
-		"player": {},
-		"economy": {"gold": 1000},
-		"islands": {
-			"port_royal": {
-				"buildings": [],
-				"discovered": true,
-				"island_type": int(IslandData.IslandType.FRIENDLY),
-				"owner_faction_id": FactionManager.get_player_faction().faction_id
-			},
-			gated_island_id: {
-				"buildings": ["warehouse_l1"],
-				"discovered": true,
-				"island_type": int(IslandData.IslandType.FRIENDLY),
-				"owner_faction_id": FactionManager.get_player_faction().faction_id
-			}
-		},
-		"fleet": {},
-		"tech": {},
-		"factions": {},
-		"empire": {},
-		"campaign": {},
-		"tutorial": {}
-	}
-
-	# When: we load
-	_write_json(SaveManager.SAVE_PATH, save_with_gated)
-	_reload_world()
-
-	# Then: save again and verify gated island's entry is preserved
-	SaveManager.save_game()
-	var reloaded = _load_json(SaveManager.SAVE_PATH)
-
-	# Even though the gated island isn't in the scene, its entry should carry forward
-	assert_true(reloaded.islands.has(gated_island_id),
-		"Gated island entry should be carried forward")
+func test_pre_m30_entry_with_buildings_migrates_to_friendly() -> void:
+	var d := _fresh_neutral()
+	SaveManager.restore_island_ownership(_island(d), {"buildings": ["farm_l1"], "discovered": true}, "")
+	assert_eq(d.island_type, IslandData.IslandType.FRIENDLY)
+	assert_eq(d.owner_faction, FactionManager.get_player_faction())
 
 
-# ============================================================================
-# Helper functions
-# ============================================================================
-
-func _find_island_by_id(island_id: String) -> Node:
-	"""Find an island by its ID."""
-	for island in islands:
-		if island.has_method("get_island_id") and island.get_island_id() == island_id:
-			return island
-	return null
+func test_pre_m10_flat_array_entry_migrates_too() -> void:
+	var d := _fresh_neutral()
+	SaveManager.restore_island_ownership(_island(d), ["farm_l1"], "")
+	assert_eq(d.island_type, IslandData.IslandType.FRIENDLY)
 
 
-func _reload_world():
-	"""Reload the world from the current save."""
-	if world and is_instance_valid(world):
-		world.queue_free()
-		await get_tree().process_frame
-
-	SaveManager.load_game()
-	await get_tree().process_frame
-	world = get_tree().current_scene
-	islands = get_tree().get_nodes_in_group("islands")
+func test_pre_m30_home_island_migrates_without_buildings() -> void:
+	var d := _fresh_neutral()
+	SaveManager.restore_island_ownership(_island(d), {"buildings": []}, "test_isle")
+	assert_eq(d.island_type, IslandData.IslandType.FRIENDLY)
 
 
-func _load_json(path: String) -> Dictionary:
-	"""Load a JSON file."""
-	if not FileAccess.file_exists(path):
-		return {}
-	var file = FileAccess.open(path, FileAccess.READ)
-	if not file:
-		return {}
-	var content = file.get_as_text()
-	var json = JSON.new()
-	json.parse(content)
-	return json.data
+func test_pre_m30_empty_entry_keeps_authored_owner() -> void:
+	SaveManager.restore_island_ownership(_island(_data), {"buildings": [], "discovered": true}, "")
+	assert_eq(_data.island_type, _authored_type)
+	assert_eq(_data.owner_faction, _authored_owner)
 
 
-func _write_json(path: String, data: Dictionary) -> void:
-	"""Write a JSON file."""
-	var file = FileAccess.open(path, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(data, "\t"))
-		file.close()
+func test_migration_never_downgrades_a_capital() -> void:
+	var d := _fresh_neutral()
+	d.island_type = IslandData.IslandType.CAPITAL
+	SaveManager.restore_island_ownership(_island(d), {"buildings": ["farm_l1"]}, "")
+	assert_eq(d.island_type, IslandData.IslandType.CAPITAL)
+
+
+func test_unknown_faction_keeps_authored_owner() -> void:
+	# push_errors by design (resolvers never skip silently); GUT 9.4 has no
+	# error tracker, so this pins the state the error accompanies.
+	SaveManager.restore_island_ownership(_island(_data),
+		{"island_type": int(IslandData.IslandType.ENEMY), "owner_faction_id": "no_such_faction"}, "")
+	assert_eq(_data.owner_faction, _authored_owner)
+
+
+func test_new_game_restores_authored_ownership() -> void:
+	_data.island_type = IslandData.IslandType.FRIENDLY
+	_data.owner_faction = FactionManager.get_player_faction()
+	SaveManager._restore_authored_island_ownership()
+	assert_eq(_data.island_type, IslandData.IslandType.ENEMY)
+	assert_not_null(_data.owner_faction)
+	assert_eq(_data.owner_faction.faction_id, "pirate_clans")
+	assert_eq(_data.owner_faction, _authored_owner, "must be the shared FactionData")
+
+
+func test_list_resource_paths_sees_exported_remaps() -> void:
+	var paths := ResourceLookup.list_resource_paths("res://resources/world/")
+	assert_has(paths, SKULL_COVE)
+	for p in paths:
+		assert_true(p.ends_with(".tres"), "%s is not a .tres path" % p)

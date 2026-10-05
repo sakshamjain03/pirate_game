@@ -43,6 +43,10 @@ var _auto_save_interval: float = 60.0
 ## M30 0.4 — true while the cloud-conflict dialog is open; the autosave must
 ## not write (and upload) the in-memory World before the player has chosen.
 var _suspend_autosave := false
+## M30 0.1 — saved entries for islands absent from this World (an island
+## disabled by the content gate frees itself before joining "islands"). Kept
+## from the last load and written back unchanged, or the next save erased them.
+var _carried_island_entries: Dictionary = {}
 var _pending_offline_ticks: int = 0
 
 ## M17 Requirement 6.1/6.5 — the resource delta actually gained during the
@@ -212,6 +216,25 @@ func reset_to_new_game() -> void:
 	var schedule := get_node_or_null("/root/ScheduleManager")
 	if schedule and schedule.has_method("reset"):
 		schedule.reset()
+	_carried_island_entries.clear()
+	_restore_authored_island_ownership()
+
+
+## M30 0.1 — IslandData is a shared, cached resource, so a capture earlier in
+## this session is still on it in memory. Now that ownership round-trips
+## through the save, a New Game must put every island back to its authored
+## owner or the previous empire's captures leak into the fresh one.
+func _restore_authored_island_ownership() -> void:
+	for path in ResourceLookup.list_resource_paths("res://resources/world/"):
+		var live := load(path) as IslandData
+		if not live:
+			continue
+		var authored := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as IslandData
+		if authored:
+			live.island_type = authored.island_type
+			# By id, so the live island points at the shared FactionData the
+			# rest of the game compares against, never a fresh copy.
+			live.owner_faction = FactionManager._resolve_faction(authored.owner_faction.faction_id) if authored.owner_faction else null
 
 func _process(delta: float) -> void:
 	if not get_tree().current_scene or get_tree().current_scene.name != "World":
@@ -223,6 +246,54 @@ func _process(delta: float) -> void:
 	if _save_timer >= _auto_save_interval:
 		_save_timer = 0.0
 		save_game()
+
+
+## M30 0.1 — one island's save entry. Ownership was never saved before M30:
+## a captured or colonised island reverted on restart, stopped producing, and
+## asked to be colonised again.
+static func island_save_entry(island: Node) -> Dictionary:
+	var data: IslandData = island.island_data
+	var entry := {
+		"buildings": island.get_built_building_ids(),
+		# M10 Requirement 4 — IslandData.discovered was never actually
+		# persisted before this; the write path (dock/proximity) set
+		# it at runtime but every load silently reset it to false.
+		"discovered": data.discovered if data else false,
+	}
+	if data:
+		entry["island_type"] = int(data.island_type)
+		if data.owner_faction:
+			entry["owner_faction_id"] = String(data.owner_faction.faction_id)
+	return entry
+
+
+## M30 0.1 — applies a saved entry's ownership to an island. A pre-M30 entry
+## has no island_type: an island holding buildings, or the home island, can
+## only have been the player's, so it is migrated to FRIENDLY (never
+## downgrading one authored as player-owned); anything else keeps its
+## authored ownership. An unknown faction id push_errors and keeps the
+## authored owner rather than silently clearing it.
+func restore_island_ownership(island: Node, entry, home_island_id: String) -> void:
+	var data: IslandData = island.island_data
+	if not data:
+		return
+	if entry is Dictionary and entry.has("island_type"):
+		data.island_type = int(entry["island_type"]) as IslandData.IslandType
+		var faction_id := str(entry.get("owner_faction_id", ""))
+		if faction_id.is_empty():
+			data.owner_faction = null
+		else:
+			var faction := FactionManager._resolve_faction(faction_id)
+			if faction:
+				data.owner_faction = faction
+			else:
+				push_error("SaveManager: island '%s' has unknown owner faction '%s'; keeping its authored owner" % [island.get_island_id(), faction_id])
+		return
+	var buildings: Array = entry if entry is Array else (entry.get("buildings", []) if entry is Dictionary else [])
+	var is_home: bool = not home_island_id.is_empty() and island.get_island_id() == home_island_id
+	if (buildings.size() > 0 or is_home) and not data.is_owned_by_player():
+		data.island_type = IslandData.IslandType.FRIENDLY
+		data.owner_faction = FactionManager.get_player_faction()
 
 func save_game() -> void:
 	var save_dict = {
@@ -286,36 +357,12 @@ func save_game() -> void:
 		save_dict["economy"] = ResourceManager.get_save_data()
 
 	# 3. Islands State
-	# M30 Requirement 1.1 — save island ownership (island_type and owner_faction)
-	# Start from the previous save to carry forward gated islands (1.7)
-	var islands_data: Dictionary = {}
-	if FileAccess.file_exists(SAVE_PATH):
-		var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
-		if file:
-			var json = JSON.new()
-			json.parse(file.get_as_text())
-			var old_save = json.data
-			if old_save and old_save.has("islands"):
-				islands_data = old_save["islands"].duplicate()
-
-	var islands = get_tree().get_nodes_in_group("islands")
-	for island in islands:
+	# M30 0.1 — each entry also carries ownership (island_type/owner_faction_id);
+	# entries for islands not in this World (content-gated) are carried forward.
+	var islands_data: Dictionary = _carried_island_entries.duplicate(true)
+	for island in get_tree().get_nodes_in_group("islands"):
 		if island.has_method("get_island_id") and island.has_method("get_built_building_ids"):
-			var island_id = island.get_island_id()
-			var owner_faction_id = ""
-			if island.island_data and island.island_data.owner_faction:
-				owner_faction_id = island.island_data.owner_faction.faction_id
-
-			islands_data[island_id] = {
-				"buildings": island.get_built_building_ids(),
-				# M10 Requirement 4 — IslandData.discovered was never actually
-				# persisted before this; the write path (dock/proximity) set
-				# it at runtime but every load silently reset it to false.
-				"discovered": island.island_data.discovered if island.island_data else false,
-				# M30 Requirement 1.1 — persist island ownership
-				"island_type": int(island.island_data.island_type) if island.island_data else int(IslandData.IslandType.NEUTRAL),
-				"owner_faction_id": owner_faction_id,
-			}
+			islands_data[island.get_island_id()] = island_save_entry(island)
 	save_dict["islands"] = islands_data
 
 	# 4. Fleet State
@@ -510,55 +557,20 @@ func load_game() -> void:
 			visuals.load_save_data(player_data["cosmetics"])
 
 	# 5. Islands State
-	# M30 Requirement 1.1 — restore island ownership BEFORE buildings and offline catch-up
+	# M30 0.1 — ownership is restored here, before restore_buildings() and
+	# the offline catch-up below, so a captured island produces offline.
+	_carried_island_entries.clear()
 	if data.has("islands"):
-		var islands_data = data["islands"]
-		var active_islands = get_tree().get_nodes_in_group("islands")
-
-		# First pass: restore ownership (island_type and owner_faction)
-		for island in active_islands:
+		var islands_data: Dictionary = data["islands"]
+		var home_id: String = str(data.get("empire", {}).get("home_island_id", ""))
+		var seen := {}
+		for island in get_tree().get_nodes_in_group("islands"):
 			var island_id = island.get_island_id() if island.has_method("get_island_id") else ""
 			if island_id == "" or not islands_data.has(island_id):
 				continue
+			seen[island_id] = true
 			var entry = islands_data[island_id]
-			if not entry is Dictionary:
-				continue
-			if not island.island_data:
-				continue
-
-			# M30 Requirement 1.2 — migration: old saves without island_type/owner_faction_id
-			# If buildings exist or this is the home_island, mark as FRIENDLY with player faction
-			var should_migrate = false
-			if not entry.has("island_type"):
-				var has_buildings = len(entry.get("buildings", [])) > 0
-				var is_home_island = island_id == data.get("empire", {}).get("home_island_id", "")
-				if has_buildings or is_home_island:
-					should_migrate = true
-
-			if should_migrate:
-				# Migrate to FRIENDLY with player faction
-				island.island_data.island_type = IslandData.IslandType.FRIENDLY
-				island.island_data.owner_faction = FactionManager.get_player_faction()
-			else:
-				# Restore from save
-				var saved_type = entry.get("island_type", int(IslandData.IslandType.NEUTRAL))
-				island.island_data.island_type = saved_type
-
-				var owner_faction_id = entry.get("owner_faction_id", "")
-				if owner_faction_id != "":
-					var faction = EmpireManager._get_faction_by_id(owner_faction_id)
-					if faction:
-						island.island_data.owner_faction = faction
-					else:
-						push_error("SaveManager: unresolvable faction_id '%s' for island '%s'" % [owner_faction_id, island_id])
-						# Keep the authored value
-
-		# Second pass: restore buildings and discovered flag
-		for island in active_islands:
-			var island_id = island.get_island_id() if island.has_method("get_island_id") else ""
-			if island_id == "" or not islands_data.has(island_id):
-				continue
-			var entry = islands_data[island_id]
+			restore_island_ownership(island, entry, home_id)
 			# Pre-M10 saves stored a flat Array of building ids directly;
 			# M10 wraps that in a dict alongside "discovered" (see save_game()).
 			var building_ids: Array = entry if entry is Array else entry.get("buildings", [])
@@ -566,6 +578,9 @@ func load_game() -> void:
 				island.restore_buildings(building_ids)
 			if entry is Dictionary and island.island_data:
 				island.island_data.discovered = entry.get("discovered", island.island_data.discovered)
+		for island_id in islands_data:
+			if not seen.has(island_id):
+				_carried_island_entries[island_id] = islands_data[island_id]
 
 	# 6. Tech State
 	if data.has("tech") and TechManager.has_method("load_save_data"):

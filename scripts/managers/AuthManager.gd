@@ -41,6 +41,7 @@ var _initial_check_done: bool = false
 var expires_at: int = 0  # Unix timestamp in milliseconds when the access token expires
 var session_degraded: bool = false  # True when refresh has failed with network/5xx error
 var _refresh_in_flight: bool = false  # True while a refresh request is active
+var _last_refresh_ok: bool = false  # Result of the most recent refresh, for callers that waited on it
 var _refresh_timer: Timer = null  # Scheduled refresh 60s before expiry
 
 ## Test seam: when set, _send_request() calls this instead of a real HTTPRequest.
@@ -123,15 +124,15 @@ func delete_account() -> void:
 	if code >= 200 and code < 300:
 		# Local save is never touched here — SaveManager has no involvement in this call.
 		_clear_session()
-		signed_out.emit()
 	else:
 		auth_error.emit(_extract_error_message(result))
 
 ## Re-derives an access token from the stored refresh token. Called on launch (if a session was
 ## persisted) and by SaveManager on a 401 from a cloud-sync call before it surfaces an error.
-## Returns false if the refresh fails (including network errors). Clears the session only on
-## invalid_grant or refresh_token_not_found; on code 0 or 5xx keeps the session and sets
-## session_degraded. Allows only one refresh in flight; concurrent callers wait on that one.
+## Returns false if the refresh fails (including network errors). M30 0.6: clears the session
+## only when GoTrue says the refresh token is dead (_DEAD_TOKEN_ERRORS) — before, any failure,
+## including a paused free-tier project, signed the player out. Otherwise keeps the session and
+## sets session_degraded. Allows only one refresh in flight; concurrent callers wait on that one.
 func refresh_session() -> bool:
 	if _refresh_token.is_empty():
 		return false
@@ -140,9 +141,9 @@ func refresh_session() -> bool:
 	if _refresh_in_flight:
 		while _refresh_in_flight:
 			await get_tree().process_frame
-		# The in-flight one either succeeded (is_signed_in() is true) or failed
-		# Either way, we return the current state
-		return is_signed_in()
+		# Share the in-flight refresh's own result: a degraded failure keeps
+		# the (stale) session signed in, so is_signed_in() would wrongly say true.
+		return _last_refresh_ok
 
 	# Mark that a refresh is starting
 	_refresh_in_flight = true
@@ -152,34 +153,24 @@ func refresh_session() -> bool:
 	var code: int = result.get("code", 0)
 	var body = result.get("body", {})
 
-	var success = false
+	var success := false
 
 	if code >= 200 and code < 300 and body is Dictionary and body.has("access_token"):
 		# Successful refresh
 		_apply_session(body)
 		_set_degraded(false)
 		success = true
-	elif code in [400, 401]:
-		# Check if it's an invalid grant/token error
-		var error_str = ""
-		if body is Dictionary:
-			error_str = body.get("error", "")
-
-		if error_str in ["invalid_grant", "refresh_token_not_found"]:
-			# Session is no longer valid; clear it
-			_clear_session()
-			_set_degraded(false)
-			success = false
-		else:
-			# Other 4xx error; keep session but mark as degraded
-			_set_degraded(true)
-			success = false
+	elif code >= 400 and code < 500 and _is_dead_refresh_token(body):
+		# The refresh token itself is gone: the session can never recover.
+		_clear_session()
+		_set_degraded(false)
 	else:
-		# Network error (code 0) or 5xx; keep session and mark as degraded
+		# Network error (code 0 — including a paused free-tier project), 5xx,
+		# or an unrecognised 4xx: keep the session so the player stays signed
+		# in, and mark it degraded so the sync-status line can say so.
 		_set_degraded(true)
-		success = false
 
-	# Mark that this refresh is done
+	_last_refresh_ok = success
 	_refresh_in_flight = false
 
 	return success
@@ -295,6 +286,17 @@ func _clear_session() -> void:
 		dir.remove("auth_session.json")
 	signed_out.emit()
 
+## GoTrue reports a dead refresh token as `error: invalid_grant` (older
+## servers) or `error_code: refresh_token_not_found`/`..._already_used`/
+## `session_not_found` (newer ones).
+const _DEAD_TOKEN_ERRORS := ["invalid_grant", "refresh_token_not_found",
+	"refresh_token_already_used", "session_not_found", "session_expired", "user_not_found"]
+
+func _is_dead_refresh_token(body) -> bool:
+	if not body is Dictionary:
+		return false
+	return str(body.get("error", "")) in _DEAD_TOKEN_ERRORS 		or str(body.get("error_code", "")) in _DEAD_TOKEN_ERRORS
+
 func _set_degraded(degraded: bool) -> void:
 	if session_degraded != degraded:
 		session_degraded = degraded
@@ -317,13 +319,17 @@ func _schedule_refresh_before_expiry() -> void:
 		return
 
 	_refresh_timer = Timer.new()
+	_refresh_timer.one_shot = true
+	# Token expiry is wall-clock; keep counting while the game is paused.
+	_refresh_timer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_refresh_timer)
 	_refresh_timer.wait_time = refresh_at / 1000.0
-	_refresh_timer.timeout.connect(func():
-		refresh_session()
-		_refresh_timer = null
-	)
+	_refresh_timer.timeout.connect(_on_refresh_timer_timeout)
 	_refresh_timer.start()
+
+func _on_refresh_timer_timeout() -> void:
+	_cancel_refresh_timer()
+	refresh_session()
 
 func _cancel_refresh_timer() -> void:
 	if _refresh_timer:

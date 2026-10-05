@@ -36,6 +36,11 @@ var _camera_rig: Node = null
 ## land, assault and spyglass through register_context_provider().
 var _context_arbiter := ContextVerbArbiter.new()
 
+## M30 W1 task 1.10 — keg stock per sortie.
+var _keg_stock: int = 0
+var _keg_config: KegConfigData = preload("res://resources/combat/KegConfig.tres")
+var _keg_scene: PackedScene = preload("res://scenes/combat/PowderKeg.tscn")
+
 const CAMERA_ROTATE_SPEED: float = 90.0 # degrees/sec while held
 const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
 
@@ -46,6 +51,7 @@ func _ready() -> void:
 	add_to_group("world_manager")
 	_register_wave0_context_verbs()
 	_register_wave1_context_verbs()
+	_register_keg_context_provider()  # M30 W1 task 1.10
 	# InputManager was promoted to an autoload in M7 (D57): rebinding is reachable
 	# from the main menu, where no World scene — and so no scene-local
 	# InputManager — exists.
@@ -234,6 +240,58 @@ func _can_toggle_docking() -> bool:
 	return state == _docking_system.DockState.DOCKED or state == _docking_system.DockState.APPROACHING
 
 
+func _register_keg_context_provider() -> void:
+	## M30 W1 task 1.10 — register powder keg drop verb.
+	## Available only when an enemy is in the stern cone and stock > 0.
+	_context_arbiter.register_provider(&"keg",
+		func(): return _can_drop_keg(),
+		func(): return _drop_keg(),
+		"Drop Keg", "keg")
+	# Initialize stock for the current sortie
+	if _keg_config:
+		_keg_stock = _keg_config.stock_per_sortie
+
+
+func _can_drop_keg() -> bool:
+	## Keg drop is available only with enemy in stern cone and stock remaining.
+	if _keg_stock <= 0 or not _keg_config or not player_ship:
+		return false
+
+	# Check for enemy in stern cone
+	var ship_stats = player_ship.ship_stats if player_ship.has_meta("ship_stats") else (player_ship.get_node_or_null("ShipStats") if player_ship.get_node_or_null("ShipStats") else null)
+	if not ship_stats:
+		return false
+
+	var stern_arc = ship_stats.stern_arc_degrees
+	var enemies = get_tree().get_nodes_in_group("enemy_ship")
+
+	for enemy in enemies:
+		var direction = (enemy.global_position - player_ship.global_position).normalized()
+		var player_forward = -player_ship.global_transform.basis.z.normalized()
+		var angle = rad_to_deg(acos(minf(1.0, direction.dot(player_forward))))
+		# Enemy is in stern cone if angle is close to 180 (behind the player)
+		if angle >= 180.0 - stern_arc * 0.5 and angle <= 180.0 + stern_arc * 0.5:
+			return true
+
+	return false
+
+
+func _drop_keg() -> bool:
+	## Drop a keg at the player ship's position and decrement stock.
+	if not _can_drop_keg() or not _keg_scene or not player_ship:
+		return false
+
+	# Instantiate and position the keg
+	var keg: PowderKeg = _keg_scene.instantiate()
+	keg.global_position = player_ship.global_position + Vector3(0, 0, 5)  # Slightly behind player
+	get_tree().root.add_child(keg)
+
+	# Decrement stock
+	_keg_stock -= 1
+
+	return true
+
+
 func register_context_provider(verb: StringName, available: Callable, perform: Callable,
 		label: String, icon: String = "") -> void:
 	_context_arbiter.register_provider(verb, available, perform, label, icon)
@@ -268,6 +326,9 @@ func _on_dock_completed(island_id: String) -> void:
 	if EventManager.has_method("handle_docking_event"):
 		EventManager.handle_docking_event(island_id)
 	_update_lying_low(island_id)
+	# M30 W1 task 1.10 — refill keg stock on dock
+	if _keg_config:
+		_keg_stock = _keg_config.stock_per_sortie
 
 
 func _on_undock_completed() -> void:

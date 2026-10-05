@@ -50,10 +50,26 @@ func _detonate() -> void:
 
 	# Apply area damage
 	if config:
-		# Gather all enemy hulls in the scene
+		# Gather enemy hulls within the detonation radius.
+		# If in an encounter, only hit encounter-scoped enemies.
+		# Otherwise, hit any enemy within range.
 		var target_hulls: Array[Node3D] = []
+		var encounter_mgr = get_tree().get_first_node_in_group("encounter_manager")
+		var in_encounter: bool = encounter_mgr != null and encounter_mgr.is_active()
+
 		for hull in get_tree().get_nodes_in_group("enemy_ship"):
-			target_hulls.append(hull)
+			var to_hull: Vector3 = hull.global_position - global_position
+			var dist_sq: float = to_hull.length_squared()
+			var radius_sq: float = config.detonation_radius * config.detonation_radius
+
+			if dist_sq <= radius_sq:
+				# In encounter: only target encounter-spawned/engaged enemies.
+				# Outside encounter: target any enemy in range.
+				if in_encounter:
+					var dmg = hull.get_node_or_null("ShipDamage")
+					if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
+						continue
+				target_hulls.append(hull)
 
 		AreaDamage.apply_damage(
 			global_position,

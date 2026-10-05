@@ -275,27 +275,9 @@ func _maybe_offer() -> void:
 
 
 func pick_choices() -> Array:
-	## Weighted sample without replacement from the authored pool, filtered by
-	## CombatModifiers.can_apply() so a maxed upgrade is never offered.
-	var candidates: Array = []
-	for u in curve.upgrade_pool:
-		if u and (_modifiers == null or _modifiers.can_apply(u)):
-			candidates.append(u)
-	var out: Array = []
-	while out.size() < curve.choices_per_offer and not candidates.is_empty():
-		var total := 0.0
-		for u in candidates:
-			total += u.weight
-		var roll := randf() * total
-		var pick_i := candidates.size() - 1
-		for i in range(candidates.size()):
-			roll -= candidates[i].weight
-			if roll <= 0.0:
-				pick_i = i
-				break
-		out.append(candidates[pick_i])
-		candidates.remove_at(pick_i)
-	return out
+	## Weighted sample without replacement from the authored pool, never a
+	## maxed-out upgrade — the shared roll EncounterManager also uses (M30 0.15).
+	return UpgradeRoller.roll(curve.upgrade_pool, curve.choices_per_offer, _modifiers)
 
 
 func apply_upgrade_choice(upgrade: BattleUpgradeData) -> void:

@@ -1,57 +1,36 @@
 class_name UpgradeRoller
 
-## W0-4.4: Shared upgrade roller used by both EncounterManager and MaelstromRun.
-## Provides weighted random selection without replacement, filtered by applicability.
+## Purpose: the one battle-upgrade offer roll (M30 Wave 0, task 0.15 / B8).
+## EncounterManager.roll_upgrade_choices() and MaelstromRun.pick_choices() each
+## carried their own copy of this loop; Wave 5's tags, keystones and faction
+## pools land here once instead of twice.
+## Responsibilities: weighted sample without replacement, never offering an
+## upgrade the ship's CombatModifiers can no longer take (a maxed option on a
+## choice screen does nothing — fewer options is better). Optional seeded RNG
+## for deterministic callers and tests.
 
-static func roll(pool: Array, count: int, held: Dictionary = {},
-		filters: Array = []) -> Array:
-	## Weighted sample without replacement from pool. Returns an array of exactly
-	## `count` upgrades (or fewer if pool is exhausted after filtering).
-	##
-	## Args:
-	## - pool: Array of BattleUpgradeData to select from
-	## - count: How many upgrades to pick
-	## - held: (optional) Map of held upgrade_id to stack count, for weighting
-	## - filters: (optional) Array of callables(upgrade) -> bool for filtering
-	##
-	## Both callers pre-filter by applicability (can_apply), so this is agnostic
-	## to the context. Returns the same distribution as the inlined versions.
-
-	var out: Array = []
-	var available: Array = []
-
-	# Apply filters (including applicability)
+static func roll(pool: Array, count: int, mods: CombatModifiers = null,
+		rng: RandomNumberGenerator = null) -> Array[BattleUpgradeData]:
+	var available: Array[BattleUpgradeData] = []
 	for u in pool:
-		if not u:
-			continue
-		var keep = true
-		for filter in filters:
-			if not filter.call(u):
-				keep = false
-				break
-		if keep:
+		if u is BattleUpgradeData and (mods == null or mods.can_apply(u)):
 			available.append(u)
 
-	# Weighted selection without replacement
+	var out: Array[BattleUpgradeData] = []
 	while out.size() < count and not available.is_empty():
-		var total: float = 0.0
+		var total := 0.0
 		for u in available:
-			total += float(u.weight)
-
+			total += maxf(0.0, u.weight)
 		if total <= 0.0:
 			break
-
-		var roll: float = randf() * total
-		var acc: float = 0.0
-		var picked = available[available.size() - 1]
-
+		var r: float = (rng.randf() if rng else randf()) * total
+		var acc := 0.0
+		var picked: BattleUpgradeData = available[available.size() - 1]
 		for u in available:
-			acc += float(u.weight)
-			if roll <= acc:
+			acc += maxf(0.0, u.weight)
+			if r <= acc:
 				picked = u
 				break
-
 		out.append(picked)
 		available.erase(picked)
-
 	return out

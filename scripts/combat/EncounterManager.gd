@@ -490,33 +490,9 @@ func get_player_modifiers() -> CombatModifiers:
 
 
 func roll_upgrade_choices(count: int) -> Array[BattleUpgradeData]:
-	## Weighted, no duplicates within an offer, and never offers something the
-	## player has already maxed out — a choice screen showing an option that does
-	## nothing is worse than showing fewer options.
-	var out: Array[BattleUpgradeData] = []
-	var mods := get_player_modifiers()
-
-	var available: Array[BattleUpgradeData] = []
-	for u in upgrade_pool:
-		if u and (mods == null or mods.can_apply(u)):
-			available.append(u)
-
-	while out.size() < count and not available.is_empty():
-		var total: float = 0.0
-		for u in available:
-			total += u.weight
-		var roll: float = randf() * total
-		var acc: float = 0.0
-		var picked: BattleUpgradeData = available[available.size() - 1]
-		for u in available:
-			acc += u.weight
-			if roll <= acc:
-				picked = u
-				break
-		out.append(picked)
-		available.erase(picked)
-
-	return out
+	## Weighted, no duplicates within an offer, never a maxed-out upgrade — the
+	## shared roll MaelstromRun also uses (M30 0.15).
+	return UpgradeRoller.roll(upgrade_pool, count, get_player_modifiers())
 
 
 func apply_upgrade_choice(upgrade: BattleUpgradeData) -> bool:

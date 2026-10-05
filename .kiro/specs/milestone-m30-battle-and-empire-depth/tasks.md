@@ -139,6 +139,13 @@ fix and watch the test fail.
   - A manual checklist for the owner: two devices, two accounts, offline → online, and a paused project.
 
 ### Wave 1 — Every fight is a read
+
+> **Status (2026-10-06): in progress.** Implementing in four parallel lanes (workflow `wf_c0be565a-16d`), each on its own branch and each verified by a test run and an adversarial review before merge. A task is ticked here only after it is merged to `main` with a passing test that was mutation-checked.
+> - Lane `ai` → branch `m30-w1-ai`: 1.1, 1.2, 1.3
+> - Lane `gunnery` → branch `m30-w1-gunnery`: 1.4, 1.6, 1.12
+> - Lane `encounters` → branch `m30-w1-encounters`: 1.7, 1.9, 1.13
+> - Lane `feedback` → branch `m30-w1-feedback`: 1.5, 1.8, 1.10, 1.11
+
 - [ ] 1.1 `AIProfileData.tactic`/`preferred_bearing_deg`/`kite_min_distance`/`ammo_rules`; tactic positioning in `_process_attack` (`ideal_position` only, low-pass filtered). Files: `AIProfileData.gd`, `EnemyAI.gd`
   - **Verify:** `tests/test_m30_enemy_tactics.gd`. A Raker settles in the stern quarter (±25°) within 20s. A Long Gunner keeps ≥ `kite_min_distance`. A Ram-Runner telegraphs before the ram. The avoidance diff is empty.
   - _Requirements: W1-1.1_

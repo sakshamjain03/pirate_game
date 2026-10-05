@@ -1,10 +1,11 @@
-[gd_resource type="Resource" script_class="RegionData" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="RegionData" load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/RegionData.gd" id="1_reg"]
 [ext_resource type="Resource" path="res://resources/ships/Sloop.tres" id="2_sloop"]
 [ext_resource type="Resource" path="res://resources/ships/Dinghy.tres" id="3_dinghy"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/StandardEnemy.tres" id="ai_0"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="ai_1"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/Raker.tres" id="ai_2"]
 
 [resource]
 script = ExtResource("1_reg")
@@ -20,5 +21,5 @@ fog_density_multiplier = 1.0
 enemy_ship_pool = Array[ShipStats]([ExtResource("2_sloop"), ExtResource("3_dinghy")])
 wind_strength = 0.2
 wind_direction_degrees = 45.0
-enemy_profile_pool = Array[AIProfileData]([ExtResource("ai_0"), ExtResource("ai_1")])
-enemy_profile_weights = PackedFloat32Array(3, 1)
+enemy_profile_pool = Array[AIProfileData]([ExtResource("ai_0"), ExtResource("ai_1"), ExtResource("ai_2")])
+enemy_profile_weights = PackedFloat32Array(3, 1, 1)

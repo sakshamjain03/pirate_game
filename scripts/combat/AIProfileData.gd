@@ -38,3 +38,47 @@ enum Role { BALANCED, RAIDER, ARTILLERY, TANK, SUPPORT, BOSS }
 @export_range(0.0, 1.0) var ram_tendency: float = 0.0
 ## Only consider a ram run inside this distance of the target.
 @export var ram_max_distance: float = 60.0
+
+## M30 W1-1.1 — where this hull positions itself in ATTACK. **Append-only**:
+## authored `.tres` files store the integer, so a value may never be reordered
+## or removed. STANDARD keeps the original perpendicular-to-the-line-of-fire
+## approach exactly; every other tactic places `ideal_position` at
+## `preferred_bearing_deg` off the TARGET's heading (0 = dead ahead of its bow,
+## 180 = dead astern), low-pass filtered so it can't feed back into a
+## circling-of-death. TENDER's healing is the existing SUPPORT role
+## (`role = SUPPORT`), not a second heal system — the tactic only decides where
+## it waits while nobody needs patching.
+enum Tactic { STANDARD, STERN_RAKER, LONG_GUNNER, RAM_RUNNER, TENDER, FIRESHIP }
+
+@export_group("Tactic")
+@export var tactic: Tactic = Tactic.STANDARD
+## Unsigned bearing off the target's bow, degrees. The side (port/starboard of
+## the target) is whichever the hull is already on, so it never cuts across.
+@export_range(0.0, 180.0) var preferred_bearing_deg: float = 90.0  # placeholder: tune in M31
+## Time constant of the bearing low-pass filter:
+## `smoothed = lerp_angle(prev, target, 1 - exp(-dt / bearing_filter_seconds))`.
+@export var bearing_filter_seconds: float = 0.8  # placeholder: tune in M31
+## LONG_GUNNER only: while closer than this, `ideal_position` is pushed outward.
+@export var kite_min_distance: float = 0.0  # placeholder: tune in M31
+## Range-banded ammo choice: `{ammo id: max distance}`. In ATTACK the hull loads
+## the rule with the smallest max distance still >= the current range; out of
+## every band it falls back to `ammo_preference`. Empty = always
+## `ammo_preference` (the pre-M30 behaviour). Ids resolve to
+## `res://resources/combat/ammo/<id>.tres`; an unknown id push_errors.
+@export var ammo_rules: Dictionary = {}  # placeholder: tune in M31
+## Throttle while manoeuvring in ATTACK (STANDARD always used 0.5).
+@export_range(0.0, 1.0) var attack_throttle: float = 0.5  # placeholder: tune in M31
+
+@export_group("Ram Telegraph")
+## Seconds between committing to a ram (`EnemyAI.ram_telegraphed`) and the run
+## actually starting — the player's window to read it and turn away. 0 = no
+## telegraph (pre-M30 rammers).
+@export var ram_telegraph_seconds: float = 0.0  # placeholder: tune in M31
+
+@export_group("Fireship")
+## FIRESHIP only: flat distance to the target at which it detonates even
+## without a hull-on-hull `rammed` contact (a slow touch never reports one).
+@export var fireship_contact_distance: float = 9.0  # placeholder: tune in M31
+## Every hull within this radius of the fireship takes `fireship_damage`.
+@export var fireship_radius: float = 18.0  # placeholder: tune in M31
+@export var fireship_damage: float = 60.0  # placeholder: tune in M31

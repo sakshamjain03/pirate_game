@@ -1,6 +1,8 @@
-[gd_resource type="Resource" script_class="HeatTierData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="HeatTierData" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
+[ext_resource type="Resource" path="res://resources/combat/squads/TestSquad2_TankRaider.tres" id="2_sq2"]
+[ext_resource type="Resource" path="res://resources/combat/squads/TestSquad4_RaiderDuo.tres" id="3_sq4"]
 
 [resource]
 script = ExtResource("1_heat")
@@ -11,5 +13,6 @@ max_ambient_enemies = 4
 spawn_interval_seconds = 32.0
 enemy_strength_multiplier = 1.15
 engages_unprovoked = true
+squad_pool = [ExtResource("2_sq2"), ExtResource("3_sq4")]
 decay_per_minute = 3.0
 clear_cost_eights = 10

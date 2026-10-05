@@ -35,6 +35,16 @@ class_name RegionData
 ## Waters to spawn Frigates/Galleons. If empty, falls back to default behavior.
 @export var enemy_ship_pool: Array[ShipStats] = []
 
+## M30 Requirement 9 — per-region AI profile pool. When spawning ambient
+## enemies in this region, EnemySpawner picks an AIProfileData from this
+## array based on enemy_profile_weights and assigns it before add_child.
+@export var enemy_profile_pool: Array[AIProfileData] = []
+
+## M30 Requirement 9 — weights for enemy_profile_pool. Must have the same
+## length as enemy_profile_pool or be empty. If empty, uniform distribution.
+## Used by UpgradeRoller.roll() with seeded RNG.
+@export var enemy_profile_weights: PackedFloat32Array = []
+
 ## M11 Requirement 2 — prevailing wind for this region, read by ShipMovement
 ## as one more multiplicative term on speed_mod. 0 strength is a no-op
 ## regardless of direction. Beginner Waters ≈ 0.2 (light breeze), Contested

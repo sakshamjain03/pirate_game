@@ -139,7 +139,7 @@ func _spawn_enemy() -> void:
 				var weight = max(10.0, 100.0 - rep) # Hostile factions have higher weight
 				weights.append(weight)
 				total_weight += weight
-				
+
 			var roll = randf() * total_weight
 			var current = 0.0
 			for i in range(available_factions.size()):
@@ -149,10 +149,10 @@ func _spawn_enemy() -> void:
 					break
 		else:
 			chosen_faction = available_factions.pick_random()
-			
+
 		if "faction" in enemy:
 			enemy.faction = chosen_faction
-			
+
 			if chosen_faction and chosen_faction.get("is_empire"):
 				var tier = _get_region_tier_for_position(spawn_pos)
 				var mult = compute_spawn_multiplier(tier)
@@ -170,6 +170,16 @@ func _spawn_enemy() -> void:
 						enemy.ship_stats = enemy.ship_stats.duplicate()
 					enemy.ship_stats.max_health *= mult
 					enemy.ship_stats.cannon_damage *= mult
+
+	# M30 Requirement 9 — assign AI profile from the region's profile pool before add_child.
+	var region = _get_region_for_position(spawn_pos)
+	if region and not region.enemy_profile_pool.is_empty():
+		var enemy_ai = enemy.get_node_or_null("EnemyAI")
+		if enemy_ai:
+			# Pick a profile from the weighted pool
+			var picked_profile = _pick_from_weighted_pool(region.enemy_profile_pool, region.enemy_profile_weights)
+			if picked_profile:
+				enemy_ai.ai_profile = picked_profile
 
 	_enemies_container.add_child(enemy)
 	_place_upright(enemy, spawn_pos, randf() * TAU)
@@ -341,6 +351,35 @@ func _get_region_tier_for_position(pos: Vector3) -> int:
 	if region:
 		return region.tier
 	return 1
+
+
+func _pick_from_weighted_pool(pool: Array, weights: PackedFloat32Array) -> Resource:
+	## Pick one item from the pool using the provided weights.
+	## If weights is empty or doesn't match pool size, use uniform distribution.
+	if pool.is_empty():
+		return null
+
+	if weights.is_empty() or weights.size() != pool.size():
+		# Uniform distribution
+		return pool.pick_random()
+
+	# Weighted selection
+	var total = 0.0
+	for w in weights:
+		total += w
+
+	if total <= 0.0:
+		return pool.pick_random()
+
+	var roll = randf() * total
+	var current = 0.0
+	for i in range(pool.size()):
+		current += weights[i]
+		if roll <= current:
+			return pool[i]
+
+	return pool.back()
+
 
 ## M25 - the current heat tier, or null outside the world / if the curve failed
 ## to load. Every caller must handle null by falling back to its @export.

@@ -40,6 +40,9 @@ var regen_per_second: float = 0.0
 var extra_projectiles: int = 0
 ## M26 — multiplies the hull damage this ship's bow deals when it rams.
 var ram_damage_mult: float = 1.0
+## M30 W1 (1.6) — multiplies incoming damage (Brace, status effects). 1.0 = no reduction.
+## Brace sets this to (1 - reduction).
+var damage_taken_mult: float = 1.0
 
 # Battle-long layer: temporary upgrades, cleared when the encounter ends.
 var _base := _neutral()
@@ -66,6 +69,7 @@ static func _neutral() -> Dictionary:
 		"damage": 1.0, "fire_rate": 1.0, "speed": 1.0,
 		"range": 1.0, "arc": 0.0, "special_cooldown": 1.0,
 		"pickup_radius": 1.0, "regen": 0.0, "extra_projectiles": 0.0, "ram_damage": 1.0,
+		"damage_taken": 1.0,
 	}
 
 
@@ -119,6 +123,7 @@ func _recompute() -> void:
 	var regen: float = _base["regen"]
 	var extra: float = _base["extra_projectiles"]
 	var ram: float = _base["ram_damage"]
+	var damage_taken: float = _base["damage_taken"]
 
 	var layers: Array = []
 	layers.append_array(_timed)
@@ -134,6 +139,7 @@ func _recompute() -> void:
 		rng *= float(t.get("range", 1.0))
 		arc += float(t.get("arc", 0.0))
 		special *= float(t.get("special_cooldown", 1.0))
+		damage_taken *= float(t.get("damage_taken", 1.0))
 
 	damage_mult = damage
 	fire_rate_mult = fire_rate
@@ -145,6 +151,7 @@ func _recompute() -> void:
 	regen_per_second = regen
 	extra_projectiles = int(round(extra))
 	ram_damage_mult = ram
+	damage_taken_mult = damage_taken
 	modifiers_changed.emit()
 
 

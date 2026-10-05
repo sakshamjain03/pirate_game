@@ -45,6 +45,7 @@ func _ready() -> void:
 	# MobileControls labels the context button from this node's arbiter.
 	add_to_group("world_manager")
 	_register_wave0_context_verbs()
+	_register_wave1_context_verbs()
 	# InputManager was promoted to an autoload in M7 (D57): rebinding is reachable
 	# from the main menu, where no World scene — and so no scene-local
 	# InputManager — exists.
@@ -197,6 +198,33 @@ func _register_wave0_context_verbs() -> void:
 		_can_toggle_docking,
 		func(): _toggle_docking(); return true,
 		"Dock", "dock")
+
+
+## M30 W1 (1.6) — Register Brace and other Wave 1 context verbs
+func _register_wave1_context_verbs() -> void:
+	_context_arbiter.register_provider(&"brace",
+		func(): return _can_brace(),
+		func(): return _perform_brace(),
+		"Brace", "shield")
+
+
+func _can_brace() -> bool:
+	if not player_ship or not player_ship.has_node("ShipCombat"):
+		return false
+	var combat = player_ship.get_node("ShipCombat") as ShipCombat
+	if not combat or combat.is_bracing or combat.is_brace_on_cooldown():
+		return false
+	return true
+
+
+func _perform_brace() -> bool:
+	if not player_ship or not player_ship.has_node("ShipCombat"):
+		return false
+	var combat = player_ship.get_node("ShipCombat") as ShipCombat
+	var brace_data = load("res://resources/balance/Brace.tres") as BraceData
+	if not combat or not brace_data:
+		return false
+	return combat.apply_brace(brace_data)
 
 
 func _can_toggle_docking() -> bool:

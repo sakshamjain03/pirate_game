@@ -11,3 +11,4 @@ reload_time_mult = 1.4
 spread_mult = 1.6
 detection_range_mult = 0.8
 ram_tendency_mult = 0.3
+broadside_windup_seconds = 1.2

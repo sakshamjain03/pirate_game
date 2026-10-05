@@ -6,6 +6,8 @@ signal pool_changed(pool: String, current: float, maximum: float)
 ## cannot tell those apart from an actual repair (REPAIR_SHIP objective).
 signal repaired(pool: String, amount: float)
 signal destroyed()
+## W0-4.8: emitted on every hit and impact for damage feedback and W2 boarding deck builder
+signal hit_resolved(source: Node, facing: StringName, pool_deltas: Dictionary, ammo_id: StringName, hit_tags: PackedStringArray)
 
 @export var ship_stats: ShipStats
 
@@ -126,6 +128,16 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3) -> void:
 		_is_destroyed = true
 		destroyed.emit()
 
+	# W0-4.8: emit hit_resolved for damage feedback and boarding deck builder
+	var facing: StringName = &"beam"
+	if facing_mult == ship_stats.stern_crit_multiplier:
+		facing = &"stern"
+	elif facing_mult == ship_stats.bow_armor_multiplier:
+		facing = &"bow"
+	var pool_deltas = {"hull": -hull_dmg, "sails": -sail_dmg, "crew": -crew_dmg}
+	var ammo_id = ammo.resource_name if ammo else &""
+	hit_resolved.emit(null, facing, pool_deltas, ammo_id, PackedStringArray())
+
 func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: float = 0.0,
 		penalty_duration: float = 0.0) -> void:
 	## M23 — collision damage (rams, running aground). Deliberately separate from
@@ -149,6 +161,10 @@ func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: floa
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
 		destroyed.emit()
+
+	# W0-4.8: emit hit_resolved for damage feedback
+	var pool_deltas = {"hull": -amount, "crew": -crew_dmg}
+	hit_resolved.emit(null, &"beam", pool_deltas, &"impact", PackedStringArray())
 
 
 func is_destroyed() -> bool:

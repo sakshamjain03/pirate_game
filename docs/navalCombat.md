@@ -315,19 +315,46 @@ the campaign frames *why* you fight; this loop is *how* a single fight plays.
 
 ---
 
-# 14. What v1 explicitly does not do
+# 14. What is in and what stays out (revised for M30, 2026-10-05)
 
-Locked out for v1, per the source decisions:
+The original v1 lock-outs were written before beta. Beta feedback ("every choice is vertical, no
+real decisions in a fight") reopened several of them. M30 (Battle & Empire Depth,
+`.kiro/specs/milestone-m30-battle-and-empire-depth/`) unlocks the following, each still bound by
+`AGENTS.md` (data-driven, composition, signals) and the monetization never-list:
 
-Full manual cannon aiming (superseded by §4's auto-fire-on-alignment model) · individual crew
-management (the shipped crew pool stays a single number, not a roster) · realistic wind
-simulation · manual control of every support ship in battle · a boarding **minigame** (the
-already-shipped non-minigame boarding stays — see §0 R3) · complex naval physics simulation ·
-20+ weapon types · dozens of status effects · real-time PvP · multiplayer networking · huge
-fleets on-screen simultaneously.
+| Was locked out | Now (milestone / wave) | Shape |
+|---|---|---|
+| A boarding **minigame** | **Unlocked, M30 W2 — a central pillar** | "Three Bells": a paused, deterministic deck-tactics fight whose deck your gunnery built (grape removes deckhands, chain removes riggers, a stern rake wounds the officer), then the Prize Fleet (keep / ransom / break the captured hull). `attempt_boarding()` stays as the instant auto-resolve for Quick mode and tests. |
+| Individual crew management | **Partly, M30 W2E** | 3-6 named squads ("Ship's Company") with rank, wounds and a sea-station bonus. `ShipDamage.crew` stays the total, so old saves load. |
+| Dozens of status effects | **A few, M30 W5** | Burn and Crippled only, capped at 3 per ship, through one `ShipStatusEffects` component. |
+| Realistic wind simulation | **Data-driven points of sail, M30 W6** | Wave 0 moved the head/tailwind speed numbers into `WindConfigData`; W6 adds points of sail with a ~0.6x floor. Still no simulated weather. |
+| Complex island battles | **M30 W3** | Shore batteries, phased assaults, landings through the boarding model. |
 
-These are explicitly future possibilities, not permanent exclusions — consistent with
-`AGENTS.md`'s existing PvP/multiplayer prohibition for v1.
+Still out:
+
+Full manual cannon aiming (§4's auto-fire-on-alignment stays; Wave 1 adds aim-by-bearing and a
+tap-to-mark target, not free aim) · manual control of every support ship · complex naval physics
+(buoyancy, stability and the yaw servo are a protected area) · 20+ weapon types · huge fleets
+on-screen (≤ 10 hulls, squads ≤ 4) · **real-time PvP and networking** — planned as the separate
+MP track after M31 (server-authoritative economy first, async raids against a published Harbour
+Plan), which needs its own `AGENTS.md` amendment before any code.
+
+### M30 Wave 0 foundations (shipped on `m30-w0-int`, 2026-10-06)
+
+- **Range bonuses reach the target (B2):** `CombatModifiers.range_mult` scales cannonball launch
+  speed; the direction stays the hull-basis broadside.
+- **One hit event:** `ShipDamage.hit_resolved(source, facing, pool_deltas, ammo_id, hit_tags)`,
+  emitted before `destroyed`, is the bus for feedback, Fury, morale and the boarding deck. Cannon
+  hits now show floating damage (B12).
+- **One upgrade roll (B8):** `UpgradeRoller.roll()` serves encounters and the Maelstrom.
+- **Encounter boundaries (B6/B7):** one encounter at a time (a second is refused with
+  `encounter_failed(id, "busy")`); unprovoked ambient hulls near the centre are parked for the
+  battle; `CombatModifiers.reset()` keeps persistent layers.
+- **Allies stay on their side (B4/B5):** friendly healers tend allies and the player, never
+  enemies; allies ignore passive ambient traffic.
+- **Role mixes reach the world (B17):** `RegionData.enemy_profile_pool`; `EnemyAI.apply_profile()`.
+- **One context button:** `ContextVerbArbiter` ranks Repel > Brace > Board/Take Prize > Keg >
+  Land > Assault > Spyglass > Dock; WorldManager registers board and dock today.
 
 ## Future PvP compatibility (no networking now)
 

@@ -27,6 +27,8 @@ signal sign_up_pending_confirmation()
 ## SaveManager's launch-time cloud-save check awaits this so is_signed_in() is accurate
 ## before it decides whether to look for a newer cloud save (Requirement 4.3).
 signal session_check_complete()
+## Emitted when the session becomes degraded (network failure, 5xx, or paused service).
+signal session_degraded_changed(degraded: bool)
 
 const SUPABASE_URL := "https://tuhkhsqcnnszjnczkuzq.supabase.co"
 const SUPABASE_ANON_KEY := "sb_publishable_T9lA__O7ElXo0fr-SVguQw_7DjWk-oO"
@@ -36,6 +38,10 @@ var _access_token: String = ""
 var _refresh_token: String = ""
 var _user_id: String = ""
 var _initial_check_done: bool = false
+var expires_at: int = 0  # Unix timestamp in milliseconds when the access token expires
+var session_degraded: bool = false  # True when refresh has failed with network/5xx error
+var _refresh_in_flight: bool = false  # True while a refresh request is active
+var _refresh_timer: Timer = null  # Scheduled refresh 60s before expiry
 
 ## Test seam: when set, _send_request() calls this instead of a real HTTPRequest.
 ## Callable(method: HTTPClient.Method, url: String, headers: PackedStringArray, body: String)
@@ -96,8 +102,7 @@ func sign_out() -> void:
 		# (Requirement 5.3). Not awaited: the request still fires, but sign_out() doesn't wait
 		# on the network to return control to the caller.
 		_send_request(HTTPClient.METHOD_POST, SUPABASE_URL + "/auth/v1/logout", headers, "")
-	_clear_session()
-	signed_out.emit()
+	_clear_session()  # Now emits signed_out itself
 
 func request_password_reset(email: String) -> void:
 	var result: Dictionary = await _post_auth("/auth/v1/recover", {"email": email})
@@ -124,19 +129,60 @@ func delete_account() -> void:
 
 ## Re-derives an access token from the stored refresh token. Called on launch (if a session was
 ## persisted) and by SaveManager on a 401 from a cloud-sync call before it surfaces an error.
-## Returns false (and clears the session) if the refresh token itself is no longer valid.
+## Returns false if the refresh fails (including network errors). Clears the session only on
+## invalid_grant or refresh_token_not_found; on code 0 or 5xx keeps the session and sets
+## session_degraded. Allows only one refresh in flight; concurrent callers wait on that one.
 func refresh_session() -> bool:
 	if _refresh_token.is_empty():
 		return false
+
+	# If a refresh is already in flight, wait for it to complete
+	if _refresh_in_flight:
+		while _refresh_in_flight:
+			await get_tree().process_frame
+		# The in-flight one either succeeded (is_signed_in() is true) or failed
+		# Either way, we return the current state
+		return is_signed_in()
+
+	# Mark that a refresh is starting
+	_refresh_in_flight = true
+
 	var result: Dictionary = await _post_auth(
 		"/auth/v1/token?grant_type=refresh_token", {"refresh_token": _refresh_token})
 	var code: int = result.get("code", 0)
 	var body = result.get("body", {})
+
+	var success = false
+
 	if code >= 200 and code < 300 and body is Dictionary and body.has("access_token"):
+		# Successful refresh
 		_apply_session(body)
-		return true
-	_clear_session()
-	return false
+		_set_degraded(false)
+		success = true
+	elif code in [400, 401]:
+		# Check if it's an invalid grant/token error
+		var error_str = ""
+		if body is Dictionary:
+			error_str = body.get("error", "")
+
+		if error_str in ["invalid_grant", "refresh_token_not_found"]:
+			# Session is no longer valid; clear it
+			_clear_session()
+			_set_degraded(false)
+			success = false
+		else:
+			# Other 4xx error; keep session but mark as degraded
+			_set_degraded(true)
+			success = false
+	else:
+		# Network error (code 0) or 5xx; keep session and mark as degraded
+		_set_degraded(true)
+		success = false
+
+	# Mark that this refresh is done
+	_refresh_in_flight = false
+
+	return success
 
 func _apply_session(body: Dictionary) -> void:
 	_access_token = body.get("access_token", "")
@@ -144,6 +190,14 @@ func _apply_session(body: Dictionary) -> void:
 	var user = body.get("user", {})
 	if user is Dictionary:
 		_user_id = user.get("id", _user_id)
+
+	# Track expiry time: expires_in is in seconds, convert to milliseconds
+	var expires_in: int = body.get("expires_in", 3600)
+	expires_at = Time.get_ticks_msec() + expires_in * 1000
+
+	# Schedule a refresh 60 seconds before expiry
+	_schedule_refresh_before_expiry()
+
 	_save_session()
 	signed_in.emit(_user_id)
 
@@ -234,6 +288,44 @@ func _clear_session() -> void:
 	_access_token = ""
 	_refresh_token = ""
 	_user_id = ""
+	expires_at = 0
+	_cancel_refresh_timer()
 	var dir := DirAccess.open("user://")
 	if dir and dir.file_exists("auth_session.json"):
 		dir.remove("auth_session.json")
+	signed_out.emit()
+
+func _set_degraded(degraded: bool) -> void:
+	if session_degraded != degraded:
+		session_degraded = degraded
+		session_degraded_changed.emit(degraded)
+
+func _schedule_refresh_before_expiry() -> void:
+	_cancel_refresh_timer()
+
+	if expires_at == 0:
+		return
+
+	var now = Time.get_ticks_msec()
+	var time_until_expiry = expires_at - now
+	var refresh_at = time_until_expiry - 60000  # 60 seconds before expiry
+
+	if refresh_at <= 0:
+		# Already expired or expiring within 60s, refresh immediately
+		# Don't await here since this is called from _apply_session which is not async
+		# The refresh will happen on the next frame or the refresh() call will handle it
+		return
+
+	_refresh_timer = Timer.new()
+	add_child(_refresh_timer)
+	_refresh_timer.wait_time = refresh_at / 1000.0
+	_refresh_timer.timeout.connect(func():
+		refresh_session()
+		_refresh_timer = null
+	)
+	_refresh_timer.start()
+
+func _cancel_refresh_timer() -> void:
+	if _refresh_timer:
+		_refresh_timer.queue_free()
+		_refresh_timer = null

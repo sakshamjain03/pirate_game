@@ -322,6 +322,9 @@ func _resolve_raid(attacking_faction: Resource, region: RegionData) -> Dictionar
 		var steal_fraction = clamp((attack_score - defense_score) / attack_score, 0.05, 0.25)
 		var current_resources = ResourceManager.current_resources
 		for res_name in current_resources.keys():
+			# W0-3.2: Premium currency (Eights) can never be stolen in a raid
+			if ResourceManager.is_premium_currency(res_name):
+				continue
 			var current_amount = current_resources[res_name]
 			var amount = floor(current_amount * steal_fraction)
 			if amount > 0:

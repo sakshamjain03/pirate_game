@@ -54,6 +54,65 @@ Deno.serve(async (req: Request) => {
   // why player_saves has no delete policy of its own (see supabase/schema.sql).
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+  // W0-3.3: Delete all user-owned data before account deletion
+  // The foreign keys have cascade deletes, so these deletions cascade to related tables.
+  // Execute in dependency order for clarity and atomicity.
+
+  const { error: deleteEntitlementGrantsError } = await adminClient
+    .from("entitlement_grants")
+    .delete()
+    .eq("user_id", userId);
+  if (deleteEntitlementGrantsError) {
+    return new Response(JSON.stringify({ error: "Failed to delete entitlement grants" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { error: deletePurchasesError } = await adminClient
+    .from("purchases")
+    .delete()
+    .eq("user_id", userId);
+  if (deletePurchasesError) {
+    return new Response(JSON.stringify({ error: "Failed to delete purchases" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { error: deleteWalletError } = await adminClient
+    .from("player_wallet")
+    .delete()
+    .eq("user_id", userId);
+  if (deleteWalletError) {
+    return new Response(JSON.stringify({ error: "Failed to delete wallet" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { error: deleteEightsLedgerError } = await adminClient
+    .from("eights_ledger")
+    .delete()
+    .eq("user_id", userId);
+  if (deleteEightsLedgerError) {
+    return new Response(JSON.stringify({ error: "Failed to delete eights ledger" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { error: deleteEntitlementsError } = await adminClient
+    .from("player_entitlements")
+    .delete()
+    .eq("user_id", userId);
+  if (deleteEntitlementsError) {
+    return new Response(JSON.stringify({ error: "Failed to delete entitlements" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const { error: deleteSaveError } = await adminClient
     .from("player_saves")
     .delete()

@@ -113,7 +113,7 @@ Full suite: the same command with `-gdir=res://tests`. Never use `--check-only`.
 ### Wave 3: close-out
 - [x] Z.1 Docs: an M29 section in `docs/05_CURRENT_SYSTEMS.md` (own section; each lane's changes, the stale-closed findings, perf before/after), plus `docs/15_MASTER_PLAN.md` §2.5 updated to the M29-M35 roadmap
   - **Verify:** `sync-systems-doc` reports nothing undocumented for M29 files.
-- [ ] **Checkpoint B (final)**
+- [x] **Checkpoint B (final)** — passed 2026-10-05: 162 scripts / 1137 tests / 0 failing; checkpoint-reviewer PASS. The headful sweep caught two defects, both fixed test-first: Skull Cove/Frozen/Volcano had no `owner_faction` (dock read "Unclaimed"), and the Ch5 epilogue card ran off a 720 px phone screen (text now scrolls). See docs/05 "Checkpoint B headful review".
   - **Verify:**
     - Rebase on `main`, then the full suite.
     - `checkpoint-reviewer` against this spec.

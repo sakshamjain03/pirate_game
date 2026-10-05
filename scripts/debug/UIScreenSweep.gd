@@ -300,6 +300,7 @@ The Spanish Empire is hunting you!")
 	await _wait_seconds(0.6)
 	await _capture("00g_announcement")
 	_hud.set_health(100.0, 100.0)
+	await _capture_m29_states()
 
 	if PROFILES[_profile]["mobile"]:
 		if _hud.mobile_utility_menu_button:
@@ -349,6 +350,78 @@ The Spanish Empire is hunting you!")
 ## player's capital with a shipyard + tavern IN MEMORY ONLY (duplicated
 ## IslandData, appended BuildingData), capture every tab, then restore both.
 ## Nothing is saved; no building models are spawned.
+## M29 Checkpoint B — the four states its headful review names: a world-event
+## banner, the dock prompt's owner line, the epilogue beats, and the free-roam
+## objective line. Every state is restored afterwards; nothing is saved.
+func _capture_m29_states() -> void:
+	await _drain_announcements()
+	EventManager.world_event_triggered.emit("merchant_convoy_spotted", {})
+	await _wait_seconds(0.6)
+	await _capture("00i_event_banner")
+	await _drain_announcements()
+
+	var enemy_island_id := ""
+	for candidate in get_tree().get_nodes_in_group("islands"):
+		var data = candidate.get("island_data")
+		if data and data.island_type == IslandData.IslandType.ENEMY and candidate.has_method("get_island_id"):
+			enemy_island_id = candidate.get_island_id()
+			break
+	if enemy_island_id.is_empty():
+		push_error("UIScreenSweep: no ENEMY island for the dock-owner capture")
+	else:
+		_hud._on_dock_area_entered(enemy_island_id)
+		await _wait_seconds(0.6)
+		if _hud.get("_dock_owner_label") == null:
+			await _wait_seconds(0.4)
+		await _capture("00j_dock_owner")
+		_hud._on_dock_area_exited(enemy_island_id)
+		await _drain_announcements()
+
+	var tutorial: Control = _hud.get("tutorial_dialogue")
+	var ch5 := load("res://resources/campaign/chapters/Ch5_TheSilverFleet.tres") as ChapterData
+	if tutorial and ch5 and ch5.closing_beats.size() >= 3:
+		var epilogue: Array[DialogueBeatData] = []
+		for beat in ch5.closing_beats.slice(ch5.closing_beats.size() - 3):
+			epilogue.append(beat)
+		tutorial._show_queue(epilogue)
+		await _wait_seconds(0.6)
+		await _capture("00k_epilogue_beat")
+		tutorial.hide()
+		await _settle(2)
+	else:
+		push_error("UIScreenSweep: could not stage the Ch5 epilogue beats")
+
+	# Stage a finished campaign: the Captain's Log shows its Free Roam section
+	# only when no chapter is current, so flipping the flag alone isn't enough.
+	var was_completed: bool = CampaignManager.campaign_completed
+	var was_completed_ids: Array[String] = CampaignManager.completed_chapter_ids.duplicate()
+	for chapter in CampaignManager.chapters:
+		if not CampaignManager.completed_chapter_ids.has(chapter.chapter_id):
+			CampaignManager.completed_chapter_ids.append(chapter.chapter_id)
+	CampaignManager.campaign_completed = true
+	CampaignManager.campaign_completed_signal.emit()
+	await _wait_seconds(0.6)
+	await _capture("00l_campaign_complete_banner")
+	await _drain_announcements()
+	if "captains_log" in _hud and _hud.captains_log:
+		_hud.captains_log.open()
+		await _settle(4)
+		await _capture("00m_free_roam_log")
+		_hud.captains_log.close()
+		await _settle(2)
+	CampaignManager.completed_chapter_ids = was_completed_ids
+	CampaignManager.campaign_completed = was_completed
+
+
+## Announcements are queued (WorldHUD.queue_announcement), so a capture taken
+## while an earlier one is still on screen shows the wrong banner.
+func _drain_announcements(max_seconds: float = 10.0) -> void:
+	var waited := 0.0
+	while waited < max_seconds and (is_instance_valid(_hud.get("_announce_active")) or not _hud.get("_announce_queue").is_empty()):
+		await _wait_seconds(0.25)
+		waited += 0.25
+
+
 ## M28 — a real authored lesson on the in-world coach card, with its
 ## highlight, to check the card clears the resource bar and the thumb clusters.
 func _capture_lesson_card() -> void:

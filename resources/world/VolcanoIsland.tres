@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="IslandData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="IslandData" load_steps=3 format=3]
 
+[ext_resource type="Resource" path="res://resources/factions/SpanishEmpire.tres" id="9_owner"]
 [ext_resource type="Script" path="res://scripts/world/IslandData.gd" id="1_vis"]
 
 [resource]
@@ -7,6 +8,7 @@ script = ExtResource("1_vis")
 island_id = "volcano_island"
 island_name = "Mount Brimstone"
 island_type = 2
+owner_faction = ExtResource("9_owner")
 terrain_theme = 1
 world_position = Vector2(480, 380)
 region_id = "imperial_waters"

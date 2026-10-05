@@ -32,6 +32,8 @@ class_name TutorialDialogue extends Control
 const _BOTTOM_GAP := 24.0
 const _MOBILE_TOP := 212.0
 const _DOT_SIZE := 14.0
+## Never squeeze the text below about three lines, however little room is left.
+const _MIN_TEXT_H := 96.0
 ## Phone only: the horizontal band (canvas px) between the left and right
 ## thumb clusters, measured by WorldHUD from MobileControls' real button
 ## rects; the card fits inside it so it never covers a steering/action
@@ -78,13 +80,30 @@ func _ready() -> void:
 	# card (M22 6b, CombatCaptureHarness). Nothing else re-ran the fit once
 	# the label got its real width, so the card stayed tall forever.
 	$Panel.minimum_size_changed.connect(_fit_to_content)
+	# Inside the TextScroll the label's re-wrapped height no longer moves the
+	# Panel's minimum (the scroll's own minimum dominates it), so listen to
+	# the label directly or the first, width-less measurement sticks.
+	text_label.minimum_size_changed.connect(_fit_to_content)
 
 
 ## Height follows the wrapped text; position follows the platform (see
 ## _BOTTOM_GAP/_MOBILE_TOP). Width stays the scene's 840 canvas px.
+## M29 Checkpoint B: the text sits in a ScrollContainer sized to the wrapped
+## text but clamped to the room left on screen, so a long beat (the Ch5
+## epilogue) scrolls instead of pushing the Next button off a phone screen.
 func _fit_to_content() -> void:
 	var panel_node: Control = $Panel
-	var h: float = panel_node.get_combined_minimum_size().y
+	var scroll: ScrollContainer = $Panel/HBox/VBox/TextScroll
+	var text_h: float = text_label.get_combined_minimum_size().y
+	var chrome_h: float = panel_node.get_combined_minimum_size().y - scroll.custom_minimum_size.y
+	var top: float = _MOBILE_TOP if PirateThemeBuilder.is_mobile() else _BOTTOM_GAP
+	var room: float = get_viewport_rect().size.y - top - _BOTTOM_GAP - chrome_h
+	var want: float = minf(text_h, maxf(room, _MIN_TEXT_H))
+	if not is_equal_approx(scroll.custom_minimum_size.y, want):
+		scroll.custom_minimum_size.y = want
+	# The container minimum only catches up next layout pass; size from the
+	# parts directly so this pass already places the card correctly.
+	var h: float = chrome_h + want
 	if PirateThemeBuilder.is_mobile():
 		anchor_top = 0.0
 		anchor_bottom = 0.0
@@ -93,7 +112,8 @@ func _fit_to_content() -> void:
 			anchor_right = 0.0
 			offset_left = _mobile_band.x
 			offset_right = _mobile_band.y
-			h = panel_node.get_combined_minimum_size().y
+			# The new width re-wraps the text; resized/minimum_size_changed
+			# re-run this fit with the re-wrapped height.
 		offset_top = _MOBILE_TOP
 		offset_bottom = _MOBILE_TOP + h
 	else:

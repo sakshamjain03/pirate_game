@@ -27,7 +27,7 @@ the same pull request.
 
 ## Test Suite Baseline (measured 2026-09-14, GUT on real Godot 4.3)
 
-**Current (2026-10-04, M29 Checkpoint A): 159 scripts, 1125 tests, 1125 passing, 0 failing, 0 `SCRIPT ERROR`s.** M29 added 21 test scripts, including three permanent lints (`test_lint_resource_exports`, `test_lint_save_roundtrip`, `test_lint_signal_wiring`) plus `test_lint_encounter_data` and `test_campaign_golden_path`. Previous (2026-10-01, M26-M28 wrap-up second pass): 138 scripts, 1046 tests, 1046 passing, 0 failing, 0 `SCRIPT ERROR`s, and the process exits 0. The engine-teardown crash (0xC0000005 / exit 139 since M26) was one orphaned `EnemyShip` in `test_maelstrom_spawner.gd`, a RigidBody3D outliving the physics server; it is freed now, so the exit code is meaningful again. A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. `res://.gutconfig.json` runs `tests/gut_pre_run.gd` before every CLI run, which points `CampaignManager`'s chapter-Eights ledger at a scratch file so the suite never writes the developer's real one. (Previous: 137 / 1035 at the joint wrap-up; M28 Checkpoint B 136 / 1027; M27 Checkpoint B 133 / 963.)
+**Current (2026-10-05, M29 Checkpoint B): 162 scripts, 1137 tests, 1137 passing, 0 failing, 0 `SCRIPT ERROR`s** (the M30 spec commit 053ff83 started from 160 / 1134; Checkpoint B added the enemy-island-owner and phone-dialogue-fit guards). Previous (2026-10-04, M29 Checkpoint A): 159 scripts, 1125 tests, 1125 passing, 0 failing, 0 `SCRIPT ERROR`s. M29 added 21 test scripts, including three permanent lints (`test_lint_resource_exports`, `test_lint_save_roundtrip`, `test_lint_signal_wiring`) plus `test_lint_encounter_data` and `test_campaign_golden_path`. Previous (2026-10-01, M26-M28 wrap-up second pass): 138 scripts, 1046 tests, 1046 passing, 0 failing, 0 `SCRIPT ERROR`s, and the process exits 0. The engine-teardown crash (0xC0000005 / exit 139 since M26) was one orphaned `EnemyShip` in `test_maelstrom_spawner.gd`, a RigidBody3D outliving the physics server; it is freed now, so the exit code is meaningful again. A freshly pulled checkout must rebuild its global class cache first (`<godot> --headless --import --path .`), or autoloads that name a new `class_name` fail to parse and the run collapses into dozens of false failures. `res://.gutconfig.json` runs `tests/gut_pre_run.gd` before every CLI run, which points `CampaignManager`'s chapter-Eights ledger at a scratch file so the suite never writes the developer's real one. (Previous: 137 / 1035 at the joint wrap-up; M28 Checkpoint B 136 / 1027; M27 Checkpoint B 133 / 963.)
 
 Previous (2026-09-25, M23 — measured with M22's in-progress UI work also in the tree): 714 tests, 711 passing, 3 failing. The 3 are not M23's: `test_combat_loop_end_to_end` "hostile off the beam must lock the starboard battery" (fails identically on the pre-M23 baseline), `test_store_screen` content/close overlap and `test_touch_target_audit` (both M22 UI work in flight).
 
@@ -3717,3 +3717,30 @@ deliverables. Each one has a complete prompt and exact settings.
 - Device FPS.
 - Whether the announcement pacing and the dock owner line feel right on a phone.
 - Whether the epilogue lands emotionally.
+
+### Checkpoint B headful review (2026-10-05)
+`UIScreenSweep` gained `_capture_m29_states()` (phone profile): a world-event banner, the dock
+prompt's owner line, the Ch5 epilogue beat, the campaign-complete banner and the free-roam
+Captain's Log. It drains the announcement queue between shots — announcements queue, so a shot
+taken too early shows the previous banner — and stages a finished campaign by marking every
+chapter complete, since the log's Free Roam section only appears when no chapter is current.
+
+Two real defects found by looking, both fixed test-first:
+- **Enemy islands with no owner.** `SkullCove`, `FrozenIsland` and `VolcanoIsland` were `ENEMY`
+  with no `owner_faction`, so the J.1 owner line read "Skull Cove · Unclaimed" and capturing them
+  skipped B.3's previous-owner reputation loss. Each now names the faction that holds it (Pirate
+  Clans, Royal Navy, Spanish Empire). Guard: `tests/test_m29_enemy_island_owners.gd` (every ENEMY
+  island has an owner).
+- **The dialogue card ran off a phone screen.** On a 1560x720 phone canvas the card sits under the
+  top HUD at y=212 and grew with its text, so the long Ch5 epilogue beat pushed the Next button
+  to y≈1216. The beat text now sits in a `TextScroll` ScrollContainer that `_fit_to_content()`
+  sizes to the wrapped text, clamped to the room left on screen (minimum 96 px); it also refits on
+  the label's own `minimum_size_changed`, because inside the scroll the label's re-wrapped height
+  no longer moves the Panel's minimum. Guard: `tests/test_m29_dialogue_fits.gd` (a 1560x720
+  SubViewport with mobile layout forced; the original files fail it).
+
+Noted, not fixed (M30 Wave 1.8 feedback pack owns HUD layering): world-event banners appear in the
+same mid-screen band as the lesson coach card and briefly cover it. The free-roam line sits below
+the full completed-chapter list in the Captain's Log, so a finished player scrolls to find it.
+
+Suite: 162 scripts / 1137 tests / 0 failing / 0 `SCRIPT ERROR`s.

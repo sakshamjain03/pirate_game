@@ -35,14 +35,15 @@ class_name RegionData
 ## Waters to spawn Frigates/Galleons. If empty, falls back to default behavior.
 @export var enemy_ship_pool: Array[ShipStats] = []
 
-## M30 Requirement 9 — per-region AI profile pool. When spawning ambient
-## enemies in this region, EnemySpawner picks an AIProfileData from this
-## array based on enemy_profile_weights and assigns it before add_child.
+## M30 0.17 — per-region AI role mix. EnemySpawner picks one per ambient
+## spawn (weighted by enemy_profile_weights) and assigns it before add_child,
+## so the role profiles (Harasser, Artillery, Support...) finally reach the
+## world instead of every hull running EnemyShip.tscn's StandardEnemy. Empty =
+## keep the scene's profile.
 @export var enemy_profile_pool: Array[AIProfileData] = []
 
-## M30 Requirement 9 — weights for enemy_profile_pool. Must have the same
-## length as enemy_profile_pool or be empty. If empty, uniform distribution.
-## Used by UpgradeRoller.roll() with seeded RNG.
+## M30 0.17 — weights for enemy_profile_pool, index for index. Empty or a
+## length mismatch = uniform.
 @export var enemy_profile_weights: PackedFloat32Array = []
 
 ## M11 Requirement 2 — prevailing wind for this region, read by ShipMovement

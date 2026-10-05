@@ -214,14 +214,13 @@ func _find_nearest_hostile_enemy() -> ShipController:
 		if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
 			continue
 
-		# Friendly AI only engages provoked or engaging hostiles.
-		# If this ship is friendly, check if the target's AI would engage.
+		# M30 0.14 (B5) — an ally only fights hulls that are actually in the
+		# fight: a passive ambient merchant the player is sailing past at low
+		# heat is not a target, or allies drag the player into fresh fights.
 		if ship_controller.is_in_group("friendly_ship"):
 			var target_ai = node.get_node_or_null("EnemyAI")
-			if target_ai:
-				# Skip passive enemies (not provoked and would not engage without provocation)
-				if not target_ai.is_provoked() and not target_ai._may_engage_player():
-					continue
+			if target_ai and not target_ai.is_provoked() and not target_ai._may_engage_player():
+				continue
 
 		var d: float = ship_controller.global_position.distance_to(node.global_position)
 		# Bounded like every other detection path here (_can_detect_player()) —
@@ -424,12 +423,14 @@ func _find_wounded_ally() -> Node3D:
 	var best: Node3D = null
 	var best_dist := INF
 
-	# Friendly support heals only its own side (friendly ships).
-	# If the support ship is in the friendly_ship group, search friendly_ship.
-	# Otherwise (enemy support), search enemy_ship.
-	var search_group := "friendly_ship" if ship_controller.is_in_group("friendly_ship") else "enemy_ship"
+	# M30 0.14 (B4) — heal only this hull's own side. A friendly support ship
+	# used to scan "enemy_ship" and patch up the player's targets; on the
+	# player's side it now tends allies and the player's own ship.
+	var side: Array = get_tree().get_nodes_in_group("enemy_ship")
+	if ship_controller.is_in_group("friendly_ship"):
+		side = get_tree().get_nodes_in_group("friendly_ship") + get_tree().get_nodes_in_group("player_ship")
 
-	for node in get_tree().get_nodes_in_group(search_group):
+	for node in side:
 		if node == ship_controller or not is_instance_valid(node):
 			continue
 		var dmg = node.get_node_or_null("ShipDamage")

@@ -54,9 +54,10 @@ var _applied: Array[BattleUpgradeData] = []
 # cleared only by that owner. reset() used to wipe every layer at encounter end.
 var _persistent: Dictionary = {}
 
-## M30 0.16 — how long a layer lives. ENCOUNTER = battle upgrades (_base),
-## cleared by reset(); TIMED = add_timed_effect(), expires on its own clock;
-## PERSISTENT = set_persistent_layer(), only its owner clears it.
+## M30 0.16 — how long a layer lives. ENCOUNTER = battle upgrades (_base);
+## TIMED = add_timed_effect() (captain abilities, pickups), which expires on
+## its own clock and is also cut short when the battle ends; PERSISTENT =
+## set_persistent_layer(), which only its owner clears.
 enum Lifetime { ENCOUNTER, TIMED, PERSISTENT }
 
 
@@ -68,11 +69,12 @@ static func _neutral() -> Dictionary:
 	}
 
 
-## Clears the ENCOUNTER layer only (M30 0.16): battle upgrades end with the
-## battle; timed effects run out their own clock; persistent layers belong to
-## their owners.
+## End-of-battle clear (M30 0.16): battle upgrades and any still-running timed
+## effect end with the battle; persistent layers belong to their owners and
+## survive (before M30 this wiped every layer).
 func reset() -> void:
 	_base = _neutral()
+	_timed.clear()
 	_applied.clear()
 	_recompute()
 

@@ -5,8 +5,8 @@ extends GutTest
 ##      its authored composition. Now a second start is refused loudly
 ##      (encounter_failed "busy"), and unprovoked ambient hulls near the centre
 ##      are parked for the battle and restored after.
-## B7 — CombatModifiers.reset() at encounter end wiped every layer. Now it
-##      clears only the ENCOUNTER layer (battle upgrades).
+## B7 — CombatModifiers.reset() at encounter end wiped every layer. Now
+##      PERSISTENT layers (crew stations, statuses) survive it.
 ## Setup mirrors test_encounters.gd (MockPlayer/MockSpawner).
 
 class MockPlayer extends RigidBody3D:
@@ -130,7 +130,7 @@ func test_provoked_ambient_stays_in_the_fight() -> void:
 	assert_true(angry.visible)
 
 
-func test_reset_keeps_persistent_and_timed_layers() -> void:
+func test_reset_keeps_only_persistent_layers() -> void:
 	var mods := CombatModifiers.new()
 	add_child_autofree(mods)
 	var up := BattleUpgradeData.new()
@@ -144,7 +144,7 @@ func test_reset_keeps_persistent_and_timed_layers() -> void:
 	mods.reset()
 	assert_eq(mods.damage_mult, 1.0, "the ENCOUNTER layer (battle upgrades) is cleared")
 	assert_almost_eq(mods.fire_rate_mult, 1.08, 0.0001, "a PERSISTENT layer survives reset()")
-	assert_almost_eq(mods.speed_mult, 1.2, 0.0001, "a TIMED layer runs out its own clock")
+	assert_eq(mods.speed_mult, 1.0, "a still-running TIMED effect ends with the battle")
 	mods.clear_persistent_layer(&"gunners_station")
 	assert_eq(mods.fire_rate_mult, 1.0)
 

@@ -21,6 +21,13 @@ signal misfired(side: String)
 signal broadside_windup(side: String, duration: float, target: Node3D)
 ## The wind-up on `side` ended without firing (the target left the arc).
 signal broadside_windup_cancelled(side: String)
+## M30 W1 (1.6) — a Brace began; `is_perfect` when pressed in the last
+## BraceData.perfect_window of a wind-up aimed at this hull. Fury listens.
+signal brace_started(is_perfect: bool)
+## The Brace window closed (expired, cancelled or the hull died).
+signal brace_ended()
+## M30 W1 (1.12) — Fury changed; `value` is 0..1. Drives the HUD meter.
+signal fury_changed(value: float)
 
 @export var ship_stats: ShipStats
 @export var current_ammo: AmmoData
@@ -182,8 +189,18 @@ var is_bracing: bool = false
 var is_perfect_bracing: bool = false
 var _brace_t: float = 0.0
 var _brace_cooldown_remaining: float = 0.0
+## The BraceData the running/last Brace was applied with — its cooldown is the
+## one that starts when the window closes.
+var _brace_data: BraceData = null
+## CombatModifiers persistent-layer id the Brace owns (see apply_brace()).
+const BRACE_LAYER := &"brace"
 
-## M30 W1 (1.12) — Fury charge (0.0 to 1.0), fills from hits, rakes, perfect braces, kills.
+## M30 W1 (1.12) — Fury: the special broadside's second fill (0..1), from this
+## hull's own outgoing hits (more for rakes), kills and Perfect Braces. Read it;
+## change it through add_fury()/reset_fury() so fury_changed fires. Null
+## fury_data = this hull gathers no Fury (only the player's hull loads one).
+@export var fury_data: FuryData
+const FURY_DATA_PATH := "res://resources/balance/Fury.tres"
 var fury: float = 0.0
 
 func _ready() -> void:
@@ -243,6 +260,7 @@ func _ready() -> void:
 	if parent and parent.has_signal("ship_stats_changed") \
 			and not parent.ship_stats_changed.is_connected(_rebuild_batteries):
 		parent.ship_stats_changed.connect(_rebuild_batteries)
+	_setup_fury()
 
 func _on_pool_changed(pool: String, current: float, maximum: float) -> void:
 	if pool == "hull":
@@ -488,48 +506,57 @@ func die() -> void:
 	# M29 A.2: invalidate pending reload callbacks
 	_life_id += 1
 	_cancel_windups()
-	cancel_brace()
+	# A sunk (later respawned) hull starts clean: no brace, no cooldown, no Fury.
+	_end_brace(false)
+	_brace_cooldown_remaining = 0.0
+	reset_fury()
 	died.emit()
 	# Handled by ShipController._on_died(), connected to this signal.
 
 
-## M30 W1 (1.6) — Apply Brace: reduce damage for a window, block firing.
-## Returns true if brace was applied, false if on cooldown or invalid.
+## M30 W1 (1.6) — Brace: for `brace_data.window` seconds incoming damage is
+## multiplied by (1 − reduction) — (1 − perfect_reduction) on a Perfect Brace —
+## and this hull's own guns (broadside and special) cannot fire. Refused while
+## already bracing or on cooldown. Returns true when it took effect.
+##
+## The reduction is a CombatModifiers PERSISTENT layer owned and cleared here,
+## not add_timed_effect(): this node already runs the window's clock (it gates
+## the guns and starts the cooldown), and a timed entry can be neither
+## cancelled early nor told apart from captain-ability bursts.
 func apply_brace(brace_data: BraceData, is_perfect: bool = false) -> bool:
-	if not brace_data or is_brace_on_cooldown():
+	if not brace_data or is_bracing or is_brace_on_cooldown():
 		return false
 
+	_brace_data = brace_data
 	is_bracing = true
 	is_perfect_bracing = is_perfect
 	_brace_t = brace_data.window
 
-	# Set damage reduction through CombatModifiers
 	var modifiers = _get_modifiers()
 	if modifiers:
-		var reduction = brace_data.perfect_reduction if is_perfect else brace_data.reduction
-		var damage_mult = 1.0 - reduction
-		modifiers.set_persistent_layer(&"brace", {"damage_taken": damage_mult})
-
-		# Perfect brace grants Fury
-		if is_perfect:
-			fury = minf(fury + brace_data.perfect_fury_grant, 1.0)
-
+		var reduction: float = brace_data.perfect_reduction if is_perfect else brace_data.reduction
+		modifiers.set_persistent_layer(BRACE_LAYER, {"damage_taken": 1.0 - reduction})
+	brace_started.emit(is_perfect)
 	return true
 
 
-## M30 W1 (1.6) — Cancel Brace manually
+## M30 W1 (1.6) — ends a running Brace early; its cooldown still starts.
 func cancel_brace() -> void:
+	_end_brace(true)
+
+
+func _end_brace(start_cooldown: bool) -> void:
 	if not is_bracing:
 		return
-
 	is_bracing = false
 	is_perfect_bracing = false
 	_brace_t = 0.0
-	_brace_cooldown_remaining = 0.0
-
+	if start_cooldown and _brace_data:
+		_brace_cooldown_remaining = _brace_data.cooldown
 	var modifiers = _get_modifiers()
 	if modifiers:
-		modifiers.clear_persistent_layer(&"brace")
+		modifiers.clear_persistent_layer(BRACE_LAYER)
+	brace_ended.emit()
 
 
 ## M30 W1 (1.6) — Check if Brace is on cooldown
@@ -537,35 +564,99 @@ func is_brace_on_cooldown() -> bool:
 	return _brace_cooldown_remaining > 0.0
 
 
-## M30 W1 (1.12) — Check if special broadside is ready (cooldown or Fury)
+## M30 W1 (1.12) — the special is ready from its timer OR from a full Fury.
 func is_special_ready() -> bool:
 	return is_special_broadside_ready() or fury >= 1.0
 
 
+## M30 W1 (1.12) — adds Fury (clamped to 1). Crossing 1.0 while the timer is
+## still running readies the special early, so special_broadside_ready fires
+## then too — the HUD and any listener see it the same as the timer path.
+func add_fury(amount: float) -> void:
+	if amount <= 0.0 or fury >= 1.0:
+		return
+	fury = minf(fury + amount, 1.0)
+	fury_changed.emit(fury)
+	if fury >= 1.0 and not is_special_broadside_ready():
+		special_broadside_ready.emit()
+
+
+func reset_fury() -> void:
+	if fury == 0.0:
+		return
+	fury = 0.0
+	fury_changed.emit(fury)
+
+
+func get_fury() -> float:
+	return fury
+
+
+func _setup_fury() -> void:
+	var parent := get_parent()
+	if not fury_data and parent and parent.is_in_group("player_ship"):
+		fury_data = load(FURY_DATA_PATH) as FuryData
+		if not fury_data:
+			push_error("ShipCombat: missing %s" % FURY_DATA_PATH)
+	if not brace_started.is_connected(_on_brace_started):
+		brace_started.connect(_on_brace_started)
+	# Fury lasts one battle: it goes when the encounter's modifiers are reset.
+	var mods := _get_modifiers()
+	if mods and not mods.encounter_reset.is_connected(reset_fury):
+		mods.encounter_reset.connect(reset_fury)
+	if not fury_data or not is_inside_tree():
+		return
+	# Outgoing hits arrive on the TARGET's ShipDamage.hit_resolved (design §5:
+	# "filled from hit_resolved (outgoing)"), so listen on every hull's, current
+	# and future, and keep only the hits this ship landed.
+	for node in get_tree().get_nodes_in_group(ShipDamage.GROUP):
+		_watch_outgoing(node)
+	if not get_tree().node_added.is_connected(_watch_outgoing):
+		get_tree().node_added.connect(_watch_outgoing)
+
+
+func _watch_outgoing(node: Node) -> void:
+	var dmg := node as ShipDamage
+	if not dmg or dmg.get_parent() == get_parent():
+		return
+	var cb := _on_outgoing_hit.bind(dmg)
+	if not dmg.hit_resolved.is_connected(cb):
+		dmg.hit_resolved.connect(cb)
+
+
+## One resolved hit on another hull. Fills Fury when this ship fired it: by the
+## hull damage it did, x rake_multiplier from astern or ahead, plus
+## fury_on_kill on the killing blow (hit_resolved is emitted before the target
+## marks itself destroyed, so a sunk hull whose is_destroyed() is still false
+## was sunk by exactly this hit). Rams (apply_impact) carry no source and so
+## fill nothing.
+func _on_outgoing_hit(source: Node, facing: StringName, pool_deltas: Dictionary,
+		_ammo_id: StringName, _hit_tags: PackedStringArray, target_damage: ShipDamage) -> void:
+	if not fury_data or source == null or source != get_parent():
+		return
+	var fill: float = float(pool_deltas.get("hull", 0.0)) * fury_data.fury_per_hit
+	if facing == &"stern" or facing == &"bow":
+		fill *= fury_data.rake_multiplier
+	if is_instance_valid(target_damage) and target_damage.hull <= 0.0 \
+			and not target_damage.is_destroyed():
+		fill += fury_data.fury_on_kill
+	add_fury(fill)
+
+
+func _on_brace_started(is_perfect: bool) -> void:
+	if is_perfect and fury_data:
+		add_fury(fury_data.fury_on_perfect_brace)
+
+
 func _physics_process(delta: float) -> void:
-	# M30 W1 (1.6) — Handle Brace duration
-	if is_bracing and _brace_t > 0.0:
+	# M30 W1 (1.6) — the Brace cooldown, then the window (whose close starts
+	# the cooldown from the BraceData it was applied with).
+	if _brace_cooldown_remaining > 0.0:
+		_brace_cooldown_remaining = maxf(_brace_cooldown_remaining - delta, 0.0)
+	if is_bracing:
 		_brace_t -= delta
 		if _brace_t <= 0.0:
-			_brace_t = 0.0
-			is_bracing = false
-			is_perfect_bracing = false
-
-			# Start cooldown
-			var brace_data = load("res://resources/balance/Brace.tres") as BraceData
-			if brace_data:
-				_brace_cooldown_remaining = brace_data.cooldown
-
-			# Remove damage reduction
-			var modifiers = _get_modifiers()
-			if modifiers:
-				modifiers.clear_persistent_layer(&"brace")
-
-	# M30 W1 (1.6) — Handle Brace cooldown
-	if _brace_cooldown_remaining > 0.0:
-		_brace_cooldown_remaining -= delta
-		if _brace_cooldown_remaining <= 0.0:
-			_brace_cooldown_remaining = 0.0
+			_end_brace(true)
 
 	if _special_cooldown_remaining > 0.0:
 		_special_cooldown_remaining -= delta
@@ -621,7 +712,7 @@ func _physics_process(delta: float) -> void:
 			if _windup_t[side] <= 0.0:
 				_windup_t.erase(side)
 				_fire_through_controller(side)
-		elif _side_reloaded(side):
+		elif _side_reloaded(side) and _can_fire_now():
 			_windup_t[side] = windup
 			broadside_windup.emit(side, windup, solver.get_target(side))
 
@@ -636,6 +727,16 @@ func get_broadside_windup_seconds() -> float:
 ## Seconds left on `side`'s wind-up, or -1 when none is running.
 func get_windup_remaining(side: String) -> float:
 	return float(_windup_t.get(side, -1.0))
+
+
+## False while fire_broadside() would refuse for a reason a wind-up cannot
+## outlast (bracing, no crew) — so a hostile never telegraphs a shot it cannot
+## take, and re-telegraphs it every frame.
+func _can_fire_now() -> bool:
+	if is_bracing:
+		return false
+	var dmg = _get_damage()
+	return not (dmg and dmg.crew <= 0.0)
 
 
 func _side_reloaded(side: String) -> bool:
@@ -683,6 +784,10 @@ func fire_special_broadside() -> bool:
 	## M30 W1 (1.12) — Fury also makes the special ready early.
 	if not ship_stats or not is_special_ready():
 		return false
+	# M30 W1 (1.6) — braced guns stay silent, the special included.
+	if is_bracing:
+		return false
+	var via_fury := not is_special_broadside_ready()
 
 	var dmg = _get_damage()
 	if dmg and dmg.crew <= 0.0:
@@ -719,6 +824,10 @@ func fire_special_broadside() -> bool:
 	var mods := _get_modifiers()
 	var cd_mult: float = mods.special_cooldown_mult if mods else 1.0
 	_special_cooldown_remaining = ship_stats.special_broadside_cooldown * cd_mult
+	# M30 W1 (1.12) — a Fury-readied special spends all of it; one on the timer
+	# leaves Fury untouched.
+	if via_fury:
+		reset_fury()
 	special_broadside_fired.emit()
 	return true
 

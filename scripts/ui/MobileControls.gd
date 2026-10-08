@@ -438,6 +438,12 @@ func _bind_ship_context() -> void:
 		for signal_name in ["sail_level_changed", "anchor_dropped", "anchor_raised", "ship_docked", "ship_undocked"]:
 			if ship.has_signal(signal_name):
 				ship.connect(signal_name, _refresh_mobile_controls)
+	# M30 W1 — verbs such as Brace come and go mid-sail with no ship signal of
+	# their own; the arbiter's owner says when the winner changes.
+	var wm := get_tree().get_first_node_in_group("world_manager")
+	if wm and wm.has_signal("context_verb_changed") \
+			and not wm.is_connected("context_verb_changed", _refresh_context_action):
+		wm.connect("context_verb_changed", _refresh_context_action)
 	_refresh_sail_control()
 	_refresh_context_action()
 

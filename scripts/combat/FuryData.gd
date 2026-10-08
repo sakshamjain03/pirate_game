@@ -5,7 +5,12 @@ class_name FuryData
 ## Responsibilities: Hold fill rates for different sources (hits, rakes, braces, kills).
 
 ## Fury fills from hits, rakes, Perfect Braces and kills.
-## Fury is a 0–1 charge that, when full, makes the special broadside ready early.
+## Fury is a 0–1 charge that, when full, makes the special broadside ready early:
+## it is the "extra fill on the existing special timer" (W1-2.4). The timer still
+## runs on its own; whichever finishes first readies the special, and firing the
+## special on the Fury path spends all of it. Filled by ShipCombat from
+## ShipDamage.hit_resolved (outgoing hits), its own brace_started signal and kills.
+## The single source for the Perfect Brace grant (BraceData holds none).
 
 ## Fury granted per hull damage point from a standard hit.
 @export var fury_per_hit: float = 0.01  # placeholder: tune in M31
@@ -18,7 +23,3 @@ class_name FuryData
 
 ## Fury granted when killing an enemy.
 @export var fury_on_kill: float = 0.5  # placeholder: tune in M31
-
-## Extra fill rate on the special timer when fury is active.
-## This is an extra fill source independent of the cooldown timer.
-@export var fury_fill_rate: float = 0.1  # placeholder: tune in M31

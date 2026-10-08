@@ -141,6 +141,12 @@ var _stbd_cooldown_start_ms: int = 0
 # FiringSolver currently holds a target in that arc, not just its reload.
 var _arc_locked := {"port": false, "starboard": false}
 var _special_label: Label
+## M30 W1 (1.12) — the Fury meter, stacked under the special readout.
+var _fury_meter: ProgressBar
+## M30 W1 (1.6) — desktop's Brace call-out (phones read the context button).
+var _brace_label: Label
+## Fury meter bar height (canvas px).
+const _FURY_METER_HEIGHT := 12
 var _objective_label: Label
 var _objective_card: PanelContainer
 var _ability_label: Label
@@ -1799,15 +1805,47 @@ func _update_special_broadside_display() -> void:
 	if not combat.has_method("is_special_broadside_ready"):
 		_special_label.visible = false
 		return
+	# M30 W1 (1.12) — a full Fury readies the special early, so readiness is
+	# is_special_ready() (timer OR Fury), not the timer alone.
+	var ready: bool = combat.is_special_ready() if combat.has_method("is_special_ready") \
+		else combat.is_special_broadside_ready()
 	if mobile_controls and mobile_controls.has_method("set_cooldown_fraction"):
-		mobile_controls.set_cooldown_fraction("broadside", combat.get_special_cooldown_fraction())
-	if combat.is_special_broadside_ready():
+		mobile_controls.set_cooldown_fraction("broadside",
+			1.0 if ready else combat.get_special_cooldown_fraction())
+	if ready:
 		_special_label.text = tr("[SPACE] FULL BROADSIDE")
 		_special_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
 	else:
 		var pct: float = combat.get_special_cooldown_fraction()
 		_special_label.text = tr("FULL BROADSIDE %d%%") % int(pct * 100.0)
 		_special_label.add_theme_color_override("font_color", _hud_muted())
+	if _fury_meter:
+		var has_fury: bool = combat.get("fury_data") != null
+		_fury_meter.visible = has_fury
+		if has_fury:
+			_fury_meter.value = float(combat.get("fury"))
+	_update_brace_label()
+
+
+## M30 W1 (1.6) — names the key while Brace is the context verb. Phones show
+## it on the context button itself (MobileControls), so this is desktop only.
+func _update_brace_label() -> void:
+	if not _brace_label:
+		return
+	var wm := get_tree().get_first_node_in_group("world_manager")
+	var show_it: bool = not _uses_mobile_utility_menu() and wm != null \
+		and wm.has_method("get_context_verb") and wm.get_context_verb() == &"brace"
+	_brace_label.visible = show_it
+	if show_it:
+		_brace_label.text = tr("[%s] BRACE!") % _action_key_text("dock")
+
+
+static func _action_key_text(action: String) -> String:
+	for e in InputMap.action_get_events(action):
+		if e is InputEventKey:
+			var code: int = e.keycode if e.keycode != KEY_NONE else e.physical_keycode
+			return OS.get_keycode_string(code)
+	return action.to_upper()
 
 func _update_captain_ability_display() -> void:
 	if not _ability_label or not _ship_controller:
@@ -1855,6 +1893,26 @@ func _create_special_broadside_label() -> void:
 	_special_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_special_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	port_label.get_parent().add_child(_special_label)
+	# M30 W1 (1.12/1.6) — same container, so they stack under the readout.
+	_fury_meter = ProgressBar.new()
+	_fury_meter.name = "FuryMeter"
+	_fury_meter.min_value = 0.0
+	_fury_meter.max_value = 1.0
+	_fury_meter.step = 0.0
+	_fury_meter.show_percentage = false
+	_fury_meter.custom_minimum_size = Vector2(0, _FURY_METER_HEIGHT)
+	_fury_meter.tooltip_text = tr("Fury: fills from your hits, rakes, kills and Perfect Braces. Full = Full Broadside ready.")
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = UITokens.palette().horizon_gold
+	_fury_meter.add_theme_stylebox_override("fill", fill)
+	port_label.get_parent().add_child(_fury_meter)
+	_brace_label = Label.new()
+	_brace_label.name = "BraceLabel"
+	_brace_label.theme_type_variation = &"ChipLabel"
+	_brace_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_brace_label.add_theme_color_override("font_color", UITokens.palette().horizon_gold)
+	_brace_label.visible = false
+	port_label.get_parent().add_child(_brace_label)
 	_update_special_broadside_display()
 
 func show_dock_prompt(show: bool) -> void:

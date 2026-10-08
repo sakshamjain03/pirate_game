@@ -8,4 +8,3 @@ fury_per_hit = 0.01
 rake_multiplier = 2.0
 fury_on_perfect_brace = 0.25
 fury_on_kill = 0.5
-fury_fill_rate = 0.1

@@ -172,3 +172,20 @@ func test_every_difficulty_authors_a_windup() -> void:
 		assert_string_contains(text, "broadside_windup_seconds", "explicitly authored in %s" % p)
 	# Harder enemies telegraph for less time.
 	assert_gt(values["Relaxed"], values["Brutal"])
+
+
+func test_no_windup_for_a_shot_the_hull_cannot_take() -> void:
+	# A hull with no crew (or bracing) is refused by fire_broadside(), so it
+	# must not telegraph a broadside that never comes — once per frame.
+	var s := _setup("enemy_ship")
+	s["shooter"].get_node("ShipDamage").crew = 0.0
+	_step(s, WINDUP + 0.2)
+	assert_true(_windups.is_empty(), "a crewless hull never winds up")
+	s["shooter"].get_node("ShipDamage").crew = 10.0
+	var brace := BraceData.new()
+	assert_true(s["combat"].apply_brace(brace))
+	_step(s, DT)
+	assert_true(_windups.is_empty(), "nor does a bracing one")
+	s["combat"].cancel_brace()
+	_step(s, DT)
+	assert_eq(_windups.size(), 1, "precondition: a crewed, unbraced hull does wind up")

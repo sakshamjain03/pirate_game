@@ -9,4 +9,3 @@ window = 1.0
 perfect_window = 0.2
 perfect_reduction = 0.6
 cooldown = 3.0
-perfect_fury_grant = 0.25

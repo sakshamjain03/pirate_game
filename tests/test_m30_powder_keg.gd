@@ -102,6 +102,11 @@ func _wind_up_on_player(enemy: Node3D, remaining: float) -> void:
 	solver.set_physics_process(false)
 	solver._targets[FiringSolver.SIDE_PORT] = _player
 	combat._windup_t[FiringSolver.SIDE_PORT] = remaining
+	# Brace's gate reads WorldManager's IncomingWindupTracker, which is signal
+	# driven (merged from the 1.6 lane): watch the hull and announce the wind-up.
+	_wm.tick_windup_tracker(0.0)   # sets the tracker's target to the player
+	_wm.get_windup_tracker().watch(enemy)
+	combat.broadside_windup.emit(FiringSolver.SIDE_PORT, remaining, _player)
 
 
 func test_keg_is_offered_with_the_real_brace_provider_registered() -> void:
@@ -117,6 +122,7 @@ func test_brace_needs_a_wind_up_on_the_player_and_then_outranks_keg() -> void:
 	assert_eq(_wm.get_context_verb(), &"brace", "a wind-up covering the player offers Brace")
 	var solver: FiringSolver = enemy.get_node("FiringSolver")
 	solver._targets[FiringSolver.SIDE_PORT] = null
+	enemy.get_node("ShipCombat").broadside_windup_cancelled.emit(FiringSolver.SIDE_PORT)
 	assert_eq(_wm.get_context_verb(), &"keg", "a wind-up aimed elsewhere does not")
 
 

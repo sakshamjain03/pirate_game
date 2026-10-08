@@ -135,6 +135,10 @@ var _ammo_rule_id: String = ""
 var squad_bearing_deg: float = 0.0
 var has_squad_bearing: bool = false
 
+## The scene-authored avoid_collision_mask, before apply_profile() ORs in the
+## profile's extra_avoid_mask. -1 until the first apply.
+var _base_avoid_collision_mask: int = -1
+
 
 func _ready() -> void:
 	ship_controller = get_parent() as ShipController
@@ -181,6 +185,12 @@ func apply_profile(p: AIProfileData) -> void:
 		ram_max_distance = p.ram_max_distance
 	_bearing_valid = false
 	_ammo_rule_id = ""
+	# Profile-specific obstacle layers (e.g. the Raker's powder-keg layer) are
+	# added to the scene-authored mask, never replacing it, so re-applying a
+	# different profile drops the old extras.
+	if _base_avoid_collision_mask < 0:
+		_base_avoid_collision_mask = avoid_collision_mask
+	avoid_collision_mask = _base_avoid_collision_mask | int(p.get("extra_avoid_mask") if "extra_avoid_mask" in p else 0)
 
 	# Feed the profile's gun-crew discipline into the shared solver instead of
 	# keeping a second copy of the arc check here.

@@ -7,6 +7,13 @@ extends Label3D
 @export var damage_amount: float = 0
 @export var float_duration: float = 1.0
 @export var float_distance: float = 3.0
+## M30 W1-2.3 (task 1.11): colour-coded numbers. Set by the spawner before
+## add_child(); the colour comes from CombatFeedbackData.damage_color() — a rake
+## (stern/bow facing) in the rake colour, otherwise the ammo's palette colour,
+## falling back to the HUD's hp-low red for impacts and untyped damage.
+var ammo_id: String = ""
+var facing: StringName = &""
+var config: CombatFeedbackData = preload("res://resources/ui/CombatFeedback.tres")
 
 ## Label3D font px (rendered at `fixed_size`, so screen-constant). At
 ## _FIXED_PIXEL_SIZE the number is ~60 canvas px tall on the 780px-high
@@ -31,7 +38,7 @@ func _ready() -> void:
 	fixed_size = true
 	pixel_size = _FIXED_PIXEL_SIZE
 	no_depth_test = true
-	modulate = pal.hp_low
+	modulate = config.damage_color(ammo_id, facing, pal.hp_low) if config else pal.hp_low
 	outline_modulate = pal.ink
 	outline_size = _OUTLINE_SIZE
 	font_size = PirateThemeBuilder.scaled_font_size(_FONT_SIZE)
@@ -44,7 +51,10 @@ func _ready() -> void:
 	# spawners (ShipCombat, ShipCollisionHandler) add_child() first and set
 	# global_position after, so a target taken in _ready() was origin + 3m and
 	# every damage number slid toward the world origin (M22 6.9 capture).
-	tween.tween_property(self, "position", Vector3(0, float_distance, 0), float_duration) 		.as_relative().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Reduced motion: the number fades in place instead of rising.
+	var rise: float = 0.0 if UIMotion.reduced_motion() else float_distance
+	tween.tween_property(self, "position", Vector3(0, rise, 0), float_duration) \
+			.as_relative().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	
 	# Fade out alpha
 	tween.tween_property(self, "modulate:a", 0.0, float_duration).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)

@@ -69,6 +69,7 @@ script = ExtResource("22_ability")
 [node name="FiringSolver" type="Node" parent="."]
 script = ExtResource("20_solver")
 ship_stats = ExtResource("5_stats")
+priority_mode = 1
 
 [node name="ShipCombat" type="Node" parent="."]
 script = ExtResource("10_combat")

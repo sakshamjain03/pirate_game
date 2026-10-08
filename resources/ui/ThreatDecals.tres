@@ -12,6 +12,7 @@ fallback_arc_degrees = 35.0
 wedge_height = 0.4
 wedge_alpha_min = 0.22
 wedge_alpha_max = 0.6
+alpha_ramp_seconds = 3.0
 rim_margin_px = 56.0
 rim_arrow_size_px = 30.0
 ammo_colors = {

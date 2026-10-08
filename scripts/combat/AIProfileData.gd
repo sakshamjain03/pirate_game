@@ -82,6 +82,12 @@ enum Tactic { STANDARD, STERN_RAKER, LONG_GUNNER, RAM_RUNNER, TENDER, FIRESHIP }
 ## (m/s of speed) per metre still to cover while station-keeping.
 @export var station_speed_gain: float = 0.3  # placeholder: tune in M31
 
+## Extra physics layers OR-ed into EnemyAI.avoid_collision_mask, so this
+## profile's existing obstacle probe also steers around them. The Raker sets
+## bit 32 (layer 6, powder kegs): it holds the stern quarter, which is exactly
+## where the player drops kegs (M30 W1 task 1.10).
+@export_flags_3d_physics var extra_avoid_mask: int = 0  # placeholder: tune in M31
+
 @export_group("Ram Telegraph")
 ## Seconds between committing to a ram (`EnemyAI.ram_telegraphed`) and the run
 ## actually starting — the player's window to read it and turn away. 0 = no

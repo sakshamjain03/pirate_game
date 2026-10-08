@@ -21,6 +21,7 @@ bearing_filter_seconds = 0.8
 kite_min_distance = 0.0
 ammo_rules = {}
 attack_throttle = 0.5
+extra_avoid_mask = 32
 ram_telegraph_seconds = 0.0
 fireship_contact_distance = 9.0
 fireship_radius = 18.0

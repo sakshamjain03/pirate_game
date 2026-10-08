@@ -9,7 +9,12 @@ const READY := {"duration": 25, "amplitude": 0.32}
 const DAMAGE := {"duration": 45, "amplitude": 0.48}
 const REWARD := {"duration": 32, "amplitude": 0.38}
 
+## Every request, before the platform/setting gate — lets the M30 feedback
+## pack's tests (and any debug overlay) see what would buzz on a phone.
+signal requested(kind: Dictionary)
+
 func play(kind: Dictionary) -> void:
+	requested.emit(kind)
 	if OS.has_feature("pc") or not SettingsManager.haptics_enabled:
 		return
 	Input.vibrate_handheld(int(kind.duration), float(kind.amplitude))

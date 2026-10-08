@@ -151,9 +151,19 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 	var hit_tags = PackedStringArray(["ammo:%s" % ammo_id, "facing:%s" % facing])
 	# M30 W1 (1.12) — the shooter's Fury fills from this signal (ShipCombat).
 	hit_resolved.emit(source, facing, _applied_deltas(before), ammo_id, hit_tags)
+	# M30 W1-2.3 — tell the shooter its shot landed (feedback pack).
+	if source and is_instance_valid(source):
+		var shooter_combat = source.get_node_or_null("ShipCombat")
+		if shooter_combat and shooter_combat.has_method("report_hit_landed"):
+			shooter_combat.report_hit_landed(parent, facing, _applied_deltas(before), ammo_id)
 
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
+		# M30 W1-2.3 — tell the killer its shot sank this hull (Fury fills in ShipCombat).
+		if source and is_instance_valid(source):
+			var killer_combat = source.get_node_or_null("ShipCombat")
+			if killer_combat and killer_combat.has_method("report_kill"):
+				killer_combat.report_kill(parent)
 		destroyed.emit()
 
 func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: float = 0.0,

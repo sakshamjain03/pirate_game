@@ -28,6 +28,12 @@ signal brace_started(is_perfect: bool)
 signal brace_ended()
 ## M30 W1 (1.12) — Fury changed; `value` is 0..1. Drives the HUD meter.
 signal fury_changed(value: float)
+## M30 W1-2.3 (task 1.11): this hull's shot landed on `target` (emitted by the
+## target's ShipDamage.apply_hit via report_hit_landed). `facing` stern/bow is
+## a rake. The feedback pack (ribbons, haptics, punch) listens to the player's.
+signal hit_landed(target: Node, facing: StringName, pool_deltas: Dictionary, ammo_id: StringName)
+## This hull's shot sank `target`.
+signal kill_landed(target: Node)
 
 @export var ship_stats: ShipStats
 @export var current_ammo: AmmoData
@@ -519,7 +525,7 @@ func take_damage(amount: float, ammo: AmmoData = null, hit_direction: Vector3 = 
 
 
 func _on_hit_resolved(_source: Node, facing: StringName, pool_deltas: Dictionary,
-		_ammo_id: StringName, _hit_tags: PackedStringArray) -> void:
+		ammo_id: StringName, _hit_tags: PackedStringArray) -> void:
 	# Collisions already show their own number (ShipCollisionHandler).
 	if facing == &"impact":
 		return
@@ -527,16 +533,30 @@ func _on_hit_resolved(_source: Node, facing: StringName, pool_deltas: Dictionary
 	for pool in pool_deltas:
 		total += float(pool_deltas[pool])
 	if total > 0.0:
-		_spawn_floating_damage(total)
+		_spawn_floating_damage(total, String(ammo_id), facing)
 
 
-func _spawn_floating_damage(amount: float) -> void:
+## Called by the TARGET's ShipDamage when a shot from this hull lands, so the
+## shooter's own signals carry outgoing hits (no shooter-side scan of every
+## enemy hull).
+func report_hit_landed(target: Node, facing: StringName, pool_deltas: Dictionary,
+		ammo_id: StringName) -> void:
+	hit_landed.emit(target, facing, pool_deltas, ammo_id)
+
+
+func report_kill(target: Node) -> void:
+	kill_landed.emit(target)
+
+
+func _spawn_floating_damage(amount: float, ammo_id: String = "", facing: StringName = &"") -> void:
 	# Skipped with no current scene, e.g. a test tree.
 	var parent = get_parent()
 	if not floating_damage_scene or not get_tree() or not get_tree().current_scene or not parent:
 		return
 	var text = floating_damage_scene.instantiate()
 	text.damage_amount = amount
+	text.ammo_id = ammo_id
+	text.facing = facing
 	get_tree().current_scene.add_child(text)
 	# Position slightly above the ship with random jitter
 	var jitter = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0))

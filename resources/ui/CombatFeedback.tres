@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CombatFeedbackData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/CombatFeedbackData.gd" id="1_fb"]
+[ext_resource type="Resource" path="res://resources/ui/ThreatDecals.tres" id="2_palette"]
+
+; M30 W1 task 1.11 feedback pack + task 1.8 tap-to-mark. Placeholder: tune in M31.
+[resource]
+script = ExtResource("1_fb")
+max_ribbons = 3
+ribbon_lifetime = 2.2
+punch_hit_taken = 0.35
+punch_rake = 0.2
+punch_kill = 0.3
+punch_duration = 0.25
+punch_max = 0.6
+ammo_palette = ExtResource("2_palette")
+rake_color = Color(0.35, 1, 0.45, 1)
+rake_cone_length = 30.0
+rake_cone_height = 0.35
+rake_cone_color = Color(0.35, 1, 0.45, 0.3)
+rake_cone_fallback_half_angle = 30.0
+mark_pick_radius_px = 90.0
+tap_slop_px = 24.0
+scan_interval = 0.25

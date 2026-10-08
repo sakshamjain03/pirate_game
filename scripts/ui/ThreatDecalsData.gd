@@ -17,6 +17,9 @@ class_name ThreatDecalsData extends Resource
 ## Wedge alpha ramps from min (wind-up just started) to max (about to fire).
 @export_range(0.0, 1.0) var wedge_alpha_min: float = 0.22  # placeholder: tune in M31
 @export_range(0.0, 1.0) var wedge_alpha_max: float = 0.6  # placeholder: tune in M31
+## Seconds before the volley over which the alpha ramp runs (a longer fuse
+## sits at wedge_alpha_min until it is inside this horizon).
+@export var alpha_ramp_seconds: float = 3.0  # placeholder: tune in M31
 ## Rim arrow inset from the screen edge, and its size, in canvas pixels.
 @export var rim_margin_px: float = 56.0  # placeholder: tune in M31
 @export var rim_arrow_size_px: float = 30.0  # placeholder: tune in M31

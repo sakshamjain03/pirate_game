@@ -64,7 +64,16 @@ func watch_ship(ship: Node3D) -> bool:
 		return true
 	_watched[id] = true
 	combat.connect("broadside_windup", _on_windup.bind(ship))
+	# M30 W1-1.1 — a RAM_RUNNER's telegraph is the same read ("this hull is
+	# about to hit you, and how soon"), drawn as a wedge out of its bow.
+	var ai := ship.get_node_or_null("EnemyAI")
+	if ai and ai.has_signal("ram_telegraphed"):
+		ai.connect("ram_telegraphed", _on_ram_telegraphed.bind(ship))
 	return true
+
+
+func _on_ram_telegraphed(target: Node3D, seconds: float, ship: Node3D) -> void:
+	report_windup(ship, "bow", seconds, target)
 
 
 ## Bound handler that accepts both the (side, duration) and the requirement's

@@ -172,6 +172,11 @@ call `SaveManager.save_game()` before changing scene.
   - FIRESHIP: `ideal_position = target`. On contact it applies area damage (reusing the
     `MaelstromRun._detonate_keg` damage function, extracted into a static) and frees itself.
   - **The avoidance turn is still applied last, unchanged.**
+  - *Accepted deviation (W1 review):* besides `ideal_position`, a tactic profile also sets
+    `AIProfileData.attack_throttle` (the ATTACK-state throttle, legacy 0.5 by default): a Long
+    Gunner idles at 0.4 to hold range, a fireship closes at 1.0. Steering and avoidance code are
+    unchanged. A FIRESHIP also excludes its own target from hull (not terrain) avoidance while
+    engaged, the same exclusion a ram run already had, or it could never reach contact.
 - **Wind-up.** In `ShipCombat._physics_process`, the auto-fire branch becomes:
   - on arc lock with the reload ready, emit `broadside_windup` and start `_windup_t`;
   - fire when it elapses, if the target is still in the arc;

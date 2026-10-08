@@ -76,8 +76,9 @@ enum Tactic { STANDARD, STERN_RAKER, LONG_GUNNER, RAM_RUNNER, TENDER, FIRESHIP }
 @export var ram_telegraph_seconds: float = 0.0  # placeholder: tune in M31
 
 @export_group("Fireship")
-## FIRESHIP only: flat distance to the target at which it detonates even
-## without a hull-on-hull `rammed` contact (a slow touch never reports one).
+## FIRESHIP only: flat distance to any hull hostile to it (the target or that
+## target's side) at which it detonates — a proximity check, so a slow touch
+## that never reports a `rammed` contact still counts.
 @export var fireship_contact_distance: float = 9.0  # placeholder: tune in M31
 ## Every hull within this radius of the fireship takes `fireship_damage`.
 @export var fireship_radius: float = 18.0  # placeholder: tune in M31

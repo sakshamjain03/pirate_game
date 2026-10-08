@@ -8,10 +8,10 @@
 script = ExtResource("1_heat")
 tier = 3
 display_name = "Hunted"
-min_notoriety = 60.0
-max_ambient_enemies = 4
-spawn_interval_seconds = 30.0
-enemy_strength_multiplier = 1.2
+min_notoriety = 110.0
+max_ambient_enemies = 5
+spawn_interval_seconds = 26.0
+enemy_strength_multiplier = 1.3
 engages_unprovoked = true
 squad_pool = [ExtResource("2_sq3"), ExtResource("3_sq4")]
 decay_per_minute = 4.0

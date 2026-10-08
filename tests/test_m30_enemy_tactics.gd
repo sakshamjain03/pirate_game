@@ -4,7 +4,8 @@ extends GutTest
 #
 # Deterministic: both hulls are frozen and `_process_attack()` is driven by hand
 # with a fixed dt, so the assertions are on the `ideal_position` the tactic
-# computes (the only thing a tactic is allowed to change), not on a physics run.
+# computes (the only thing a tactic is allowed to change). The Raker and Long
+# Gunner tests load the authored .tres; one Long Gunner test is a real physics run.
 
 const ENEMY_SHIP := preload("res://scenes/world/EnemyShip.tscn")
 const DT := 1.0 / 60.0
@@ -92,12 +93,25 @@ func _tick(ai: EnemyAI, seconds: float) -> void:
 
 # --- STERN_RAKER -------------------------------------------------------------
 
+const RAKER := preload("res://resources/combat/ai_profiles/Raker.tres")
+const LONG_GUNNER := preload("res://resources/combat/ai_profiles/LongGunner.tres")
+## "Stern quarter (±25°)" is measured around dead astern (bearing 180).
+const STERN_BAND_DEG := 25.0
+
+
+func test_authored_raker_bearing_is_inside_the_stern_band():
+	assert_eq(RAKER.tactic, AIProfileData.Tactic.STERN_RAKER)
+	assert_almost_eq(RAKER.preferred_bearing_deg, 180.0, STERN_BAND_DEG,
+		"Raker.tres aims for a bearing inside the stern quarter it is verified against")
+
+
 func test_raker_settles_in_the_stern_quarter_within_20s():
 	var target := _spawn_target(Vector3.ZERO, 0.0)
-	# Abeam on the target's starboard side (bearing +90).
-	var ai := _spawn_ai(_profile(AIProfileData.Tactic.STERN_RAKER, 165.0, 30.0), Vector3(30, 0, 0))
+	# The authored Raker, abeam on the target's starboard side (bearing +90).
+	var ai := _spawn_ai(RAKER, Vector3(RAKER.preferred_combat_distance, 0, 0))
 	await wait_physics_frames(2)
 	_engage(ai, target)
+	ai.ram_tendency = 0.0   # positioning only; a ram roll is not under test here
 
 	_tick(ai, 0.1)
 	var early := absf(_bearing_deg(target, ai.last_ideal_position))
@@ -106,9 +120,9 @@ func test_raker_settles_in_the_stern_quarter_within_20s():
 
 	_tick(ai, 19.9)
 	var b := absf(_bearing_deg(target, ai.last_ideal_position))
-	assert_almost_eq(b, 180.0, 25.0, "Raker's ideal position sits in the stern quarter (±25°) within 20 s")
-	assert_almost_eq(ai.last_ideal_position.distance_to(target.global_position), 30.0, 0.5,
-		"held at the profile's preferred_combat_distance")
+	assert_almost_eq(b, 180.0, STERN_BAND_DEG, "Raker's ideal position sits in the stern quarter (±25°) within 20 s")
+	assert_almost_eq(ai.last_ideal_position.distance_to(target.global_position),
+		RAKER.preferred_combat_distance, 0.5, "held at the profile's preferred_combat_distance")
 
 
 func test_raker_bearing_is_relative_to_the_target_heading():
@@ -156,6 +170,71 @@ func test_long_gunner_outside_kite_distance_holds_its_bearing():
 	_tick(ai, 5.0)
 	assert_almost_eq(ai.last_ideal_position.distance_to(target.global_position), 50.0, 0.5)
 	assert_almost_eq(absf(_bearing_deg(target, ai.last_ideal_position)), 90.0, 5.0)
+
+
+func test_every_long_gunner_profile_prefers_a_range_beyond_its_kite_line():
+	# preferred < kite_min makes the two goals fight: steer in to `preferred`, cross
+	# kite_min, get pushed out, cross back — a bang-bang flip instead of holding range.
+	var dir := DirAccess.open("res://resources/combat/ai_profiles")
+	assert_not_null(dir)
+	var checked := 0
+	for f in dir.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		var p := load("res://resources/combat/ai_profiles/" + f) as AIProfileData
+		if p == null or p.tactic != AIProfileData.Tactic.LONG_GUNNER:
+			continue
+		checked += 1
+		assert_gt(p.preferred_combat_distance, p.kite_min_distance,
+			"%s: preferred_combat_distance must exceed kite_min_distance" % f)
+		assert_gt(p.kite_min_distance, 0.0, "%s: a Long Gunner needs a kite line" % f)
+	assert_gt(checked, 0, "at least one LONG_GUNNER profile is authored")
+
+
+func test_authored_long_gunner_ideal_never_falls_inside_kite_distance():
+	# From inside, on, and just outside the kite line, every tick's goal point for
+	# the authored LongGunner.tres is at or beyond kite_min_distance.
+	var kite: float = LONG_GUNNER.kite_min_distance
+	for start in [kite * 0.4, kite - 0.5, kite + 0.5, LONG_GUNNER.preferred_combat_distance]:
+		var target := _spawn_target(Vector3.ZERO, 0.0)
+		var ai := _spawn_ai(LONG_GUNNER, Vector3(start, 0, 0))
+		await wait_physics_frames(2)
+		_engage(ai, target)
+		ai.ram_tendency = 0.0
+		var worst := INF
+		for _i in range(int(5.0 / DT)):
+			ai._process_attack(DT)
+			var p: Vector3 = ai.last_ideal_position
+			worst = minf(worst, Vector2(p.x, p.z).length())
+		assert_gte(worst, kite - 0.01,
+			"start %.1f m: the ideal point never sits inside kite_min_distance (min %.1f)" % [start, worst])
+		ai.ship_controller.free()
+		target.free()
+
+
+func test_authored_long_gunner_hull_opens_and_holds_range_under_physics():
+	# Real physics: starting well inside its kite line (abeam, parallel to the
+	# target), the hull itself opens the range and, once settled, stays at or
+	# beyond kite_min_distance. (The hull orbits its goal point -- _steer_towards
+	# has no arrival slow-down -- so the first pass can dip inside; 20-30 s is
+	# the settled window.)
+	var kite: float = LONG_GUNNER.kite_min_distance
+	var target := _spawn_target(Vector3.ZERO, 0.0)
+	var ai := _spawn_ai(LONG_GUNNER, Vector3(15, 0, 0))
+	var ship := ai.ship_controller
+	ship.freeze = false
+	await wait_physics_frames(2)
+	_engage(ai, target)
+	ai.ram_tendency = 0.0
+	ai.set_physics_process(true)
+	var closest_late := INF
+	for i in range(60 * 30):
+		await wait_physics_frames(1)
+		ai.current_state = EnemyAI.AIState.ATTACK
+		if i >= 60 * 20:
+			closest_late = minf(closest_late, Vector2(ship.global_position.x, ship.global_position.z).length())
+	assert_gte(closest_late, kite,
+		"over 20-30 s the hull holds >= kite_min_distance (closest %.1f m)" % closest_late)
 
 
 # --- RAM_RUNNER --------------------------------------------------------------

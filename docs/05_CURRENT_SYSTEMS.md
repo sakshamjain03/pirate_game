@@ -3853,3 +3853,33 @@ Real-device sync (two devices, two accounts, offline to online, a paused project
 manual checklist. `SelfPlayHarness` still cannot run in `-s` mode (it fails to compile against
 autoloads such as `AudioManager`), so it was not run.
 
+## M30 Wave 1 — enemy tactics (tasks 1.1-1.3, review fixes 2026-10-09)
+
+- `AIProfileData.tactic` (STANDARD, STERN_RAKER, LONG_GUNNER, RAM_RUNNER, TENDER, FIRESHIP). In
+  `EnemyAI._process_attack` a non-STANDARD tactic only moves `ideal_position`
+  (`_tactic_ideal_position`: `preferred_bearing_deg` off the target's heading, low-pass filtered).
+  It also sets the ATTACK throttle (`attack_throttle`), an accepted deviation in design §5. The
+  three terrain-avoidance functions are byte-identical; `test_m30_enemy_tactics` pins their hashes.
+- LONG_GUNNER kites: inside `kite_min_distance` its goal point moves outward.
+  `preferred_combat_distance` must be greater than `kite_min_distance`, or the two goals flip back
+  and forth; a test lints every LONG_GUNNER profile for this.
+- RAM_RUNNER holds bow-on for `ram_telegraph_seconds` and emits `ram_telegraphed(target, seconds)`
+  first. `ThreatDecals` draws it as a bow wedge.
+- FIRESHIP: `ideal_position` is the target. While it is engaged, its target is left out of hull
+  avoidance (as in a ram run, `_is_closing_on_target()`). It detonates when any hull hostile to it
+  is within `fireship_contact_distance`. `AreaDamage.apply_damage` (shared with Maelstrom kegs)
+  then hits every hull except itself within `fireship_radius`, and the fireship frees itself. All
+  of these numbers come from the profile; a missing profile is a `push_error`.
+- TENDER (`Tender.tres`) heals through the existing SUPPORT role. Fireship.tres is role RAIDER;
+  a SUPPORT role would send it off to repair allies.
+- Pools: Pirate Clans use Raker, Royal Navy (ContestedWaters) uses LongGunner and Fireship,
+  Spanish Empire (ImperialWaters) uses Tender (in place of SupportGalleon) and RamRunner.
+  `test_m30_profile_pool` pins each region's mix and checks the real weighted pick. It also checks
+  that every tactic can spawn from a content-enabled region or a heat squad.
+- Heat tiers: 1.7 had retuned T2-T5 `min_notoriety` and spawn numbers, which broke
+  `test_heat_system`: ImperialWaters activates at 150, but no tier started there. These were
+  restored to 60/110/150/220 and the earlier spawn numbers; only the `squad_pool` entries were kept.
+- Known limit: `_steer_towards` has no arrival slow-down, so a hull orbits its goal point instead
+  of parking on it. A target directly astern gives no turn, so the hull sails ahead. The Raker's
+  stern-quarter Verify is therefore checked on its goal point. The Long Gunner's range is checked
+  on the hull after it settles.

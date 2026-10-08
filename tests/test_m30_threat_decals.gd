@@ -148,6 +148,51 @@ func test_a_freed_attacker_is_dropped() -> void:
 	assert_eq(_decals.get_visible_threats().size(), 0)
 
 
+class StubAI extends Node:
+	signal ram_telegraphed(target: Node3D, seconds: float)
+
+
+func test_a_ram_telegraph_shows_a_wedge_out_of_the_bow() -> void:
+	# M30 W1-1.1: EnemyAI.ram_telegraphed is the ram's read window; the decal layer
+	# draws it like a wind-up, pointing out of the rammer's bow.
+	var ship := Node3D.new()
+	var combat := StubCombat.new()
+	combat.name = "ShipCombat"
+	combat.current_ammo = load("res://resources/combat/ammo/RoundShot.tres")
+	ship.add_child(combat)
+	var ai := StubAI.new()
+	ai.name = "EnemyAI"
+	ship.add_child(ai)
+	add_child_autofree(ship)
+	ship.global_position = Vector3(25, 0, 0)
+	assert_true(_decals.watch_ship(ship))
+	ai.ram_telegraphed.emit(_player, 1.5)
+	_decals.refresh(0.0)
+	assert_eq(_decals.get_visible_threats(), [ship], "a telegraphed ram is a threat")
+	var wedge: MeshInstance3D = _decals.get_wedge(ship)
+	var centre: Vector3 = wedge.global_transform.basis.x.normalized()
+	assert_almost_eq(centre.dot(-ship.global_transform.basis.z), 1.0, 0.01, "the wedge points out of the bow")
+	_decals.refresh(1.6)
+	assert_eq(_decals.get_visible_threats().size(), 0, "cleared once the telegraph elapses")
+
+
+func test_a_ram_telegraph_at_someone_else_is_ignored() -> void:
+	var ship := Node3D.new()
+	var combat := StubCombat.new()
+	combat.name = "ShipCombat"
+	ship.add_child(combat)
+	var ai := StubAI.new()
+	ai.name = "EnemyAI"
+	ship.add_child(ai)
+	add_child_autofree(ship)
+	_decals.watch_ship(ship)
+	var other := Node3D.new()
+	add_child_autofree(other)
+	ai.ram_telegraphed.emit(other, 1.5)
+	_decals.refresh(0.0)
+	assert_eq(_decals.get_visible_threats(), [])
+
+
 func test_rim_arrow_only_for_an_off_screen_attacker() -> void:
 	var cam := Camera3D.new()
 	add_child_autofree(cam)

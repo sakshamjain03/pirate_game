@@ -1,145 +1,159 @@
-## M30 W1-1.3 — AI profile pool distribution test.
-## Purpose: Verify that region enemy_profile_pool has correct faction coverage and weights.
-
 extends GutTest
 
-func test_each_region_has_profile_pool() -> void:
-	## Every region should have a non-empty enemy_profile_pool.
-	var regions = _load_all_regions()
-	for region in regions:
-		assert_ne(region.enemy_profile_pool.size(), 0,
-			"Region %s has empty enemy_profile_pool" % region.id)
+# test_m30_profile_pool.gd — M30 W1 task 1.3 (Requirement W1-1.1).
+#
+# Verify: "A profile-pool test asserts each faction's mix." Each region's
+# enemy_profile_pool is pinned to its faction's authored mix (profiles, weights,
+# hence tactic shares), the real EnemySpawner weighted pick is shown to honour
+# those weights, and every AIProfileData.Tactic can actually spawn in the shipped
+# game (a content-enabled region pool or a heat-tier squad).
+
+const REGIONS_DIR := "res://resources/world/regions/"
+const HEAT_DIR := "res://resources/balance/heat_tiers/"
+
+## region file -> {faction, mix: {profile file: weight}}. Changing a faction's mix
+## is a deliberate design change; update this table with it.
+const EXPECTED := {
+	"BeginnerWaters.tres": {"faction": "pirate_clans",
+		"mix": {"StandardEnemy.tres": 3.0, "HarassingSloop.tres": 1.0, "Raker.tres": 1.0}},
+	"ContestedWaters.tres": {"faction": "royal_navy",
+		"mix": {"StandardEnemy.tres": 2.0, "HarassingSloop.tres": 2.0, "ArtilleryFrigate.tres": 1.0,
+			"SupportGalleon.tres": 1.0, "LongGunner.tres": 1.0, "Fireship.tres": 1.0}},
+	"ImperialWaters.tres": {"faction": "spanish_empire",
+		"mix": {"StandardEnemy.tres": 1.0, "ArtilleryFrigate.tres": 2.0, "Tender.tres": 1.0,
+			"AggressiveGalleon.tres": 1.0, "RamRunner.tres": 1.0}},
+	"AncientOcean.tres": {"faction": "pirate_clans",
+		"mix": {"AggressiveGalleon.tres": 2.0, "ArtilleryFrigate.tres": 1.0, "SupportGalleon.tres": 1.0,
+			"RamRunner.tres": 1.0}},
+	"GhostReaches.tres": {"faction": "ghost_fleet",
+		"mix": {"AggressiveGalleon.tres": 2.0, "HarassingSloop.tres": 1.0, "Fireship.tres": 1.0}},
+}
+
+## Each faction's tactic character: tactic -> minimum normalized share of the pool.
+const FACTION_TACTICS := {
+	"BeginnerWaters.tres": {AIProfileData.Tactic.STANDARD: 0.5, AIProfileData.Tactic.STERN_RAKER: 0.15},
+	"ContestedWaters.tres": {AIProfileData.Tactic.LONG_GUNNER: 0.1, AIProfileData.Tactic.FIRESHIP: 0.1},
+	"ImperialWaters.tres": {AIProfileData.Tactic.RAM_RUNNER: 0.15, AIProfileData.Tactic.TENDER: 0.15},
+	"AncientOcean.tres": {AIProfileData.Tactic.RAM_RUNNER: 0.15},
+	"GhostReaches.tres": {AIProfileData.Tactic.FIRESHIP: 0.2},
+}
+
+const DRAWS := 4000
+const TOLERANCE := 0.03
 
 
-func test_profile_pool_weights_match_pool_size() -> void:
-	## enemy_profile_weights length must match enemy_profile_pool length, or be empty (uniform).
-	var regions = _load_all_regions()
-	for region in regions:
-		if region.enemy_profile_weights.size() > 0:
-			assert_eq(region.enemy_profile_weights.size(), region.enemy_profile_pool.size(),
-				"Region %s weights count != pool count" % region.id)
+func _region(file: String) -> RegionData:
+	var r := load(REGIONS_DIR + file) as RegionData
+	assert_not_null(r, "region %s loads" % file)
+	return r
 
 
-func test_pirate_clans_faction_profile_distribution() -> void:
-	## Pirate Clans regions should include Raker and RamRunner tactics for aggressive play.
-	var region = _load_region("beginner_waters")
-	var profile_ids = _get_profile_ids(region.enemy_profile_pool)
-
-	# Should have at least StandardEnemy and Raker for pirate character
-	assert_true(profile_ids.has("StandardEnemy.tres") or profile_ids.has("HarassingSloop.tres"),
-		"BeginnerWaters missing basic pirate profiles")
-	assert_true(profile_ids.has("Raker.tres"),
-		"BeginnerWaters missing Raker tactic")
-
-
-func test_royal_navy_faction_profile_distribution() -> void:
-	## Royal Navy should use Long Gunner for disciplined, ranged tactics.
-	var region = _load_region("contested_waters")
-	var profile_ids = _get_profile_ids(region.enemy_profile_pool)
-
-	# Should have Artillery and Long Gunner for ranged play
-	assert_true(profile_ids.has("ArtilleryFrigate.tres"),
-		"ContestedWaters missing ArtilleryFrigate")
-	assert_true(profile_ids.has("LongGunner.tres"),
-		"ContestedWaters missing LongGunner tactic")
+## profile file -> normalized weight, read from the region exactly as authored.
+func _shares(r: RegionData) -> Dictionary:
+	var out := {}
+	var total := 0.0
+	for i in range(r.enemy_profile_pool.size()):
+		var w: float = r.enemy_profile_weights[i] if r.enemy_profile_weights.size() == r.enemy_profile_pool.size() else 1.0
+		total += w
+	for i in range(r.enemy_profile_pool.size()):
+		var p: AIProfileData = r.enemy_profile_pool[i]
+		var w: float = r.enemy_profile_weights[i] if r.enemy_profile_weights.size() == r.enemy_profile_pool.size() else 1.0
+		var key := p.resource_path.get_file()
+		out[key] = float(out.get(key, 0.0)) + w / total
+	return out
 
 
-func test_spanish_empire_faction_profile_distribution() -> void:
-	## Spanish Empire should use aggressive tactics including RamRunner.
-	var region = _load_region("imperial_waters")
-	var profile_ids = _get_profile_ids(region.enemy_profile_pool)
-
-	# Should have aggressive profiles for imperial character
-	assert_true(profile_ids.has("AggressiveGalleon.tres"),
-		"ImperialWaters missing AggressiveGalleon")
-	assert_true(profile_ids.has("RamRunner.tres"),
-		"ImperialWaters missing RamRunner tactic")
+func test_every_region_file_is_covered_by_the_mix_table():
+	for f in DirAccess.get_files_at(REGIONS_DIR):
+		if f.ends_with(".tres") and (load(REGIONS_DIR + f) as RegionData).enemy_profile_pool.size() > 0:
+			assert_true(EXPECTED.has(f), "%s has an enemy pool but no expected faction mix" % f)
 
 
-func test_ghost_fleet_faction_profile_distribution() -> void:
-	## Ghost Fleet should use exotic tactics like Fireship.
-	var region = _load_region("ghost_reaches")
-	var profile_ids = _get_profile_ids(region.enemy_profile_pool)
-
-	# Should include Fireship for supernatural character
-	assert_true(profile_ids.has("Fireship.tres"),
-		"GhostReaches missing Fireship tactic")
-
-
-func test_profile_pool_seeded_distribution() -> void:
-	## With a fixed seed, profile pool should produce a predictable distribution over 200 spawns.
-	var region = _load_region("beginner_waters")
-	if region.enemy_profile_pool.is_empty():
-		return
-
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 12345
-	var distribution = {}
-	var spawn_count = 200
-
-	for i in range(spawn_count):
-		var idx = rng.randi_range(0, region.enemy_profile_pool.size() - 1) if region.enemy_profile_pool.size() > 1 else 0
-		var profile = region.enemy_profile_pool[idx]
-		var profile_name = profile.resource_path.get_file()
-		distribution[profile_name] = distribution.get(profile_name, 0) + 1
-
-	# Just verify we got picks from the pool (actual distribution tuning is M31)
-	assert_gt(distribution.size(), 0, "No profiles were selected")
+func test_each_faction_region_has_its_authored_mix():
+	for file in EXPECTED:
+		var r := _region(file)
+		var want: Dictionary = EXPECTED[file]
+		assert_eq(r.dominant_faction, want["faction"], "%s faction" % file)
+		assert_eq(r.enemy_profile_weights.size(), r.enemy_profile_pool.size(), "%s: one weight per profile" % file)
+		var mix: Dictionary = want["mix"]
+		var total := 0.0
+		for k in mix:
+			total += float(mix[k])
+		var got := _shares(r)
+		assert_eq(got.size(), mix.size(), "%s: profile set %s" % [file, got.keys()])
+		for k in mix:
+			assert_true(got.has(k), "%s includes %s" % [file, k])
+			assert_almost_eq(float(got.get(k, 0.0)), float(mix[k]) / total, 0.0001,
+				"%s: %s share" % [file, k])
 
 
-func test_all_profile_resources_exist() -> void:
-	## All profiles referenced in regions should be loadable.
-	var regions = _load_all_regions()
-	var missing_profiles = []
-
-	for region in regions:
-		for profile in region.enemy_profile_pool:
-			if not profile:
-				missing_profiles.append("null profile in %s" % region.id)
-
-	if missing_profiles.size() > 0:
-		var msg = "Missing or invalid profiles: " + str(missing_profiles)
-		assert_eq(missing_profiles.size(), 0, msg)
-	else:
-		assert_eq(missing_profiles.size(), 0)
-
-
-func _load_all_regions() -> Array:
-	var regions = []
-	var region_ids = ["beginner_waters", "contested_waters", "imperial_waters", "ancient_ocean", "ghost_reaches"]
-
-	for region_id in region_ids:
-		var region = _load_region(region_id)
-		if region:
-			regions.append(region)
-
-	return regions
+func test_each_faction_has_its_tactic_character():
+	for file in FACTION_TACTICS:
+		var r := _region(file)
+		var by_tactic := {}
+		var total := 0.0
+		for w in r.enemy_profile_weights:
+			total += w
+		for i in range(r.enemy_profile_pool.size()):
+			var p: AIProfileData = r.enemy_profile_pool[i]
+			by_tactic[p.tactic] = float(by_tactic.get(p.tactic, 0.0)) + r.enemy_profile_weights[i] / total
+		var want: Dictionary = FACTION_TACTICS[file]
+		for tactic in want:
+			assert_gte(float(by_tactic.get(tactic, 0.0)), float(want[tactic]),
+				"%s: tactic %s share" % [file, AIProfileData.Tactic.keys()[tactic]])
 
 
-func _load_region(region_id: String) -> RegionData:
-	var path = "res://resources/world/regions/" + region_id.capitalize() + ".tres"
-	# Adjust for actual filename patterns
-	match region_id:
-		"beginner_waters":
-			path = "res://resources/world/regions/BeginnerWaters.tres"
-		"contested_waters":
-			path = "res://resources/world/regions/ContestedWaters.tres"
-		"imperial_waters":
-			path = "res://resources/world/regions/ImperialWaters.tres"
-		"ancient_ocean":
-			path = "res://resources/world/regions/AncientOcean.tres"
-		"ghost_reaches":
-			path = "res://resources/world/regions/GhostReaches.tres"
+func test_spawner_weighted_pick_honours_each_factions_mix():
+	# The real EnemySpawner pick (global RNG, seeded) over many draws lands within
+	# TOLERANCE of each region's authored shares.
+	var spawner := EnemySpawner.new()
+	for file in EXPECTED:
+		var r := _region(file)
+		seed(20261009)
+		var counts := {}
+		for _i in range(DRAWS):
+			var p := spawner._pick_from_weighted_pool(r.enemy_profile_pool, r.enemy_profile_weights) as AIProfileData
+			var key := p.resource_path.get_file() if p else "<null>"
+			counts[key] = int(counts.get(key, 0)) + 1
+		var want := _shares(r)
+		for k in want:
+			assert_almost_eq(float(counts.get(k, 0)) / DRAWS, float(want[k]), TOLERANCE,
+				"%s: drawn share of %s" % [file, k])
+	spawner.free()
 
-	var region = load(path)
-	assert_ne(region, null, "Could not load region %s from %s" % [region_id, path])
-	return region
+
+func test_every_tactic_can_spawn_in_the_shipped_game():
+	# Reachable = in a content-enabled region's pool, or in a heat-tier squad.
+	var reach := {}
+	for f in DirAccess.get_files_at(REGIONS_DIR):
+		if not f.ends_with(".tres"):
+			continue
+		var r := load(REGIONS_DIR + f) as RegionData
+		if r == null or not r.content_enabled:
+			continue
+		for p in r.enemy_profile_pool:
+			reach[p.tactic] = "%s (region pool)" % f
+	for f in DirAccess.get_files_at(HEAT_DIR):
+		if not f.ends_with(".tres"):
+			continue
+		var tier := load(HEAT_DIR + f) as HeatTierData
+		for squad in tier.squad_pool:
+			for slot in squad.slots:
+				if slot.ai_profile:
+					reach[slot.ai_profile.tactic] = "%s (heat squad)" % f
+	for tactic in AIProfileData.Tactic.values():
+		assert_true(reach.has(tactic),
+			"Tactic %s is authored into no content-enabled pool or heat squad" % AIProfileData.Tactic.keys()[tactic])
 
 
-func _get_profile_ids(profiles: Array) -> Dictionary:
-	var ids = {}
-	for profile in profiles:
-		if profile and profile is AIProfileData:
-			var file = profile.resource_path.get_file()
-			ids[file] = true
-	return ids
+func test_tender_profile_heals():
+	var tender := load("res://resources/combat/ai_profiles/Tender.tres") as AIProfileData
+	assert_eq(tender.tactic, AIProfileData.Tactic.TENDER)
+	assert_eq(tender.role, AIProfileData.Role.SUPPORT, "TENDER heals through the existing SUPPORT role")
+	assert_gt(tender.support_heal_rate, 0.0)
+
+
+func test_all_pool_profiles_load():
+	for file in EXPECTED:
+		for p in _region(file).enemy_profile_pool:
+			assert_true(p is AIProfileData, "%s: every pool entry is an AIProfileData" % file)

@@ -355,15 +355,17 @@ func _process_attack(delta: float) -> void:
 		_change_state(AIState.PATROL)
 		return
 
-	# M30 W1-1.1 — Fireship detonation on contact
+	# M30 W1-1.1 — FIRESHIP: `ideal_position = target` (design §5). It sails
+	# straight onto its target (ship avoidance ignores that one hull, as in a ram
+	# run) and detonates once any hostile hull is within contact distance. It
+	# never flees, rams or manoeuvres for a broadside.
 	if _tactic() == AIProfileData.Tactic.FIRESHIP:
-		var dist = _flat_distance_to(player_ship.global_position)
-		var contact_dist: float = 9.0
-		if ai_profile and "fireship_contact_distance" in ai_profile:
-			contact_dist = float(ai_profile.fireship_contact_distance)
-		if dist <= contact_dist:
+		if _fireship_contact_hull():
 			_detonate_fireship()
 			return
+		last_ideal_position = player_ship.global_position
+		_steer_towards(last_ideal_position, _attack_throttle())
+		return
 
 	# Check flee condition
 	if _should_flee():
@@ -536,23 +538,40 @@ func _apply_ammo_rules(dist: float) -> void:
 func _detonate_fireship() -> void:
 	## M30 W1-1.1 — Fireship contact detonation. Applies area damage to all
 	## hulls within the fireship_radius and frees the ship.
-	if not ship_controller or not ai_profile:
+	if not ship_controller:
+		return
+	if not ai_profile:
+		push_error("EnemyAI: _detonate_fireship() with no ai_profile")
 		return
 
-	var radius: float = ai_profile.get("fireship_radius") if ai_profile else 18.0
-	var damage: float = ai_profile.get("fireship_damage") if ai_profile else 60.0
-
-	# Gather all valid hulls in the scene (both enemies and friendly/player ships)
+	# Every hull in the scene, either side, except the fireship itself (it is
+	# consumed, not sunk — damaging it would fire its died/kill-credit path).
 	var all_hulls: Array[Node3D] = []
-	all_hulls.append_array(get_tree().get_nodes_in_group("enemy_ship"))
-	all_hulls.append_array(get_tree().get_nodes_in_group("friendly_ship"))
-	all_hulls.append_array(get_tree().get_nodes_in_group("player_ship"))
+	for group in ["enemy_ship", "friendly_ship", "player_ship"]:
+		for node in get_tree().get_nodes_in_group(group):
+			if node is Node3D and node != ship_controller and not all_hulls.has(node):
+				all_hulls.append(node)
 
-	# Apply area damage
-	AreaDamage.apply_damage(ship_controller.global_position, radius, damage, all_hulls)
+	AreaDamage.apply_damage(ship_controller.global_position,
+		float(ai_profile.fireship_radius), float(ai_profile.fireship_damage), all_hulls)
 
-	# Free the fireship
 	ship_controller.queue_free()
+
+
+func _fireship_contact_hull() -> Node3D:
+	## The first hull hostile to this fireship within `fireship_contact_distance`
+	## — the target, or any other hull on the target's side (a fireship that
+	## brushes the player's escort goes up there, not only on the player).
+	var contact: float = float(ai_profile.fireship_contact_distance)
+	var groups: Array = ["enemy_ship"] if ship_controller.is_in_group("friendly_ship") \
+			else ["player_ship", "friendly_ship"]
+	for group in groups:
+		for node in get_tree().get_nodes_in_group(group):
+			if node == ship_controller or not (node is Node3D) or not is_instance_valid(node):
+				continue
+			if _flat_distance_to(node.global_position) <= contact:
+				return node
+	return null
 
 
 func _process_support(delta: float, ally: Node3D) -> void:
@@ -728,8 +747,8 @@ func _get_avoidance_turn() -> float:
 
 func _get_ship_avoidance_turn() -> float:
 	## Same 3-feeler shape as _get_avoidance_turn(), shorter and against hull
-	## layers. The ram target is excluded during a ram run -- that's the one hull
-	## this ship is *trying* to hit.
+	## layers. The target is excluded during a ram run or a fireship approach
+	## (`_is_closing_on_target()`) -- that's the one hull this ship is *trying* to hit.
 	if not ship_avoid_enabled or not ship_controller or not ship_controller.is_inside_tree():
 		return 0.0
 	var space := ship_controller.get_world_3d().direct_space_state
@@ -741,7 +760,7 @@ func _get_ship_avoidance_turn() -> float:
 	if forward.length_squared() < 0.01:
 		return 0.0
 	var exclude: Array[RID] = [ship_controller.get_rid()]
-	if _ram_active and is_instance_valid(player_ship):
+	if _is_closing_on_target() and is_instance_valid(player_ship):
 		exclude.append(player_ship.get_rid())
 	var rad := deg_to_rad(avoid_feeler_angle)
 	var left := _probe_mask(space, origin, forward.rotated(Vector3.UP, rad), ship_avoid_distance, ship_avoid_mask, exclude)
@@ -996,6 +1015,15 @@ func _end_ram_run() -> void:
 
 func is_ramming() -> bool:
 	return _ram_active
+
+
+func _is_closing_on_target() -> bool:
+	## True while this hull is *trying* to hit its target: a ram run, or a
+	## FIRESHIP engaging. Hull avoidance must not steer it off that one hull.
+	if _ram_active:
+		return true
+	return _tactic() == AIProfileData.Tactic.FIRESHIP \
+			and (current_state == AIState.ATTACK or current_state == AIState.CHASE)
 
 
 func _process_ram(delta: float) -> void:

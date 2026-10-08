@@ -4,10 +4,10 @@
 
 [resource]
 script = ExtResource("1_ai_prof")
-role = 1
-aggression = 1.0
-preferred_combat_distance = 20.0
-flee_health_threshold = 0.0
+role = 4
+aggression = 0.3
+preferred_combat_distance = 45.0
+flee_health_threshold = 0.4
 broadside_angle_tolerance = 30.0
 ammo_preference = "RoundShot"
 support_heal_range = 15.0
@@ -15,12 +15,12 @@ support_heal_rate = 15.0
 support_heal_threshold = 0.6
 ram_tendency = 0.0
 ram_max_distance = 60.0
-tactic = 5
-preferred_bearing_deg = 0.0
+tactic = 4
+preferred_bearing_deg = 150.0
 bearing_filter_seconds = 0.8
 kite_min_distance = 0.0
 ammo_rules = {}
-attack_throttle = 1.0
+attack_throttle = 0.5
 ram_telegraph_seconds = 0.0
 fireship_contact_distance = 9.0
 fireship_radius = 18.0

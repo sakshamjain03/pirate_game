@@ -5,7 +5,7 @@
 [ext_resource type="Resource" path="res://resources/ships/Galleon.tres" id="3_galleon"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/StandardEnemy.tres" id="ai_0"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/ArtilleryFrigate.tres" id="ai_1"]
-[ext_resource type="Resource" path="res://resources/combat/ai_profiles/SupportGalleon.tres" id="ai_2"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/Tender.tres" id="ai_2"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/AggressiveGalleon.tres" id="ai_3"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/RamRunner.tres" id="ai_4"]
 

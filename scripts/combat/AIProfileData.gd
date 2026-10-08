@@ -68,6 +68,19 @@ enum Tactic { STANDARD, STERN_RAKER, LONG_GUNNER, RAM_RUNNER, TENDER, FIRESHIP }
 @export var ammo_rules: Dictionary = {}  # placeholder: tune in M31
 ## Throttle while manoeuvring in ATTACK (STANDARD always used 0.5).
 @export_range(0.0, 1.0) var attack_throttle: float = 0.5  # placeholder: tune in M31
+## Non-STANDARD tactics only: once the hull is within this flat distance of its
+## ideal point it stops steering straight AT the point (which, with no arrival
+## slow-down, makes a hull orbit it) and station-keeps instead: it aims
+## `station_lookahead_seconds` x the target's speed ahead of the point along the
+## target's heading, at the target's own speed plus `station_speed_gain` x the
+## distance still to cover along its own bow. 0 = off (pre-fix behaviour).
+@export var station_radius: float = 20.0  # placeholder: tune in M31
+## Lookahead along the target's heading, in seconds of the target's speed: a
+## stationary target gives a zero lookahead (park on the point), a fast one a
+## longer, smoother line-up. Shorter = tighter lateral correction, twitchier helm.
+@export var station_lookahead_seconds: float = 5.0  # placeholder: tune in M31
+## (m/s of speed) per metre still to cover while station-keeping.
+@export var station_speed_gain: float = 0.3  # placeholder: tune in M31
 
 @export_group("Ram Telegraph")
 ## Seconds between committing to a ram (`EnemyAI.ram_telegraphed`) and the run

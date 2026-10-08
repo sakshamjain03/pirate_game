@@ -433,7 +433,11 @@ func _process_attack(delta: float) -> void:
 	_apply_ammo_rules(dist)
 
 	# Steer towards the ideal broadside position
-	_steer_towards(ideal_position, _attack_throttle())
+	# (a non-STANDARD tactic close to its point holds station on it instead).
+	var station_kept := _tactic() != AIProfileData.Tactic.STANDARD \
+			and _try_station_keep(ideal_position, dist)
+	if not station_kept:
+		_steer_towards(ideal_position, _attack_throttle())
 
 	# Firing itself is no longer the AI's job. ShipCombat's auto-fire loop reads
 	# the same FiringSolver and pulls the trigger the instant the arc lines up,
@@ -506,6 +510,44 @@ func _tactic_ideal_position(delta: float, dist: float) -> Vector3:
 	_smoothed_bearing = wrapf(lerp_angle(_smoothed_bearing, goal, 1.0 - exp(-delta / tau)), -PI, PI)
 	var dir: Vector3 = fwd * cos(_smoothed_bearing) + right * sin(_smoothed_bearing)
 	return t_pos + dir * preferred_combat_distance
+
+
+func _try_station_keep(ideal: Vector3, dist: float) -> bool:
+	## Arrival / station-keeping for the tactic branch. `_steer_towards` has no
+	## arrival slow-down, so a hull steering straight at a goal point that sits a
+	## turning circle from the target orbits it and never settles (a Raker under
+	## physics was abeam at 5 m at t=20 s). Inside `station_radius` of the point
+	## the hull instead aims `station_lookahead_seconds` of the TARGET's speed
+	## ahead of it along the target's heading (zero for a stationary target: park
+	## on the point; a moving one: line up astern and close lateral error), at the
+	## target's own forward speed plus `station_speed_gain` x the distance to that
+	## aim point along this hull's own bow — so it slows to a stop on the point,
+	## and turns (rather than sails) toward a point that is abeam or behind it.
+	## Steering, the sharp-turn throttle cut and the avoidance override are still
+	## `_steer_towards`'s; only the aim point and the throttle change here.
+	## Returns false (caller steers at `ideal` as before) when off or not close.
+	var radius: float = float(ai_profile.station_radius) if "station_radius" in ai_profile else 0.0
+	if radius <= 0.0:
+		return false
+	# LONG_GUNNER inside its kite line is opening the range, not holding a station.
+	if _tactic() == AIProfileData.Tactic.LONG_GUNNER and dist < float(ai_profile.kite_min_distance):
+		return false
+	var me: Vector3 = ship_controller.global_position
+	if Vector2(ideal.x - me.x, ideal.z - me.z).length() > radius:
+		return false
+	var t_fwd: Vector3 = -player_ship.global_transform.basis.z
+	t_fwd.y = 0.0
+	t_fwd = t_fwd.normalized()
+	var t_speed: float = maxf(player_ship.linear_velocity.dot(t_fwd), 0.0)
+	var aim: Vector3 = ideal + t_fwd * (t_speed * float(ai_profile.station_lookahead_seconds))
+	var my_fwd: Vector3 = -ship_controller.global_transform.basis.z
+	my_fwd.y = 0.0
+	my_fwd = my_fwd.normalized()
+	var ahead: float = Vector3(ideal.x - me.x, 0.0, ideal.z - me.z).dot(my_fwd)
+	var want_speed: float = t_speed + float(ai_profile.station_speed_gain) * ahead
+	var max_speed: float = maxf(ship_controller.ship_stats.max_speed, 0.01) if ship_controller.ship_stats else 1.0
+	_steer_towards(aim, clampf(want_speed / max_speed, 0.0, _attack_throttle()))
+	return true
 
 
 func _apply_ammo_rules(dist: float) -> void:

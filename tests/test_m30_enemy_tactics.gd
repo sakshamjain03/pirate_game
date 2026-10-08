@@ -125,6 +125,61 @@ func test_raker_settles_in_the_stern_quarter_within_20s():
 		RAKER.preferred_combat_distance, 0.5, "held at the profile's preferred_combat_distance")
 
 
+func _run_raker_under_physics(target_throttle: float) -> Dictionary:
+	## Real physics: the authored Raker starts 25 m abeam on the target's
+	## starboard side, parallel to it; the target either lies still or sails
+	## straight ahead. Returns the worst stern-bearing error and the distance
+	## range of the Raker's HULL (not its goal point) over the 15-20 s window.
+	var target := _spawn_target(Vector3.ZERO, 0.0)
+	if target_throttle > 0.0:
+		target.freeze = false
+	var ai := _spawn_ai(RAKER, Vector3(RAKER.preferred_combat_distance, 0, 0))
+	var ship := ai.ship_controller
+	ship.freeze = false
+	await wait_physics_frames(2)
+	_engage(ai, target)
+	ai.ram_tendency = 0.0   # positioning only; a ram roll is not under test here
+	ai.set_physics_process(true)
+	var worst_err := 0.0
+	var near := INF
+	var far := 0.0
+	for i in range(60 * 20):
+		target.set_input(target_throttle, 0.0)
+		await wait_physics_frames(1)
+		ai.current_state = EnemyAI.AIState.ATTACK
+		if i >= 60 * 15:
+			var b := absf(_bearing_deg(target, ship.global_position))
+			worst_err = maxf(worst_err, 180.0 - b)
+			var d := Vector2(ship.global_position.x - target.global_position.x,
+				ship.global_position.z - target.global_position.z).length()
+			near = minf(near, d)
+			far = maxf(far, d)
+	return {"err": worst_err, "near": near, "far": far,
+		"target_speed": target.linear_velocity.length()}
+
+
+func test_authored_raker_hull_settles_astern_of_a_stationary_target_under_physics():
+	# The goal-point test above froze the hull. Under real physics a hull that
+	# steers straight at its point (no arrival slow-down) orbits it: it was abeam
+	# at 5 m at t=20 s. Station-keeping must hold the HULL in the stern quarter.
+	var r: Dictionary = await _run_raker_under_physics(0.0)
+	assert_lte(r.err, STERN_BAND_DEG,
+		"15-20 s: the Raker's hull stays within 180 +/- 25 deg (worst %.1f deg off astern)" % r.err)
+	assert_gt(r.near, 8.0, "...without fouling the target (closest %.1f m)" % r.near)
+	assert_lt(r.far, RAKER.preferred_combat_distance * 2.0,
+		"...and close enough to rake it (farthest %.1f m)" % r.far)
+
+
+func test_authored_raker_hull_settles_astern_of_a_moving_target_under_physics():
+	var r: Dictionary = await _run_raker_under_physics(0.15)
+	assert_gt(r.target_speed, 1.5, "precondition: the target is actually under way")
+	assert_lte(r.err, STERN_BAND_DEG,
+		"15-20 s: the Raker's hull stays within 180 +/- 25 deg of a moving target (worst %.1f deg)" % r.err)
+	assert_gt(r.near, 8.0, "...without fouling the target (closest %.1f m)" % r.near)
+	assert_lt(r.far, RAKER.preferred_combat_distance * 2.0,
+		"...and close enough to rake it (farthest %.1f m)" % r.far)
+
+
 func test_raker_bearing_is_relative_to_the_target_heading():
 	var target := _spawn_target(Vector3.ZERO, 0.0)
 	var ai := _spawn_ai(_profile(AIProfileData.Tactic.STERN_RAKER, 165.0, 30.0), Vector3(30, 0, 0))

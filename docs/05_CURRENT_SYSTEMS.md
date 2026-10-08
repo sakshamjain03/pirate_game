@@ -3879,7 +3879,18 @@ autoloads such as `AudioManager`), so it was not run.
 - Heat tiers: 1.7 had retuned T2-T5 `min_notoriety` and spawn numbers, which broke
   `test_heat_system`: ImperialWaters activates at 150, but no tier started there. These were
   restored to 60/110/150/220 and the earlier spawn numbers; only the `squad_pool` entries were kept.
-- Known limit: `_steer_towards` has no arrival slow-down, so a hull orbits its goal point instead
-  of parking on it. A target directly astern gives no turn, so the hull sails ahead. The Raker's
-  stern-quarter Verify is therefore checked on its goal point. The Long Gunner's range is checked
-  on the hull after it settles.
+- Station-keeping (`EnemyAI._try_station_keep`, tactic branch only): `_steer_towards` has no
+  arrival slow-down, so a hull steering straight at its goal point orbits it (a Raker under physics
+  was abeam at 5 m at t=20 s). Within `station_radius` of the point a non-STANDARD hull aims
+  `station_lookahead_seconds` x the target's speed ahead of the point along the target's heading,
+  at the target's speed plus `station_speed_gain` x the distance still ahead of its own bow
+  (capped at `attack_throttle`). It parks on the point against a stationary target and runs
+  station astern of a moving one. Steering, the sharp-turn throttle cut and avoidance are still
+  `_steer_towards`'s; STANDARD and the avoidance functions are untouched. A LONG_GUNNER inside its
+  kite line skips it. `station_radius = 0` turns it off.
+- Raker.tres `preferred_bearing_deg` is 170 (was 160): at 160 the parked hull's lateral overshoot
+  carried it to ~28 deg off astern, outside the ±25 deg Verify band. Physics-run tests now check
+  the Raker HULL (not just its goal point) stays within 180 ±25 deg over 15-20 s against a
+  stationary target and a target under way. The Long Gunner's range is also checked on the hull.
+  The approach still swings across the target's bow from an abeam start before it reaches the
+  station radius.

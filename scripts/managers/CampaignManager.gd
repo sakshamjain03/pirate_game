@@ -41,8 +41,10 @@ var campaign_completed: bool = false
 
 var _objective_progress: Dictionary = {}   # objective_id -> int
 var _completed_objective_ids: Array[String] = []
-## M30 1.13 — best stars per encounter id, saved and omitted when empty
-var _encounter_best_stars: Dictionary = {}  # encounter_id -> Array of StarConditionData
+## M30 1.13 — best Sortie Stars per encounter id (encounter_id -> int count),
+## saved as plain ints (the save is JSON) and omitted when empty. Cosmetic
+## only: nothing in chapter/objective gating reads it.
+var _encounter_best_stars: Dictionary = {}
 
 ## M28 — last-seen player/heat state the lesson triggers and new conditions
 ## compare against (a rise/fall is only visible relative to the previous value).
@@ -171,15 +173,29 @@ func on_world_ready(world_manager: Node) -> void:
 	# EnemySpawner's own signal only covers its ambient roamers, never a
 	# bounded encounter's composition or boss — EncounterManager's mirrored
 	# signal (M7 Task 11) is what makes DESTROY_SHIPS/DEFEAT_BOSS see those too.
-	var encounter_mgr := systems.get_node_or_null("EncounterManager")
-	if encounter_mgr and encounter_mgr.has_signal("ship_destroyed") \
-			and not encounter_mgr.ship_destroyed.is_connected(_on_ship_destroyed):
-		encounter_mgr.ship_destroyed.connect(_on_ship_destroyed)
+	_connect_encounter_manager(systems.get_node_or_null("EncounterManager"))
 
 	var boarding := systems.get_node_or_null("BoardingSystem")
 	if boarding and boarding.has_signal("boarding_resolved") \
 			and not boarding.boarding_resolved.is_connected(_on_boarding_resolved):
 		boarding.boarding_resolved.connect(_on_boarding_resolved)
+
+
+## Scene-local EncounterManager wiring: its mirrored kill signal (DESTROY_SHIPS/
+## DEFEAT_BOSS see composition kills) and, M30 1.13, its Sortie Stars.
+func _connect_encounter_manager(encounter_mgr: Node) -> void:
+	if not encounter_mgr:
+		return
+	if encounter_mgr.has_signal("ship_destroyed") \
+			and not encounter_mgr.ship_destroyed.is_connected(_on_ship_destroyed):
+		encounter_mgr.ship_destroyed.connect(_on_ship_destroyed)
+	if encounter_mgr.has_signal("stars_awarded") \
+			and not encounter_mgr.stars_awarded.is_connected(_on_stars_awarded):
+		encounter_mgr.stars_awarded.connect(_on_stars_awarded)
+
+
+func _on_stars_awarded(encounter_id: String, stars: int, _total: int) -> void:
+	record_encounter_stars(encounter_id, stars)
 
 
 # === Gating ===
@@ -814,7 +830,7 @@ func load_save_data(data: Dictionary) -> void:
 		_completed_objective_ids.append(str(id))
 	campaign_completed = bool(data.get("campaign_completed", false))
 	## M30 1.13 — restore encounter_best_stars (omitted when empty)
-	_encounter_best_stars = data.get("encounter_best_stars", {}).duplicate()
+	_encounter_best_stars = _parse_best_stars(data.get("encounter_best_stars", {}))
 	call_deferred("_catch_up")
 
 
@@ -840,24 +856,42 @@ func has_paid_chapter_eights(chapter_id: String) -> bool:
 	return _chapter_eights_paid.has(chapter_id)
 
 
-## M30 1.13 — record encounter stars, keeping the best count if already recorded
-func record_encounter_stars(encounter_id: String, stars: Array) -> void:
-	if stars.is_empty():
-		# Omit empty entries
-		_encounter_best_stars.erase(encounter_id)
+## M30 1.13 — record a result's star count, keeping the best ever. A worse
+## (or 0-star) result never lowers or erases an earlier best.
+func record_encounter_stars(encounter_id: String, stars: int) -> void:
+	if encounter_id.is_empty() or stars <= 0:
 		return
-	if not _encounter_best_stars.has(encounter_id):
+	if stars > int(_encounter_best_stars.get(encounter_id, 0)):
 		_encounter_best_stars[encounter_id] = stars
-	else:
-		# Keep the best (most stars)
-		var existing = _encounter_best_stars[encounter_id] as Array
-		if stars.size() > existing.size():
-			_encounter_best_stars[encounter_id] = stars
 
 
-## M30 1.13 — retrieve best stars for an encounter, empty if never recorded
-func get_encounter_best_stars(encounter_id: String) -> Array:
-	return _encounter_best_stars.get(encounter_id, [])
+## M30 1.13 — the best star count for an encounter, 0 if never earned.
+func get_encounter_best_stars(encounter_id: String) -> int:
+	return int(_encounter_best_stars.get(encounter_id, 0))
+
+
+## M30 1.13 — the cosmetic total: the best stars of every encounter, summed.
+func get_total_stars() -> int:
+	var total := 0
+	for id in _encounter_best_stars:
+		total += int(_encounter_best_stars[id])
+	return total
+
+
+## Saved `encounter_best_stars` -> {id: int}. JSON hands numbers back as
+## floats; anything else is malformed and push_errors (never a silent skip).
+func _parse_best_stars(raw) -> Dictionary:
+	var out := {}
+	if not (raw is Dictionary):
+		push_error("CampaignManager: encounter_best_stars is not a dictionary (%s); starting empty." % type_string(typeof(raw)))
+		return out
+	for id in raw:
+		var v = raw[id]
+		if (typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT) or int(v) <= 0:
+			push_error("CampaignManager: encounter_best_stars['%s'] is malformed (%s); dropped." % [str(id), str(v)])
+			continue
+		out[str(id)] = int(v)
+	return out
 
 
 func _load_eights_ledger() -> void:

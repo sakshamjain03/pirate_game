@@ -9,14 +9,18 @@ var _ship: Node3D
 var _scope: String = ""
 var _scope_counter: int = 0
 var _target_group: String = ""
+var _scene: Node3D = null
+var _prev_scene: Node = null
 
 
 func before_each() -> void:
 	# Create a fresh isolated scene for each test with a unique target group
+	_prev_scene = get_tree().current_scene
 	var scene = Node3D.new()
 	scene.name = "TestScene"
 	get_tree().root.add_child(scene)
 	get_tree().current_scene = scene
+	_scene = scene
 
 	_scope_counter += 1
 	_scope = "aim_bearing_scope_%d" % _scope_counter
@@ -35,6 +39,22 @@ func before_each() -> void:
 	_solver.ship_stats = stats
 	_solver.target_groups = [_target_group]
 	_ship.add_child(_solver)
+
+
+## Free the per-test scene (ship, solver, enemies) immediately so the plain
+## Node3D "Player" in group player_ship cannot leak into later test scripts
+## (MaelstromRun / SaveManager look up get_first_node_in_group("player_ship")),
+## and hand current_scene back to whatever it was before this test.
+func after_each() -> void:
+	if is_instance_valid(_scene):
+		if get_tree().current_scene == _scene:
+			get_tree().current_scene = _prev_scene if is_instance_valid(_prev_scene) else null
+		_scene.get_parent().remove_child(_scene)
+		_scene.free()
+	_scene = null
+	_ship = null
+	_solver = null
+	_prev_scene = null
 
 
 func _make_enemy(pos: Vector3) -> Node3D:

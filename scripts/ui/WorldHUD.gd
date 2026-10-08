@@ -550,6 +550,12 @@ func _find_ship() -> void:
 			ship.combat.fired.connect(_on_cannon_fired)
 		if ship.combat and ship.combat.has_signal("arc_lock_changed"):
 			ship.combat.arc_lock_changed.connect(_on_arc_lock_changed)
+		# M30 1.9 — the Spyglass Briefing's per-side opening loads show under
+		# each battery's header (desktop) and on the ammo button (phone).
+		if ship.combat and ship.combat.has_signal("side_ammo_changed"):
+			ship.combat.side_ammo_changed.connect(_update_cannon_header_captions)
+		if mobile_controls and mobile_controls.has_method("refresh_ammo_from_ship"):
+			mobile_controls.refresh_ammo_from_ship()
 		_firing_solver = ship.get_node_or_null("FiringSolver") as FiringSolver
 		_update_cannon_header_captions()
 		var captain_ability: Node = ship.get_node_or_null("CaptainAbility")
@@ -582,13 +588,22 @@ func _find_ship() -> void:
 		boarding_sys.boarding_resolved.connect(_on_boarding_resolved)
 
 	var enc_mgr = current_scene.get_node_or_null("Systems/EncounterManager") if current_scene else null
+	if not enc_mgr:
+		# A debug capture harness instances World under its own root, so the
+		# path misses; the group finds it there too (M30 1.9 capture).
+		enc_mgr = get_tree().get_first_node_in_group("encounter_manager")
 	if enc_mgr:
 		enc_mgr.encounter_started.connect(_on_encounter_started)
 		enc_mgr.encounter_ended.connect(_on_encounter_ended)
 		enc_mgr.objective_progress.connect(_on_objective_progress)
 		if upgrade_choice_screen:
 			upgrade_choice_screen.bind_encounter_manager(enc_mgr)
-		
+		# M30 1.9 — the Spyglass Briefing opens on every encounter start.
+		var briefing := SpyglassBriefing.new()
+		briefing.name = "SpyglassBriefing"
+		add_child(briefing)
+		briefing.bind_encounter_manager(enc_mgr)
+
 	# Create Economy Tick Label
 	_create_economy_label()
 	
@@ -1375,9 +1390,19 @@ func _update_cannon_header_captions() -> void:
 	# no longer fits the panel on one line and wrapped mid-phrase.
 	var caption := "\n%d° / %dm" % [int(_firing_solver.get_arc_degrees()), int(_firing_solver.get_range())]
 	if port_header_label:
-		port_header_label.text = tr("PORT CANNONS") + caption
+		port_header_label.text = tr("PORT CANNONS") + caption + _side_ammo_suffix("port")
 	if stbd_header_label:
-		stbd_header_label.text = tr("STARBOARD CANNONS") + caption
+		stbd_header_label.text = tr("STARBOARD CANNONS") + caption + _side_ammo_suffix("starboard")
+
+
+## M30 1.9 — " · Chain Shot" (the side's load) while a briefing opening load
+## is in the guns; empty otherwise, so the header is unchanged outside a fight.
+func _side_ammo_suffix(side: String) -> String:
+	var combat: Node = _ship_controller.combat if _ship_controller and is_instance_valid(_ship_controller) else null
+	if not combat or not combat.has_method("has_side_ammo") or not combat.has_side_ammo():
+		return ""
+	var ammo: AmmoData = combat.get_ammo_for_side(side)
+	return " · %s" % tr(ammo.display_name) if ammo else ""
 
 ## docs/navalCombat.md §5.2 — alignment must be legible *before* the guns
 ## fire. set_cannon_cooldown()'s "ON TARGET" text already owns the locked

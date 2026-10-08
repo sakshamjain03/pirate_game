@@ -83,11 +83,41 @@ See `docs/navalCombat.md` §4/§5 for the locked design.
   `arc_lock_changed` (drives the broadside indicator), and `fire_special_broadside()` — the
   player-timed full volley on both sides at a damage premium, gated on its own longer cooldown.
   Applies captain + tech + `CombatModifiers` to damage.
+  **M30 W1 additions:**
+  - *Wind-up (1.4)* — the auto-fire branch on a hostile (non-player-side) hull first
+    telegraphs: `broadside_windup(side, duration, target)` then fires when it runs out, or
+    `broadside_windup_cancelled(side)` if the target leaves the arc. Duration is
+    `AIDifficultyData.broadside_windup_seconds`. No wind-up starts while the hull could not fire
+    anyway (`_can_fire_now()`: bracing or zero crew), so decals never show a shot that never comes.
+    `ThreatDecals.gd` draws every wind-up.
+  - *Brace (1.6)* — `apply_brace(BraceData, is_perfect)`: for `window` seconds incoming damage ×
+    (1 − `reduction`, or `perfect_reduction` when Perfect) via a `CombatModifiers` persistent layer
+    `&"brace"` owned and cleared here, and both `fire_broadside()` and `fire_special_broadside()`
+    refuse. The window's close (or `cancel_brace()`) starts the *applied* BraceData's `cooldown`;
+    `die()` clears it. Signals `brace_started(is_perfect)` / `brace_ended()`. **Reached in play
+    through the context button:** `WorldManager` registers an arbiter verb `brace` (priority above
+    board/dock) that is available only while a hostile wind-up is aimed at the player and the
+    player is not docked — tracked by `IncomingWindupTracker` (`scripts/combat/`, owned and ticked
+    by `WorldManager`, listening to hostiles' wind-up signals). A press with at most
+    `perfect_window` left on the soonest such wind-up is Perfect. `WorldManager.context_verb_changed`
+    makes `MobileControls` relabel the button; `WorldHUD` shows a desktop `[key] BRACE!` call-out.
+  - *Fury (1.12)* — `fury` (0..1) on hulls with a `fury_data` (`FuryData`; the player's hull
+    loads `resources/balance/Fury.tres`, AI hulls carry none). Filled only from **outgoing**
+    `ShipDamage.hit_resolved` (every `ShipDamage` joins group `ship_damage`; ShipCombat listens and
+    keeps hits whose source is its own ship): hull damage × `fury_per_hit`, × `rake_multiplier`
+    from bow/stern, + `fury_on_kill` on the killing blow; plus `fury_on_perfect_brace` from its own
+    `brace_started(true)`. Rams carry no source and fill nothing. `is_special_ready()` = timer OR
+    Fury ≥ 1; reaching 1 emits `special_broadside_ready`; a special fired on the Fury path spends
+    all Fury (a timer-ready one leaves it). Reset by `die()` and `CombatModifiers.encounter_reset`
+    (emitted from `reset()`, i.e. encounter end / Maelstrom run start). `fury_changed` + a
+    `FuryMeter` bar under the special readout in `WorldHUD`.
 - `CombatModifiers.gd` — per-ship runtime multipliers (damage / reload / speed / range / arc /
   special cooldown) in two layers: a **battle-long** layer for temporary upgrades and a **timed**
   layer for captain abilities. **Never mutates a `ShipStats` resource** — a `.tres` is shared by
   every hull of its class, so an in-place buff would apply to every Sloop in the game and persist
   into saves. Same duplicate-never-mutate rule as `EnemySpawner.compute_spawn_multiplier()`.
+  M30 W1: `damage_taken_mult` (incoming-damage multiplier, read by `ShipDamage.apply_hit` and
+  `apply_impact`; Brace sets it) and the `encounter_reset` signal emitted by `reset()`.
 - `EncounterManager.gd` (`World/Systems`) — **the battle boundary.** `start_encounter(EncounterData)`
   spawns a composition, pauses ambient spawning, tracks the objective off existing signals,
   drives the upgrade-offer cadence, resolves victory / defeat / escape, grants rewards, and

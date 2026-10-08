@@ -18,6 +18,9 @@ class_name CombatModifiers extends Node
 
 signal modifiers_changed()
 signal upgrade_applied(upgrade: BattleUpgradeData)
+## M30 W1 (1.12) — reset() ran: the battle is over. Battle-long state owned
+## elsewhere (ShipCombat's Fury) clears on this.
+signal encounter_reset()
 
 ## Public totals — read by ShipCombat, FiringSolver and ShipMovement. Recomputed
 ## from the battle-long base plus any currently-active timed effect; never assigned
@@ -41,7 +44,8 @@ var extra_projectiles: int = 0
 ## M26 — multiplies the hull damage this ship's bow deals when it rams.
 var ram_damage_mult: float = 1.0
 ## M30 W1 (1.6) — multiplies incoming damage (Brace, status effects). 1.0 = no reduction.
-## Brace sets this to (1 - reduction).
+## ShipDamage.apply_hit/apply_impact multiply by it; Brace's persistent layer
+## sets (1 - reduction) for its window.
 var damage_taken_mult: float = 1.0
 
 # Battle-long layer: temporary upgrades, cleared when the encounter ends.
@@ -81,6 +85,7 @@ func reset() -> void:
 	_timed.clear()
 	_applied.clear()
 	_recompute()
+	encounter_reset.emit()
 
 
 func set_persistent_layer(id: StringName, effects: Dictionary) -> void:

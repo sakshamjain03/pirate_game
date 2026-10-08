@@ -9,6 +9,10 @@ extends Node
 signal world_loaded()
 signal island_discovered(island_id: String)
 signal player_docked(island_id: String)
+## M30 W1 — the context button's winning verb changed (e.g. Brace became
+## available because a broadside started winding up at the player). Lets
+## MobileControls relabel the button for verbs that come and go mid-sail.
+signal context_verb_changed(verb: StringName)
 
 var is_world_loaded: bool = false
 
@@ -35,6 +39,15 @@ var _camera_rig: Node = null
 ## Wave 0 registers board and dock; later waves add brace, repel, prize, keg,
 ## land, assault and spyglass through register_context_provider().
 var _context_arbiter := ContextVerbArbiter.new()
+
+## M30 W1 (1.6) — Brace is offered only while a hostile wind-up is aimed at
+## the player, and is Perfect in the last BraceData.perfect_window of one.
+var _windup_tracker := IncomingWindupTracker.new()
+var _brace_data: BraceData = preload("res://resources/balance/Brace.tres")
+var _windup_scan_accum: float = INF
+## How often newly spawned hostiles are picked up (not a balance value).
+const WINDUP_SCAN_INTERVAL := 0.5
+var _last_context_verb: StringName = &""
 
 ## M30 W1 task 1.10 — keg stock per sortie.
 var _keg_stock: int = 0
@@ -100,6 +113,7 @@ func _process(delta: float) -> void:
 		# button) goes to whichever verb wins right now — M30 0.20.
 		if Input.is_action_just_pressed("dock"):
 			_context_arbiter.perform()
+		_publish_context_verb()
 
 		# Process camera input
 		if _camera_rig:
@@ -111,6 +125,34 @@ func _process(delta: float) -> void:
 				_camera_rig.add_zoom(CAMERA_ZOOM_STEP)
 			if Input.is_action_just_pressed("camera_zoom_out"):
 				_camera_rig.add_zoom(-CAMERA_ZOOM_STEP)
+
+func _physics_process(delta: float) -> void:
+	if not is_world_loaded:
+		return
+	tick_windup_tracker(delta)
+
+
+## M30 W1 (1.6) — keeps the incoming wind-up list current. Public so tests can
+## step it with an exact delta.
+func tick_windup_tracker(delta: float) -> void:
+	_windup_tracker.target = player_ship
+	_windup_scan_accum += delta
+	if _windup_scan_accum >= WINDUP_SCAN_INTERVAL and is_inside_tree():
+		_windup_scan_accum = 0.0
+		_windup_tracker.scan(get_tree())
+	_windup_tracker.tick(delta)
+
+
+func get_windup_tracker() -> IncomingWindupTracker:
+	return _windup_tracker
+
+
+func _publish_context_verb() -> void:
+	var verb := _context_arbiter.get_context_verb()
+	if verb != _last_context_verb:
+		_last_context_verb = verb
+		context_verb_changed.emit(verb)
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_camera_drag(event):
@@ -206,31 +248,39 @@ func _register_wave0_context_verbs() -> void:
 		"Dock", "dock")
 
 
-## M30 W1 (1.6) — Register Brace and other Wave 1 context verbs
+## M30 W1 (1.6) — Brace on the context button (priority above Board/Dock).
 func _register_wave1_context_verbs() -> void:
 	_context_arbiter.register_provider(&"brace",
-		func(): return _can_brace(),
-		func(): return _perform_brace(),
+		_can_brace,
+		_perform_brace,
 		"Brace", "shield")
 
 
+func _player_combat() -> ShipCombat:
+	if not is_instance_valid(player_ship):
+		return null
+	return player_ship.get_node_or_null("ShipCombat") as ShipCombat
+
+
+## Brace is offered only "during a wind-up that covers" the player (W1-1.3):
+## never at anchor in port, mid-brace or on cooldown — otherwise it would take
+## the Dock/Board press away from the player whenever it was merely off cooldown.
 func _can_brace() -> bool:
-	if not player_ship or not player_ship.has_node("ShipCombat"):
+	var combat := _player_combat()
+	if not combat or not _brace_data or combat.is_bracing or combat.is_brace_on_cooldown():
 		return false
-	var combat = player_ship.get_node("ShipCombat") as ShipCombat
-	if not combat or combat.is_bracing or combat.is_brace_on_cooldown():
+	if bool(player_ship.get("is_docked")):
 		return false
-	return true
+	return _windup_tracker.has_threat()
 
 
+## Perfect when the soonest wind-up aimed at the player has at most
+## perfect_window seconds left as the press lands.
 func _perform_brace() -> bool:
-	if not player_ship or not player_ship.has_node("ShipCombat"):
+	if not _can_brace():
 		return false
-	var combat = player_ship.get_node("ShipCombat") as ShipCombat
-	var brace_data = load("res://resources/balance/Brace.tres") as BraceData
-	if not combat or not brace_data:
-		return false
-	return combat.apply_brace(brace_data)
+	var perfect := _windup_tracker.soonest_remaining() <= _brace_data.perfect_window
+	return _player_combat().apply_brace(_brace_data, perfect)
 
 
 func _can_toggle_docking() -> bool:

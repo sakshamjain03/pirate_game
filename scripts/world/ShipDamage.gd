@@ -17,6 +17,10 @@ signal hit_resolved(source: Node, facing: StringName, pool_deltas: Dictionary, a
 
 @export var ship_stats: ShipStats
 
+## M30 W1 (1.12) — every hull's ShipDamage is in this group, so a listener for
+## OUTGOING hits (ShipCombat's Fury) can find the hit_resolved signals to hear.
+const GROUP := &"ship_damage"
+
 var hull: float = 0.0
 var sails: float = 0.0
 var crew: float = 0.0
@@ -43,6 +47,10 @@ func get_effective_max_health() -> float:
 	if parent and parent.is_in_group("player_ship") and TechManager:
 		max_hp *= TechManager.global_health_mod
 	return max_hp
+
+func _enter_tree() -> void:
+	add_to_group(GROUP)
+
 
 func _ready() -> void:
 	if ship_stats:
@@ -87,7 +95,7 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 	var facing: StringName = &"beam"
 	var parent = get_parent()
 
-	# M30 W1 (1.6) — Brace and other effects reduce incoming damage
+	# M30 W1 (1.6) — Brace (and later statuses) scale incoming damage.
 	var modifiers = parent.get_node_or_null("CombatModifiers") if parent else null
 	if modifiers:
 		total_amount *= modifiers.damage_taken_mult
@@ -141,33 +149,11 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 
 	var ammo_id := StringName(ammo.ammo_id)
 	var hit_tags = PackedStringArray(["ammo:%s" % ammo_id, "facing:%s" % facing])
+	# M30 W1 (1.12) — the shooter's Fury fills from this signal (ShipCombat).
 	hit_resolved.emit(source, facing, _applied_deltas(before), ammo_id, hit_tags)
-
-	# M30 W1 (1.12) — Fill the attacker's Fury when they hit
-	if source and source.has_node("ShipCombat"):
-		var source_combat = source.get_node("ShipCombat") as ShipCombat
-		if source_combat:
-			var damage_dealt = float(_applied_deltas(before).get("hull", 0.0))
-			if damage_dealt > 0.0:
-				var fury_data = load("res://resources/balance/Fury.tres") as FuryData
-				if fury_data:
-					var is_rake = facing == &"stern" or facing == &"bow"
-					var fill = damage_dealt * fury_data.fury_per_hit
-					if is_rake:
-						fill *= fury_data.rake_multiplier
-					source_combat.fury = minf(source_combat.fury + fill, 1.0)
 
 	if hull <= 0.0 and not _is_destroyed:
 		_is_destroyed = true
-
-		# M30 W1 (1.12) — Grant Fury to the killer
-		if source and source.has_node("ShipCombat"):
-			var source_combat = source.get_node("ShipCombat") as ShipCombat
-			if source_combat:
-				var fury_data = load("res://resources/balance/Fury.tres") as FuryData
-				if fury_data:
-					source_combat.fury = minf(source_combat.fury + fury_data.fury_on_kill, 1.0)
-
 		destroyed.emit()
 
 func apply_impact(amount: float, crew_fraction: float = 0.0, speed_penalty: float = 0.0,

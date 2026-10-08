@@ -35,11 +35,8 @@ func before_each() -> void:
 	_wm = load("res://scripts/managers/WorldManager.gd").new()
 	add_child_autoqfree(_wm)
 	_wm.player_ship = _player
-	# Brace (task 1.6) outranks Keg in ContextVerbArbiter.PRIORITY and its
-	# provider is currently offered whenever it is off cooldown, so with it
-	# registered the arbiter would always answer "brace". Take it out so these
-	# tests see Keg's own gate; the brace gate is the gunnery lane's (1.6).
-	_wm.unregister_context_provider(&"brace")
+	# The real Brace provider (task 1.6) stays registered: it outranks Keg, so
+	# these tests also prove it is not offered without a wind-up on the player.
 
 
 func after_each() -> void:
@@ -94,6 +91,79 @@ func test_keg_offered_only_with_an_enemy_in_the_stern_cone() -> void:
 	assert_eq(_wm.get_context_verb(), &"keg", "an enemy astern offers Keg")
 	enemy.global_position = _astern(_cfg.stern_cone_range + 10.0)
 	assert_ne(_wm.get_context_verb(), &"keg", "beyond stern_cone_range it is not offered")
+
+
+## Starts a live broadside wind-up on `enemy` aimed at the player, with its
+## per-frame solver/combat processing paused so nothing rescans it away.
+func _wind_up_on_player(enemy: Node3D, remaining: float) -> void:
+	var combat: ShipCombat = enemy.get_node("ShipCombat")
+	var solver: FiringSolver = enemy.get_node("FiringSolver")
+	combat.set_physics_process(false)
+	solver.set_physics_process(false)
+	solver._targets[FiringSolver.SIDE_PORT] = _player
+	combat._windup_t[FiringSolver.SIDE_PORT] = remaining
+
+
+func test_keg_is_offered_with_the_real_brace_provider_registered() -> void:
+	# W1-2.2: an enemy astern and no wind-up -> the context button says Keg.
+	_spawn(ENEMY_SHIP, _astern(25.0))
+	assert_eq(_wm.get_context_verb(), &"keg",
+		"Brace must not shadow Keg when nothing is winding up on the player")
+
+
+func test_brace_needs_a_wind_up_on_the_player_and_then_outranks_keg() -> void:
+	var enemy := _spawn(ENEMY_SHIP, _astern(25.0))
+	_wind_up_on_player(enemy, 1.0)
+	assert_eq(_wm.get_context_verb(), &"brace", "a wind-up covering the player offers Brace")
+	var solver: FiringSolver = enemy.get_node("FiringSolver")
+	solver._targets[FiringSolver.SIDE_PORT] = null
+	assert_eq(_wm.get_context_verb(), &"keg", "a wind-up aimed elsewhere does not")
+
+
+func test_brace_pressed_late_in_the_wind_up_is_perfect() -> void:
+	var brace: BraceData = load("res://resources/balance/Brace.tres")
+	var enemy := _spawn(ENEMY_SHIP, _astern(25.0))
+	_wind_up_on_player(enemy, brace.perfect_window * 0.5)
+	var combat: ShipCombat = _player.get_node("ShipCombat")
+	watch_signals(combat)
+	assert_eq(_wm._context_arbiter.perform(), &"brace")
+	assert_signal_emitted_with_parameters(combat, "brace_started", [true])
+
+
+func test_brace_pressed_early_in_the_wind_up_is_plain() -> void:
+	var brace: BraceData = load("res://resources/balance/Brace.tres")
+	var enemy := _spawn(ENEMY_SHIP, _astern(25.0))
+	_wind_up_on_player(enemy, brace.perfect_window + 1.0)
+	var combat: ShipCombat = _player.get_node("ShipCombat")
+	watch_signals(combat)
+	assert_eq(_wm._context_arbiter.perform(), &"brace")
+	assert_signal_emitted_with_parameters(combat, "brace_started", [false])
+
+
+func test_keg_floats_on_the_swell() -> void:
+	var waves := StubWaves.new()
+	add_child_autoqfree(waves)
+	var keg := _make_keg(Vector3(0, 0, 100))
+	keg.wave_generator = waves
+	keg.tick(0.1)
+	assert_almost_eq(keg.global_position.y, StubWaves.HEIGHT, 0.001, "rides the wave crest")
+	waves.height_now = -0.8
+	keg.tick(0.1)
+	assert_almost_eq(keg.global_position.y, -0.8, 0.001, "and drops into the trough")
+
+
+func test_keg_finds_the_ocean_by_group() -> void:
+	var waves := StubWaves.new()
+	add_child_autoqfree(waves)   # WaveGenerator._ready joins "wave_generator"
+	var keg := _make_keg(Vector3(0, 0, 100))
+	assert_eq(keg.wave_generator, waves)
+
+
+class StubWaves extends WaveGenerator:
+	const HEIGHT := 1.7
+	var height_now: float = HEIGHT
+	func get_water_height_at(_pos: Vector3, _time: float) -> float:
+		return height_now
 
 
 func test_stern_cone_follows_the_hull_heading() -> void:

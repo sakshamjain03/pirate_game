@@ -59,7 +59,10 @@ func _process(delta: float) -> void:
 	_numbers_t -= delta
 	if _numbers_t <= 0.0:
 		_numbers_t = 0.6
-		_number(37.0, "chain", &"port", Vector3(-3, 7, 0))
+		# Well to the camera's left of the hull (player-local -X), clear of the
+		# enemy name/health widget WorldHUD pins over the hull, so the chain
+		# colour reads in the still.
+		_number(37.0, "chain", &"port", _player.global_transform.basis * Vector3(-14, 5, 0))
 		_number(64.0, "round", &"stern", Vector3(3, 9, 0))
 
 

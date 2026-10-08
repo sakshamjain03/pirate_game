@@ -3895,10 +3895,14 @@ autoloads such as `AudioManager`), so it was not run.
 - Raker pathing: `AIProfileData.extra_avoid_mask` is OR-ed into `EnemyAI.avoid_collision_mask` by
   `apply_profile()`, on top of the scene-authored mask, never replacing it. `Raker.tres` sets 32, so
   the existing `_probe` sees kegs. The avoidance function bodies are unchanged.
-- **Known cross-lane issue:** the Brace provider (task 1.6) is available whenever Brace is off
-  cooldown, and Brace outranks Keg in `ContextVerbArbiter.PRIORITY`. Until Brace is gated on an
-  incoming wind-up (requirement W1-1.3.3), the button offers Keg only while Brace is cooling down.
-  `test_m30_powder_keg.gd` unregisters Brace so that it tests Keg's own gate.
+- **Floating:** each `tick()` sets the keg's height to `WaveGenerator.get_water_height_at()` (the
+  `wave_generator` group BuoyancySimulator reads, same clock), or y=0 with no ocean. `_drop_keg` calls
+  `float_on_water()` straight after placing it.
+- **Brace gate (W1-1.3.3):** `WorldManager._can_brace()` offers Brace only while a hostile hull's
+  broadside wind-up (`ShipCombat.get_windup_remaining(side) > 0`) is aimed at the player
+  (`FiringSolver.get_target(side) == player_ship`). Otherwise Keg/Dock win the button. A press with
+  `<= BraceData.perfect_window` left on that wind-up is a Perfect Brace. `test_m30_powder_keg.gd`
+  keeps the real Brace provider registered.
 
 ### Feedback pack (1.11) — `CombatFeedback.gd` + `CombatFeedbackData.gd`/`CombatFeedback.tres`, `RibbonStack.gd`, `CameraRig.gd`, `FloatingDamage.gd`, `HapticFeedbackManager.gd`
 - `WorldHUD.tscn` instances `RibbonStack` (a `VBoxContainer`) and `CombatFeedback`, which

@@ -280,17 +280,43 @@ func _can_brace() -> bool:
 	var combat = player_ship.get_node("ShipCombat") as ShipCombat
 	if not combat or combat.is_bracing or combat.is_brace_on_cooldown():
 		return false
-	return true
+	# W1-1.3: Brace answers a wind-up that covers the player. Without one it is
+	# not offered, so it never shadows Keg/Dock on the context button.
+	return _incoming_windup_remaining() > 0.0
 
 
 func _perform_brace() -> bool:
-	if not player_ship or not player_ship.has_node("ShipCombat"):
+	if not _can_brace():
 		return false
 	var combat = player_ship.get_node("ShipCombat") as ShipCombat
 	var brace_data = load("res://resources/balance/Brace.tres") as BraceData
 	if not combat or not brace_data:
 		return false
-	return combat.apply_brace(brace_data)
+	# A press in the last perfect_window of the wind-up is a Perfect Brace.
+	var remaining := _incoming_windup_remaining()
+	return combat.apply_brace(brace_data, remaining <= brace_data.perfect_window)
+
+
+## Seconds left on the soonest live hostile broadside wind-up aimed at the
+## player (ShipCombat.get_windup_remaining with FiringSolver.get_target ==
+## player_ship), or -1.0 when nothing is winding up on the player.
+func _incoming_windup_remaining() -> float:
+	if not is_instance_valid(player_ship) or not player_ship.is_inside_tree():
+		return -1.0
+	var best := -1.0
+	for group in ["enemy_ship", "boss_ship"]:
+		for hull in get_tree().get_nodes_in_group(group):
+			if not (hull is Node3D) or not FiringSolver.are_hostile(player_ship, hull):
+				continue
+			var combat = hull.get_node_or_null("ShipCombat")
+			var solver = hull.get_node_or_null("FiringSolver")
+			if not combat or not solver or not combat.has_method("get_windup_remaining"):
+				continue
+			for side in [FiringSolver.SIDE_PORT, FiringSolver.SIDE_STARBOARD]:
+				var t: float = combat.get_windup_remaining(side)
+				if t > 0.0 and solver.get_target(side) == player_ship 						and (best < 0.0 or t < best):
+					best = t
+	return best
 
 
 func _can_toggle_docking() -> bool:
@@ -369,6 +395,7 @@ func _drop_keg() -> bool:
 	var at: Vector3 = player_ship.global_position + aft * _keg_config.drop_offset
 	at.y = 0.0
 	keg.global_position = at
+	keg.float_on_water()   # onto the swell now, not one physics frame late
 	_keg_stock -= 1
 	return true
 

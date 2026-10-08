@@ -1,7 +1,9 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/WorldHUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/ui/ThreatDecals.gd" id="threat_decals"]
+[ext_resource type="Script" path="res://scripts/ui/RibbonStack.gd" id="ribbon_stack"]
+[ext_resource type="Script" path="res://scripts/ui/CombatFeedback.gd" id="combat_feedback"]
 [ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="2_mc"]
 [ext_resource type="PackedScene" path="res://scenes/ui/IslandMenu.tscn" id="2_island_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/DeathScreen.tscn" id="3_death_screen"]
@@ -50,6 +52,23 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("threat_decals")
 auto_scan = true
+
+[node name="RibbonStack" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -220.0
+offset_top = 132.0
+offset_right = 220.0
+offset_bottom = 300.0
+grow_horizontal = 2
+mouse_filter = 2
+script = ExtResource("ribbon_stack")
+
+[node name="CombatFeedback" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("combat_feedback")
 
 [node name="TopBar" type="PanelContainer" parent="."]
 unique_name_in_owner = true

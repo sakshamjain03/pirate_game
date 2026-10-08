@@ -68,6 +68,11 @@ enum Tactic { STANDARD, STERN_RAKER, LONG_GUNNER, RAM_RUNNER, TENDER, FIRESHIP }
 @export var ammo_rules: Dictionary = {}  # placeholder: tune in M31
 ## Throttle while manoeuvring in ATTACK (STANDARD always used 0.5).
 @export_range(0.0, 1.0) var attack_throttle: float = 0.5  # placeholder: tune in M31
+## Extra physics layers OR-ed into EnemyAI.avoid_collision_mask, so this
+## profile's existing obstacle probe also steers around them. The Raker sets
+## bit 32 (layer 6, powder kegs): it holds the stern quarter, which is exactly
+## where the player drops kegs (M30 W1 task 1.10).
+@export_flags_3d_physics var extra_avoid_mask: int = 0  # placeholder: tune in M31
 
 @export_group("Ram Telegraph")
 ## Seconds between committing to a ram (`EnemyAI.ram_telegraphed`) and the run

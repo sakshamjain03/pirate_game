@@ -3853,3 +3853,83 @@ Real-device sync (two devices, two accounts, offline to online, a paused project
 manual checklist. `SelfPlayHarness` still cannot run in `-s` mode (it fails to compile against
 autoloads such as `AudioManager`), so it was not run.
 
+
+## M30 Wave 1 — feedback lane: tasks 1.5, 1.8, 1.10, 1.11 (2026-10-09)
+
+### Threat decals (1.5) — `scripts/ui/ThreatDecals.gd`, instanced in `WorldHUD.tscn`
+- Auto-scans `enemy_ship`/`boss_ship` hulls and connects `ShipCombat.broadside_windup`. It draws
+  a `WedgeMesh` out of the side that is winding up, tinted by the attacker's ammo
+  (`ThreatDecals.tres` `ammo_colors`), plus a rim arrow when the attacker is off screen. At most
+  `max_visible` (2) are shown, soonest-to-fire first and then nearest.
+- `broadside_windup_cancelled` drops the wedge for that side straight away, so Brace is never timed
+  against a volley that will not come. The alpha ramp horizon is `ThreatDecalsData.alpha_ramp_seconds`.
+
+### Aim-by-bearing and tap-to-mark (1.8) — `FiringSolver.gd`, `PlayerShip.tscn`, `WorldManager.gd`
+- `@export priority_mode: FiringSolver.PriorityMode` takes `NEAREST` (the default, used by every AI
+  hull) or `AIM_BY_BEARING`. `PlayerShip.tscn` sets `AIM_BY_BEARING`: of the hulls in an arc, the
+  one nearest the centre line wins, and distance breaks a tie. One `_sides_for()` arc rule serves
+  both ranking and the mark.
+- `priority_target` is set with `set_priority_target`/`toggle_priority_target`, and
+  `priority_target_changed` is emitted. The mark wins only on the side(s) whose arc and range
+  contain it. Every other side keeps its normal ranking, so a mark that is out of arc never silences
+  the guns. The mark is cleared when the hull sinks, leaves the tree or stops being hostile.
+- `WorldManager._handle_tap_to_mark()` runs first in `_unhandled_input`. A touch released within
+  `tap_slop_px`, or a desktop left-click, toggles the mark on the hostile hull drawn nearest the tap
+  (`mark_target_at_screen`, within `mark_pick_radius_px`, both set in `CombatFeedback.tres`). A tap
+  on open water is not consumed. `get_current_target()` (the mark, else the nearest locked hull,
+  else the nearest hostile in range) feeds the rake cone.
+
+### Powder kegs (1.10) — `PowderKeg.tscn/.gd`, `KegConfigData.gd` + `KegConfig.tres`, `WorldManager.gd`
+- The `keg` context verb is offered while a live hostile (`enemy_ship`/`boss_ship`) is inside the
+  stern cone (`stern_cone_degrees`/`stern_cone_range` about the hull's aft axis) and stock is above
+  0. A drop adds the keg to the player's parent (the World scene), `drop_offset` astern along the
+  hull basis, on the water, and spends one stock.
+- **Sortie:** one trip out of port. Stock refills to `stock_per_sortie` in `_on_dock_completed` and
+  is not reset when an encounter starts. A fresh World load starts full, and the count is not saved.
+- The keg is a `StaticBody3D` on layer 6 (bit 32), and no hull, cannonball or camera mask includes
+  that layer. It detonates when a hostile hull comes within `proximity_radius` (covering both
+  contact and proximity) or when `fuse_seconds` runs out. Detonation goes through
+  `AreaDamage.apply_damage` to the hostile hulls within `detonation_radius`, judged against
+  `dropped_by` with `FiringSolver.are_hostile`. Bosses are included. The player's own keg never
+  hurts the player.
+- Raker pathing: `AIProfileData.extra_avoid_mask` is OR-ed into `EnemyAI.avoid_collision_mask` by
+  `apply_profile()`, on top of the scene-authored mask, never replacing it. `Raker.tres` sets 32, so
+  the existing `_probe` sees kegs. The avoidance function bodies are unchanged.
+- **Known cross-lane issue:** the Brace provider (task 1.6) is available whenever Brace is off
+  cooldown, and Brace outranks Keg in `ContextVerbArbiter.PRIORITY`. Until Brace is gated on an
+  incoming wind-up (requirement W1-1.3.3), the button offers Keg only while Brace is cooling down.
+  `test_m30_powder_keg.gd` unregisters Brace so that it tests Keg's own gate.
+
+### Feedback pack (1.11) — `CombatFeedback.gd` + `CombatFeedbackData.gd`/`CombatFeedback.tres`, `RibbonStack.gd`, `CameraRig.gd`, `FloatingDamage.gd`, `HapticFeedbackManager.gd`
+- `WorldHUD.tscn` instances `RibbonStack` (a `VBoxContainer`) and `CombatFeedback`, which
+  auto-wires the `player_ship` hull.
+- `ShipDamage.apply_hit` calls the shooter's `ShipCombat.report_hit_landed`/`report_kill`.
+  `ShipCombat` emits `hit_landed`, `kill_landed`, and `brace_started(perfect)` from `apply_brace`.
+- **Ribbons:** a rake (a stern or bow hit landed) raises "Rake!", a kill raises "Sunk!", and a
+  Perfect Brace raises "Perfect Brace!". At most `max_ribbons` (3) are shown, and a new ribbon frees
+  the oldest Label. A repeat of a live ribbon becomes "xN" instead of taking a slot. Each ribbon
+  lasts `ribbon_lifetime`.
+- **Camera punch:** `CameraRig.punch()` applies a decaying `Camera3D.h_offset`/`v_offset`. It never
+  touches `Engine.time_scale` or the rig transform. It is capped at `punch_max` and runs when the
+  player takes a hit, rakes or sinks a hull. Under reduced motion (`UIMotion.reduced_motion()`) it
+  is refused, and a running punch settles immediately.
+- **Damage numbers** are coloured by `CombatFeedbackData.damage_color`: a rake uses `rake_color`
+  (green, distinct from every ammo colour and from the red threat wedge), anything else uses the
+  ammo's `ThreatDecals.tres` palette colour, and the fallback is hp-low red. Under reduced motion
+  the numbers fade in place instead of rising.
+- **Haptics** go through `HapticFeedbackManager`: DAMAGE when hit, REWARD on a rake or kill, READY
+  on a Perfect Brace, TAP on a plain brace. Its new `requested` signal fires before the
+  platform/setting gate.
+- **Rake cone:** a `WedgeMesh` off the stern of `FiringSolver.get_current_target()`. Its
+  half-angle is the target's `stern_arc_degrees / 2`.
+
+### Verification
+- Tests: `test_m30_threat_decals.gd` (15), `test_m30_aim_by_bearing.gd` (10),
+  `test_m30_powder_keg.gd` (11) and `test_m30_feedback.gd` (20) assert behaviour through real
+  hulls. All 20 mutations were caught.
+- Headful capture: `scenes/debug/FeedbackCaptureHarness.tscn` (stage
+  `scripts/debug/FeedbackCaptureStage.gd`) shows the red wind-up wedge, the green rake cone on the
+  marked target, the three ribbons, chain-blue and rake-green numbers, and the keg astern.
+- **Not verified here:** how the punch feels, haptics on a device, and touch tap-to-mark on a real
+  phone. In the capture the keg is only a few pixels at default zoom, so its readability needs a
+  look in M31.

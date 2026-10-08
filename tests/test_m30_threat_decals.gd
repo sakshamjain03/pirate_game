@@ -8,6 +8,7 @@ extends GutTest
 
 class StubCombat extends Node:
 	signal broadside_windup(side: String, duration: float)
+	signal broadside_windup_cancelled(side: String)
 	var current_ammo: AmmoData = null
 
 
@@ -166,3 +167,92 @@ func test_rim_arrow_only_for_an_off_screen_attacker() -> void:
 	assert_true(arrow.position.y > vp.y * 0.5, "an attacker behind the camera is flagged at the bottom edge")
 	var want: Color = _cfg.color_for_ammo("round")
 	assert_almost_eq(arrow.color.r, want.r, 0.001, "the arrow carries the ammo tint too")
+
+
+func test_a_cancelled_windup_takes_its_wedge_with_it() -> void:
+	var e := _enemy(Vector3(30, 0, 0))
+	_windup(e, "port", 3.0)
+	_decals.refresh(0.0)
+	assert_true(_wedge_shown(e))
+	e.get_node("ShipCombat").broadside_windup_cancelled.emit("port")
+	_decals.refresh(0.0)
+	assert_eq(_decals.get_visible_threats(), [], "no wedge for a volley that will not come")
+	assert_false(_wedge_shown(e))
+
+
+func test_a_cancel_on_the_other_side_leaves_the_live_windup() -> void:
+	var e := _enemy(Vector3(30, 0, 0))
+	_windup(e, "port", 3.0)
+	e.get_node("ShipCombat").broadside_windup_cancelled.emit("starboard")
+	_decals.refresh(0.0)
+	assert_eq(_decals.get_visible_threats(), [e])
+
+
+func test_alpha_ramp_horizon_comes_from_config() -> void:
+	var cfg: ThreatDecalsData = _cfg.duplicate()
+	cfg.alpha_ramp_seconds = 10.0
+	_decals.config = cfg
+	var e := _enemy(Vector3(30, 0, 0))
+	_windup(e, "port", 5.0)
+	_decals.refresh(0.0)
+	var a: float = (_decals.get_wedge(e).material_override as StandardMaterial3D).albedo_color.a
+	# Half-way through a 10 s horizon: half-way between min and max alpha. A
+	# hardcoded 3 s horizon would leave it at wedge_alpha_min.
+	assert_almost_eq(a, lerpf(cfg.wedge_alpha_max, cfg.wedge_alpha_min, 0.5), 0.01)
+
+
+## Integration: a real enemy hull's ShipCombat wind-up gate (task 1.4) drives a
+## wedge through a ThreatDecals that found the hull by itself (auto_scan, as in
+## WorldHUD.tscn), and the gate's cancel clears it.
+func test_a_real_enemy_windup_and_cancel_drive_the_wedge() -> void:
+	var saved_diff = SettingsManager._ai_difficulty_profile
+	var diff := AIDifficultyData.new()
+	diff.broadside_windup_seconds = 1.5
+	SettingsManager._ai_difficulty_profile = diff
+	var root := Node3D.new()
+	add_child_autofree(root)
+	var player: Node3D = load("res://scenes/world/PlayerShip.tscn").instantiate()
+	root.add_child(player)
+	var enemy: Node3D = load("res://scenes/world/EnemyShip.tscn").instantiate()
+	root.add_child(enemy)
+	for ship in [player, enemy]:
+		ship.freeze = true
+		ship.get_node("ShipCombat").set_physics_process(false)
+		ship.get_node("FiringSolver").set_physics_process(false)
+		var ai = ship.get_node_or_null("EnemyAI")
+		if ai:
+			ai.set_physics_process(false)
+			ai.set_process(false)
+	player.get_node("ShipCombat").auto_fire_enabled = false
+	enemy.global_position = Vector3(0, 0, 0)
+	player.global_position = Vector3(30, 0, 0)   # dead on the enemy's starboard beam
+	var decals := ThreatDecals.new()
+	decals.auto_scan = true
+	decals.player = player
+	add_child_autofree(decals)
+	decals.set_process(false)
+	decals._process(decals.config.scan_interval + 0.01)   # one auto-scan pass
+	var combat: ShipCombat = enemy.get_node("ShipCombat")
+	combat.auto_fire_enabled = true
+	enemy.get_node("FiringSolver").force_rescan()
+	combat._physics_process(0.05)
+	assert_gt(combat.get_windup_remaining("starboard"), 0.0, "precondition: the real gate wound up")
+	decals.refresh(0.0)
+	assert_eq(decals.get_visible_threats(), [enemy], "the real wind-up shows a wedge")
+	var wedge := decals.get_wedge(enemy)
+	assert_true(wedge != null and wedge.visible)
+	# The player slips out of the arc: the gate cancels, the wedge goes.
+	player.global_position = Vector3(0, 0, 60)
+	enemy.get_node("FiringSolver").force_rescan()
+	combat._physics_process(0.05)
+	decals.refresh(0.0)
+	assert_eq(decals.get_visible_threats(), [], "a cancelled real wind-up clears its wedge")
+	SettingsManager._ai_difficulty_profile = saved_diff
+
+
+func test_world_hud_instances_an_auto_scanning_threat_decals() -> void:
+	var hud: Node = load("res://scenes/ui/WorldHUD.tscn").instantiate()
+	var td := hud.get_node_or_null("ThreatDecals")
+	assert_true(td is ThreatDecals, "WorldHUD.tscn has a ThreatDecals node")
+	assert_true(td.auto_scan, "and it finds enemy hulls by itself")
+	hud.free()

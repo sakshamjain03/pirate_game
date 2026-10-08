@@ -142,6 +142,11 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 	var ammo_id := StringName(ammo.ammo_id)
 	var hit_tags = PackedStringArray(["ammo:%s" % ammo_id, "facing:%s" % facing])
 	hit_resolved.emit(source, facing, _applied_deltas(before), ammo_id, hit_tags)
+	# M30 W1-2.3 — tell the shooter its shot landed (feedback pack).
+	if source and is_instance_valid(source):
+		var shooter_combat = source.get_node_or_null("ShipCombat")
+		if shooter_combat and shooter_combat.has_method("report_hit_landed"):
+			shooter_combat.report_hit_landed(parent, facing, _applied_deltas(before), ammo_id)
 
 	# M30 W1 (1.12) — Fill the attacker's Fury when they hit
 	if source and source.has_node("ShipCombat"):
@@ -167,6 +172,7 @@ func apply_hit(amount: float, ammo: AmmoData, hit_direction: Vector3, source: No
 				var fury_data = load("res://resources/balance/Fury.tres") as FuryData
 				if fury_data:
 					source_combat.fury = minf(source_combat.fury + fury_data.fury_on_kill, 1.0)
+				source_combat.report_kill(parent)
 
 		destroyed.emit()
 

@@ -40,6 +40,9 @@ var _context_arbiter := ContextVerbArbiter.new()
 var _keg_stock: int = 0
 var _keg_config: KegConfigData = preload("res://resources/combat/KegConfig.tres")
 var _keg_scene: PackedScene = preload("res://scenes/combat/PowderKeg.tscn")
+## M30 W1 task 1.8 — tap-to-mark tolerances (CombatFeedbackData).
+var _feedback_config: CombatFeedbackData = preload("res://resources/ui/CombatFeedback.tres")
+var _touch_down: Dictionary = {}   # touch index -> press position
 
 const CAMERA_ROTATE_SPEED: float = 90.0 # degrees/sec while held
 const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
@@ -113,6 +116,9 @@ func _process(delta: float) -> void:
 				_camera_rig.add_zoom(-CAMERA_ZOOM_STEP)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _handle_tap_to_mark(event):
+		get_viewport().set_input_as_handled()
+		return
 	if _handle_camera_drag(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -193,6 +199,60 @@ func _handle_camera_drag(event: InputEvent) -> bool:
 	_camera_rig.add_pitch(drag_delta.y * settings.drag_pitch_degrees_per_pixel)
 	return true
 
+## M30 W1-1.6 (task 1.8) — tap-to-mark. A touch released within tap_slop_px of
+## where it went down, or a desktop left-click, on (near) a hostile hull marks
+## it as the player's FiringSolver.priority_target; the same tap again clears
+## it. A tap that lands on no hull is not consumed, so a desktop left-click on
+## open water still reaches fire_port. UI Controls see touches first, so HUD
+## buttons never mark.
+func _handle_tap_to_mark(event: InputEvent) -> bool:
+	if not is_world_loaded or not is_instance_valid(player_ship):
+		return false
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_touch_down[event.index] = event.position
+			return false
+		var down = _touch_down.get(event.index)
+		_touch_down.erase(event.index)
+		if down == null or (event.position - down).length() > _feedback_config.tap_slop_px:
+			return false
+		return mark_target_at_screen(event.position) != null
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.device != InputEvent.DEVICE_ID_EMULATION:
+		return mark_target_at_screen(event.position) != null
+	return false
+
+
+## Toggles the mark on the hostile hull drawn nearest `screen_pos` (within
+## mark_pick_radius_px). Returns that hull, or null when the tap hit none.
+func mark_target_at_screen(screen_pos: Vector2, cam: Camera3D = null) -> Node3D:
+	if not is_instance_valid(player_ship):
+		return null
+	var solver := player_ship.get_node_or_null("FiringSolver") as FiringSolver
+	if not solver:
+		return null
+	if not cam:
+		cam = get_viewport().get_camera_3d()
+	if not cam:
+		return null
+	var best: Node3D = null
+	var best_px: float = _feedback_config.mark_pick_radius_px
+	for group in ["enemy_ship", "boss_ship"]:
+		for hull in get_tree().get_nodes_in_group(group):
+			if not (hull is Node3D) or not FiringSolver.are_hostile(player_ship, hull):
+				continue
+			if cam.is_position_behind(hull.global_position):
+				continue
+			var px: float = cam.unproject_position(hull.global_position).distance_to(screen_pos)
+			if px <= best_px:
+				best_px = px
+				best = hull
+	if best:
+		solver.toggle_priority_target(best)
+	return best
+
+
 ## M30 0.20 — the old hard-coded "board, else dock" as two providers. A
 ## boarding attempt that declines falls through to dock, as before.
 func _register_wave0_context_verbs() -> void:
@@ -241,54 +301,75 @@ func _can_toggle_docking() -> bool:
 
 
 func _register_keg_context_provider() -> void:
-	## M30 W1 task 1.10 — register powder keg drop verb.
-	## Available only when an enemy is in the stern cone and stock > 0.
+	## M30 W1 task 1.10 — the "keg" context verb: offered only while a hostile
+	## hull is inside the player's stern cone and the sortie still has stock.
 	_context_arbiter.register_provider(&"keg",
 		func(): return _can_drop_keg(),
 		func(): return _drop_keg(),
 		"Drop Keg", "keg")
-	# Initialize stock for the current sortie
+	# A sortie starts with a full stock; docking refills it (_on_dock_completed).
 	if _keg_config:
 		_keg_stock = _keg_config.stock_per_sortie
 
 
+func get_keg_stock() -> int:
+	return _keg_stock
+
+
 func _can_drop_keg() -> bool:
-	## Keg drop is available only with enemy in stern cone and stock remaining.
-	if _keg_stock <= 0 or not _keg_config or not player_ship:
+	if _keg_stock <= 0 or not _keg_config or not is_instance_valid(player_ship) \
+			or not player_ship.is_inside_tree():
 		return false
+	return _hostile_in_stern_cone() != null
 
-	# Check for enemy in stern cone
-	var ship_stats = player_ship.ship_stats if player_ship.has_meta("ship_stats") else (player_ship.get_node_or_null("ShipStats") if player_ship.get_node_or_null("ShipStats") else null)
-	if not ship_stats:
-		return false
 
-	var stern_arc = ship_stats.stern_arc_degrees
-	var enemies = get_tree().get_nodes_in_group("enemy_ship")
-
-	for enemy in enemies:
-		var direction = (enemy.global_position - player_ship.global_position).normalized()
-		var player_forward = -player_ship.global_transform.basis.z.normalized()
-		var angle = rad_to_deg(acos(minf(1.0, direction.dot(player_forward))))
-		# Enemy is in stern cone if angle is close to 180 (behind the player)
-		if angle >= 180.0 - stern_arc * 0.5 and angle <= 180.0 + stern_arc * 0.5:
-			return true
-
-	return false
+## The nearest live hostile hull inside KegConfigData's stern cone (full angle
+## stern_cone_degrees about the hull's aft axis, out to stern_cone_range), or null.
+func _hostile_in_stern_cone() -> Node3D:
+	var aft: Vector3 = player_ship.global_transform.basis.z
+	var aft_flat := Vector2(aft.x, aft.z).normalized()
+	if aft_flat.length_squared() < 0.01:
+		return null
+	var half_cos := cos(deg_to_rad(_keg_config.stern_cone_degrees * 0.5))
+	var range_sq: float = _keg_config.stern_cone_range * _keg_config.stern_cone_range
+	var best: Node3D = null
+	var best_d := INF
+	for group in ["enemy_ship", "boss_ship"]:
+		for hull in get_tree().get_nodes_in_group(group):
+			if not (hull is Node3D) or not FiringSolver.are_hostile(player_ship, hull):
+				continue
+			var dmg = hull.get_node_or_null("ShipDamage")
+			if dmg and dmg.has_method("is_destroyed") and dmg.is_destroyed():
+				continue
+			var v: Vector3 = hull.global_position - player_ship.global_position
+			var flat := Vector2(v.x, v.z)
+			var d_sq := flat.length_squared()
+			if d_sq < 0.01 or d_sq > range_sq:
+				continue
+			if flat.normalized().dot(aft_flat) >= half_cos and d_sq < best_d:
+				best_d = d_sq
+				best = hull
+	return best
 
 
 func _drop_keg() -> bool:
-	## Drop a keg at the player ship's position and decrement stock.
-	if not _can_drop_keg() or not _keg_scene or not player_ship:
+	## Drops a keg `drop_offset` astern of the hull, on the water, and spends
+	## one stock. The keg is parented to the player's own parent (the World
+	## scene), so it is freed with the world on a scene change.
+	if not _can_drop_keg() or not _keg_scene:
 		return false
-
-	# Instantiate and position the keg
+	var world: Node = player_ship.get_parent()
+	if not world:
+		return false
 	var keg: PowderKeg = _keg_scene.instantiate()
-	keg.global_position = player_ship.global_position + Vector3(0, 0, 5)  # Slightly behind player
-	get_tree().root.add_child(keg)
-
-	# Decrement stock
+	keg.dropped_by = player_ship
+	world.add_child(keg)
+	var aft: Vector3 = player_ship.global_transform.basis.z
+	aft = Vector3(aft.x, 0.0, aft.z).normalized()
+	var at: Vector3 = player_ship.global_position + aft * _keg_config.drop_offset
+	at.y = 0.0
+	keg.global_position = at
 	_keg_stock -= 1
-
 	return true
 
 

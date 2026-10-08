@@ -64,7 +64,26 @@ func watch_ship(ship: Node3D) -> bool:
 		return true
 	_watched[id] = true
 	combat.connect("broadside_windup", _on_windup.bind(ship))
+	# A wind-up that is abandoned (arc lost, death, brace paths) must take its
+	# wedge with it — a wedge for a volley that never comes mistimes Brace.
+	if combat.has_signal("broadside_windup_cancelled"):
+		combat.connect("broadside_windup_cancelled", _on_windup_cancelled.bind(ship))
 	return true
+
+
+func _on_windup_cancelled(side: String, ship: Node3D) -> void:
+	report_cancelled(ship, side)
+
+
+## Drops `ship`'s threat if it is the wind-up on `side` (a cancel on the other
+## broadside leaves a live wind-up alone).
+func report_cancelled(ship: Node3D, side: String) -> void:
+	if not is_instance_valid(ship):
+		return
+	var id := ship.get_instance_id()
+	var t: Dictionary = _threats.get(id, {})
+	if not t.is_empty() and str(t.get("side", "")) == side:
+		_drop(id)
 
 
 ## Bound handler that accepts both the (side, duration) and the requirement's
@@ -159,7 +178,8 @@ func _draw_threat(t: Dictionary, show: bool) -> void:
 		t["wedge"] = wedge
 	var mat := wedge.material_override as StandardMaterial3D
 	# Brighter as the volley gets closer — the read is "how soon", not just "where".
-	var duration_left: float = clampf(float(t["remaining"]), 0.0, 3.0) / 3.0
+	var horizon: float = maxf(config.alpha_ramp_seconds, 0.01)
+	var duration_left: float = clampf(float(t["remaining"]), 0.0, horizon) / horizon
 	tint.a = lerpf(config.wedge_alpha_max, config.wedge_alpha_min, duration_left)
 	mat.albedo_color = tint
 	wedge.global_transform = WedgeMesh.flat_transform(ship, str(t["side"]), config.wedge_height)

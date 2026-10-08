@@ -42,7 +42,17 @@ var target_yaw: float = 0.0
 const MANUAL_YAW_HOLD_MS := 2000
 var _manual_yaw_until_ms: int = 0
 
+## M30 W1-2.3 (task 1.11): camera offset punch. A short decaying nudge of the
+## camera's h_offset/v_offset — the lens shifts, the rig, spring arm and the
+## simulation do not. Never Engine.time_scale: slowing the world on every hit
+## would change gameplay (reload timers, physics) not just its presentation.
+var _punch_dir: Vector2 = Vector2.ZERO
+var _punch_amp: float = 0.0
+var _punch_t: float = 0.0
+var _punch_duration: float = 0.0
+
 func _ready() -> void:
+	add_to_group("camera_rig")
 	if not settings:
 		settings = CameraSettings.new()
 	if not is_instance_valid(target):
@@ -108,6 +118,50 @@ func _physics_process(delta: float) -> void:
 
 	# Apply zoom
 	spring_arm.spring_length = lerp(spring_arm.spring_length, target_zoom, t)
+
+
+func _process(delta: float) -> void:
+	update_punch(delta)
+
+
+## Starts a punch of peak `strength` (world units, clamped to `max_strength`)
+## decaying to zero over `duration` seconds. Returns false — and does nothing —
+## under reduced motion, or with no camera/strength.
+func punch(strength: float, duration: float, max_strength: float = INF) -> bool:
+	if UIMotion.reduced_motion() or not camera or strength <= 0.0 or duration <= 0.0:
+		return false
+	var amp: float = minf(strength, max_strength)
+	# A punch already running keeps whichever is stronger, so a burst of hits
+	# doesn't stack into a lurch.
+	if _punch_t > 0.0 and _punch_amp * (_punch_t / _punch_duration) >= amp:
+		return true
+	_punch_dir = Vector2.from_angle(randf() * TAU)
+	_punch_amp = amp
+	_punch_duration = duration
+	_punch_t = duration
+	update_punch(0.0)
+	return true
+
+
+func is_punching() -> bool:
+	return _punch_t > 0.0
+
+
+func update_punch(delta: float) -> void:
+	if not camera:
+		return
+	if _punch_t <= 0.0:
+		return
+	_punch_t = maxf(_punch_t - delta, 0.0)
+	# Reduced motion switched on mid-punch: settle immediately.
+	var k: float = 0.0 if UIMotion.reduced_motion() else _punch_t / _punch_duration
+	var off: Vector2 = _punch_dir * _punch_amp * k * k
+	camera.h_offset = off.x
+	camera.v_offset = off.y
+	if k <= 0.0:
+		_punch_t = 0.0
+		camera.h_offset = 0.0
+		camera.v_offset = 0.0
 
 func add_yaw(amount: float) -> void:
 	target_yaw -= amount

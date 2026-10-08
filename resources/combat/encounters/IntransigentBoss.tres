@@ -1,8 +1,26 @@
-[gd_resource type="Resource" script_class="EncounterData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="EncounterData" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/EncounterData.gd" id="1_enc"]
 [ext_resource type="PackedScene" path="res://scenes/world/IntransigentBoss.tscn" id="2_boss"]
 [ext_resource type="Resource" path="res://resources/loot/BossLoot.tres" id="3_loot"]
+[ext_resource type="Script" path="res://scripts/combat/StarConditionData.gd" id="90_star"]
+
+; M30 1.13 Sortie Stars, easiest first (the 2nd is the briefing's star-2 hint).
+; target_value is a placeholder: tune in M31.
+[sub_resource type="Resource" script_class="StarConditionData" id="Star1"]
+script = ExtResource("90_star")
+condition = 3
+target_value = 0.0
+
+[sub_resource type="Resource" script_class="StarConditionData" id="Star2"]
+script = ExtResource("90_star")
+condition = 0
+target_value = 360.0
+
+[sub_resource type="Resource" script_class="StarConditionData" id="Star3"]
+script = ExtResource("90_star")
+condition = 2
+target_value = 0.0
 
 [resource]
 script = ExtResource("1_enc")
@@ -27,3 +45,4 @@ upgrade_offers = 4
 upgrade_interval = 45.0
 disengage_distance = 300.0
 disengage_grace = 10.0
+star_conditions = [SubResource("Star1"), SubResource("Star2"), SubResource("Star3")]

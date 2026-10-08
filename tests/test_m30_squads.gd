@@ -184,25 +184,89 @@ func test_slot_without_hull_scene_uses_encounter_enemy_scene() -> void:
 	assert_eq(int(_spawned_ais()[0].ai_profile.role), AIProfileData.Role.TANK)
 
 
-func test_tactic_gives_each_slot_its_bearing() -> void:
+## Pincer: slot 0 at +90 (the player's starboard beam), slot 1 at -90 (port).
+## The player sits at the origin facing -Z, so starboard is +X.
+func _pincer(first: String, second: String) -> EncounterData:
 	var d := _encounter()
-	d.squad = [_slot(RAIDER, 1), _slot(TANK, 1)]
+	d.squad = [_slot(first, 1), _slot(second, 1)]
 	var tactic := SquadTacticData.new()
 	tactic.formation = SquadTacticData.Formation.PINCER
 	tactic.slot_bearings_deg = [90.0, -90.0]
 	d.squad_tactic = tactic
-	assert_true(_mgr.start_encounter(d))
-	var by_role := {}
-	for ai in _spawned_ais():
-		by_role[int(ai.ai_profile.role)] = ai
-	assert_eq(float(by_role[AIProfileData.Role.RAIDER].get_meta(&"squad_bearing_deg")), 90.0)
-	assert_eq(float(by_role[AIProfileData.Role.TANK].get_meta(&"squad_bearing_deg")), -90.0)
-	# When AIProfileData carries preferred_bearing_deg (M30 1.1), the override
-	# lands on a per-hull duplicate, never on the shared resource.
+	return d
+
+
+## Where this hull steers to once its bearing filter has settled.
+func _settled_ideal(ai) -> Vector3:
+	# EnemyAI's target is typed ShipController: stand a bare hull in for the
+	# player at the origin, facing -Z (identity basis), AI removed and frozen.
+	var target := load(ENEMY_SCENE).instantiate() as ShipController
+	var own_ai := target.get_node_or_null("EnemyAI")
+	if own_ai:
+		target.remove_child(own_ai)
+		own_ai.free()
+	target.freeze = true
+	add_child_autoqfree(target)
+	target.global_transform = Transform3D.IDENTITY
+	ai.player_ship = target
+	var p := Vector3.ZERO
+	for i in range(40):
+		p = ai._tactic_ideal_position(1.0, 60.0)
+	return p
+
+
+func test_pincer_spawns_each_hull_on_its_own_side() -> void:
+	assert_true(_mgr.start_encounter(_pincer(RAIDER, TANK)))
+	for e in _mgr._enemies:
+		var ai = e.get_node("EnemyAI")
+		var want: float = 1.0 if int(ai.ai_profile.role) == AIProfileData.Role.RAIDER else -1.0
+		assert_eq(signf(e.global_position.x), want,
+			"slot %s spawns on its bearing's side (x=%.1f)" % [ai.ai_profile.resource_path, e.global_position.x])
+
+
+func test_a_signed_bearing_holds_its_side_even_from_the_wrong_one() -> void:
+	# Both hulls are STANDARD-tactic profiles (HarassingSloop, AggressiveGalleon):
+	# the squad bearing still governs where they sail.
+	assert_true(_mgr.start_encounter(_pincer(RAIDER, TANK)))
+	for e in _mgr._enemies:
+		var ai = e.get_node("EnemyAI")
+		var bearing_sign: float = 1.0 if int(ai.ai_profile.role) == AIProfileData.Role.RAIDER else -1.0
+		# Put the hull on the OPPOSITE side: an unsigned bearing would keep it
+		# there; the squad's signed one brings it round to its own side.
+		e.global_position = Vector3(-bearing_sign * 50.0, 0.0, 0.0)
+		ai._bearing_valid = false
+		assert_true(ai._holds_squad_bearing(), "a STANDARD hull in a squad holds its slot")
+		var ideal := _settled_ideal(ai)
+		assert_eq(signf(ideal.x), bearing_sign,
+			"bearing %+d: ideal point on that side (x=%.1f)" % [int(bearing_sign * 90.0), ideal.x])
+		assert_almost_eq(absf(ideal.z), 0.0, 1.0, "on the beam, not ahead/astern")
+
+
+func test_shared_profiles_are_never_mutated_by_a_bearing() -> void:
 	var shared: AIProfileData = load(RAIDER)
-	if "preferred_bearing_deg" in shared:
-		assert_eq(float(by_role[AIProfileData.Role.RAIDER].ai_profile.get("preferred_bearing_deg")), 90.0)
-		assert_ne(by_role[AIProfileData.Role.RAIDER].ai_profile, shared)
+	var before := float(shared.preferred_bearing_deg)
+	assert_true(_mgr.start_encounter(_pincer(RAIDER, TANK)))
+	assert_eq(float(shared.preferred_bearing_deg), before)
+	for ai in _spawned_ais():
+		assert_true(ai.has_squad_bearing)
+
+
+func test_slots_sail_their_own_hull_class() -> void:
+	var d := _encounter()
+	var sloop_slot := _slot(RAIDER, 1)
+	sloop_slot.ship_stats = load("res://resources/ships/Sloop.tres")
+	var galleon_slot := _slot(TANK, 1)
+	galleon_slot.ship_stats = load("res://resources/ships/Galleon.tres")
+	d.squad = [sloop_slot, galleon_slot]
+	assert_true(_mgr.start_encounter(d))
+	var ids := {}
+	for e in _mgr._enemies:
+		var role := int(e.get_node("EnemyAI").ai_profile.role)
+		ids[role] = e.ship_stats.ship_id
+		assert_ne(e.ship_stats, sloop_slot.ship_stats, "a duplicate, never the shared resource")
+		assert_ne(e.ship_stats, galleon_slot.ship_stats)
+	assert_eq(ids[AIProfileData.Role.RAIDER], sloop_slot.ship_stats.ship_id)
+	assert_eq(ids[AIProfileData.Role.TANK], galleon_slot.ship_stats.ship_id)
 
 
 # === Validation ===
@@ -222,11 +286,29 @@ func test_validate_rejects_slot_with_no_hull_anywhere() -> void:
 
 # === Authored content ===
 
+## The squads the heat tiers actually field (not whatever else sits in the dir).
+func _heat_squads() -> Array:
+	var out: Array = []
+	for t in _load_dir(HEAT_DIR).filter(func(r): return r is HeatTierData):
+		for sq in t.squad_pool:
+			if not out.has(sq):
+				out.append(sq)
+	return out
+
+
 func test_six_authored_squads_are_mixed_and_within_cap() -> void:
-	var squads := _load_dir(SQUAD_DIR).filter(func(r): return r is SquadData)
-	assert_gte(squads.size(), 6, "6 squads authored under %s" % SQUAD_DIR)
+	var squads := _heat_squads()
+	assert_eq(squads.size(), 6, "the heat tiers field 6 distinct squads")
+	for sq in squads:
+		assert_true(sq.resource_path.begins_with(SQUAD_DIR), sq.resource_path)
 	var ids := {}
 	for sq in squads:
+		var hulls := {}
+		for slot in sq.slots:
+			assert_not_null(slot.ship_stats, "%s: every slot names its hull class" % sq.squad_id)
+			if slot.ship_stats:
+				hulls[slot.ship_stats.ship_id] = true
+		assert_gte(hulls.size(), 2, "%s mixes hull classes" % sq.squad_id)
 		assert_ne(sq.squad_id, "", sq.resource_path)
 		assert_false(ids.has(sq.squad_id), "duplicate squad_id %s" % sq.squad_id)
 		ids[sq.squad_id] = true
@@ -256,11 +338,22 @@ func test_heat_tiers_hold_squad_pools_that_harden_with_heat() -> void:
 		var avg := total / float(t.squad_pool.size())
 		assert_gte(avg, prev, "tier %d is no easier than the tier below" % t.tier)
 		prev = avg
-	var first_avg := 0.0
-	for sq in tiers[0].squad_pool:
-		first_avg += sq.hull_count()
-	first_avg /= float(tiers[0].squad_pool.size())
-	assert_gt(prev, first_avg, "the top tier fields more hulls than the bottom one")
+	# Strictly harder, not merely flat: the top half of the ladder fields more
+	# hulls than the bottom half, and the top tier at least one more than T0.
+	var avgs: Array = []
+	for t in tiers:
+		var total := 0.0
+		for sq in t.squad_pool:
+			total += sq.hull_count()
+		avgs.append(total / float(t.squad_pool.size()))
+	var half := avgs.size() / 2
+	var low := 0.0
+	var high := 0.0
+	for i in range(half):
+		low += avgs[i]
+		high += avgs[avgs.size() - 1 - i]
+	assert_gt(high, low, "top-half tiers average more hulls than bottom-half tiers %s" % str(avgs))
+	assert_gte(avgs.back() - avgs[0], 1.0, "the top tier fields at least one more hull than T0 %s" % str(avgs))
 
 
 func test_ambient_picker_puts_a_heat_squad_on_opted_in_encounters() -> void:

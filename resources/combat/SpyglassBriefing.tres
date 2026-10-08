@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="SpyglassBriefingData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/SpyglassBriefingData.gd" id="1_brief"]
+[ext_resource type="Resource" path="res://resources/combat/preparations/DoubleShotted.tres" id="2_p1"]
+[ext_resource type="Resource" path="res://resources/combat/preparations/CrackOnSail.tres" id="3_p2"]
+[ext_resource type="Resource" path="res://resources/combat/preparations/PowderMonkeys.tres" id="4_p3"]
+
+; M30 1.9 Spyglass Briefing. Intel gate levels are placeholders: tune in M31.
+[resource]
+script = ExtResource("1_brief")
+preparations = [ExtResource("2_p1"), ExtResource("3_p2"), ExtResource("4_p3")]
+formation_intel_level = 1
+weakness_intel_level = 2
+star_hint_intel_level = 3
+role_icons = {
+"ARTILLERY": "🎯",
+"BALANCED": "⚓",
+"BOSS": "☠",
+"RAIDER": "⚔",
+"SUPPORT": "✚",
+"TANK": "🛡"
+}
+tactic_weaknesses = {
+"FIRESHIP": "Fireship: sink it at range before it touches you",
+"LONG_GUNNER": "Long gunner: close the distance and it struggles",
+"RAM_RUNNER": "Ram-runner: turn away when it lines up its bow",
+"STERN_RAKER": "Raker: keep your stern covered and rake it as it swings in",
+"TENDER": "Tender: sink it first or it patches the rest"
+}
+role_weaknesses = {
+"ARTILLERY": "Gun ship: thin hull up close",
+"BALANCED": "Line ship: no special weakness",
+"BOSS": "Flagship: hard to sink, rake its stern",
+"RAIDER": "Raider: light hull, round shot tells",
+"SUPPORT": "Support ship: sink it first or it repairs the others",
+"TANK": "Heavy hull: chain shot its sails to slow it"
+}

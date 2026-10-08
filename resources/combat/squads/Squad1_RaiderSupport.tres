@@ -1,29 +1,35 @@
-[gd_resource type="Resource" script_class="SquadData" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="SquadData" load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/SquadSlotData.gd" id="1_slot"]
 [ext_resource type="Script" path="res://scripts/combat/SquadTacticData.gd" id="2_tactic"]
 [ext_resource type="Script" path="res://scripts/combat/SquadData.gd" id="3_squad"]
 [ext_resource type="PackedScene" path="res://scenes/world/EnemyShip.tscn" id="4_enemy"]
-[ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="5_raider"]
-[ext_resource type="Resource" path="res://resources/combat/ai_profiles/SupportGalleon.tres" id="6_support"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="p_0"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/SupportGalleon.tres" id="p_1"]
+[ext_resource type="Resource" path="res://resources/ships/Schooner.tres" id="s_0"]
+[ext_resource type="Resource" path="res://resources/ships/Sloop.tres" id="s_1"]
 
+; M30 1.7 squad. Hull counts and bearings are placeholders: tune in M31.
+; Bearings are signed degrees off the player's bow (+ = starboard).
 [sub_resource type="Resource" script_class="SquadSlotData" id="Slot1"]
 script = ExtResource("1_slot")
 hull_scene = ExtResource("4_enemy")
-ai_profile = ExtResource("5_raider")
+ai_profile = ExtResource("p_0")
 count = 1
+ship_stats = ExtResource("s_1")
 
 [sub_resource type="Resource" script_class="SquadSlotData" id="Slot2"]
 script = ExtResource("1_slot")
 hull_scene = ExtResource("4_enemy")
-ai_profile = ExtResource("6_support")
+ai_profile = ExtResource("p_1")
 count = 1
+ship_stats = ExtResource("s_0")
 
 [sub_resource type="Resource" script_class="SquadTacticData" id="Tactic"]
 script = ExtResource("2_tactic")
-formation = 0
-display_name = "Escort"
-slot_bearings_deg = [45.0, -45.0]
+formation = 1
+display_name = "Escort Screen"
+slot_bearings_deg = [60.0, -60.0]
 
 [resource]
 script = ExtResource("3_squad")

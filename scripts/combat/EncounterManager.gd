@@ -33,6 +33,13 @@ signal ship_destroyed(ship: Node3D)
 signal upgrade_offer_requested(choices: Array, offer_index: int, total_offers: int)
 ## M29 A.4: encounter startup failed validation
 signal encounter_failed(encounter_id: String, reason: String)
+## M30 1.13 — the Sortie Stars a won encounter earned (`stars` of `total`
+## authored conditions). Emitted on VICTORY only, before `encounter_ended`.
+## CampaignManager keeps the best per encounter id; stars are cosmetic and
+## never gate campaign content.
+signal stars_awarded(encounter_id: String, stars: int, total: int)
+## M30 1.9 — the Spyglass Briefing's pick was applied to the player's ship.
+signal briefing_applied(preparation_id: String, port_ammo_id: String, starboard_ammo_id: String)
 ## M30 0.16 — encounter_failed's reason when one is already running. Callers
 ## (and tests) see the refusal; the HUD stays quiet about it.
 const REASON_BUSY := "busy"
@@ -78,11 +85,21 @@ var _offers_made: int = 0
 var _offer_timer: float = 0.0
 var _disengage_timer: float = 0.0
 var _resolving: bool = false
-## M30 1.13 — battle stats for star condition evaluation.
+## M30 1.13 — battle stats for star condition evaluation. Damage and crew
+## loss are summed from the player's `ShipDamage.hit_resolved` during THIS
+## battle (the applied deltas), so a tech-boosted max hull or a fight started
+## already damaged reads the same as any other.
 var _battle_elapsed: float = 0.0
 var _player_damage_taken: float = 0.0
 var _player_crew_lost: float = 0.0
 var _last_encounter_stars: Array = []
+var _tracked_damage: ShipDamage = null
+## M30 1.9 — the Spyglass Briefing's tuning (preparations, intel gates).
+## Null loads BRIEFING_CONFIG_PATH.
+const BRIEFING_CONFIG_PATH := "res://resources/combat/SpyglassBriefing.tres"
+@export var briefing_config: SpyglassBriefingData
+## Test seam: >= 0 replaces the owned-Watchtower lookup.
+var watchtower_level_override: int = -1
 
 
 func _ready() -> void:
@@ -197,6 +214,7 @@ func start_encounter(data: EncounterData) -> bool:
 	_player_damage_taken = 0.0
 	_player_crew_lost = 0.0
 	_last_encounter_stars = []
+	_track_player_damage()
 
 	# Ambient spawning pauses for the duration: the point of a bounded encounter
 	# is a known composition, which a background spawner would keep polluting.
@@ -255,18 +273,6 @@ func _tick_active(delta: float) -> void:
 	## M30 1.13 — track elapsed time for star conditions
 	_battle_elapsed += delta
 
-	## M30 1.13 — track player damage for star conditions
-	if _player and is_instance_valid(_player):
-		var dmg := _player.get_node_or_null("ShipDamage") as ShipDamage
-		if dmg:
-			var current_damage := 0.0
-			if dmg.ship_stats:
-				current_damage = dmg.ship_stats.max_health - dmg.hull
-			_player_damage_taken = current_damage
-			var current_crew_loss := 0.0
-			if dmg.ship_stats:
-				current_crew_loss = dmg.ship_stats.max_crew - dmg.crew
-			_player_crew_lost = current_crew_loss
 
 	for i in range(_enemies.size() - 1, -1, -1):
 		if not is_instance_valid(_enemies[i]):
@@ -348,17 +354,28 @@ func _resolve(outcome: int) -> void:
 	var data := active_encounter
 	var rewards: Dictionary = {}
 
+	_untrack_player_damage()
+	_last_encounter_stars = []
 	if outcome == Outcome.VICTORY:
 		rewards = _grant_rewards(data)
-		_announce("VICTORY — %s\n%s" % [data.display_name, _describe_rewards(rewards)])
-		## M30 1.13 — evaluate star conditions on victory
+		## M30 1.13 — evaluate star conditions on victory, record them (via the
+		## signal) and show them in the result announcement.
 		_last_encounter_stars = _evaluate_stars(data)
+		var result := "VICTORY — %s" % data.display_name
+		if not data.star_conditions.is_empty():
+			stars_awarded.emit(data.encounter_id, _last_encounter_stars.size(),
+				data.star_conditions.size())
+			result += "\n" + describe_stars(_last_encounter_stars.size(), data.star_conditions.size())
+			# The cosmetic total, read AFTER stars_awarded (CampaignManager records
+			# on it synchronously), so it already includes this result.
+			var campaign := get_node_or_null("/root/CampaignManager")
+			if campaign and campaign.has_method("get_total_stars"):
+				result += "  ·  %d ★ total" % int(campaign.get_total_stars())
+		_announce("%s\n%s" % [result, _describe_rewards(rewards)])
 	elif outcome == Outcome.ESCAPED:
 		_announce("You broke off from %s." % data.display_name)
-		_last_encounter_stars = []
 	else:
 		_announce("Your ship was lost in %s." % data.display_name)
-		_last_encounter_stars = []
 
 	# Anything the player did not sink sails off with the encounter rather than
 	# lingering as ambient traffic with encounter-scaled stats.
@@ -381,6 +398,10 @@ func _resolve(outcome: int) -> void:
 	var mods := get_player_modifiers()
 	if mods:
 		mods.reset()
+	# M30 1.9 — the briefing's opening ammo is for this battle only.
+	var combat := _player_combat()
+	if combat:
+		combat.clear_side_ammo()
 
 	active_encounter = null
 	_enemies.clear()
@@ -397,6 +418,34 @@ func _restore_spawning() -> void:
 	_unpark_ambient()
 
 
+func _track_player_damage() -> void:
+	_untrack_player_damage()
+	if not _player or not is_instance_valid(_player):
+		return
+	var dmg := _player.get_node_or_null("ShipDamage") as ShipDamage
+	if dmg:
+		dmg.hit_resolved.connect(_on_player_hit_resolved)
+		_tracked_damage = dmg
+
+
+func _untrack_player_damage() -> void:
+	if is_instance_valid(_tracked_damage) \
+			and _tracked_damage.hit_resolved.is_connected(_on_player_hit_resolved):
+		_tracked_damage.hit_resolved.disconnect(_on_player_hit_resolved)
+	_tracked_damage = null
+
+
+func _on_player_hit_resolved(_source: Node, _facing: StringName, pool_deltas: Dictionary,
+		_ammo_id: StringName, _hit_tags: PackedStringArray) -> void:
+	_player_damage_taken += float(pool_deltas.get("hull", 0.0))
+	_player_crew_lost += float(pool_deltas.get("crew", 0.0))
+
+
+## "★★☆  Sortie Stars 2/3" — the result line for a won encounter.
+static func describe_stars(earned: int, total: int) -> String:
+	return "%s%s  Sortie Stars %d/%d" % ["★".repeat(earned), "☆".repeat(maxi(total - earned, 0)), earned, total]
+
+
 ## M30 1.13 — evaluate each star condition and return the earned ones.
 func _evaluate_stars(data: EncounterData) -> Array:
 	var earned: Array = []
@@ -407,6 +456,8 @@ func _evaluate_stars(data: EncounterData) -> Array:
 			continue
 		var passed := false
 		match cond.condition:
+			StarConditionData.Condition.VICTORY:
+				passed = true
 			StarConditionData.Condition.QUICK_VICTORY:
 				## win within target_value seconds
 				passed = _battle_elapsed <= cond.target_value
@@ -493,8 +544,13 @@ func _spawn_composition(data: EncounterData) -> void:
 		# profile (and its formation bearing) must be on the node before add_child.
 		_assign_slot_profile(enemy, entry, data.squad_tactic)
 		container.add_child(enemy)
-		enemy.global_transform = Transform3D(
-			Basis(Vector3.UP, randf() * TAU), _pick_spawn_position(data, i, plan.size()))
+		var pos := _pick_spawn_position(data, i, plan.size())
+		var slot_index: int = entry["slot"]
+		if data.squad_tactic and data.squad_tactic.has_bearing_for_slot(slot_index):
+			# Start each hull on its own slot's side of the player, so a pincer
+			# opens split instead of both hulls crossing the player's bow first.
+			pos = _formation_spawn_position(data, data.squad_tactic.bearing_for_slot(slot_index))
+		enemy.global_transform = Transform3D(Basis(Vector3.UP, randf() * TAU), pos)
 		if enemy is RigidBody3D:
 			enemy.linear_velocity = Vector3.ZERO
 			enemy.angular_velocity = Vector3.ZERO
@@ -527,29 +583,33 @@ static func build_spawn_plan(data: EncounterData, fallback_scene: PackedScene) -
 		for n in range(slot.count):
 			if plan.size() >= MAX_SQUAD_HOSTILES:
 				return plan
-			plan.append({"scene": scene, "profile": slot.ai_profile, "slot": slot_index})
+			plan.append({"scene": scene, "profile": slot.ai_profile, "slot": slot_index,
+				"stats": slot.ship_stats})
 	return plan
 
 
+## Everything a squad slot decides about a hull, applied BEFORE add_child:
+## EnemyAI reads its profile in _ready(), and ShipController applies ship_stats
+## there too. The formation bearing goes on the hull's EnemyAI as a SIGNED
+## per-hull value (`squad_bearing_deg`), never onto the shared profile, whose
+## `preferred_bearing_deg` is unsigned and lets the hull pick its own side.
 func _assign_slot_profile(enemy: Node3D, entry: Dictionary, tactic: SquadTacticData) -> void:
 	var slot_index: int = entry["slot"]
 	if slot_index < 0:
 		return
+	var stats: ShipStats = entry.get("stats")
+	if stats and "ship_stats" in enemy:
+		# Duplicate-never-mutate, as EnemySpawner does with enemy_ship_pool.
+		enemy.ship_stats = stats.duplicate()
 	var ai = enemy.get_node_or_null("EnemyAI")
 	if not ai:
 		return
 	var profile: AIProfileData = entry["profile"]
-	var has_bearing := tactic != null and tactic.has_bearing_for_slot(slot_index)
-	if has_bearing:
-		var bearing := tactic.bearing_for_slot(slot_index)
-		ai.set_meta(&"squad_bearing_deg", bearing)
-		# Profiles are shared resources: a per-hull bearing goes on a duplicate.
-		# `preferred_bearing_deg` is read by EnemyAI's tactic positioning (M30 1.1).
-		if profile and "preferred_bearing_deg" in profile:
-			profile = profile.duplicate() as AIProfileData
-			profile.set("preferred_bearing_deg", bearing)
 	if profile:
 		ai.ai_profile = profile
+	if tactic != null and tactic.has_bearing_for_slot(slot_index):
+		ai.squad_bearing_deg = tactic.bearing_for_slot(slot_index)
+		ai.has_squad_bearing = true
 
 
 func _spawn_escort(data: EncounterData) -> void:
@@ -634,6 +694,22 @@ func _pick_spawn_position(data: EncounterData, index: int, total: int) -> Vector
 	return _centre + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
 
 
+## M30 1.7 — a squad hull's spawn point: at its signed formation bearing off
+## the player's bow (+ = starboard), the same convention EnemyAI holds it to.
+func _formation_spawn_position(data: EncounterData, bearing_deg: float) -> Vector3:
+	var dist: float = randf_range(data.spawn_distance_min, data.spawn_distance_max)
+	var fwd := Vector3.FORWARD
+	var right := Vector3.RIGHT
+	if _player:
+		fwd = -_player.global_transform.basis.z
+		right = _player.global_transform.basis.x
+	fwd.y = 0.0
+	right.y = 0.0
+	var b := deg_to_rad(bearing_deg)
+	var dir := (fwd.normalized() * cos(b) + right.normalized() * sin(b)).normalized()
+	return _centre + dir * dist
+
+
 func _apply_strength(enemy: Node3D, data: EncounterData) -> void:
 	## Duplicate-never-mutate: a ShipStats resource is shared by every ship of its
 	## class, so scaling the shared copy would permanently buff every future hull.
@@ -686,6 +762,143 @@ func apply_upgrade_choice(upgrade: BattleUpgradeData) -> bool:
 		return false
 	_announce("%s  %s" % [upgrade.icon, upgrade.display_name])
 	return true
+
+
+# === Spyglass Briefing (M30 1.9, W1-2.1) ===
+
+func get_briefing_config() -> SpyglassBriefingData:
+	if not briefing_config:
+		briefing_config = load(BRIEFING_CONFIG_PATH) as SpyglassBriefingData
+		if not briefing_config:
+			push_error("EncounterManager: briefing config %s is missing or not a SpyglassBriefingData" % BRIEFING_CONFIG_PATH)
+	return briefing_config
+
+
+## The best Watchtower level on any player-owned island (0 = none): the same
+## best-owned-building lookup `TechManager.get_academy_level()` makes.
+func get_watchtower_level() -> int:
+	if watchtower_level_override >= 0:
+		return watchtower_level_override
+	if not is_inside_tree():
+		return 0
+	var best := 0
+	for island in get_tree().get_nodes_in_group("islands"):
+		if island.island_data and island.island_data.is_owned_by_player() \
+				and island.has_method("get_building_level"):
+			best = maxi(best, island.get_building_level("watchtower"))
+	return best
+
+
+## What the Spyglass Briefing shows for the live encounter. The roster (one
+## role icon per hull) is always there; formation, weaknesses and the star-2
+## hint each unlock at their `SpyglassBriefingData` Watchtower level and are
+## otherwise blank with `*_locked` set (and the level that unlocks them).
+## Empty when no encounter is running.
+func build_briefing() -> Dictionary:
+	if not is_active():
+		return {}
+	var cfg := get_briefing_config()
+	var data := active_encounter
+	var intel := get_watchtower_level()
+	var roster: Array = []
+	var weaknesses: Array = []
+	for enemy in _enemies:
+		if not is_instance_valid(enemy):
+			continue
+		var ai = enemy.get_node_or_null("EnemyAI")
+		var profile: AIProfileData = ai.ai_profile if ai else null
+		var role_key: String = AIProfileData.Role.keys()[profile.role] if profile else "BALANCED"
+		var tactic_key: String = AIProfileData.Tactic.keys()[profile.tactic] if profile else "STANDARD"
+		roster.append({"role": role_key, "tactic": tactic_key,
+			"icon": str(cfg.role_icons.get(role_key, "?")) if cfg else "?"})
+		if cfg:
+			var weak := ""
+			if tactic_key != "STANDARD":
+				weak = str(cfg.tactic_weaknesses.get(tactic_key, ""))
+			if weak == "":
+				weak = str(cfg.role_weaknesses.get(role_key, ""))
+			if weak != "" and not weaknesses.has(weak):
+				weaknesses.append(weak)
+
+	var formation_level: int = cfg.formation_intel_level if cfg else 0
+	var weakness_level: int = cfg.weakness_intel_level if cfg else 0
+	var hint_level: int = cfg.star_hint_intel_level if cfg else 0
+	var out := {
+		"encounter_id": data.encounter_id,
+		"title": data.display_name,
+		"kind": data.get_kind_name(),
+		"intel_level": intel,
+		"roster": roster,
+		"formation": "",
+		"formation_locked": intel < formation_level,
+		"formation_level": formation_level,
+		"weaknesses": [],
+		"weaknesses_locked": intel < weakness_level,
+		"weaknesses_level": weakness_level,
+		"star_hint": "",
+		"star_hint_locked": intel < hint_level,
+		"star_hint_level": hint_level,
+		"preparations": cfg.preparations.duplicate() if cfg else [],
+		"ammo_options": get_briefing_ammo_options(),
+		"port_ammo": null,
+		"starboard_ammo": null,
+	}
+	if not out["formation_locked"] and data.squad_tactic:
+		out["formation"] = data.squad_tactic.get_formation_name()
+	if not out["weaknesses_locked"]:
+		out["weaknesses"] = weaknesses
+	if not out["star_hint_locked"] and data.star_conditions.size() >= 2 and data.star_conditions[1]:
+		out["star_hint"] = data.star_conditions[1].describe()
+	var combat := _player_combat()
+	if combat:
+		out["port_ammo"] = combat.get_ammo_for_side("port")
+		out["starboard_ammo"] = combat.get_ammo_for_side("starboard")
+	return out
+
+
+## The loads the briefing offers per side: the player's own ammo cycle.
+func get_briefing_ammo_options() -> Array:
+	var out: Array = []
+	for path in ShipCombat.AMMO_CYCLE:
+		var ammo := load(path) as AmmoData
+		if ammo:
+			out.append(ammo)
+		else:
+			push_error("EncounterManager: briefing ammo %s failed to load" % path)
+	return out
+
+
+## The briefing's pick: one Preparation (applied through CombatModifiers, so
+## it lasts this battle only) and an opening load per side. Any argument may be
+## null to leave that part as it is. False when no encounter is running or the
+## preparation is not one the briefing offers.
+func apply_briefing(preparation: PreparationData, port_ammo: AmmoData, starboard_ammo: AmmoData) -> bool:
+	if not is_active():
+		return false
+	if preparation:
+		var cfg := get_briefing_config()
+		if not cfg or not cfg.preparations.has(preparation):
+			push_error("EncounterManager: preparation '%s' is not offered by the briefing" % preparation.preparation_id)
+			return false
+		var mods := get_player_modifiers()
+		if not preparation.effect or not mods or not mods.apply_upgrade(preparation.effect):
+			push_error("EncounterManager: preparation '%s' could not be applied" % preparation.preparation_id)
+			return false
+	var combat := _player_combat()
+	if combat:
+		if port_ammo:
+			combat.set_side_ammo("port", port_ammo)
+		if starboard_ammo:
+			combat.set_side_ammo("starboard", starboard_ammo)
+	briefing_applied.emit(preparation.preparation_id if preparation else "",
+		port_ammo.ammo_id if port_ammo else "", starboard_ammo.ammo_id if starboard_ammo else "")
+	return true
+
+
+func _player_combat() -> ShipCombat:
+	if not _player or not is_instance_valid(_player):
+		return null
+	return _player.get_node_or_null("ShipCombat") as ShipCombat
 
 
 # === Rewards ===

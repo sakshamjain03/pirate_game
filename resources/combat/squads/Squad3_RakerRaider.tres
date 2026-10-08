@@ -1,33 +1,46 @@
-[gd_resource type="Resource" script_class="SquadData" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="SquadData" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/SquadSlotData.gd" id="1_slot"]
 [ext_resource type="Script" path="res://scripts/combat/SquadTacticData.gd" id="2_tactic"]
 [ext_resource type="Script" path="res://scripts/combat/SquadData.gd" id="3_squad"]
 [ext_resource type="PackedScene" path="res://scenes/world/EnemyShip.tscn" id="4_enemy"]
-[ext_resource type="Resource" path="res://resources/combat/ai_profiles/Raker.tres" id="5_raker"]
-[ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="6_raider"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="p_0"]
+[ext_resource type="Resource" path="res://resources/combat/ai_profiles/Raker.tres" id="p_1"]
+[ext_resource type="Resource" path="res://resources/ships/Schooner.tres" id="s_0"]
+[ext_resource type="Resource" path="res://resources/ships/Sloop.tres" id="s_1"]
 
+; M30 1.7 squad. Hull counts and bearings are placeholders: tune in M31.
+; Bearings are signed degrees off the player's bow (+ = starboard).
 [sub_resource type="Resource" script_class="SquadSlotData" id="Slot1"]
 script = ExtResource("1_slot")
 hull_scene = ExtResource("4_enemy")
-ai_profile = ExtResource("5_raker")
+ai_profile = ExtResource("p_1")
 count = 1
+ship_stats = ExtResource("s_0")
 
 [sub_resource type="Resource" script_class="SquadSlotData" id="Slot2"]
 script = ExtResource("1_slot")
 hull_scene = ExtResource("4_enemy")
-ai_profile = ExtResource("6_raider")
+ai_profile = ExtResource("p_0")
 count = 1
+ship_stats = ExtResource("s_1")
+
+[sub_resource type="Resource" script_class="SquadSlotData" id="Slot3"]
+script = ExtResource("1_slot")
+hull_scene = ExtResource("4_enemy")
+ai_profile = ExtResource("p_0")
+count = 1
+ship_stats = ExtResource("s_1")
 
 [sub_resource type="Resource" script_class="SquadTacticData" id="Tactic"]
 script = ExtResource("2_tactic")
-formation = 2
-display_name = "Stern Rake"
-slot_bearings_deg = [135.0, 45.0]
+formation = 3
+display_name = "Crescent"
+slot_bearings_deg = [165.0, 60.0, -60.0]
 
 [resource]
 script = ExtResource("3_squad")
-squad_id = "sq_raker_raider"
-display_name = "Raker + Raider"
-slots = [SubResource("Slot1"), SubResource("Slot2")]
+squad_id = "sq_raker_raiders"
+display_name = "Raker + Raiders"
+slots = [SubResource("Slot1"), SubResource("Slot2"), SubResource("Slot3")]
 tactic = SubResource("Tactic")

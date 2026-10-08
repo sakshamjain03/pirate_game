@@ -576,13 +576,22 @@ func _find_ship() -> void:
 		boarding_sys.boarding_resolved.connect(_on_boarding_resolved)
 
 	var enc_mgr = current_scene.get_node_or_null("Systems/EncounterManager") if current_scene else null
+	if not enc_mgr:
+		# A debug capture harness instances World under its own root, so the
+		# path misses; the group finds it there too (M30 1.9 capture).
+		enc_mgr = get_tree().get_first_node_in_group("encounter_manager")
 	if enc_mgr:
 		enc_mgr.encounter_started.connect(_on_encounter_started)
 		enc_mgr.encounter_ended.connect(_on_encounter_ended)
 		enc_mgr.objective_progress.connect(_on_objective_progress)
 		if upgrade_choice_screen:
 			upgrade_choice_screen.bind_encounter_manager(enc_mgr)
-		
+		# M30 1.9 — the Spyglass Briefing opens on every encounter start.
+		var briefing := SpyglassBriefing.new()
+		briefing.name = "SpyglassBriefing"
+		add_child(briefing)
+		briefing.bind_encounter_manager(enc_mgr)
+
 	# Create Economy Tick Label
 	_create_economy_label()
 	

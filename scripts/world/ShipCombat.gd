@@ -60,7 +60,30 @@ signal ammo_changed(ammo: AmmoData)
 ## punished for changing their mind.
 func set_ammo(ammo: AmmoData) -> void:
 	current_ammo = ammo
+	# M30 1.9 — choosing a load replaces the briefing's per-side opening loads.
+	_side_ammo.clear()
 	ammo_changed.emit(ammo)
+
+
+## M30 1.9 (W1-2.1) — the Spyglass Briefing's opening ammo per side. Only a
+## side with an entry here differs from current_ammo; set_ammo() and
+## EncounterManager's resolve clear them, so they last one battle's opening.
+var _side_ammo: Dictionary = {}
+
+
+func set_side_ammo(side: String, ammo: AmmoData) -> void:
+	if ammo:
+		_side_ammo[side] = ammo
+	else:
+		_side_ammo.erase(side)
+
+
+func get_ammo_for_side(side: String) -> AmmoData:
+	return _side_ammo.get(side, current_ammo)
+
+
+func clear_side_ammo() -> void:
+	_side_ammo.clear()
 
 
 ## Index of current_ammo in AMMO_CYCLE, or -1 when it is something else (none
@@ -801,7 +824,8 @@ func _spawn_cannonball(marker: Node3D, side: String, volley_mult: float = 1.0) -
 
 	_spawn_muzzle_flash(marker)
 	
-	var ammo_data = current_ammo if current_ammo else load("res://resources/combat/ammo/RoundShot.tres")
+	var side_load := get_ammo_for_side(side)
+	var ammo_data = side_load if side_load else load("res://resources/combat/ammo/RoundShot.tres")
 
 	# M26 "Twin Decks" — extra balls per gun from temporary upgrades. Each goes
 	# through the same aim/spread path below, so they fan out naturally.

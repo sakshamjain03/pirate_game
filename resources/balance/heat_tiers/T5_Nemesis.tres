@@ -8,11 +8,11 @@
 script = ExtResource("1_heat")
 tier = 5
 display_name = "Nemesis"
-min_notoriety = 100.0
-max_ambient_enemies = 5
-spawn_interval_seconds = 20.0
-enemy_strength_multiplier = 1.4
+min_notoriety = 220.0
+max_ambient_enemies = 8
+spawn_interval_seconds = 15.0
+enemy_strength_multiplier = 1.75
 engages_unprovoked = true
 squad_pool = [ExtResource("2_sq5"), ExtResource("3_sq6")]
 decay_per_minute = 6.0
-clear_cost_eights = 80
+clear_cost_eights = 60

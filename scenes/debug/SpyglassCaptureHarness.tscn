@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/world/World.tscn" id="1_world"]
+[ext_resource type="Script" path="res://scripts/debug/ScreenshotCapture.gd" id="2_capture"]
+[ext_resource type="Script" path="res://scripts/debug/DebugBriefingStarter.gd" id="3_starter"]
+
+[node name="SpyglassCaptureHarness" type="Node"]
+
+[node name="World" parent="." instance=ExtResource("1_world")]
+
+[node name="ScreenshotCapture" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("2_capture")
+
+[node name="DebugBriefingStarter" type="Node" parent="."]
+script = ExtResource("3_starter")

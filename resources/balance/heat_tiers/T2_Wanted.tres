@@ -8,10 +8,10 @@
 script = ExtResource("1_heat")
 tier = 2
 display_name = "Wanted"
-min_notoriety = 40.0
+min_notoriety = 60.0
 max_ambient_enemies = 4
-spawn_interval_seconds = 35.0
-enemy_strength_multiplier = 1.1
+spawn_interval_seconds = 32.0
+enemy_strength_multiplier = 1.15
 engages_unprovoked = true
 squad_pool = [ExtResource("2_sq2"), ExtResource("3_sq3")]
 decay_per_minute = 3.0

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="PreparationData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/PreparationData.gd" id="1_prep"]
+[ext_resource type="Script" path="res://scripts/combat/BattleUpgradeData.gd" id="2_up"]
+
+; M30 1.9 Spyglass Briefing preparation. magnitude is a placeholder: tune in M31.
+[sub_resource type="Resource" script_class="BattleUpgradeData" id="Effect"]
+script = ExtResource("2_up")
+upgrade_id = "prep_crack_on_sail"
+display_name = "Crack On Sail"
+description = "12% more speed this battle."
+icon = "⛵"
+effect = 2
+magnitude = 1.12
+max_stacks = 1
+weight = 1.0
+
+[resource]
+script = ExtResource("1_prep")
+preparation_id = "crack_on_sail"
+display_name = "Crack On Sail"
+description = "12% more speed this battle."
+icon = "⛵"
+effect = SubResource("Effect")

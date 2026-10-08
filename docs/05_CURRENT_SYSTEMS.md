@@ -148,6 +148,40 @@ See `docs/navalCombat.md` §4/§5 for the locked design.
   before the raiders do — previously `PROTECT_TARGET` silently aliased `DESTROY_ALL` with nothing
   to actually protect. `CONVOY`/`ELITE`/`BOSS` already diverged meaningfully via
   `strength_multiplier`/rewards/`upgrade_offers`; only `DEFENSE` needed new code.
+- **Squads and heat squad pools (M30 1.7).** `EncounterData.squad: Array[SquadSlotData]` (hull
+  scene, `AIProfileData`, optional `ShipStats` hull class, count) plus `squad_tactic:
+  SquadTacticData` (formation name, one SIGNED bearing per slot, + = the target's starboard).
+  `EncounterManager.build_spawn_plan()` caps a squad at `MAX_SQUAD_HOSTILES` (4) in slot order;
+  `_assign_slot_profile()` sets the profile, a duplicated `ShipStats` and the hull's
+  `EnemyAI.squad_bearing_deg`/`has_squad_bearing` before `add_child`, and each hull spawns on its
+  bearing's side (`_formation_spawn_position`). `EnemyAI._tactic_ideal_position` holds a squad
+  bearing as signed for every tactic except FIRESHIP (STANDARD hulls in a squad hold their slot
+  too); outside a squad the profile's unsigned `preferred_bearing_deg` still picks its own side.
+  An empty `squad` falls back to `enemy_scene`/`enemy_count`. `HeatTierData.squad_pool` holds the
+  6 authored squads (`resources/combat/squads/Squad1..6`, 2 to 4 hulls of mixed classes); an
+  encounter with `use_heat_squad` (Skirmish, Ambush) gets a copy with a pool squad via
+  `encounter_with_heat_squad()`. T0..T5 average 2, 2, 2.5, 3, 3, 3.5 hulls.
+- **Spyglass Briefing (M30 1.9).** On `encounter_started`, `SpyglassBriefing` (built by
+  `WorldHUD._find_ship()`, pauses the tree while open) shows `EncounterManager.build_briefing()`:
+  the roster as role icons always, and formation / weaknesses / the star-2 hint (the 2nd authored
+  star condition) each gated by the best owned Watchtower level (`get_watchtower_level()`, the
+  same best-owned-building lookup as `TechManager.get_academy_level()`) per
+  `resources/combat/SpyglassBriefing.tres` (`SpyglassBriefingData`). Engage calls
+  `apply_briefing(preparation, port_ammo, starboard_ammo)`: the `PreparationData`'s effect is a
+  `BattleUpgradeData` (`prep_*` id) applied through `CombatModifiers.apply_upgrade()`, so it is
+  reset on resolve like every battle upgrade; the opening loads go to
+  `ShipCombat.set_side_ammo()` (read per side by `_spawn_cannonball`), cleared by `set_ammo()`
+  and on resolve. 3 Preparations in `resources/combat/preparations/`. Headful capture:
+  `scenes/debug/SpyglassCaptureHarness.tscn` (`--watchtower=N`, `--encounter=<res path>`).
+- **Sortie Stars (M30 1.13).** `EncounterData.star_conditions: Array[StarConditionData]`
+  (VICTORY / QUICK_VICTORY / PERFECT_DEFENSE / ZERO_LOSSES; enum append-only). Every authored
+  encounter has 3, easiest first. Damage and crew loss are summed from the player's
+  `ShipDamage.hit_resolved` during the battle (not read off max hull). On VICTORY `_resolve`
+  emits `stars_awarded(encounter_id, stars, total)` and shows "★★☆ Sortie Stars 2/3 · N ★ total"
+  in the result announcement. `CampaignManager` connects it (`_connect_encounter_manager`) and
+  keeps the best int count per encounter id (`encounter_best_stars`, omitted when empty; loads
+  coerce JSON floats and push_error malformed entries); `get_total_stars()` is the cosmetic
+  total. No chapter/objective gate reads stars (guarded by `test_m30_stars.gd`).
 
 **Combat data:** `resources/combat/encounters/*.tres` (6 encounter types),
 `resources/combat/upgrades/*.tres` (22 battle upgrades — 12 added by M26),

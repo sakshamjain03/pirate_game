@@ -2,10 +2,13 @@
 class_name SquadTacticData extends Resource
 
 ## Purpose: how a squad arranges itself around its target (M30 1.7).
-## Responsibilities: pure data. Gives each slot index a `preferred_bearing_deg`
-##   override (relative to the target's heading: 0 = dead ahead, 180 = astern,
-##   +90 = starboard beam) that `EncounterManager` hands to that slot's AI
-##   profile. `formation` is what the Spyglass Briefing names.
+## Responsibilities: pure data. Gives each slot index a SIGNED bearing
+##   (relative to the target's heading: 0 = dead ahead, 180 = astern,
+##   +90 = starboard beam, -90 = port beam) that `EncounterManager` sets as that
+##   hull's `EnemyAI.squad_bearing_deg` (and spawns it on that side). Unlike a
+##   profile's unsigned `preferred_bearing_deg`, the sign fixes the side, and it
+##   applies to every tactic except FIRESHIP. `formation` is what the Spyglass
+##   Briefing names.
 
 enum Formation { PINCER, SCREEN, LINE_AHEAD, CRESCENT }
 

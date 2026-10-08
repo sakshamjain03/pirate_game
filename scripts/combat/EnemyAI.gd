@@ -127,6 +127,13 @@ var last_ideal_position: Vector3 = Vector3.ZERO
 var _smoothed_bearing: float = 0.0
 var _bearing_valid: bool = false
 var _ammo_rule_id: String = ""
+## M30 1.7 — a squad slot's formation bearing, SIGNED (+ = the target's
+## starboard side, - = port), set by EncounterManager before add_child. Unlike
+## the profile's unsigned `preferred_bearing_deg` it fixes the side, so a
+## [+90, -90] pincer really splits, and it applies to every tactic but FIRESHIP
+## (which always charges) — STANDARD hulls in a squad hold their slot too.
+var squad_bearing_deg: float = 0.0
+var has_squad_bearing: bool = false
 
 
 func _ready() -> void:
@@ -419,7 +426,7 @@ func _process_attack(delta: float) -> void:
 	# which changes the heading again — a wobble/circling-of-death instead
 	# of a stable approach to broadside range.
 	var ideal_position: Vector3
-	if _tactic() == AIProfileData.Tactic.STANDARD:
+	if _tactic() == AIProfileData.Tactic.STANDARD and not _holds_squad_bearing():
 		var perp = Vector3(-to_player_flat.z, 0.0, to_player_flat.x)
 		var perpendicular_offset: Vector3 = (perp if broadside_side == "starboard" else -perp) * preferred_combat_distance
 		ideal_position = player_ship.global_position + perpendicular_offset
@@ -470,6 +477,13 @@ func is_ram_telegraphing() -> bool:
 	return _ram_telegraph_t > 0.0
 
 
+## M30 1.7 — true when this hull's position comes from its squad slot.
+func _holds_squad_bearing() -> bool:
+	# The filter's time constant lives on the profile, so a profile-less hull
+	# keeps the STANDARD approach.
+	return has_squad_bearing and ai_profile != null and _tactic() != AIProfileData.Tactic.FIRESHIP
+
+
 func _tactic_ideal_position(delta: float, dist: float) -> Vector3:
 	## Where a non-STANDARD tactic wants to be: `preferred_bearing_deg` off the
 	## TARGET's heading at `preferred_combat_distance`, on whichever side of the
@@ -498,8 +512,12 @@ func _tactic_ideal_position(delta: float, dist: float) -> Vector3:
 		# Start the filter where the hull actually is, so it swings round smoothly.
 		_smoothed_bearing = atan2(rel.dot(right), rel.dot(fwd))
 		_bearing_valid = true
-	var side: float = 1.0 if _smoothed_bearing >= 0.0 else -1.0
-	var goal: float = side * deg_to_rad(float(ai_profile.preferred_bearing_deg))
+	var goal: float
+	if _holds_squad_bearing():
+		goal = deg_to_rad(squad_bearing_deg)
+	else:
+		var side: float = 1.0 if _smoothed_bearing >= 0.0 else -1.0
+		goal = side * deg_to_rad(float(ai_profile.preferred_bearing_deg))
 	var tau: float = maxf(float(ai_profile.bearing_filter_seconds), 0.001)
 	_smoothed_bearing = wrapf(lerp_angle(_smoothed_bearing, goal, 1.0 - exp(-delta / tau)), -PI, PI)
 	var dir: Vector3 = fwd * cos(_smoothed_bearing) + right * sin(_smoothed_bearing)

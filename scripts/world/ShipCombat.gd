@@ -61,7 +61,7 @@ signal ammo_changed(ammo: AmmoData)
 func set_ammo(ammo: AmmoData) -> void:
 	current_ammo = ammo
 	# M30 1.9 — choosing a load replaces the briefing's per-side opening loads.
-	_side_ammo.clear()
+	clear_side_ammo()
 	ammo_changed.emit(ammo)
 
 
@@ -70,20 +70,37 @@ func set_ammo(ammo: AmmoData) -> void:
 ## EncounterManager's resolve clear them, so they last one battle's opening.
 var _side_ammo: Dictionary = {}
 
+## M30 1.9 — the per-side opening loads were set or cleared, so the HUD can
+## show what each battery really fires. Deliberately NOT ammo_changed:
+## CampaignManager counts ammo_changed as the player's own SWAP_AMMO action,
+## and the briefing's opening pick must not complete that objective.
+signal side_ammo_changed()
+
 
 func set_side_ammo(side: String, ammo: AmmoData) -> void:
+	var before: AmmoData = _side_ammo.get(side)
 	if ammo:
 		_side_ammo[side] = ammo
 	else:
 		_side_ammo.erase(side)
+	if _side_ammo.get(side) != before:
+		side_ammo_changed.emit()
 
 
 func get_ammo_for_side(side: String) -> AmmoData:
 	return _side_ammo.get(side, current_ammo)
 
 
+## True while a briefing opening load is set on either side.
+func has_side_ammo() -> bool:
+	return not _side_ammo.is_empty()
+
+
 func clear_side_ammo() -> void:
+	if _side_ammo.is_empty():
+		return
 	_side_ammo.clear()
+	side_ammo_changed.emit()
 
 
 ## Index of current_ammo in AMMO_CYCLE, or -1 when it is something else (none

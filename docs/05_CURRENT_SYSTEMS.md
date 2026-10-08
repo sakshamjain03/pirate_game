@@ -171,14 +171,20 @@ See `docs/navalCombat.md` §4/§5 for the locked design.
   `BattleUpgradeData` (`prep_*` id) applied through `CombatModifiers.apply_upgrade()`, so it is
   reset on resolve like every battle upgrade; the opening loads go to
   `ShipCombat.set_side_ammo()` (read per side by `_spawn_cannonball`), cleared by `set_ammo()`
-  and on resolve. 3 Preparations in `resources/combat/preparations/`. Headful capture:
-  `scenes/debug/SpyglassCaptureHarness.tscn` (`--watchtower=N`, `--encounter=<res path>`).
+  and on resolve. Setting/clearing them emits `ShipCombat.side_ammo_changed` (deliberately not
+  `ammo_changed`, which `CampaignManager` counts as the player's SWAP_AMMO); while any is set the
+  phone ammo button reads "Port/Starboard" (e.g. "Chain/Grape") and each desktop cannon header
+  appends its side's shot (`WorldHUD._side_ammo_suffix`). In-game wiring guarded by
+  `test_m30_side_ammo_hud.gd`. 3 Preparations in `resources/combat/preparations/`. Headful capture:
+  `scenes/debug/SpyglassCaptureHarness.tscn` (`--watchtower=N`, `--encounter=<res path>`,
+  `--engage` presses Engage with Chain port / Grape starboard).
 - **Sortie Stars (M30 1.13).** `EncounterData.star_conditions: Array[StarConditionData]`
   (VICTORY / QUICK_VICTORY / PERFECT_DEFENSE / ZERO_LOSSES; enum append-only). Every authored
   encounter has 3, easiest first. Damage and crew loss are summed from the player's
   `ShipDamage.hit_resolved` during the battle (not read off max hull). On VICTORY `_resolve`
   emits `stars_awarded(encounter_id, stars, total)` and shows "★★☆ Sortie Stars 2/3 · N ★ total"
-  in the result announcement. `CampaignManager` connects it (`_connect_encounter_manager`) and
+  in the result announcement. `CampaignManager` connects it (`_connect_encounter_manager`, from
+  `on_world_ready()` via the scene's `Systems/EncounterManager`) and
   keeps the best int count per encounter id (`encounter_best_stars`, omitted when empty; loads
   coerce JSON floats and push_error malformed entries); `get_total_stars()` is the cosmetic
   total. No chapter/objective gate reads stars (guarded by `test_m30_stars.gd`).

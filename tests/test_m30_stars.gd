@@ -260,6 +260,53 @@ func test_campaign_records_the_best_from_the_encounter_signal() -> void:
 	assert_eq(CampaignManager.get_encounter_best_stars("recorded"), 2, "best kept across a worse result")
 
 
+## The in-game path: World.gd calls CampaignManager.on_world_ready(), which must
+## find the scene's Systems/EncounterManager and hook its stars_awarded. The
+## test above wires it by hand, so without this one a dropped
+## _connect_encounter_manager() call would silently stop stars being recorded.
+func test_world_ready_wires_the_scene_encounter_managers_stars() -> void:
+	var prev_scene := get_tree().current_scene
+	var world := Node3D.new()
+	world.name = "StarWorld"
+	var systems := Node.new()
+	systems.name = "Systems"
+	world.add_child(systems)
+	var mgr := EncounterManager.new()
+	mgr.name = "EncounterManager"
+	mgr.ambient_enabled = false
+	systems.add_child(mgr)
+	get_tree().root.add_child(world)
+	get_tree().current_scene = world
+	var tree := get_tree()
+	var had_node_added := tree.node_added.is_connected(CampaignManager._on_node_added)
+	var schedule := get_node_or_null("/root/ScheduleManager")
+	var had_job_started: bool = schedule != null and schedule.has_signal("job_started") \
+			and schedule.job_started.is_connected(CampaignManager._on_job_started)
+	var saved_dock := CampaignManager._docking_system
+	var saved_heat := CampaignManager._last_heat_level
+
+	CampaignManager.on_world_ready(null)
+	var stars_wired := mgr.stars_awarded.is_connected(CampaignManager._on_stars_awarded)
+	var kills_wired := mgr.ship_destroyed.is_connected(CampaignManager._on_ship_destroyed)
+	await wait_process_frames(1)  # the deferred lesson refire runs inside this test
+
+	# Undo the World-scoped global wiring so it cannot leak into later scripts.
+	if not had_node_added and tree.node_added.is_connected(CampaignManager._on_node_added):
+		tree.node_added.disconnect(CampaignManager._on_node_added)
+	if schedule and not had_job_started and schedule.has_signal("job_started") \
+			and schedule.job_started.is_connected(CampaignManager._on_job_started):
+		schedule.job_started.disconnect(CampaignManager._on_job_started)
+	CampaignManager._docking_system = saved_dock
+	CampaignManager._last_heat_level = saved_heat
+	if tree.current_scene == world:
+		tree.current_scene = prev_scene if is_instance_valid(prev_scene) else null
+	tree.root.remove_child(world)
+	world.free()
+
+	assert_true(stars_wired, "on_world_ready hooks the scene EncounterManager's stars_awarded")
+	assert_true(kills_wired, "and its mirrored ship_destroyed")
+
+
 func test_best_is_kept_and_a_zero_never_erases_it() -> void:
 	CampaignManager.record_encounter_stars("a", 3)
 	CampaignManager.record_encounter_stars("a", 1)

@@ -710,9 +710,16 @@ func _sync_ammo_from_ship() -> void:
 	if not combat:
 		return
 	if combat != _ammo_combat and combat.has_signal("ammo_changed"):
-		if _ammo_combat and is_instance_valid(_ammo_combat) and _ammo_combat.ammo_changed.is_connected(_on_ammo_changed):
-			_ammo_combat.ammo_changed.disconnect(_on_ammo_changed)
+		if _ammo_combat and is_instance_valid(_ammo_combat):
+			if _ammo_combat.ammo_changed.is_connected(_on_ammo_changed):
+				_ammo_combat.ammo_changed.disconnect(_on_ammo_changed)
+			if _ammo_combat.has_signal("side_ammo_changed") \
+					and _ammo_combat.side_ammo_changed.is_connected(_refresh_ammo_button):
+				_ammo_combat.side_ammo_changed.disconnect(_refresh_ammo_button)
 		combat.ammo_changed.connect(_on_ammo_changed)
+		# M30 1.9 — the briefing's per-side opening loads show on this button.
+		if combat.has_signal("side_ammo_changed"):
+			combat.side_ammo_changed.connect(_refresh_ammo_button)
 		_ammo_combat = combat
 	if combat.has_method("get_ammo_cycle_index"):
 		var found: int = combat.get_ammo_cycle_index()
@@ -740,10 +747,37 @@ func _on_ammo_changed(_ammo: AmmoData) -> void:
 	_refresh_ammo_button()
 
 
+## WorldHUD calls this once it has found the player ship, so the button binds
+## to (and shows) the real ship even when it was built before the ship existed.
+func refresh_ammo_from_ship() -> void:
+	_sync_ammo_from_ship()
+	_refresh_ammo_button()
+
+
 func _refresh_ammo_button() -> void:
 	if not _btn_ammo or not is_instance_valid(_btn_ammo):
 		return
-	_btn_ammo.text = tr(AMMO_LABELS[_ammo_index])
+	# M30 1.9 — while the Spyglass Briefing's opening loads are in the guns,
+	# each battery can fire something different: show "Port/Starboard".
+	var combat := _player_combat()
+	if combat and is_instance_valid(combat) and combat.has_method("has_side_ammo") and combat.has_side_ammo():
+		var port_label := _ammo_label(combat.get_ammo_for_side("port"))
+		var stbd_label := _ammo_label(combat.get_ammo_for_side("starboard"))
+		_btn_ammo.text = "%s/%s" % [port_label, stbd_label]
+		_btn_ammo.tooltip_text = tr("Opening loads - Port: %s, Starboard: %s") % [port_label, stbd_label]
+	else:
+		_btn_ammo.text = tr(AMMO_LABELS[_ammo_index])
+		_btn_ammo.tooltip_text = tr("Shot type")
+	_layout_context_row()
+
+
+## The button's short label for a load: AMMO_LABELS for the cycled ammo, the
+## resource's own display_name for anything off the cycle.
+func _ammo_label(ammo: AmmoData) -> String:
+	if not ammo:
+		return tr(AMMO_LABELS[0])
+	var idx := ShipCombat.AMMO_CYCLE.find(ammo.resource_path)
+	return tr(AMMO_LABELS[idx]) if idx >= 0 else ammo.display_name
 
 
 func get_ammo_index() -> int:

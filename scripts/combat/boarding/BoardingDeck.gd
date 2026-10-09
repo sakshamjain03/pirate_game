@@ -20,5 +20,11 @@ var morale: int = 60
 var outside_threats: Array = []
 ## Timed events: {"bell": int, "kind": "jettison"|"officers_escape"}. A bell of -1 means the last bell.
 var timed_events: Array = []
+## M30 2.11 - Captain Orders. `hero`: {name, hp, damage} (Board First; the hp is already part of
+## `player_hp`, the damage is added to every melee strike). `no_quarter`: the enemy cannot strike
+## its colours. `cp_bonus`: extra command points every bell.
+var hero: Dictionary = {}
+var no_quarter: bool = false
+var cp_bonus: int = 0
 ## Roles the party can field (2.10); empty means every action is available to anyone.
 var roles: Array[StringName] = []

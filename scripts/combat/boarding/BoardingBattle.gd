@@ -28,6 +28,9 @@ class DefenderState extends RefCounted:
 	var intent_index: int = 0
 	var guarding: bool = false
 	var cancelled: bool = false
+	## M30 2.11 - a Nemesis officer's own name and promotion bonus (empty / 0 for everyone else).
+	var label: String = ""
+	var attack_bonus: int = 0
 
 	## What this defender will do on the next bell, or null when it has nothing.
 	func next_intent() -> DefenderIntentData:
@@ -57,6 +60,10 @@ var roles: Array[StringName] = []
 var outcome: Dictionary = {}
 var officers_escaped: bool = false
 var hold_jettisoned: bool = false
+## M30 2.11 - Captain Orders (from the deck).
+var hero: Dictionary = {}
+var no_quarter: bool = false
+var cp_bonus: int = 0
 ## Every event of the battle so far, oldest first.
 var log: Array[Dictionary] = []
 
@@ -81,7 +88,10 @@ func _init(deck: BoardingDeck, p_rules: BoardingData, seed_value: int = 0) -> vo
 	objectives = deck.objectives.duplicate()
 	roles = deck.roles.duplicate()
 	bells_total = bell_count(deck.hull_fraction, rules)
-	cp = rules.bell_cp
+	hero = deck.hero.duplicate()
+	no_quarter = deck.no_quarter
+	cp_bonus = deck.cp_bonus
+	cp = rules.bell_cp + cp_bonus
 	for t in deck.outside_threats:
 		outside_threats.append((t as Dictionary).duplicate())
 	timed_events = deck.timed_events.duplicate(true)
@@ -93,6 +103,8 @@ func _init(deck: BoardingDeck, p_rules: BoardingData, seed_value: int = 0) -> vo
 		d.data = data
 		d.zone = int(entry.get("zone", BoardingZone.Id.WAIST))
 		d.hp = int(entry.get("hp", data.hp))
+		d.label = str(entry.get("label", ""))
+		d.attack_bonus = int(entry.get("attack_bonus", 0))
 		if d.hp <= 0:
 			continue
 		# The seed's one job: where each rotation starts, so the same ship does not play
@@ -273,8 +285,8 @@ func ring_bell() -> Array[Dictionary]:
 					officers_escaped = true
 					events.append(_ev("officers_escape", {"count": fled}))
 
-	# 5. Morale check.
-	if morale <= rules.strike_morale:
+	# 5. Morale check. Under No Quarter nobody surrenders: only an objective ends the fight.
+	if morale <= rules.strike_morale and not no_quarter:
 		_end("struck", true, 1.0, true, events)
 		return _finish(events)
 
@@ -283,7 +295,7 @@ func ring_bell() -> Array[Dictionary]:
 		return _finish(events)
 	events.append(_ev("bell_rung", {}))
 	bell += 1
-	cp = rules.bell_cp
+	cp = rules.bell_cp + cp_bonus
 	return _finish(events)
 
 
@@ -320,6 +332,9 @@ func _do_action(action: BoardingActionData, target: int, events: Array[Dictionar
 				return
 			if action.damage > 0:
 				var dmg := action.damage
+				# The hero's blows land harder (Board First): melee only.
+				if action.target_rule == BoardingActionData.TargetRule.DEFENDER_MELEE and not hero.is_empty():
+					dmg += int(hero.get("damage", 0))
 				if d.guarding:
 					dmg = maxi(1, dmg - rules.guard_reduction)
 				events.append(_ev("hit", {"action": str(action.id), "defender": d.uid, "damage": dmg}))
@@ -351,11 +366,11 @@ func _do_intent(d: DefenderState, events: Array[Dictionary]) -> void:
 	match intent.kind:
 		DefenderIntentData.Kind.STRIKE:
 			if d.zone == zone:
-				_hurt_party(d.data.attack + intent.power, d.uid, str(intent.id), events)
+				_hurt_party(d.data.attack + d.attack_bonus + intent.power, d.uid, str(intent.id), events)
 			else:
 				events.append(_ev("whiff", {"defender": d.uid, "intent": str(intent.id)}))
 		DefenderIntentData.Kind.SHOOT:
-			_hurt_party(d.data.attack + intent.power, d.uid, str(intent.id), events)
+			_hurt_party(d.data.attack + d.attack_bonus + intent.power, d.uid, str(intent.id), events)
 		DefenderIntentData.Kind.GUARD:
 			d.guarding = true
 			events.append(_ev("guarding", {"defender": d.uid}))

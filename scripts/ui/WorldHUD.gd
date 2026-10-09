@@ -608,6 +608,7 @@ func _find_ship() -> void:
 		FleetManager.prize_recaptured.connect(_on_prize_recaptured)
 		FleetManager.prize_sold.connect(_on_prize_sold)
 		FleetManager.prize_refused.connect(_on_prize_refused)
+		EmpireManager.nemesis_changed.connect(_on_nemesis_changed)
 		boarding_sys.deck_preview_changed.connect(_on_boarding_preview_changed)
 		boarding_sys.boarding_routed.connect(_on_boarding_routed)
 
@@ -1326,6 +1327,13 @@ func _on_prize_sold(info: Dictionary) -> void:
 
 func _on_prize_refused(info: Dictionary) -> void:
 	announce_event(tr("%s refuses the prize. Standing -%d.") % [str(info.get("court_name", tr("The court"))), int(info.get("rep_cost", 0))])
+
+
+func _on_nemesis_changed(record: Dictionary) -> void:
+	if int(record.get("escapes", 0)) > 0:
+		announce_event(str(record.get("poster", "")))
+	else:
+		announce_event(tr("%s is finished. Bounty paid.") % str(record.get("name", tr("The officer"))))
 
 
 func _on_prize_recaptured(_record: Dictionary) -> void:

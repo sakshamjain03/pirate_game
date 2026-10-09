@@ -100,7 +100,8 @@ func _on_boarding_started(enemy: Node) -> void:
 		_target_name = dmg.ship_stats.display_name
 	_names.clear()
 	for d in battle.defenders:
-		_names[d.uid] = d.data.display_name if not d.data.display_name.is_empty() else str(d.data.id)
+		_names[d.uid] = d.label if not d.label.is_empty() \
+				else (d.data.display_name if not d.data.display_name.is_empty() else str(d.data.id))
 	_log_lines.clear()
 	selected_action = null
 	_showing_result = false
@@ -217,7 +218,8 @@ func finish() -> void:
 			"crew_loss_fraction": loss, "captures_ship": bool(outcome.get("captures_ship", false)),
 			"officers_escaped": bool(outcome.get("officers_escaped", false)),
 			"grants_elite_squad": bool(outcome.get("grants_elite_squad", false)),
-			"captain_xp": int(outcome.get("captain_xp", 0)), "casualty_ratio": ratio}
+			"captain_xp": int(outcome.get("captain_xp", 0)), "casualty_ratio": ratio,
+			"no_quarter": battle.no_quarter}
 	var system := _system
 	_close()
 	closed.emit(outcome)
@@ -501,6 +503,10 @@ func _refresh() -> void:
 	if battle == null or _rules == null:
 		return
 	_title.text = tr("Boarding — %s") % _target_name
+	if not battle.hero.is_empty():
+		_title.text += "  ·  " + tr("%s leads the boarding") % str(battle.hero.get("name", tr("The captain")))
+	if battle.no_quarter:
+		_title.text += "  ·  " + tr("No quarter")
 	_bell_label.text = tr("Bell %d of %d") % [battle.bell, battle.bells_total]
 	_cp_label.text = tr("CP %d / %d") % [battle.cp_left(), battle.cp]
 	_morale_bar.max_value = BoardingBattle.MORALE_MAX

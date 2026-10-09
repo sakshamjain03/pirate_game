@@ -94,6 +94,20 @@ func _clear_prompt() -> void:
 		_eligible_enemy = null
 		boarding_prompt_unavailable.emit()
 
+## M30 2.11 - what the boarding means for the enemy's officers and for how the player is known:
+## officers who escaped are remembered (and promoted next time); a Colours outcome with them still
+## aboard ends a Nemesis and pays the bounty; winning under No Quarter is Dread.
+func _settle_officers(faction_id: String, success: bool, outcome_id: String, details: Dictionary) -> void:
+	if faction_id.is_empty():
+		return
+	if bool(details.get("officers_escaped", false)):
+		EmpireManager.register_officer_escape(faction_id)
+	elif success and outcome_id in COLOURS_OUTCOMES:
+		EmpireManager.capture_officers(faction_id)
+	if success and bool(details.get("no_quarter", false)):
+		EmpireManager.shift_axis(NotorietyGainsData.get_default().dread_no_quarter)
+
+
 func _is_struck(enemy: Node) -> bool:
 	return is_instance_valid(enemy) and enemy.get_meta(&"struck", false)
 
@@ -324,7 +338,9 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 		"grants_elite_squad": bool(details.get("grants_elite_squad", false)),
 		"captain_xp": int(details.get("captain_xp", 0)),
 		"casualty_ratio": float(details.get("casualty_ratio", 0.0)),
+		"no_quarter": bool(details.get("no_quarter", false)),
 	})
+	_settle_officers(target_faction_id, success, outcome_id, details)
 	_clear_prompt()
 
 
@@ -381,10 +397,23 @@ func _build_deck(player: Node, enemy: Node, player_dmg: Node, enemy_dmg: Node) -
 		"crew_fraction": enemy_dmg.crew / maxf(stats.max_crew if stats else 1.0, 1.0),
 		"player_crew": player_dmg.crew,
 		"squad_hp": FleetManager.boarding_hp_bonus(),
+		"orders": _orders_for(player),
+		"nemesis": EmpireManager.nemesis_for_faction(faction_id),
 		"morale_scale": _morale_scale(enemy),
 		"threats": threats,
 		"roles": roles,
 	})
+
+
+## The active captain's boarding orders (2.11) as the deck builder wants them.
+func _orders_for(player: Node) -> Dictionary:
+	var captain = player.get("active_captain") if "active_captain" in player else null
+	var ability: CaptainAbilityData = captain.active_ability if captain and "active_ability" in captain else null
+	if ability == null or not ability.has_boarding_orders():
+		return {}
+	return {"board_first": ability.board_first, "hero_name": captain.captain_name, "hero_hp": ability.hero_hp,
+			"hero_damage": ability.hero_damage_bonus, "no_quarter": ability.no_quarter,
+			"cp_bonus": ability.boarding_cp_bonus}
 
 
 ## How much of its nerve the target has left, 0..1, or -1 when it has no MoraleComponent. A

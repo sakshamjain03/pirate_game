@@ -70,6 +70,9 @@ static func entry_zone_for(facing: StringName) -> int:
 ##   facing: StringName                   &"bow"/&"beam"/&"stern" the player closed on
 ##   hull_fraction: float, crew_fraction: float     the target's, 0..1
 ##   player_crew: float                   the player's current crew
+##   orders: Dictionary                   the captain's boarding orders {board_first, hero_name, hero_hp,
+##                                        hero_damage, no_quarter, cp_bonus} (optional)
+##   nemesis: Dictionary                  {captain: EnemyCaptainData, promotion: int} for a returning officer
 ##   squad_hp: int                        extra boarders from the Ship's Company (optional)
 ##   morale_scale: float                  the target's morale / start (0..1); omit or pass < 0 to ignore
 ##   threats: Array[Dictionary]           [{"id": StringName, "name": String}] hostile hulls nearby
@@ -140,6 +143,27 @@ static func build(profile: BoardingDeckProfile, rules: BoardingData, ctx: Dictio
 	# plus what the fit boarding squads of the Ship's Company bring (2.10).
 	deck.player_hp = clampi(int(round(float(ctx.get("player_crew", 0.0)) * rules.boarder_fraction)),
 			rules.boarder_min, rules.boarder_max) + maxi(0, int(ctx.get("squad_hp", 0)))
+
+	# Captain Orders (2.11): a hero joins the party, No Quarter closes the surrender, +CP.
+	var orders: Dictionary = ctx.get("orders", {})
+	if bool(orders.get("board_first", false)):
+		deck.hero = {"name": str(orders.get("hero_name", "")), "hp": int(orders.get("hero_hp", 0)),
+				"damage": int(orders.get("hero_damage", 0))}
+		deck.player_hp += int(deck.hero["hp"])
+	deck.no_quarter = bool(orders.get("no_quarter", false))
+	deck.cp_bonus = maxi(0, int(orders.get("cp_bonus", 0)))
+
+	# A Nemesis (2.11): the faction's escaped officer is the one on this deck, promoted.
+	var nemesis: Dictionary = ctx.get("nemesis", {})
+	var foe: EnemyCaptainData = nemesis.get("captain", null)
+	if foe != null:
+		var promotion: int = foe.clamp_promotion(int(nemesis.get("promotion", 0)))
+		for e in deck.defenders:
+			if (e["data"] as DefenderData).is_officer:
+				e["hp"] = int(e["hp"]) + foe.hp_per_promotion * promotion
+				e["attack_bonus"] = foe.attack_per_promotion * promotion
+				e["label"] = foe.full_name(promotion)
+				break
 
 	# Escorts still firing from outside the grapple.
 	var threats: Array = ctx.get("threats", [])

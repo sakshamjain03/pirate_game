@@ -12,6 +12,9 @@ extends Node
 signal notoriety_changed(new_value: float)
 ## M30 W2 (2.6) - emitted when the Dread/Renown axis moves.
 signal axis_changed(new_value: float)
+## M30 W2 (2.11) - an enemy officer escaped (and was promoted), or was ended. `record` is
+## {captain_id, faction_id, escapes, title, poster} (escapes 0 = removed).
+signal nemesis_changed(record: Dictionary)
 signal region_activated(region_id: String)
 signal island_captured(island_id: String)
 ## M29 B.3 — emitted when an island is captured from a faction
@@ -42,6 +45,9 @@ var notoriety: float = 0.0
 ## ransoms fairly). Clamped to +/-AXIS_LIMIT. Saved only while it is non-zero.
 const AXIS_LIMIT := 100.0
 var axis: float = 0.0
+## M30 W2 (2.11) - officers who got away: captain_id -> {faction_id, escapes}. An officer comes
+## back one title higher for every escape. Saved only while non-empty.
+var nemeses: Dictionary = {}
 var _last_gain_unix: int = 0
 var _regions: Array[RegionData] = []
 var _region_active: Dictionary = {}
@@ -347,6 +353,62 @@ func describe_raid_outcome(report: Dictionary) -> String:
 		return tr("Your home island defenses held off an attack from %s.") % faction_name
 	return tr("Your home island was raided by %s.") % faction_name
 
+## The officers of `faction_id` slipped away in a boat: remember them, one promotion higher.
+## Returns the record ({} when the faction has no authored officer).
+func register_officer_escape(faction_id: String) -> Dictionary:
+	var officer := EnemyCaptainData.for_faction(faction_id)
+	if officer == null:
+		return {}
+	var entry: Dictionary = nemeses.get(officer.captain_id, {"faction_id": faction_id, "escapes": 0})
+	entry["escapes"] = int(entry["escapes"]) + 1
+	nemeses[officer.captain_id] = entry
+	var record := _nemesis_record(officer, entry)
+	nemesis_changed.emit(record)
+	return record
+
+
+## A ship of `faction_id` was seized with its officers still aboard: if one of them was a Nemesis,
+## that is the end of them, and the bounty is paid. Returns {} when there was none.
+func capture_officers(faction_id: String) -> Dictionary:
+	var officer := EnemyCaptainData.for_faction(faction_id)
+	if officer == null or not nemeses.has(officer.captain_id):
+		return {}
+	var entry: Dictionary = nemeses[officer.captain_id]
+	var record := _nemesis_record(officer, entry)
+	record["bounty"] = officer.bounty(int(entry["escapes"]))
+	nemeses.erase(officer.captain_id)
+	ResourceManager.add_resource("gold", int(record["bounty"]))
+	var gone := record.duplicate()
+	gone["escapes"] = 0
+	nemesis_changed.emit(gone)
+	return record
+
+
+## The Nemesis now at large in `faction_id`'s ships: {captain: EnemyCaptainData, promotion: int}, or {}.
+func nemesis_for_faction(faction_id: String) -> Dictionary:
+	var officer := EnemyCaptainData.for_faction(faction_id)
+	if officer == null or not nemeses.has(officer.captain_id):
+		return {}
+	return {"captain": officer, "promotion": officer.clamp_promotion(int(nemeses[officer.captain_id]["escapes"]))}
+
+
+## Every poster currently up, one line each.
+func get_wanted_posters() -> Array[String]:
+	var out: Array[String] = []
+	for id in nemeses.keys():
+		var officer := EnemyCaptainData.by_id(str(id))
+		if officer:
+			out.append(officer.poster(officer.clamp_promotion(int(nemeses[id]["escapes"]))))
+	return out
+
+
+func _nemesis_record(officer: EnemyCaptainData, entry: Dictionary) -> Dictionary:
+	var promotion := officer.clamp_promotion(int(entry["escapes"]))
+	return {"captain_id": officer.captain_id, "faction_id": officer.faction_id, "escapes": int(entry["escapes"]),
+			"promotion": promotion, "title": officer.title_for(promotion), "name": officer.full_name(promotion),
+			"poster": officer.poster(promotion)}
+
+
 ## Moves the Dread/Renown axis (positive = Dread, negative = Renown).
 func shift_axis(amount: float) -> void:
 	if is_zero_approx(amount):
@@ -365,6 +427,8 @@ func get_save_data() -> Dictionary:
 	# An optional save key is omitted entirely at its default (CLAUDE.md), not written as 0.
 	if not is_zero_approx(axis):
 		data["axis"] = axis
+	if not nemeses.is_empty():
+		data["nemeses"] = nemeses.duplicate(true)
 	return data
 
 func load_save_data(data: Dictionary) -> void:
@@ -380,6 +444,13 @@ func load_save_data(data: Dictionary) -> void:
 		pending_raid_report = data["pending_raid_report"]
 	# Older saves (and a zero axis) carry no key: the axis is then reset, never left stale.
 	axis = clampf(float(data.get("axis", 0.0)), -AXIS_LIMIT, AXIS_LIMIT)
+	nemeses.clear()
+	var saved_nemeses = data.get("nemeses", {})
+	if saved_nemeses is Dictionary:
+		for id in (saved_nemeses as Dictionary).keys():
+			var e = saved_nemeses[id]
+			if e is Dictionary:
+				nemeses[str(id)] = {"faction_id": str(e.get("faction_id", "")), "escapes": maxi(1, int(e.get("escapes", 1)))}
 
 	notoriety_changed.emit(notoriety)
 	# Heat is derived, so it needs no save section of its own -- but the band must

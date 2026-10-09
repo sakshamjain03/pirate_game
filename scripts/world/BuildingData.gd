@@ -26,6 +26,14 @@ class_name BuildingData extends Resource
 @export var production_amount: int = 5
 @export var production_interval: float = 10.0 # seconds per tick
 
+@export_group("Company services (M30 2.11)")
+## Infirmary: extra wounds the Ship's Company mends each time the player docks at a port with this
+## building. The best one on the island counts (they do not stack).
+@export var infirmary_heal_bonus: int = 0  # placeholder: tune in M31
+## Training Yard: xp every fit squad earns each dock at a port with this building (sailing xp:
+## never reaches the boarding-only top rank). The best one on the island counts.
+@export var training_xp_per_dock: int = 0  # placeholder: tune in M31
+
 @export_group("Visual")
 @export var icon_path: String = ""
 @export var model_path: String = "res://assets/models/structure.glb"

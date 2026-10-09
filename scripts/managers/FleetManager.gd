@@ -511,6 +511,31 @@ func heal_squads(amount: int) -> void:
 		squads_changed.emit()
 
 
+## M30 2.11 - what a port's buildings do for the company at the dock: the best Infirmary mends more
+## wounds, the best Training Yard trains every fit squad. `buildings` is an island's built
+## BuildingData list. Returns {heal, xp}.
+static func port_services(buildings: Array) -> Dictionary:
+	var heal := 0
+	var xp := 0
+	for b in buildings:
+		if not b is BuildingData:
+			continue
+		var data: BuildingData = b
+		heal = maxi(heal, data.infirmary_heal_bonus)
+		xp = maxi(xp, data.training_xp_per_dock)
+	return {"heal": heal, "xp": xp}
+
+
+## Training Yard drill: every fit squad earns `amount` xp (sailing xp, never boarding xp).
+func train_squads(amount: int) -> void:
+	if amount <= 0:
+		return
+	var table := CrewRankTable.get_default()
+	for s in squads:
+		if s.is_fit(table):
+			award_squad_xp(s, amount, false)
+
+
 ## Boarding hit points the company's FIT boarding-role squads add to the party.
 func boarding_hp_bonus() -> int:
 	var table := CrewRankTable.get_default()

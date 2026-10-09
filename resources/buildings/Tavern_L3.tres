@@ -16,3 +16,4 @@ produces_resource = "gold"
 production_amount = 16
 model_path = "res://assets/models/tavern.glb"
 build_seconds = 300.0
+infirmary_heal_bonus = 1

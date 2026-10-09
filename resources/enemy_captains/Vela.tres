@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyCaptainData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/EnemyCaptainData.gd" id="1_cap"]
+
+; M30 2.11 - every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_cap")
+captain_id = "vela"
+display_name = "Don Rodrigo Vela"
+faction_id = "spanish_empire"
+titles = PackedStringArray("Lieutenant", "Captain", "Commodore")
+hp_per_promotion = 3
+attack_per_promotion = 1
+bounty_per_promotion = 150
+wanted_text = "A Spanish officer with a long memory and a longer sword."

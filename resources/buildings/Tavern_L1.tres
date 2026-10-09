@@ -13,3 +13,4 @@ cost_wood = 100
 produces_resource = "gold"
 model_path = "res://assets/models/tavern.glb"
 build_seconds = 40.0
+infirmary_heal_bonus = 0

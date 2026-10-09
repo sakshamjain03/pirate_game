@@ -37,6 +37,22 @@ class_name CaptainAbilityData extends Resource
 @export_range(0.0, 1.0) var instant_crew_fraction: float = 0.0
 
 
+@export_group("Boarding orders (M30 2.11)")
+## Board First: the captain leads the boarding party as a HERO: extra boarders and harder blows.
+@export var board_first: bool = false
+@export var hero_hp: int = 6  # placeholder: tune in M31
+@export var hero_damage_bonus: int = 1  # placeholder: tune in M31
+## No Quarter: no surrender. The enemy crew cannot strike its colours, so only seizing the Colours
+## (or another objective) ends the fight; winning that way earns Dread.
+@export var no_quarter: bool = false
+## Extra command points every bell of a boarding.
+@export_range(0, 3) var boarding_cp_bonus: int = 0
+
+
+func has_boarding_orders() -> bool:
+	return board_first or no_quarter or boarding_cp_bonus > 0
+
+
 func get_timed_effects() -> Dictionary:
 	## Keys match CombatModifiers' internal layer. Neutral entries are omitted so a
 	## repair-only ability contributes no timed effect at all.

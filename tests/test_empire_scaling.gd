@@ -3,6 +3,11 @@ extends GutTest
 var spawner: Node
 var empire_manager: Node
 var _created_test_scene: Node3D = null
+## Several tests write notoriety straight onto the autoload; restore it (and the
+## tier/decay clock derived from it) so a high value never leaks into later files.
+var _saved_notoriety: float
+var _saved_last_gain_unix: int
+var _saved_tier: HeatTierData
 
 func before_all():
 	# If EmpireManager is not in the tree (autoload), we instantiate one
@@ -19,6 +24,10 @@ func after_all():
 		pass # Was autoloaded
 
 func before_each():
+	if empire_manager:
+		_saved_notoriety = empire_manager.notoriety
+		_saved_last_gain_unix = empire_manager._last_gain_unix
+		_saved_tier = empire_manager._current_tier
 	spawner = load("res://scripts/combat/EnemySpawner.gd").new()
 	
 	# To prevent crashes if get_tree().current_scene is null
@@ -33,6 +42,10 @@ func before_each():
 	await wait_process_frames(1)
 
 func after_each():
+	if empire_manager:
+		empire_manager.notoriety = _saved_notoriety
+		empire_manager._last_gain_unix = _saved_last_gain_unix
+		empire_manager._current_tier = _saved_tier
 	# This file's own current_scene, if it created one, must not outlive it —
 	# a leaked one previously corrupted test_navigation_integration.gd's real
 	# get_tree().change_scene_to_file() call (freed-lambda-capture crash).

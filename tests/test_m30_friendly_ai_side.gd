@@ -11,13 +11,25 @@ const ENEMY_SHIP := preload("res://scenes/world/EnemyShip.tscn")
 const T0_UNKNOWN := "res://resources/balance/heat_tiers/T0_Unknown.tres"
 
 var _saved_tier: HeatTierData
+var _saved_notoriety: float
+var _saved_last_gain_unix: int
 
 
+## Pinning the tier alone is not enough: once EmpireManager's decay grace has
+## passed, its _process re-derives the tier from `notoriety` every frame and
+## overwrites the pin with whatever an earlier test leaked. Zero notoriety so
+## the decay branch never runs, and restore all three afterwards.
 func before_each() -> void:
 	_saved_tier = EmpireManager._current_tier
+	_saved_notoriety = EmpireManager.notoriety
+	_saved_last_gain_unix = EmpireManager._last_gain_unix
+	EmpireManager.notoriety = 0.0
+	EmpireManager._last_gain_unix = int(Time.get_unix_time_from_system())
 
 
 func after_each() -> void:
+	EmpireManager.notoriety = _saved_notoriety
+	EmpireManager._last_gain_unix = _saved_last_gain_unix
 	EmpireManager._current_tier = _saved_tier
 
 

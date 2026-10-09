@@ -70,6 +70,7 @@ static func entry_zone_for(facing: StringName) -> int:
 ##   facing: StringName                   &"bow"/&"beam"/&"stern" the player closed on
 ##   hull_fraction: float, crew_fraction: float     the target's, 0..1
 ##   player_crew: float                   the player's current crew
+##   morale_scale: float                  the target's morale / start (0..1); omit or pass < 0 to ignore
 ##   threats: Array[Dictionary]           [{"id": StringName, "name": String}] hostile hulls nearby
 ##   roles: Array[StringName]             roles the party can field (optional)
 static func build(profile: BoardingDeckProfile, rules: BoardingData, ctx: Dictionary) -> BoardingDeck:
@@ -115,8 +116,14 @@ static func build(profile: BoardingDeckProfile, rules: BoardingData, ctx: Dictio
 					break
 		if "facing:stern" in tags or "facing:bow" in tags:
 			rake_hits += 1
-	# A rake rattles the crew, but never strikes the colours before the first bell.
-	deck.morale = maxi(rules.strike_morale + 1, deck.morale - rake_hits * profile.rake_morale)
+	# A rake rattles the crew, but never strikes the colours before the first bell. When the
+	# target carries its own morale (MoraleComponent), that already counted the rakes and the
+	# crew lost, so the deck simply starts from it instead of counting them twice.
+	var scale := float(ctx.get("morale_scale", -1.0))
+	if scale >= 0.0:
+		deck.morale = maxi(rules.strike_morale + 1, int(round(profile.morale * scale)))
+	else:
+		deck.morale = maxi(rules.strike_morale + 1, deck.morale - rake_hits * profile.rake_morale)
 
 	# The crew fraction trims what is left: a ship already bled of men is thinly manned.
 	var target := maxi(profile.min_defenders,

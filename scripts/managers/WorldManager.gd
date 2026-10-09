@@ -313,9 +313,15 @@ func mark_target_at_screen(screen_pos: Vector2, cam: Camera3D = null) -> Node3D:
 ## boarding attempt that declines falls through to dock, as before.
 func _register_wave0_context_verbs() -> void:
 	_context_arbiter.register_provider(&"board",
-		func(): return _boarding_system != null and _boarding_system.get("_eligible_enemy") != null,
+		func(): return _can_board(),
 		func(): return _board_enemy(),
 		"Board Enemy", "board")
+	# M30 W2 (2.6) - a ship that has struck its colours is taken, not fought.
+	_context_arbiter.register_provider(&"take_prize",
+		func(): return _boarding_system != null and _boarding_system.has_method("can_take_prize") \
+				and bool(_boarding_system.can_take_prize()),
+		func(): return _board_enemy(),
+		"Take Prize", "board")
 	_context_arbiter.register_provider(&"dock",
 		_can_toggle_docking,
 		func(): _toggle_docking(); return true,
@@ -324,6 +330,14 @@ func _register_wave0_context_verbs() -> void:
 
 ## M30 W2 (2.1) — the Board verb begins a Three Bells battle, or resolves
 ## instantly for Quick boarding / an overwhelming crew (BoardingSystem decides).
+func _can_board() -> bool:
+	if _boarding_system == null:
+		return false
+	if _boarding_system.has_method("can_board"):
+		return bool(_boarding_system.can_board())
+	return _boarding_system.get("_eligible_enemy") != null
+
+
 func _board_enemy() -> bool:
 	if _boarding_system == null:
 		return false

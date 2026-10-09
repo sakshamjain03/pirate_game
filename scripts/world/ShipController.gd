@@ -88,6 +88,12 @@ func _ready() -> void:
 		handler.name = "ShipCollisionHandler"
 		add_child(handler)
 
+	# M30 W2 (2.6) — an enemy crew has nerve; the player's does not (yet).
+	if not is_in_group("player_ship") and not get_node_or_null("MoraleComponent"):
+		var morale := MoraleComponent.new()
+		morale.name = "MoraleComponent"
+		add_child(morale)
+
 
 func _apply_recoil(is_port: bool) -> void:
 	# Firing a broadside kicks the hull toward the OPPOSITE side (Newton's
@@ -387,6 +393,15 @@ func _on_died() -> void:
 			else:
 				EmpireManager.add_notoriety(gains.sink_other_ship)
 		
+	if not is_in_group("player_ship"):
+		# M30 W2 (2.6) — the squad leader sinking shakes every other crew in the fight.
+		if get_meta("squad_leader", false):
+			get_tree().call_group("morale_component", "notify_leader_sunk", self)
+		# Sinking a ship that had already struck its colours is the cruel choice: Dread.
+		# A ship taken by boarding carries `boarding_outcome` and is not that.
+		if get_meta("struck", false) and not has_meta("boarding_outcome") and EmpireManager:
+			EmpireManager.shift_axis(NotorietyGainsData.get_default().dread_sink_struck)
+
 	_spawn_explosion()
 	if AudioManager: AudioManager.play_sound("explosion")
 	

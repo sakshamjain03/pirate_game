@@ -68,7 +68,8 @@ func _check_eligibility() -> void:
 			
 		var max_hp = dmg.get_effective_max_health() if dmg.has_method("get_effective_max_health") else dmg.ship_stats.max_health
 		var hull_pct = dmg.hull / max(max_hp, 1.0)
-		if hull_pct > boarding_data.hull_threshold:
+		# M30 W2 (2.6) - a ship that struck its colours is takeable at any hull.
+		if hull_pct > boarding_data.hull_threshold and not _is_struck(enemy):
 			continue
 			
 		var dist = player.global_position.distance_to(enemy.global_position)
@@ -88,6 +89,20 @@ func _clear_prompt() -> void:
 	if _eligible_enemy != null:
 		_eligible_enemy = null
 		boarding_prompt_unavailable.emit()
+
+func _is_struck(enemy: Node) -> bool:
+	return is_instance_valid(enemy) and enemy.get_meta(&"struck", false)
+
+
+## The Board verb applies: a target is in range and has not struck.
+func can_board() -> bool:
+	return is_instance_valid(_eligible_enemy) and not _is_struck(_eligible_enemy)
+
+
+## The Take Prize verb applies: the target in range has struck its colours.
+func can_take_prize() -> bool:
+	return is_instance_valid(_eligible_enemy) and _is_struck(_eligible_enemy)
+
 
 func is_boarding_active() -> bool:
 	return is_instance_valid(_locked_enemy)
@@ -253,6 +268,9 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 		# M29 A.1: mark loot as claimed so ShipController._on_died() skips _spawn_loot()
 		enemy.set_meta("loot_claimed", true)
 		enemy.set_meta("boarding_outcome", outcome_id)
+		# M30 W2 (2.6) - taking the surrendered rather than sinking them is Renown.
+		if _is_struck(enemy) and EmpireManager:
+			EmpireManager.shift_axis(-NotorietyGainsData.get_default().renown_take_prize)
 		enemy_dmg.hull = 0.0
 		enemy_dmg.mark_destroyed()
 	# else: the enemy survives
@@ -335,9 +353,19 @@ func _build_deck(player: Node, enemy: Node, player_dmg: Node, enemy_dmg: Node) -
 		"hull_fraction": enemy_dmg.hull / maxf(max_hp, 1.0),
 		"crew_fraction": enemy_dmg.crew / maxf(stats.max_crew if stats else 1.0, 1.0),
 		"player_crew": player_dmg.crew,
+		"morale_scale": _morale_scale(enemy),
 		"threats": threats,
 		"roles": roles,
 	})
+
+
+## How much of its nerve the target has left, 0..1, or -1 when it has no MoraleComponent. A
+## struck ship reads low, so Take Prize opens with the Colours already weakened.
+func _morale_scale(enemy: Node) -> float:
+	var morale = enemy.get_node_or_null("MoraleComponent")
+	if morale and morale.has_method("morale_fraction"):
+		return morale.morale_fraction()
+	return -1.0
 
 
 ## The deck summary the target would present right now, or {} when it cannot be built.

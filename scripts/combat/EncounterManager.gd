@@ -556,6 +556,9 @@ func _spawn_composition(data: EncounterData) -> void:
 			enemy.angular_velocity = Vector3.ZERO
 
 		_apply_strength(enemy, data)
+		# M30 W2 (2.6) — the first hull is the squad leader; its sinking costs the rest morale.
+		if i == 0 and plan.size() > 1:
+			enemy.set_meta("squad_leader", true)
 		_track(enemy)
 
 

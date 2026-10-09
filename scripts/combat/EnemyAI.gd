@@ -948,7 +948,19 @@ func _can_detect_player() -> bool:
 	return dist < detection_range * _difficulty_detection_mult()
 
 
+## M30 W2 (2.6) — a crew whose morale broke (MoraleComponent) runs whatever its hull says. This
+## is the ONLY change to flee handling: the trigger, nothing about how a fleeing ship steers.
+var _ordered_flee: bool = false
+
+
+func order_flee() -> void:
+	_ordered_flee = true
+	_change_state(AIState.FLEE)
+
+
 func _should_flee() -> bool:
+	if _ordered_flee:
+		return true
 	if not ship_combat or not ship_combat.ship_stats:
 		return false
 	var health_pct = ship_combat.current_health / ship_combat.ship_stats.max_health

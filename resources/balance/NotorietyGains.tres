@@ -7,3 +7,5 @@ script = ExtResource("1_notoriety")
 island_capture = 15.0
 sink_empire_ship = 5.0
 sink_other_ship = 1.0
+dread_sink_struck = 4.0
+renown_take_prize = 3.0

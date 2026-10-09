@@ -13,6 +13,12 @@ const DEFAULT_PATH := "res://resources/balance/NotorietyGains.tres"
 ## Sinking any other faction's hull.
 @export var sink_other_ship: float = 1.0  # placeholder: tune in M31
 
+## M30 W2 (2.6) — the Dread/Renown axis (EmpireManager.shift_axis; positive = Dread). Sinking a
+## ship that had already struck its colours is Dread; taking one as a prize is Renown. These are
+## amounts of the axis, not of notoriety.
+@export var dread_sink_struck: float = 4.0  # placeholder: tune in M31
+@export var renown_take_prize: float = 3.0  # placeholder: tune in M31
+
 static var _default: NotorietyGainsData
 
 

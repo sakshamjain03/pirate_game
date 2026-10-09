@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MoraleData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/MoraleData.gd" id="1_morale"]
+
+; M30 2.6 — every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_morale")
+start = 100.0
+crew_loss_drain = 70.0
+rake_drain = 6.0
+leader_sunk_drain = 30.0
+wavering_threshold = 45.0
+strike_threshold = 20.0
+waver_seconds = 3.0
+flee_min_sails = 0.5

@@ -10,6 +10,8 @@ extends Node
 ##   island id lookup), FleetManager (get_ships_defending_home), ResourceManager (raid theft).
 
 signal notoriety_changed(new_value: float)
+## M30 W2 (2.6) - emitted when the Dread/Renown axis moves.
+signal axis_changed(new_value: float)
 signal region_activated(region_id: String)
 signal island_captured(island_id: String)
 ## M29 B.3 — emitted when an island is captured from a faction
@@ -35,6 +37,11 @@ var _current_tier: HeatTierData = null
 var _lying_low: bool = false
 
 var notoriety: float = 0.0
+## M30 W2 (2.6) - how the player is KNOWN, apart from how WANTED they are: positive is Dread
+## (the pirate who sinks the surrendering), negative is Renown (the one who takes prizes and
+## ransoms fairly). Clamped to +/-AXIS_LIMIT. Saved only while it is non-zero.
+const AXIS_LIMIT := 100.0
+var axis: float = 0.0
 var _last_gain_unix: int = 0
 var _regions: Array[RegionData] = []
 var _region_active: Dictionary = {}
@@ -340,14 +347,25 @@ func describe_raid_outcome(report: Dictionary) -> String:
 		return tr("Your home island defenses held off an attack from %s.") % faction_name
 	return tr("Your home island was raided by %s.") % faction_name
 
+## Moves the Dread/Renown axis (positive = Dread, negative = Renown).
+func shift_axis(amount: float) -> void:
+	if is_zero_approx(amount):
+		return
+	axis = clampf(axis + amount, -AXIS_LIMIT, AXIS_LIMIT)
+	axis_changed.emit(axis)
+
 func get_save_data() -> Dictionary:
-	return {
+	var data := {
 		"notoriety": notoriety,
 		"region_active": _region_active.duplicate(),
 		"home_island_id": home_island_id,
 		"last_raid_check_unix": _last_raid_check_unix,
 		"pending_raid_report": pending_raid_report
 	}
+	# An optional save key is omitted entirely at its default (CLAUDE.md), not written as 0.
+	if not is_zero_approx(axis):
+		data["axis"] = axis
+	return data
 
 func load_save_data(data: Dictionary) -> void:
 	if data.has("notoriety"):
@@ -360,7 +378,9 @@ func load_save_data(data: Dictionary) -> void:
 		_last_raid_check_unix = int(data["last_raid_check_unix"])
 	if data.has("pending_raid_report"):
 		pending_raid_report = data["pending_raid_report"]
-		
+	# Older saves (and a zero axis) carry no key: the axis is then reset, never left stale.
+	axis = clampf(float(data.get("axis", 0.0)), -AXIS_LIMIT, AXIS_LIMIT)
+
 	notoriety_changed.emit(notoriety)
 	# Heat is derived, so it needs no save section of its own -- but the band must
 	# be re-resolved after a load or the world keeps the tier it booted with.

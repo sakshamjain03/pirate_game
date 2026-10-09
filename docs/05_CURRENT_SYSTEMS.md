@@ -4051,6 +4051,16 @@ autoloads such as `AudioManager`), so it was not run.
 - Headful capture: `scenes/debug/FeedbackCaptureHarness.tscn` (stage
   `scripts/debug/FeedbackCaptureStage.gd`) shows the red wind-up wedge, the green rake cone on the
   marked target, the three ribbons, chain-blue and rake-green numbers, and the keg astern.
+- Brace capture (W1 review): `scenes/debug/BraceCaptureHarness.tscn` (stage
+  `scripts/debug/BraceCaptureStage.gd`) has a hostile hull's real `ShipCombat` re-emit
+  `broadside_windup(side, 2.0, player)`, so the tracker, the arbiter and the HUD all run unmodified.
+  On desktop the frames (t=1/3/7/12 s) show "[F] BRACE!" under the port-cannon panel, plus the red
+  threat wedge and rim arrow. Run with `--mobile` (it forces `PirateThemeBuilder`'s phone static),
+  the context button reads "Brace" and the desktop label is hidden. A startup modal (What's New,
+  the offline-earnings offer) pauses the tree when the user:// save is stale; the stage closes it so
+  the capture clock runs. In the forced-phone frames the top-right utility buttons overlap the
+  side-fire icons and the Notoriety panel; this is unconfirmed on a real phone and was not
+  investigated here.
 - **Not verified here:** how the punch feels, haptics on a device, and touch tap-to-mark on a real
   phone. In the capture the keg is only a few pixels at default zoom, so its readability needs a
   look in M31.

@@ -177,6 +177,18 @@ call `SaveManager.save_game()` before changing scene.
     Gunner idles at 0.4 to hold range, a fireship closes at 1.0. Steering and avoidance code are
     unchanged. A FIRESHIP also excludes its own target from hull (not terrain) avoidance while
     engaged, the same exclusion a ram run already had, or it could never reach contact.
+  - *Accepted deviation (W1 review): station-keeping.* W1-1.1 says "only `ideal_position`
+    changes", but `_steer_towards` has no arrival slow-down, so a hull aimed at a point one turning
+    circle off the target orbits it and never settles (a Raker under physics was still abeam at
+    t=20 s). `EnemyAI._try_station_keep()` therefore runs for every non-STANDARD tactic once the
+    hull is within `AIProfileData.station_radius` of its ideal point (not for a Long Gunner inside
+    its kite line). It aims `station_lookahead_seconds` of the target's forward speed ahead of the
+    point along the target's heading, and sets the throttle to the target's own forward speed plus
+    `station_speed_gain` × the distance to that aim point along the hull's bow, so the hull slows
+    onto the point instead of overshooting. Both the aim point and the throttle change, not just
+    `ideal_position`. Steering, the sharp-turn throttle cut and the avoidance override are still
+    `_steer_towards`'s, unchanged. `station_radius <= 0` turns it off. The `station_*` fields are
+    placeholders, to be tuned in M31.
 - **Wind-up.** In `ShipCombat._physics_process`, the auto-fire branch becomes:
   - on arc lock with the reload ready, emit `broadside_windup` and start `_windup_t`;
   - fire when it elapses, if the target is still in the arc;
@@ -191,6 +203,12 @@ call `SaveManager.save_game()` before changing scene.
   - `ShipDamage.apply_hit`/`apply_impact` multiply incoming damage by
     `modifiers.get_damage_taken_mult()`.
   - Perfect window: the Brace press lands within `perfect_window` of a wind-up's end.
+  - *Accepted deviation (W1 review):* the reduction lives on a **PERSISTENT** `CombatModifiers`
+    layer (`ShipCombat.BRACE_LAYER`, set by `apply_brace()` and cleared when the window closes),
+    not the TIMED layer. `ShipCombat` already runs the window's clock, because it gates the guns
+    and starts the cooldown. A TIMED entry can't be cancelled early, and can't be told apart from
+    captain-ability bursts. Brace is also offered on the context button only while a hostile
+    wind-up is aimed at the player.
 - **Squads.**
   - `_spawn_composition`: if `data.squad` is non-empty, loop over the slots and set
     `ai.ai_profile` before `add_child`.

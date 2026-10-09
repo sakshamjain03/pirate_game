@@ -3992,8 +3992,9 @@ autoloads such as `AudioManager`), so it was not run.
   `CombatFeedback.tres`). A tap on open water is not consumed. Left/right click are never read for
   marking: they are `fire_port`/`fire_starboard`, and a first version that marked on left-click
   swallowed the port broadside whenever the cursor was near a hull (W1 review). The
-  `test_m30_aim_by_bearing.gd` input tests drive real events through `_unhandled_input`. `get_current_target()` (the mark, else the nearest locked hull,
-  else the nearest hostile in range) feeds the rake cone.
+  `test_m30_aim_by_bearing.gd` input tests drive real events through `_unhandled_input`.
+  `get_current_target()` (the mark, else the nearest locked hull, else the nearest hostile in
+  range) feeds the rake cone.
 
 ### Powder kegs (1.10) — `PowderKeg.tscn/.gd`, `KegConfigData.gd` + `KegConfig.tres`, `WorldManager.gd`
 - The `keg` context verb is offered while a live hostile (`enemy_ship`/`boss_ship`) is inside the
@@ -4044,9 +4045,9 @@ autoloads such as `AudioManager`), so it was not run.
   half-angle is the target's `stern_arc_degrees / 2`.
 
 ### Verification
-- Tests: `test_m30_threat_decals.gd` (15), `test_m30_aim_by_bearing.gd` (10),
-  `test_m30_powder_keg.gd` (11) and `test_m30_feedback.gd` (20) assert behaviour through real
-  hulls. All 20 mutations were caught.
+- Tests: `test_m30_threat_decals.gd` (17), `test_m30_aim_by_bearing.gd` (14, including the 4
+  W1-review desktop/touch input tests), `test_m30_powder_keg.gd` (17) and `test_m30_feedback.gd`
+  (20) assert behaviour through real hulls. All 20 mutations were caught.
 - Headful capture: `scenes/debug/FeedbackCaptureHarness.tscn` (stage
   `scripts/debug/FeedbackCaptureStage.gd`) shows the red wind-up wedge, the green rake cone on the
   marked target, the three ribbons, chain-blue and rake-green numbers, and the keg astern.

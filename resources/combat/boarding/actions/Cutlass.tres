@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_a")
 id = &"cutlass"
-display_name = "Cutlass Charge"
+display_name = "Cutlass"
 cp_cost = 1
 target_rule = 0
 damage = 3

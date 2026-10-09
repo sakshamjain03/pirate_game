@@ -185,6 +185,21 @@ func queue_advance(to_zone: int) -> bool:
 	return true
 
 
+## The orders queued for the next bell, oldest first: {"kind": "action", "action", "target", "cost"}
+## or {"kind": "advance", "to", "cost"}. A copy; the UI reads it to show what is planned.
+func queued() -> Array[Dictionary]:
+	return _queue.duplicate()
+
+
+## The player gives up: the grapples part and the battle ends as a cut-loose.
+func retreat() -> void:
+	if is_over():
+		return
+	var events: Array[Dictionary] = []
+	_end("cut_loose", false, 1.0, false, events)
+	_finish(events)
+
+
 func unqueue_last() -> void:
 	if not _queue.is_empty():
 		_queue.pop_back()

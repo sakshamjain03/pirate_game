@@ -18,6 +18,9 @@ signal boarding_started(enemy_ship: Node)
 ## `details` carries success, loot, target_faction_id, target_ship_id and enemy.
 ## Emitted right after `boarding_resolved`, which still fires exactly once.
 signal boarding_outcome(outcome_id: String, details: Dictionary)
+## M30 W2 (2.5): what boarding this eligible target would face, for the preview strip on its
+## health bar. Re-emitted as gunnery changes the deck. `summary` is BoardingDeckBuilder.summarize().
+signal deck_preview_changed(enemy_ship: Node, summary: Dictionary)
 ## begin_boarding() skipped the battle: reason is "quick" (setting) or "overwhelm".
 signal boarding_routed(reason: String)
 
@@ -34,6 +37,9 @@ var battle: BoardingBattle = null
 var deck: BoardingDeck = null
 
 func _ready() -> void:
+	# A debug capture harness instances World under its own root, so a fixed scene path
+	# misses; WorldHUD finds the system through this group there (as with EncounterManager).
+	add_to_group(&"boarding_system")
 	if not boarding_data:
 		boarding_data = load("res://resources/combat/Boarding.tres")
 
@@ -74,6 +80,7 @@ func _check_eligibility() -> void:
 		_eligible_enemy = best_enemy
 		if _eligible_enemy:
 			boarding_prompt_available.emit(_eligible_enemy)
+			_emit_preview(_eligible_enemy)
 		else:
 			_clear_prompt()
 
@@ -294,7 +301,9 @@ func _track_hits(enemy: Node) -> void:
 		log.append(hit_tags)
 		while log.size() > boarding_data.hit_log_size:
 			log.pop_front()
-		enemy.set_meta(HIT_LOG_META, log))
+		enemy.set_meta(HIT_LOG_META, log)
+		if enemy == _eligible_enemy:
+			_emit_preview(enemy))
 
 
 func _build_deck(player: Node, enemy: Node, player_dmg: Node, enemy_dmg: Node) -> BoardingDeck:
@@ -329,3 +338,24 @@ func _build_deck(player: Node, enemy: Node, player_dmg: Node, enemy_dmg: Node) -
 		"threats": threats,
 		"roles": roles,
 	})
+
+
+## The deck summary the target would present right now, or {} when it cannot be built.
+func preview_for(enemy: Node) -> Dictionary:
+	var players = get_tree().get_nodes_in_group("player_ship")
+	if players.size() == 0 or not is_instance_valid(enemy):
+		return {}
+	var player_dmg = players[0].get_node_or_null("ShipDamage")
+	var enemy_dmg = enemy.get_node_or_null("ShipDamage")
+	if not player_dmg or not enemy_dmg:
+		return {}
+	var built := _build_deck(players[0], enemy, player_dmg, enemy_dmg)
+	if built == null:
+		return {}
+	return BoardingDeckBuilder.summarize(built, boarding_data)
+
+
+func _emit_preview(enemy: Node) -> void:
+	var summary := preview_for(enemy)
+	if not summary.is_empty():
+		deck_preview_changed.emit(enemy, summary)

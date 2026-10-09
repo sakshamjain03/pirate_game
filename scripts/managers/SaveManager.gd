@@ -47,6 +47,9 @@ var _auto_save_interval: float = 60.0
 ## M30 0.4 — true while the cloud-conflict dialog is open; the autosave must
 ## not write (and upload) the in-memory World before the player has chosen.
 var _suspend_autosave := false
+## M30 W2 (2.5): named holds on autosave (e.g. the boarding overlay). Autosave runs only
+## when `_suspend_autosave` is false AND no hold is set; each system releases its own.
+var _autosave_holds: Dictionary = {}
 
 # --- M30 0.7-0.10: cloud sync safety ---------------------------------------
 const SYNC_OFF := &"off"          # signed out
@@ -283,11 +286,19 @@ func _restore_authored_island_ownership() -> void:
 			# rest of the game compares against, never a fresh copy.
 			live.owner_faction = FactionManager._resolve_faction(authored.owner_faction.faction_id) if authored.owner_faction else null
 
+## Hold (or release) autosave under a name. Idempotent per key.
+func hold_autosave(key: StringName, on: bool) -> void:
+	if on:
+		_autosave_holds[key] = true
+	else:
+		_autosave_holds.erase(key)
+
+
 func _process(delta: float) -> void:
 	if not get_tree().current_scene or get_tree().current_scene.name != "World":
 		return
 
-	if _suspend_autosave:
+	if _suspend_autosave or not _autosave_holds.is_empty():
 		return
 	_save_timer += delta
 	if _save_timer >= _auto_save_interval:

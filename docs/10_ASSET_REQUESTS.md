@@ -418,6 +418,28 @@ Delivery: `res://assets/icons/events/wind_shifted.svg`
 
 ---
 
+## Boarding defender discs — 5 PNG (M30 W2, optional)
+
+The Three Bells boarding overlay (`BoardingOverlay`) shows each defender as a round disc. Until art
+lands the disc holds a one-letter glyph on a red circle; **dropping a PNG at the path below replaces
+it with no code change** (`BoardingOverlay.GLYPH_DIR`). The player's boarders and the verbs use text
+glyphs only for now. **Tool: Claude Design → PNG.**
+
+Common spec: 96×96 PNG, RGBA, transparent background, ≤ 60 KB, flat colour with a 6-unit dark outline,
+a bust or emblem that reads at 40 px, drawn to sit on a red (#9e3329) disc.
+
+| File | Subject |
+|---|---|
+| `deckhand.png` | A deckhand: bandana, bare arms, a belaying pin or cutlass |
+| `rigger.png` | A rigger: rope coil over the shoulder, tarred hat |
+| `marine.png` | A marine: shako, crossbelt, musket |
+| `gunner.png` | A gunner: sharpshooter squinting, flintlock raised |
+| `officer.png` | An officer: bicorne hat, braided coat, sabre |
+
+**Delivery path:** `res://assets/ui/boarding/<file>.png`
+
+---
+
 ## Buildings — 10 types × 5 levels (50 models)
 
 **Why:** every level of every building currently reuses ONE placeholder model (e.g. Farm L1-L5 =

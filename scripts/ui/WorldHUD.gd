@@ -63,6 +63,7 @@ const RewardedBonusOfferScene := preload("res://scenes/ui/RewardedBonusOffer.tsc
 ## as SettingsMenu.gd's own ChoiceDialogScript constant).
 const HudCustomizeOverlayScript := preload("res://scripts/ui/HudCustomizeOverlay.gd")
 const EnemyHealthBarWidgetScene := preload("res://scenes/ui/EnemyHealthBarWidget.tscn")
+const BoardingOverlayScene := preload("res://scenes/ui/BoardingOverlay.tscn")
 ## Presentation-only cutoff for the enemy health bar overlay — not a combat
 ## balance value, so a plain constant is fine (AGENTS.md's no-hardcoded-
 ## gameplay-values rule targets balance data, not UI legibility knobs).
@@ -156,6 +157,9 @@ var _last_reported_health: float = -1.0
 ## fix) — pooled per ship instance ID so a widget persists across frames
 ## rather than being torn down and rebuilt each tick.
 var _enemy_bar_pool: Dictionary = {}
+## M30 W2 (2.5): the last boarding-deck summary per enemy hull instance id, applied to a health
+## bar built after the prompt that produced it.
+var _boarding_previews: Dictionary = {}
 var _notoriety_next_label: Label
 ## M25 heat tier name, shown beside the notoriety number.
 var _heat_tier_label: Label
@@ -582,10 +586,20 @@ func _find_ship() -> void:
 		dock_sys.dock_speed_exceeded.connect(_on_dock_speed_exceeded)
 		
 	var boarding_sys = current_scene.get_node_or_null("Systems/BoardingSystem") if current_scene else null
+	if not boarding_sys:
+		boarding_sys = get_tree().get_first_node_in_group("boarding_system")
 	if boarding_sys:
 		boarding_sys.boarding_prompt_available.connect(_on_boarding_prompt_available)
 		boarding_sys.boarding_prompt_unavailable.connect(_on_boarding_prompt_unavailable)
 		boarding_sys.boarding_resolved.connect(_on_boarding_resolved)
+		# M30 W2 (2.5) — the Three Bells overlay, the live deck preview on the target's
+		# health bar, and the toast when Quick boarding / a crushing crew skips the battle.
+		var overlay := BoardingOverlayScene.instantiate() as BoardingOverlay
+		overlay.name = "BoardingOverlay"
+		add_child(overlay)
+		overlay.bind_boarding_system(boarding_sys)
+		boarding_sys.deck_preview_changed.connect(_on_boarding_preview_changed)
+		boarding_sys.boarding_routed.connect(_on_boarding_routed)
 
 	var enc_mgr = current_scene.get_node_or_null("Systems/EncounterManager") if current_scene else null
 	if not enc_mgr:
@@ -1276,7 +1290,26 @@ func _on_boarding_prompt_available(_enemy_ship: Node) -> void:
 		board_prompt.visible = true
 	HapticFeedbackManager.available()
 
+func _on_boarding_preview_changed(enemy_ship: Node, summary: Dictionary) -> void:
+	_boarding_previews[enemy_ship.get_instance_id()] = summary
+	var widget: Control = _enemy_bar_pool.get(enemy_ship.get_instance_id())
+	if widget and widget.has_method("set_boarding_preview"):
+		widget.set_boarding_preview(summary)
+
+
+func _on_boarding_routed(reason: String) -> void:
+	announce_event(tr("Quick boarding.") if reason == "quick" else tr("Overwhelming numbers. They yield at once."))
+
+
+func _clear_boarding_previews() -> void:
+	_boarding_previews.clear()
+	for widget in _enemy_bar_pool.values():
+		if is_instance_valid(widget) and widget.has_method("set_boarding_preview"):
+			widget.set_boarding_preview({})
+
+
 func _on_boarding_prompt_unavailable() -> void:
+	_clear_boarding_previews()
 	if _uses_mobile_utility_menu():
 		_set_mobile_context_state("board", false)
 	elif board_prompt:
@@ -1469,6 +1502,8 @@ func _update_enemy_health_bars() -> void:
 			widget.size = widget.custom_minimum_size
 			widget.bind(ship)
 			_enemy_bar_pool[id] = widget
+			if _boarding_previews.has(id) and widget.has_method("set_boarding_preview"):
+				widget.set_boarding_preview(_boarding_previews[id])
 		_position_enemy_health_bar(widget, ship, camera)
 
 	for id in _enemy_bar_pool.keys():

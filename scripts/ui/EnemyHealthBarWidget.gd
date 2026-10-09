@@ -35,6 +35,9 @@ var _pulse_tween: Tween
 var _sails_bar: ProgressBar
 var _crew_bar: ProgressBar
 var _status_label: Label
+## M30 W2 (2.5): one line under the pools — what boarding this ship would face. Hidden
+## unless WorldHUD feeds it a summary from BoardingSystem.deck_preview_changed.
+var _preview_label: Label
 var _damage: Node = null
 var _pool_max: Dictionary = {"sails": 1.0, "crew": 1.0}
 var _pool_now: Dictionary = {"sails": 1.0, "crew": 1.0}
@@ -157,6 +160,19 @@ func _build_pool_bars() -> void:
 	_status_label.add_theme_constant_override("outline_size", UITokens.TEXT_OUTLINE_SIZE * 2)
 	vbox.add_child(_status_label)
 
+	_preview_label = Label.new()
+	_preview_label.name = "BoardingPreview"
+	_preview_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_preview_label.theme_type_variation = &"ChipLabel"
+	_preview_label.visible = false
+	_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# A wrapping label with no minimum width collapses to 1px in a VBox; match the bar.
+	_preview_label.custom_minimum_size = Vector2(custom_minimum_size.x, 0)
+	_preview_label.add_theme_color_override("font_outline_color", UITokens.palette().ink)
+	_preview_label.add_theme_constant_override("outline_size", UITokens.TEXT_OUTLINE_SIZE * 2)
+	vbox.add_child(_preview_label)
+
 
 ## Each pool carries a text tag as well as its bar. docs/18_ACCESSIBILITY.md —
 ## the three pools must be tellable apart without relying on colour.
@@ -215,3 +231,39 @@ func get_pool_fraction(pool: String) -> float:
 	if not _pool_max.has(pool):
 		return 1.0
 	return _pool_now[pool] / _pool_max[pool]
+
+
+# ------------------------------------------------- Boarding preview (M30 W2)
+
+## `summary` is BoardingDeckBuilder.summarize(); an empty one hides the strip.
+func set_boarding_preview(summary: Dictionary) -> void:
+	_build_pool_bars()
+	if _preview_label == null:
+		return
+	if summary.is_empty():
+		_preview_label.visible = false
+		_preview_label.text = ""
+		return
+	_preview_label.text = boarding_preview_text(summary)
+	_preview_label.visible = true
+
+
+func boarding_preview_text(summary: Dictionary) -> String:
+	var entry: int = int(summary.get("entry", BoardingZone.Id.WAIST))
+	var text := "%s · %s · %s" % [
+		tr_n_defenders(int(summary.get("defenders", 0))),
+		"%s %d" % [tr("Bells"), int(summary.get("bells", 0))],
+		"%s %s" % [tr("Enter"), tr(BoardingZone.NAMES[clampi(entry, 0, BoardingZone.COUNT - 1)])]]
+	if int(summary.get("officers", 0)) > 0:
+		text += " · " + tr("Officer aboard")
+	if int(summary.get("threats", 0)) > 0:
+		text += " · " + tr("Escorts firing")
+	return text
+
+
+func tr_n_defenders(count: int) -> String:
+	return "%d %s" % [count, tr("defenders") if count != 1 else tr("defender")]
+
+
+func get_boarding_preview_label() -> Label:
+	return _preview_label

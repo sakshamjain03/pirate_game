@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_a")
 id = &"pistol"
-display_name = "Pistol Volley"
+display_name = "Pistol"
 cp_cost = 1
 target_rule = 1
 damage = 2

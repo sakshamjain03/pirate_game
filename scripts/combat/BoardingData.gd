@@ -51,3 +51,6 @@ class_name BoardingData extends Resource
 @export var default_profile: BoardingDeckProfile
 ## The verbs the overlay offers (Cutlass, Pistol, Shove, Parry, Brace, Point-Blank).
 @export var actions: Array[BoardingActionData] = []
+
+## Share of the player's max crew lost if the whole boarding party falls (scaled by casualties).
+@export var casualty_crew_fraction: float = 0.4  # placeholder: tune in M31

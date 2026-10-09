@@ -64,6 +64,8 @@ func refresh() -> void:
 
 
 func _on_boarding_outcome(_outcome_id: String, details: Dictionary) -> void:
+	if SceneManager and not SceneManager.is_campaign():
+		return
 	FleetManager.apply_boarding_result(details)
 
 

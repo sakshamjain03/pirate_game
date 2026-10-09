@@ -98,7 +98,7 @@ func _clear_prompt() -> void:
 ## officers who escaped are remembered (and promoted next time); a Colours outcome with them still
 ## aboard ends a Nemesis and pays the bounty; winning under No Quarter is Dread.
 func _settle_officers(faction_id: String, success: bool, outcome_id: String, details: Dictionary) -> void:
-	if faction_id.is_empty():
+	if faction_id.is_empty() or not SceneManager.is_campaign():
 		return
 	if bool(details.get("officers_escaped", false)):
 		EmpireManager.register_officer_escape(faction_id)
@@ -181,6 +181,10 @@ func resolve_tactical(outcome_id: String, success: bool, details: Dictionary = {
 
 
 func _auto_route_reason(player: Node, player_dmg: Node, enemy_dmg: Node) -> String:
+	# A Maelstrom run is a closed arcade mode: no Three Bells, no prizes, nothing that reaches the
+	# campaign fleet, factions or empire.
+	if SceneManager and not SceneManager.is_campaign():
+		return "maelstrom"
 	if SettingsManager and SettingsManager.quick_boarding:
 		return "quick"
 	if _attacker_strength(player, player_dmg) >= boarding_data.overwhelm_ratio * enemy_dmg.crew:
@@ -230,7 +234,12 @@ func attempt_boarding() -> bool:
 	var defender_strength = enemy_dmg.crew
 
 	var success = attacker_strength > defender_strength
-	_apply_outcome(_eligible_enemy, success, "auto_win" if success else "auto_loss")
+	# A ship that had struck her colours is TAKEN even by the instant path (Quick boarding or an
+	# overwhelming crew): a Colours outcome, so she is captured and the Prize Ledger opens.
+	if success and _is_struck(_eligible_enemy) and SceneManager.is_campaign():
+		_apply_outcome(_eligible_enemy, true, "struck", {"captures_ship": true})
+	else:
+		_apply_outcome(_eligible_enemy, success, "auto_win" if success else "auto_loss")
 	return true
 
 
@@ -299,7 +308,7 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 				and not enemy.is_in_group("boss_ship"):
 			enemy.set_meta("captured", true)
 		# M30 W2 (2.6) - taking the surrendered rather than sinking them is Renown.
-		if _is_struck(enemy) and EmpireManager:
+		if _is_struck(enemy) and EmpireManager and SceneManager.is_campaign():
 			EmpireManager.shift_axis(-NotorietyGainsData.get_default().renown_take_prize)
 		enemy_dmg.hull = 0.0
 		enemy_dmg.mark_destroyed()

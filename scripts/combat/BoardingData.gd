@@ -34,6 +34,8 @@ class_name BoardingData extends Resource
 @export var guard_reduction: int = 2
 ## Defenders one zone can hold; a Shove into a full zone fails.
 @export var zone_slots: int = 4
+## What the Hold pays after the enemy jettisoned its cargo (bell 2).
+@export var jettison_hold_mult: float = 0.5
 
 # --- Deck building and content (M30 2.3) ---
 ## The player's side of the battle: boarders = round(crew * boarder_fraction), clamped.

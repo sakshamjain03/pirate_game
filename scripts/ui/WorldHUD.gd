@@ -1348,6 +1348,8 @@ func _on_boarding_preview_changed(enemy_ship: Node, summary: Dictionary) -> void
 
 
 func _on_boarding_routed(reason: String) -> void:
+	if reason == "maelstrom":
+		return
 	announce_event(tr("Quick boarding.") if reason == "quick" else tr("Overwhelming numbers. They yield at once."))
 
 

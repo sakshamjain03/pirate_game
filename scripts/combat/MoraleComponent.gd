@@ -74,7 +74,7 @@ func notify_leader_sunk(leader: Node = null) -> void:
 func drain(amount: float) -> void:
 	if amount <= 0.0 or state == State.FLED or state == State.STRUCK:
 		return
-	value = clampf(value - amount, 0.0, 100.0)
+	value = clampf(value - amount, 0.0, data.start)
 	morale_changed.emit(value)
 	if can_break and state == State.STEADY and value <= data.wavering_threshold:
 		state = State.WAVERING

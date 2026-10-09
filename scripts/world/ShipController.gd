@@ -413,7 +413,8 @@ func _on_died() -> void:
 			get_tree().call_group("morale_component", "notify_leader_sunk", self)
 		# Sinking a ship that had already struck its colours is the cruel choice: Dread.
 		# A ship taken by boarding carries `boarding_outcome` and is not that.
-		if get_meta("struck", false) and not has_meta("boarding_outcome") and EmpireManager:
+		if get_meta("struck", false) and not has_meta("boarding_outcome") and EmpireManager \
+				and SceneManager.is_campaign():
 			EmpireManager.shift_axis(NotorietyGainsData.get_default().dread_sink_struck)
 
 	_spawn_explosion()

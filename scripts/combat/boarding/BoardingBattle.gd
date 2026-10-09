@@ -410,7 +410,7 @@ func _check_seize(events: Array[Dictionary]) -> bool:
 		if obj.zone == zone:
 			var mult := obj.loot_mult
 			if hold_jettisoned and obj.outcome_id == &"hold":
-				mult *= 0.5
+				mult *= rules.jettison_hold_mult
 			_end(str(obj.outcome_id), true, mult, obj.captures_ship, events,
 					{"grants_elite_squad": obj.grants_elite_squad, "captain_xp": obj.captain_xp})
 			return true

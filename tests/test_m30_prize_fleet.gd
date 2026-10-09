@@ -48,6 +48,8 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
+	SaveManager.hold_autosave(PrizeLedger.AUTOSAVE_HOLD, false)
 	get_tree().paused = false
 	FleetManager.owned_ships = _saved_ships.duplicate()
 	FleetManager.prizes_in_transit = _saved_transit.duplicate(true)
@@ -622,3 +624,75 @@ func test_colours_then_keep_then_dock_puts_a_prize_in_the_fleet() -> void:
 	assert_eq(FleetManager.owned_ships.size(), 1)
 	assert_true(FleetManager.owned_ships[0].is_prize)
 	assert_eq(FleetManager.owned_ships[0].ship_stats.ship_id, "sloop")
+
+
+# === Review fixes: a struck ship is always taken; Maelstrom is closed; the ledger holds autosave ===
+
+func test_a_struck_ship_is_captured_even_by_quick_boarding() -> void:
+	SettingsManager.quick_boarding = true
+	var rig := _boarding(true)
+	var system: BoardingSystem = rig["system"]
+	var ledger := _ledger()
+	ledger.bind_boarding_system(system)
+	watch_signals(system)
+	assert_true(system.begin_boarding())
+	assert_signal_emitted_with_parameters(system, "boarding_routed", ["quick"])
+	assert_eq(get_signal_parameters(system, "boarding_outcome")[0], "struck", "a Colours outcome, not an anonymous win")
+	assert_true(rig["enemy"].get_meta("captured", false), "she is taken, not destroyed")
+	assert_true(ledger.is_open, "and the Prize Ledger opens")
+
+
+func test_an_overwhelmed_struck_ship_is_captured_too() -> void:
+	var rig := _boarding(true)
+	rig["enemy"].get_node("ShipDamage").crew = 10.0  # 120 >= 3 x 10
+	var system: BoardingSystem = rig["system"]
+	watch_signals(system)
+	system.begin_boarding()
+	assert_signal_emitted_with_parameters(system, "boarding_routed", ["overwhelm"])
+	assert_eq(get_signal_parameters(system, "boarding_outcome")[0], "struck")
+
+
+func test_an_unstruck_instant_win_is_still_the_old_plunder() -> void:
+	SettingsManager.quick_boarding = true
+	var rig := _boarding(false)
+	var system: BoardingSystem = rig["system"]
+	watch_signals(system)
+	system.begin_boarding()
+	assert_eq(get_signal_parameters(system, "boarding_outcome")[0], "auto_win")
+	assert_false(rig["enemy"].get_meta("captured", false))
+
+
+func test_a_maelstrom_run_never_reaches_the_campaign() -> void:
+	SceneManager.game_mode = SceneManager.GameMode.MAELSTROM
+	var rig := _boarding(true)
+	var system: BoardingSystem = rig["system"]
+	var ledger := _ledger()
+	ledger.bind_boarding_system(system)
+	var marines := OwnedSquadData.new()
+	marines.uid = "m1"
+	marines.role = &"marines"
+	var saved_squads := FleetManager.squads.duplicate()
+	FleetManager.squads.append(marines)
+	watch_signals(system)
+	system.begin_boarding()
+	assert_signal_emitted_with_parameters(system, "boarding_routed", ["maelstrom"])
+	assert_false(system.is_boarding_active(), "no Three Bells in a Maelstrom run")
+	assert_false(ledger.is_open, "no prize")
+	assert_eq(marines.wounds, 0, "the company is untouched")
+	assert_eq(marines.xp, 0)
+	assert_eq(EmpireManager.axis, 0.0, "no Renown or Dread reaches the campaign")
+	FleetManager.squads = saved_squads
+	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
+
+
+func test_the_ledger_holds_autosave_while_it_is_open() -> void:
+	var ledger := _ledger()
+	ledger.open(_record(), _player(100.0))
+	assert_true(SaveManager._autosave_holds.has(PrizeLedger.AUTOSAVE_HOLD), "the prize exists only in this modal")
+	ledger.choose(PrizeOffers.Choice.BREAK)
+	assert_false(SaveManager._autosave_holds.has(PrizeLedger.AUTOSAVE_HOLD))
+	var l2 := _ledger()
+	l2.open(_record(), _player(100.0))
+	_scene.remove_child(l2)
+	l2.free()
+	assert_false(SaveManager._autosave_holds.has(PrizeLedger.AUTOSAVE_HOLD), "freed while open releases it")

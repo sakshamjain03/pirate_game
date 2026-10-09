@@ -18,7 +18,7 @@ const DEFAULT_PATH := "res://resources/crew/CrewRanks.tres"
 @export var station_mults: PackedFloat32Array = PackedFloat32Array([0.5, 1.0, 1.5, 2.0])  # placeholder: tune in M31
 ## Ranks at or above this index can only be reached with BOARDING xp: elite crews are made in
 ## the fight on an enemy deck, never bought at the Tavern or earned by sailing.
-@export var boarding_only_from_rank: int = 3
+@export var boarding_only_from_rank: int = 3  # placeholder: tune in M31
 ## Wounds a squad can take before it is out of action (no station bonus, no boarding).
 @export var wound_cap: int = 3  # placeholder: tune in M31
 ## Wounds that heal each time the player docks.
@@ -46,8 +46,8 @@ const DEFAULT_PATH := "res://resources/crew/CrewRanks.tres"
 
 ## The Tavern: gold per squad (Green only), and how many squads a company holds.
 @export var hire_cost_gold: int = 150  # placeholder: tune in M31
-@export var max_squads: int = 8
-@export var squad_headcount: int = 8
+@export var max_squads: int = 8  # placeholder: tune in M31
+@export var squad_headcount: int = 8  # placeholder: tune in M31
 ## A fresh company (and an old save) is derived from the ship's crew as one squad per role here.
 @export var template_roles: Array[StringName] = [&"gunners", &"riggers", &"marines", &"surgeons"]
 

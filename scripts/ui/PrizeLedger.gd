@@ -12,6 +12,7 @@ class_name PrizeLedger extends Control
 
 signal choice_made(choice: int, result: Dictionary)
 
+const AUTOSAVE_HOLD := &"prize_ledger"
 const FONT_TITLE := 40
 const FONT_CARD_TITLE := 30
 const FONT_CARD_BODY := 22
@@ -39,6 +40,7 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if is_open:
 		is_open = false
+		SaveManager.hold_autosave(AUTOSAVE_HOLD, false)
 		if is_inside_tree():
 			get_tree().paused = false
 
@@ -50,6 +52,8 @@ func bind_boarding_system(system: BoardingSystem) -> void:
 
 
 func _on_boarding_outcome(outcome_id: String, details: Dictionary) -> void:
+	if SceneManager and not SceneManager.is_campaign():
+		return
 	var rec := PrizeOffers.record_from_outcome(outcome_id, details)
 	if rec.is_empty():
 		return
@@ -69,6 +73,7 @@ func open(prize_record: Dictionary, player: Node = null) -> void:
 	_subtitle.text = _ship_title()
 	_rebuild_cards()
 	is_open = true
+	SaveManager.hold_autosave(AUTOSAVE_HOLD, true)  # the taken ship exists only in this modal until a pick
 	show()
 	UIMotion.modal_enter(_panel, _dim)
 	get_tree().paused = true
@@ -82,6 +87,7 @@ func choose(choice: int) -> void:
 	if not bool(result.get("ok", false)):
 		return
 	is_open = false
+	SaveManager.hold_autosave(AUTOSAVE_HOLD, false)
 	hide()
 	get_tree().paused = false
 	choice_made.emit(choice, result)

@@ -32,7 +32,13 @@ func before_each() -> void:
 	_prev_resources = ResourceManager.current_resources.duplicate()
 
 	_system = BoardingSystem.new()
-	_system.boarding_data = BoardingData.new()
+	var bd := BoardingData.new()
+	var profile := BoardingDeckProfile.new()
+	var foe := DefenderData.new()
+	foe.hp = 4
+	profile.defenders = [foe, foe, foe]
+	bd.default_profile = profile
+	_system.boarding_data = bd
 	get_tree().current_scene.add_child(_system)
 
 	_player = _make_ship(true, 100.0)
@@ -105,6 +111,23 @@ func test_an_even_fight_locks_the_target_and_resolves_nothing() -> void:
 	assert_true(_system.is_boarding_active())
 	assert_same(_system._locked_enemy, _enemy)
 	assert_false(_enemy.get_node("ShipDamage").is_destroyed())
+
+
+func test_with_no_deck_profile_a_tactical_boarding_falls_back_to_the_instant_path() -> void:
+	_system.boarding_data.default_profile = null
+	watch_signals(_system)
+	assert_true(_system.begin_boarding())
+	assert_signal_not_emitted(_system, "boarding_started")
+	assert_signal_emit_count(_system, "boarding_resolved", 1)
+
+
+func test_a_tactical_boarding_builds_its_battle_from_the_deck() -> void:
+	_system.begin_boarding()
+	assert_not_null(_system.battle)
+	assert_not_null(_system.deck)
+	assert_eq(_system.battle.defenders.size(), 3)
+	_system.resolve_tactical("colours", true)
+	assert_null(_system.battle, "cleared with the lock")
 
 
 func test_begin_is_refused_while_a_boarding_is_open_and_with_no_target() -> void:

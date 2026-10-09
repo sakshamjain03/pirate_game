@@ -27,6 +27,11 @@ var _eligible_enemy: Node = null
 ## The target of a tactical boarding in progress. Held apart from
 ## `_eligible_enemy`, which keeps tracking range while the battle is open.
 var _locked_enemy: Node = null
+## The Three Bells battle for the locked target (M30 2.3), built when it is locked and
+## driven by the BoardingOverlay. Null outside a tactical boarding.
+var battle: BoardingBattle = null
+## The deck that battle started from, kept for the overlay's preview and the tests.
+var deck: BoardingDeck = null
 
 func _ready() -> void:
 	if not boarding_data:
@@ -49,7 +54,8 @@ func _check_eligibility() -> void:
 	for enemy in enemies:
 		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
 			continue
-			
+		_track_hits(enemy)
+
 		var dmg = enemy.get_node_or_null("ShipDamage")
 		if not dmg or dmg.hull <= 0.0:
 			continue
@@ -100,9 +106,18 @@ func begin_boarding() -> bool:
 		boarding_routed.emit(reason)
 		return attempt_boarding()
 
+	var built := _build_deck(players[0], _eligible_enemy, player_dmg, enemy_dmg)
+	if built == null:
+		# No deck profile is authored for this hull: play it as the old instant comparison
+		# rather than opening an empty battle.
+		push_error("BoardingSystem: no BoardingDeckProfile for this target; resolving instantly")
+		return attempt_boarding()
+
 	_provoke(_eligible_enemy)
 	if AudioManager: AudioManager.play_sound("boarding_start")
 	_locked_enemy = _eligible_enemy
+	deck = built
+	battle = BoardingBattle.new(deck, boarding_data, randi())
 	boarding_started.emit(_locked_enemy)
 	return true
 
@@ -111,6 +126,8 @@ func begin_boarding() -> bool:
 ## unloaded). The target is left exactly as it was.
 func cancel_boarding() -> void:
 	_locked_enemy = null
+	battle = null
+	deck = null
 
 
 ## Called by the BoardingOverlay when the battle ends. `details` may carry
@@ -248,6 +265,8 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 	# the same enemy until the deterministic comparison happens to flip.
 	_eligible_enemy = null
 	_locked_enemy = null
+	battle = null
+	deck = null
 
 	boarding_resolved.emit(success, loot, target_faction_id, target_ship_id)
 	boarding_outcome.emit(outcome_id, {
@@ -255,3 +274,58 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 		"target_faction_id": target_faction_id, "target_ship_id": target_ship_id,
 	})
 	_clear_prompt()
+
+
+## Keeps the last few player hits on each enemy (one PackedStringArray of "ammo:<id>" and
+## "facing:<facing>" per hit) as node meta, so the deck can be shaped by the gunnery that
+## brought the target down. Meta dies with the hull; nothing needs pruning.
+const HIT_LOG_META := &"hit_tag_log"
+
+func _track_hits(enemy: Node) -> void:
+	var dmg = enemy.get_node_or_null("ShipDamage")
+	if dmg == null or not dmg.has_signal("hit_resolved") or dmg.has_meta(&"boarding_tracked"):
+		return
+	dmg.set_meta(&"boarding_tracked", true)
+	dmg.hit_resolved.connect(func(source: Node, _facing: StringName, _deltas: Dictionary,
+			_ammo: StringName, hit_tags: PackedStringArray):
+		if not is_instance_valid(enemy) or source == null or not source.is_in_group("player_ship"):
+			return
+		var log: Array = enemy.get_meta(HIT_LOG_META, [])
+		log.append(hit_tags)
+		while log.size() > boarding_data.hit_log_size:
+			log.pop_front()
+		enemy.set_meta(HIT_LOG_META, log))
+
+
+func _build_deck(player: Node, enemy: Node, player_dmg: Node, enemy_dmg: Node) -> BoardingDeck:
+	var faction_id := ""
+	if "faction" in enemy and enemy.get("faction"):
+		faction_id = str(enemy.get("faction").get("faction_id"))
+	var stats: ShipStats = enemy_dmg.ship_stats
+	var profile := BoardingDeckBuilder.pick_profile(boarding_data.deck_profiles, faction_id,
+			stats.ship_class if stats else 1, boarding_data.default_profile)
+	if profile == null:
+		return null
+	var max_hp: float = enemy_dmg.get_effective_max_health() if enemy_dmg.has_method("get_effective_max_health") 			else stats.max_health
+	var forward: Vector3 = -(enemy as Node3D).global_transform.basis.z
+	var threats: Array = []
+	for other in get_tree().get_nodes_in_group("enemy_ship"):
+		if other == enemy or not is_instance_valid(other) or other.is_queued_for_deletion():
+			continue
+		var odmg = other.get_node_or_null("ShipDamage")
+		if odmg == null or odmg.hull <= 0.0:
+			continue
+		if (other as Node3D).global_position.distance_to((enemy as Node3D).global_position) 				<= boarding_data.outside_range:
+			threats.append({"id": StringName(odmg.ship_stats.ship_id if odmg.ship_stats else "escort"),
+					"name": odmg.ship_stats.display_name if odmg.ship_stats else "Escort"})
+	var roles: Array[StringName] = []
+	return BoardingDeckBuilder.build(profile, boarding_data, {
+		"hit_tags": enemy.get_meta(HIT_LOG_META, []),
+		"facing": BoardingDeckBuilder.entry_facing((enemy as Node3D).global_position, forward,
+				(player as Node3D).global_position, profile),
+		"hull_fraction": enemy_dmg.hull / maxf(max_hp, 1.0),
+		"crew_fraction": enemy_dmg.crew / maxf(stats.max_crew if stats else 1.0, 1.0),
+		"player_crew": player_dmg.crew,
+		"threats": threats,
+		"roles": roles,
+	})

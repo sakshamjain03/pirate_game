@@ -34,3 +34,20 @@ class_name BoardingData extends Resource
 @export var guard_reduction: int = 2
 ## Defenders one zone can hold; a Shove into a full zone fails.
 @export var zone_slots: int = 4
+
+# --- Deck building and content (M30 2.3) ---
+## The player's side of the battle: boarders = round(crew * boarder_fraction), clamped.
+@export var boarder_fraction: float = 0.25  # placeholder: tune in M31
+@export var boarder_min: int = 6  # placeholder: tune in M31
+@export var boarder_max: int = 24  # placeholder: tune in M31
+## Hostile hulls this close to the target keep firing from outside the grapple, at most
+## `max_outside_threats` of them.
+@export var outside_range: float = 40.0  # placeholder: tune in M31
+@export var max_outside_threats: int = 2  # placeholder: tune in M31
+## How many of the target's most recent player hits feed the deck (the hit_tags log).
+@export var hit_log_size: int = 12  # placeholder: tune in M31
+## Faction x class profiles, and the fallback when none matches.
+@export var deck_profiles: Array[BoardingDeckProfile] = []
+@export var default_profile: BoardingDeckProfile
+## The verbs the overlay offers (Cutlass, Pistol, Shove, Parry, Brace, Point-Blank).
+@export var actions: Array[BoardingActionData] = []

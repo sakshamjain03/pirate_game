@@ -1484,6 +1484,17 @@ func _create_fleet_entry(owned: OwnedShipData, index: int) -> void:
 			defend_btn.pressed.connect(func(): _on_defend_home_pressed(index, not is_defending))
 			hbox.add_child(defend_btn)
 			
+		# M30 W2 (2.9) - a prize can be sold to this port's prize court, if it has one.
+		var court := _prize_court_here()
+		if owned.is_prize and court != null:
+			var klass: int = owned.ship_stats.ship_class if owned.ship_stats else 1
+			var sell_btn = Button.new()
+			sell_btn.text = tr("Sell Prize (%d)") % court.quote(klass, owned.condition)
+			sell_btn.tooltip_text = tr("%s pays %d%% of her value.") % [court.display_name, roundi(court.payout_mult * 100.0)]
+			sell_btn.custom_minimum_size = Vector2(120, 40)
+			sell_btn.pressed.connect(func(): _on_sell_prize_pressed(owned.uid, court))
+			hbox.add_child(sell_btn)
+
 		var make_active_btn = Button.new()
 		make_active_btn.text = tr("Make Active")
 		make_active_btn.custom_minimum_size = Vector2(100, 40)
@@ -1658,6 +1669,19 @@ func _on_defend_home_pressed(ship_idx: int, defend: bool) -> void:
 	if FleetManager.has_method("set_defend_home"):
 		FleetManager.set_defend_home(ship_idx, defend)
 		_refresh_fleet()
+
+## The prize court of the port this menu is open at (by the island's owner faction), or null.
+func _prize_court_here() -> PrizeCourtData:
+	if current_island == null or not "island_data" in current_island or current_island.island_data == null:
+		return null
+	var owner = current_island.island_data.owner_faction
+	return PrizeCourtData.court_for(str(owner.faction_id)) if owner else null
+
+
+func _on_sell_prize_pressed(ship_uid: String, court: PrizeCourtData) -> void:
+	FleetManager.sell_prize(ship_uid, court, get_tree().get_first_node_in_group("player_ship"))
+	_refresh_fleet()
+
 
 func _on_make_active_pressed(index: int) -> void:
 	# Keeps the captain index in lockstep with the ship index, matching the

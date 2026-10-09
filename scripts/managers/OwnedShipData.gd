@@ -35,6 +35,9 @@ static var _catalog: ShipProgressionConfig = null
 @export var is_prize: bool = false
 @export_range(0.0, 1.0) var condition: float = 1.0
 @export var provenance_trait: StringName = &""
+## M30 W2 (2.9) - survivors of her crew taken with her. A prize court resolves them when she is
+## sold: PRESSED into your crew or handed back LOYAL to their flag.
+@export var captives: int = 0
 @export var level: int = 1
 @export var installed_modules: Array[ShipModuleData] = []
 ## M23 — component id -> level (1..level). A missing id reads as level 1.
@@ -182,7 +185,15 @@ func get_save_data() -> Dictionary:
 		data["is_prize"] = true
 		data["condition"] = condition
 		data["provenance_trait"] = str(provenance_trait)
+		if captives > 0:
+			data["captives"] = captives
 	return data
+
+
+## The faction she was taken from, read back from `provenance_trait` ("prize_<faction>"); "" if unknown.
+func provenance_faction() -> String:
+	var t := str(provenance_trait)
+	return t.trim_prefix("prize_") if t.begins_with("prize_") else ""
 
 
 static func from_save_data(data: Dictionary) -> OwnedShipData:
@@ -191,6 +202,7 @@ static func from_save_data(data: Dictionary) -> OwnedShipData:
 	o.is_prize = bool(data.get("is_prize", false))
 	o.condition = clampf(float(data.get("condition", 1.0)), 0.0, 1.0)
 	o.provenance_trait = StringName(str(data.get("provenance_trait", "")))
+	o.captives = maxi(0, int(data.get("captives", 0)))
 	var path: String = data.get("ship_path", "")
 	if ResourceLoader.exists(path):
 		o.ship_stats = load(path)

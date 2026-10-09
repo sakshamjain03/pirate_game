@@ -33,6 +33,7 @@ static func record_from_outcome(outcome_id: String, details: Dictionary,
 		"ship_class": int(details.get("ship_class", 1)),
 		"faction_id": str(details.get("target_faction_id", "")),
 		"officers_present": not bool(details.get("officers_escaped", false)),
+		"captives": maxi(0, int(details.get("captives", 0))),
 		"is_boss": false,
 		# A badly hurt hull is kept at the configured condition; a ship that struck at full hull
 		# is in better shape than that.
@@ -129,6 +130,7 @@ static func apply(choice: int, record: Dictionary, player: Node = null,
 				"faction_id": faction_id,
 				"provenance_trait": "prize_%s" % faction_id if not faction_id.is_empty() else "prize",
 				"condition": float(record.get("condition", config.keep_condition)),
+				"captives": int(record.get("captives", 0)),
 			})
 			return {"ok": true, "choice": choice}
 		Choice.RANSOM:

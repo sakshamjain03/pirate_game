@@ -13,6 +13,10 @@ signal fleet_changed()
 signal prize_sent(record: Dictionary)
 signal prize_arrived(owned: OwnedShipData)
 signal prize_recaptured(record: Dictionary)
+## M30 W2 (2.9) - a prize was sold to a port's prize court. `info` is what sell_prize() returned.
+signal prize_sold(info: Dictionary)
+## M30 W2 (2.9) - a court refused the prize (she was taken from a faction it protects).
+signal prize_refused(info: Dictionary)
 signal active_ship_changed(ship_stats: ShipStats, captain: CaptainData)
 signal captain_recruited(captain: CaptainData)
 
@@ -290,13 +294,14 @@ func owns_ship_stats(ship: ShipStats) -> bool:
 
 ## M30 W2 (2.8) - a hull taken in boarding joins the fleet. Unlike add_ship() this NEVER refuses a
 ## duplicate: three captured Sloops are three ships, each with its own uid.
-func add_prize(ship: ShipStats, condition: float, provenance: StringName) -> OwnedShipData:
+func add_prize(ship: ShipStats, condition: float, provenance: StringName, captives: int = 0) -> OwnedShipData:
 	var owned := OwnedShipData.new()
 	owned.ship_stats = ship
 	owned.uid = _new_uid()
 	owned.is_prize = true
 	owned.condition = clampf(condition, 0.0, 1.0)
 	owned.provenance_trait = provenance
+	owned.captives = maxi(0, captives)
 	owned_ships.append(owned)
 	fleet_changed.emit()
 	return owned
@@ -310,6 +315,66 @@ func send_prize_home(record: Dictionary) -> void:
 		entry["seed"] = randi()
 	prizes_in_transit.append(entry)
 	prize_sent.emit(entry)
+	fleet_changed.emit()
+
+
+## M30 W2 (2.9) - sells the prize with `ship_uid` to `court` (the court of the port the player is
+## docked at). A court refuses a prize taken from a faction it protects: that costs reputation
+## with the court's own faction and sells nothing. Otherwise the hull is paid for (condition x class
+## x the court's payout), removed from the fleet, and her captives resolved: PRESSED into the
+## player's crew (`player` = the player ship node, optional) or handed back LOYAL for goodwill.
+## The active hull cannot be sold. Returns {ok, ...}: refused -> {ok:false, refused:true,
+## rep_cost}; sold -> {ok:true, gold, pressed, repatriated, court_id, ship_id, faction_id}.
+func sell_prize(ship_uid: String, court: PrizeCourtData, player: Node = null) -> Dictionary:
+	var idx := index_of_uid(ship_uid)
+	if court == null or idx < 0 or not owned_ships[idx].is_prize:
+		return {"ok": false, "reason": "not_a_prize"}
+	if idx == active_ship_index:
+		return {"ok": false, "reason": "active_ship"}
+	var owned := owned_ships[idx]
+	var source := owned.provenance_faction()
+	if court.refuses(source):
+		if not court.faction_id.is_empty() and court.faction_id != "player":
+			FactionManager.add_reputation(court.faction_id, -court.refusal_reputation_cost)
+		var refusal := {"ok": false, "refused": true, "reason": "refused", "rep_cost": court.refusal_reputation_cost,
+				"court_id": court.court_id, "court_name": court.display_name, "faction_id": source}
+		prize_refused.emit(refusal)
+		return refusal
+	var klass: int = owned.ship_stats.ship_class if owned.ship_stats else 1
+	var gold := court.quote(klass, owned.condition)
+	ResourceManager.add_resource("gold", gold)
+
+	var pressed := 0
+	var repatriated := 0
+	if owned.captives > 0:
+		if court.captive_policy == PrizeCourtData.CaptivePolicy.PRESSED:
+			pressed = int(floor(float(owned.captives) * court.pressed_fraction))
+			var dmg = player.get_node_or_null("ShipDamage") if player else null
+			if dmg and dmg.ship_stats:
+				pressed = mini(pressed, maxi(0, int(dmg.ship_stats.max_crew - dmg.crew)))
+				dmg.crew += pressed
+		else:
+			repatriated = owned.captives
+			if not source.is_empty() and court.loyal_reputation != 0:
+				FactionManager.add_reputation(source, court.loyal_reputation)
+
+	var info := {"ok": true, "gold": gold, "pressed": pressed, "repatriated": repatriated,
+			"court_id": court.court_id, "court_name": court.display_name,
+			"ship_id": owned.ship_stats.ship_id if owned.ship_stats else "", "faction_id": source}
+	_remove_ship_at(idx)
+	prize_sold.emit(info)
+	return info
+
+
+## Drops the hull at `idx` from the fleet, with its mission and Defend Home flag, keeping the active
+## index pointing at the same hull.
+func _remove_ship_at(idx: int) -> void:
+	var uid := owned_ships[idx].uid
+	owned_ships.remove_at(idx)
+	active_missions.erase(uid)
+	defend_home_ship_uids.erase(uid)
+	if idx < active_ship_index:
+		active_ship_index -= 1
 	fleet_changed.emit()
 
 
@@ -339,7 +404,7 @@ func resolve_prizes_on_dock() -> Array[Dictionary]:
 			remaining.append(record)  # push_error already raised; keep the record
 			continue
 		var owned := add_prize(ship, float(record.get("condition", 1.0)),
-				StringName(str(record.get("provenance_trait", ""))))
+				StringName(str(record.get("provenance_trait", ""))), int(record.get("captives", 0)))
 		results.append({"result": "arrived", "record": record, "owned": owned})
 		prize_arrived.emit(owned)
 	prizes_in_transit = remaining

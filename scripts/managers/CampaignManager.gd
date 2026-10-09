@@ -88,6 +88,7 @@ func _connect_global_signals() -> void:
 	if FleetManager:
 		FleetManager.captain_recruited.connect(_on_captain_recruited)
 		FleetManager.fleet_changed.connect(_on_fleet_changed)
+		FleetManager.prize_sold.connect(_on_prize_sold)
 		if FleetManager.has_signal("active_ship_changed"):
 			FleetManager.active_ship_changed.connect(_on_active_ship_changed)
 	if FactionManager and FactionManager.has_signal("reputation_changed"):
@@ -179,6 +180,9 @@ func on_world_ready(world_manager: Node) -> void:
 	if boarding and boarding.has_signal("boarding_resolved") \
 			and not boarding.boarding_resolved.is_connected(_on_boarding_resolved):
 		boarding.boarding_resolved.connect(_on_boarding_resolved)
+	if boarding and boarding.has_signal("boarding_outcome") \
+			and not boarding.boarding_outcome.is_connected(_on_boarding_outcome):
+		boarding.boarding_outcome.connect(_on_boarding_outcome)
 
 
 ## Scene-local EncounterManager wiring: its mirrored kill signal (DESTROY_SHIPS/
@@ -449,6 +453,30 @@ func _on_boarding_resolved(success: bool, _loot: Dictionary, target_faction_id: 
 			continue
 		_advance_objective(objective, 1)
 	_check_chapter_complete(chapter)
+
+
+## M30 W2 (2.9) - CAPTURE_SHIPS: a ship taken by her colours (the same faction-or-hull-id union
+## as BOARD_SHIPS). Only a boarding that actually CAPTURED a hull counts: the Hold, the Magazine,
+## the instant plunder and a boss do not.
+func _on_boarding_outcome(outcome_id: String, details: Dictionary) -> void:
+	if not (outcome_id in BoardingSystem.COLOURS_OUTCOMES) or not bool(details.get("success", false)) \
+			or not bool(details.get("captured", false)):
+		return
+	var chapter := _current_chapter()
+	if not chapter:
+		return
+	for objective in chapter.objectives:
+		if not ObjectiveDispatch.matches_any(objective, ObjectiveData.Condition.CAPTURE_SHIPS,
+				str(details.get("target_faction_id", "")), str(details.get("target_ship_id", ""))):
+			continue
+		_advance_objective(objective, 1)
+	_check_chapter_complete(chapter)
+
+
+## M30 W2 (2.9) - SELL_PRIZE: a prize sold to a prize court (target = the court id).
+func _on_prize_sold(info: Dictionary) -> void:
+	_for_each_matching(ObjectiveData.Condition.SELL_PRIZE, str(info.get("court_id", "")),
+		func(o): _advance_objective(o, 1))
 
 
 func _on_captain_recruited(_captain: CaptainData) -> void:

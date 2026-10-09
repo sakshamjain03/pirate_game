@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PrizeCourtData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/PrizeCourtData.gd" id="1_court"]
+
+; M30 2.9 - every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_court")
+court_id = "player_port"
+display_name = "Your Own Port"
+faction_id = "player"
+refuses_prizes_from = Array[String]([])
+refusal_reputation_cost = 0
+payout_mult = 0.85
+gold_per_class = 200
+captive_policy = 0
+pressed_fraction = 0.5
+loyal_reputation = 0

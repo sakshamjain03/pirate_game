@@ -19,6 +19,10 @@ enum Condition {
 	# (tests/test_new_objective_conditions.gd pins the existing ints).
 	SWAP_AMMO, CRIPPLE_SAILS, LOWER_HEAT, ASSIGN_CAPTAIN,
 	CHANGE_REPUTATION, SET_COURSE, REPAIR_SHIP,
+	# M30 W2 (2.9) - appended, never inserted (same rule as above). CAPTURE_SHIPS: take ships by
+	# their colours (target_id = a faction id or a hull ship_id, empty for any). SELL_PRIZE: sell a
+	# prize to a port's prize court (target_id = a court_id, empty for any).
+	CAPTURE_SHIPS, SELL_PRIZE,
 }
 
 @export var objective_id: String = ""

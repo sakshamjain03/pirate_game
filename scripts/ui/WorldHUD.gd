@@ -606,6 +606,8 @@ func _find_ship() -> void:
 		ledger.choice_made.connect(_on_prize_choice_made)
 		FleetManager.prize_arrived.connect(_on_prize_arrived)
 		FleetManager.prize_recaptured.connect(_on_prize_recaptured)
+		FleetManager.prize_sold.connect(_on_prize_sold)
+		FleetManager.prize_refused.connect(_on_prize_refused)
 		boarding_sys.deck_preview_changed.connect(_on_boarding_preview_changed)
 		boarding_sys.boarding_routed.connect(_on_boarding_routed)
 
@@ -1311,6 +1313,19 @@ func _on_prize_choice_made(choice: int, result: Dictionary) -> void:
 func _on_prize_arrived(owned: OwnedShipData) -> void:
 	var hull_name: String = owned.ship_stats.display_name if owned and owned.ship_stats else tr("A prize")
 	announce_event(tr("%s has reached port. A new hull for the fleet.") % hull_name)
+
+
+func _on_prize_sold(info: Dictionary) -> void:
+	var text := tr("Prize sold: +%d gold") % int(info.get("gold", 0))
+	if int(info.get("pressed", 0)) > 0:
+		text += tr(", %d captives sign on") % int(info["pressed"])
+	elif int(info.get("repatriated", 0)) > 0:
+		text += tr(", captives handed back")
+	announce_event(text)
+
+
+func _on_prize_refused(info: Dictionary) -> void:
+	announce_event(tr("%s refuses the prize. Standing -%d.") % [str(info.get("court_name", tr("The court"))), int(info.get("rep_cost", 0))])
 
 
 func _on_prize_recaptured(_record: Dictionary) -> void:

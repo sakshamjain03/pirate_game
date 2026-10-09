@@ -230,6 +230,7 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 	var loot = {}
 	# Read before the hull is zeroed below: how much hull the target had when it was taken.
 	var hull_fraction := 0.0
+	var captives := int(round(enemy_dmg.crew)) if enemy_dmg else 0
 	if enemy_dmg and enemy_dmg.ship_stats:
 		var max_hull: float = enemy_dmg.get_effective_max_health() if enemy_dmg.has_method("get_effective_max_health") \
 				else enemy_dmg.ship_stats.max_health
@@ -318,6 +319,7 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 		"ship_class": enemy_dmg.ship_stats.ship_class if enemy_dmg and enemy_dmg.ship_stats else 1,
 		"is_boss": is_instance_valid(enemy) and enemy.is_in_group("boss_ship"),
 		"hull_fraction": hull_fraction,
+		"captives": captives,
 	})
 	_clear_prompt()
 

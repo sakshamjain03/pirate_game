@@ -12,12 +12,14 @@ class MockPlayer extends Node3D:
 	var ship_stats: ShipStats = null
 
 var _saved_ships: Array
+var _saved_captains: Array[CaptainData] = []
 var _saved_active_index: int
 var _saved_resources: Dictionary
 var _created_test_scene: Node3D = null
 
 func before_each():
 	_saved_ships = FleetManager.owned_ships.duplicate()
+	_saved_captains = FleetManager.owned_captains.duplicate()
 	_saved_active_index = FleetManager.active_ship_index
 	_saved_resources = ResourceManager.current_resources.duplicate()
 	ResourceManager.current_resources["gold"] = 100000
@@ -26,6 +28,8 @@ func before_each():
 
 func after_each():
 	FleetManager.owned_ships = _saved_ships.duplicate()
+	# Two tests clear the roster; leaving it empty broke later IslandMenu fleet rows.
+	FleetManager.owned_captains = _saved_captains.duplicate()
 	FleetManager.active_ship_index = _saved_active_index
 	ResourceManager.current_resources = _saved_resources.duplicate()
 	# This file's own current_scene, if it created one (see

@@ -16,6 +16,8 @@ extends Node
 ##   2_overlay_open    the Three Bells overlay at bell 1, nothing queued
 ##   3_overlay_orders  two orders queued (a strike and a parry), damage shown on the tiles
 ##   4_overlay_bell    after the bell rang: the log lists what happened
+##   5_overlay_result  the Colours taken: the result screen
+##   6_prize_ledger    Continue pressed: the Prize Ledger (Keep / Ransom / Break)
 ## Nothing here sets HUD state directly; the stage only does what the Board verb does
 ## (BoardingSystem.begin_boarding) and presses the overlay's own public buttons.
 
@@ -31,6 +33,8 @@ var _boarding: BoardingSystem
 var _overlay: BoardingOverlay
 var _dir := ""
 var _mobile := false
+## Staging is finished: stop closing "startup modals" (the Prize Ledger is a real one).
+var _staged := false
 
 
 func _enter_tree() -> void:
@@ -92,6 +96,7 @@ func _run() -> void:
 	widget.set_boarding_preview(_boarding.preview_for(_enemy))
 	await _frames(3)
 	await _capture("1_preview_strip")
+	layer.queue_free()  # the standalone strip has done its job; keep it out of the overlay frames
 
 	# The Board verb. The overwhelm ratio is raised in memory so the stage cannot be routed
 	# down the instant path by whatever crew the saved game happens to have.
@@ -126,6 +131,19 @@ func _run() -> void:
 	await _capture("4_overlay_bell")
 	print("[boarding-capture] bell=%d morale=%d party=%d/%d over=%s" % [
 		b.bell, b.morale, b.player_hp, b.player_hp_start, b.is_over()])
+
+	# Take the Colours (clear the deck and stand the party on the quarterdeck), then show the
+	# result screen and the Prize Ledger that follows it.
+	_staged = true
+	b.defenders.clear()
+	b.outside_threats.clear()
+	b.zone = BoardingZone.Id.QUARTERDECK
+	_overlay.ring()
+	await _frames(3)
+	await _capture("5_overlay_result")
+	_overlay.finish()
+	await _frames(3)
+	await _capture("6_prize_ledger")
 
 
 func _capture(label: String) -> void:
@@ -198,7 +216,7 @@ func _hide_dialogue() -> void:
 
 
 func _dismiss_startup_modal() -> void:
-	if not get_tree().paused or (_overlay != null and _overlay.is_open):
+	if _staged or not get_tree().paused or (_overlay != null and _overlay.is_open):
 		return
 	for n in get_tree().root.find_children("*", "Control", true, false):
 		var c := n as Control

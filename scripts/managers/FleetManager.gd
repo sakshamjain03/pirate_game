@@ -9,6 +9,10 @@ extends Node
 ##   EmpireManager (defense score consumer)
 
 signal fleet_changed()
+## M30 W2 (2.8) - a kept prize was sent home; it arrives (or is retaken) at the next dock.
+signal prize_sent(record: Dictionary)
+signal prize_arrived(owned: OwnedShipData)
+signal prize_recaptured(record: Dictionary)
 signal active_ship_changed(ship_stats: ShipStats, captain: CaptainData)
 signal captain_recruited(captain: CaptainData)
 
@@ -24,6 +28,11 @@ var active_captain_index: int = 0
 ## M30 W2 (2.7) - ship uids (OwnedShipData.uid), not positions: a position shifts the moment a
 ## hull is dismantled or a prize is added, silently handing one ship's duty to another.
 var defend_home_ship_uids: Array = []
+
+## M30 W2 (2.8) - prizes sailing home under a prize crew. Each: {ship_id, ship_class, faction_id,
+## provenance_trait, condition, seed}. They persist across a save/load and are settled the next
+## time the player docks (`resolve_prizes_on_dock`). Saved only while non-empty.
+var prizes_in_transit: Array[Dictionary] = []
 
 ## ship uid (String) -> {"captain_id": String, "captain_index": int, "mission_type": String,
 ## "timer": float, ...}. `captain_id` pairs by CaptainData.captain_id; `captain_index` is only the
@@ -271,11 +280,72 @@ func add_ship(ship: ShipStats) -> void:
 func owns_ship_stats(ship: ShipStats) -> bool:
 	## The Shipyard roster is a catalog of shared `ShipStats` templates, so
 	## "do I already own this hull" has to compare against each entry's
-	## template, not identity of the `OwnedShipData` wrapper.
+	## template, not identity of the `OwnedShipData` wrapper. A PRIZE of a class does not
+	## count: it neither blocks buying that hull nor is it blocked by one (M30 2.8).
 	for o in owned_ships:
-		if o and o.ship_stats == ship:
+		if o and o.ship_stats == ship and not o.is_prize:
 			return true
 	return false
+
+
+## M30 W2 (2.8) - a hull taken in boarding joins the fleet. Unlike add_ship() this NEVER refuses a
+## duplicate: three captured Sloops are three ships, each with its own uid.
+func add_prize(ship: ShipStats, condition: float, provenance: StringName) -> OwnedShipData:
+	var owned := OwnedShipData.new()
+	owned.ship_stats = ship
+	owned.uid = _new_uid()
+	owned.is_prize = true
+	owned.condition = clampf(condition, 0.0, 1.0)
+	owned.provenance_trait = provenance
+	owned_ships.append(owned)
+	fleet_changed.emit()
+	return owned
+
+
+## Sends a kept prize home under a prize crew. `record` needs ship_id; see `prizes_in_transit`.
+## The recapture roll is seeded now, so the outcome cannot be re-rolled by saving and loading.
+func send_prize_home(record: Dictionary) -> void:
+	var entry := record.duplicate(true)
+	if not entry.has("seed"):
+		entry["seed"] = randi()
+	prizes_in_transit.append(entry)
+	prize_sent.emit(entry)
+	fleet_changed.emit()
+
+
+## The chance a prize in transit is retaken, given the player's notoriety.
+func recapture_chance_now() -> float:
+	var cfg := PrizeConfigData.get_default()
+	var heat: float = EmpireManager.notoriety if EmpireManager else 0.0
+	return clampf(cfg.recapture_chance + cfg.recapture_per_100_notoriety * heat / 100.0, 0.0, 1.0)
+
+
+## Settles every prize in transit (called when the player docks): each is retaken or joins the
+## fleet, decided by its own seeded roll. A prize whose hull cannot be resolved stays in transit
+## (and push_errors), never silently vanishing. Returns what happened, oldest first.
+func resolve_prizes_on_dock() -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	var remaining: Array[Dictionary] = []
+	var chance := recapture_chance_now()
+	for record in prizes_in_transit:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(record.get("seed", 0))
+		if rng.randf() < chance:
+			results.append({"result": "recaptured", "record": record})
+			prize_recaptured.emit(record)
+			continue
+		var ship := PrizeOffers.resolve_hull(str(record.get("ship_id", "")))
+		if ship == null:
+			remaining.append(record)  # push_error already raised; keep the record
+			continue
+		var owned := add_prize(ship, float(record.get("condition", 1.0)),
+				StringName(str(record.get("provenance_trait", ""))))
+		results.append({"result": "arrived", "record": record, "owned": owned})
+		prize_arrived.emit(owned)
+	prizes_in_transit = remaining
+	if not results.is_empty():
+		fleet_changed.emit()
+	return results
 
 func add_captain(captain: CaptainData) -> void:
 	if not captain in owned_captains:
@@ -402,7 +472,7 @@ func get_save_data() -> Dictionary:
 		if o:
 			ship_data.append(o.get_save_data())
 
-	return {
+	var out := {
 		"owned_ships": ship_data,
 		"owned_captains": cap_data,
 		"active_ship_index": active_ship_index,
@@ -411,6 +481,10 @@ func get_save_data() -> Dictionary:
 		"active_missions": active_missions.duplicate(true),
 		"defend_home_ship_uids": defend_home_ship_uids.duplicate()
 	}
+	# An optional save section is omitted entirely when empty (CLAUDE.md).
+	if not prizes_in_transit.is_empty():
+		out["prizes_in_transit"] = prizes_in_transit.duplicate(true)
+	return out
 
 
 ## M30 W2 (2.7) - turns a fleet save written before hull uids (schema 1) into the uid form:
@@ -536,5 +610,10 @@ func load_save_data(data: Dictionary) -> void:
 	defend_home_ship_uids.clear()
 	for uid in data.get("defend_home_ship_uids", []):
 		defend_home_ship_uids.append(str(uid))
+
+	prizes_in_transit.clear()
+	for record in data.get("prizes_in_transit", []):
+		if record is Dictionary:
+			prizes_in_transit.append((record as Dictionary).duplicate(true))
 
 	fleet_changed.emit()

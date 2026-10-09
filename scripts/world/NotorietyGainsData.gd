@@ -18,6 +18,8 @@ const DEFAULT_PATH := "res://resources/balance/NotorietyGains.tres"
 ## amounts of the axis, not of notoriety.
 @export var dread_sink_struck: float = 4.0  # placeholder: tune in M31
 @export var renown_take_prize: float = 3.0  # placeholder: tune in M31
+## Breaking a taken ship up for salvage rather than keeping or ransoming it is Dread.
+@export var dread_break_prize: float = 2.0  # placeholder: tune in M31
 
 static var _default: NotorietyGainsData
 

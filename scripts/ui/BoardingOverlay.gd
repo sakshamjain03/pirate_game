@@ -214,7 +214,8 @@ func finish() -> void:
 	if str(outcome["id"]) in ["cut_loose", "repulsed"]:
 		loss += _rules.cut_loose_crew_loss_fraction
 	var details := {"rng": battle.rng, "loot_mult": float(outcome.get("loot_mult", 1.0)),
-			"crew_loss_fraction": loss}
+			"crew_loss_fraction": loss, "captures_ship": bool(outcome.get("captures_ship", false)),
+			"officers_escaped": bool(outcome.get("officers_escaped", false))}
 	var system := _system
 	_close()
 	closed.emit(outcome)

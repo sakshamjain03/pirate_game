@@ -375,6 +375,14 @@ func _on_died() -> void:
 	angular_velocity = Vector3.ZERO
 	freeze = true
 
+	# M30 W2 (2.8) - a CAPTURED hull (taken by its colours in boarding) is not sunk: no sinking
+	# animation, no explosion, no loot drop, no notoriety. A prize crew sails it away. Bosses are
+	# never captured (BoardingSystem does not set the flag for them), so they keep the destroyed path.
+	if not is_in_group("player_ship") and get_meta("captured", false) and not is_in_group("boss_ship"):
+		ship_destroyed.emit()
+		get_tree().create_timer(0.6).timeout.connect(queue_free)
+		return
+
 	_play_sinking_sequence()
 
 	# If this is an enemy, drop loot and despawn. M26: both campaign side effects

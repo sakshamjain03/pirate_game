@@ -598,6 +598,14 @@ func _find_ship() -> void:
 		overlay.name = "BoardingOverlay"
 		add_child(overlay)
 		overlay.bind_boarding_system(boarding_sys)
+		# M30 W2 (2.8) - the Prize Ledger opens when the colours come down and a hull is taken.
+		var ledger := PrizeLedger.new()
+		ledger.name = "PrizeLedger"
+		add_child(ledger)
+		ledger.bind_boarding_system(boarding_sys)
+		ledger.choice_made.connect(_on_prize_choice_made)
+		FleetManager.prize_arrived.connect(_on_prize_arrived)
+		FleetManager.prize_recaptured.connect(_on_prize_recaptured)
 		boarding_sys.deck_preview_changed.connect(_on_boarding_preview_changed)
 		boarding_sys.boarding_routed.connect(_on_boarding_routed)
 
@@ -1289,6 +1297,25 @@ func _on_boarding_prompt_available(_enemy_ship: Node) -> void:
 	elif board_prompt:
 		board_prompt.visible = true
 	HapticFeedbackManager.available()
+
+func _on_prize_choice_made(choice: int, result: Dictionary) -> void:
+	match choice:
+		PrizeOffers.Choice.KEEP:
+			announce_event(tr("A prize crew takes her home. She will reach your next dock."))
+		PrizeOffers.Choice.RANSOM:
+			announce_event(tr("Ransomed: +%d gold") % int(result.get("gold", 0)))
+		PrizeOffers.Choice.BREAK:
+			announce_event(tr("Broken up: +%d wood, +%d iron") % [int(result.get("wood", 0)), int(result.get("iron", 0))])
+
+
+func _on_prize_arrived(owned: OwnedShipData) -> void:
+	var hull_name: String = owned.ship_stats.display_name if owned and owned.ship_stats else tr("A prize")
+	announce_event(tr("%s has reached port. A new hull for the fleet.") % hull_name)
+
+
+func _on_prize_recaptured(_record: Dictionary) -> void:
+	announce_event(tr("Your prize was retaken on the way home."))
+
 
 func _on_boarding_preview_changed(enemy_ship: Node, summary: Dictionary) -> void:
 	_boarding_previews[enemy_ship.get_instance_id()] = summary

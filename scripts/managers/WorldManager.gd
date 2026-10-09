@@ -493,6 +493,8 @@ func _toggle_docking() -> void:
 
 func _on_dock_completed(island_id: String) -> void:
 	on_player_docked(island_id)
+	# M30 W2 (2.8) - prizes sailing home under a prize crew are settled at the next dock.
+	FleetManager.resolve_prizes_on_dock()
 	if EventManager.has_method("handle_docking_event"):
 		EventManager.handle_docking_event(island_id)
 	_update_lying_low(island_id)

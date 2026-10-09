@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="PrizeConfigData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/PrizeConfigData.gd" id="1_prize"]
+
+; M30 2.8 - every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_prize")
+keep_condition = 0.6
+condition_health_floor = 0.5
+prize_crew_fraction = 0.1
+recapture_chance = 0.2
+recapture_per_100_notoriety = 0.1
+ransom_gold_per_class = 120
+ransom_reputation = 3
+break_wood_per_class = 40
+break_iron_per_class = 15

@@ -21,6 +21,10 @@ signal boarding_outcome(outcome_id: String, details: Dictionary)
 ## M30 W2 (2.5): what boarding this eligible target would face, for the preview strip on its
 ## health bar. Re-emitted as gunnery changes the deck. `summary` is BoardingDeckBuilder.summarize().
 signal deck_preview_changed(enemy_ship: Node, summary: Dictionary)
+## The two outcomes that take a ship's colours (M30 2.8): the Quarterdeck objective and the crew
+## striking. Either opens the Prize Ledger (unless the hull is a boss, which is simply destroyed).
+const COLOURS_OUTCOMES: Array[String] = ["colours", "struck"]
+
 ## begin_boarding() skipped the battle: reason is "quick" (setting) or "overwhelm".
 signal boarding_routed(reason: String)
 
@@ -224,6 +228,12 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 	var player_dmg = players[0].get_node_or_null("ShipDamage") if players.size() > 0 else null
 	var enemy_dmg = enemy.get_node_or_null("ShipDamage")
 	var loot = {}
+	# Read before the hull is zeroed below: how much hull the target had when it was taken.
+	var hull_fraction := 0.0
+	if enemy_dmg and enemy_dmg.ship_stats:
+		var max_hull: float = enemy_dmg.get_effective_max_health() if enemy_dmg.has_method("get_effective_max_health") \
+				else enemy_dmg.ship_stats.max_health
+		hull_fraction = clampf(enemy_dmg.hull / maxf(max_hull, 1.0), 0.0, 1.0)
 
 	if AudioManager: AudioManager.play_sound("boarding_success" if success else "boarding_fail")
 
@@ -268,6 +278,11 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 		# M29 A.1: mark loot as claimed so ShipController._on_died() skips _spawn_loot()
 		enemy.set_meta("loot_claimed", true)
 		enemy.set_meta("boarding_outcome", outcome_id)
+		# M30 W2 (2.8) - a ship taken by its colours is CAPTURED, not sunk: ShipController._on_died
+		# skips the explosion and the notoriety for it. A boss is never captured.
+		if outcome_id in COLOURS_OUTCOMES and bool(details.get("captures_ship", false)) \
+				and not enemy.is_in_group("boss_ship"):
+			enemy.set_meta("captured", true)
 		# M30 W2 (2.6) - taking the surrendered rather than sinking them is Renown.
 		if _is_struck(enemy) and EmpireManager:
 			EmpireManager.shift_axis(-NotorietyGainsData.get_default().renown_take_prize)
@@ -297,6 +312,12 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 	boarding_outcome.emit(outcome_id, {
 		"success": success, "loot": loot, "enemy": enemy,
 		"target_faction_id": target_faction_id, "target_ship_id": target_ship_id,
+		# What the Prize Ledger needs, read before the hull is gone.
+		"captured": is_instance_valid(enemy) and bool(enemy.get_meta("captured", false)),
+		"officers_escaped": bool(details.get("officers_escaped", false)),
+		"ship_class": enemy_dmg.ship_stats.ship_class if enemy_dmg and enemy_dmg.ship_stats else 1,
+		"is_boss": is_instance_valid(enemy) and enemy.is_in_group("boss_ship"),
+		"hull_fraction": hull_fraction,
 	})
 	_clear_prompt()
 

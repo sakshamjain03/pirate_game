@@ -115,6 +115,20 @@ func _on_boarding_resolved(success: bool, loot: Dictionary, target_faction_id: S
 	# Try to spawn an event hunter
 	_try_event_hunter(target_faction_id)
 
+## M30 W2 (2.8) - the captured officers are bought back by their own faction: gold to the player
+## and reputation with that faction (PrizeConfigData). An unknown faction push_errors and pays
+## nothing. Returns {"gold": int, "reputation": int}.
+func ransom_officers(faction_id: String, ship_class: int) -> Dictionary:
+	if _resolve_faction(faction_id) == null:
+		push_error("FactionManager: cannot ransom officers of unknown faction '%s'" % faction_id)
+		return {"gold": 0, "reputation": 0}
+	var cfg := PrizeConfigData.get_default()
+	var gold: int = cfg.ransom_gold_per_class * maxi(ship_class, 1)
+	ResourceManager.add_resource("gold", gold)
+	add_reputation(faction_id, cfg.ransom_reputation)
+	return {"gold": gold, "reputation": cfg.ransom_reputation}
+
+
 func get_reputation(faction_id: String) -> int:
 	return reputation_scores.get(faction_id, 0)
 

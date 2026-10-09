@@ -28,6 +28,13 @@ static var _catalog: ShipProgressionConfig = null
 ## its position in `FleetManager.owned_ships` (which shifts when a hull is dismantled or a
 ## prize joins). Empty until FleetManager adds or migrates the hull; saved with the ship.
 @export var uid: String = ""
+## M30 W2 (2.8) - a hull taken in boarding. Duplicate hulls are allowed for prizes (a purchased
+## hull is still one per class: FleetManager.add_ship is idempotent). `condition` (0..1) scales
+## the effective hull (PrizeConfigData.condition_health_floor); `provenance_trait` records where
+## it came from, e.g. &"prize_royal_navy".
+@export var is_prize: bool = false
+@export_range(0.0, 1.0) var condition: float = 1.0
+@export var provenance_trait: StringName = &""
 @export var level: int = 1
 @export var installed_modules: Array[ShipModuleData] = []
 ## M23 — component id -> level (1..level). A missing id reads as level 1.
@@ -132,6 +139,9 @@ func get_effective_stats() -> ShipStats:
 
 	var level_mult: float = 1.0 + LEVEL_STAT_BONUS_PER_LEVEL * float(level - 1)
 	s.max_health *= level_mult
+	if is_prize and condition < 1.0:
+		var floor_mult := PrizeConfigData.get_default().condition_health_floor
+		s.max_health *= lerpf(floor_mult, 1.0, clampf(condition, 0.0, 1.0))
 	s.cannon_damage *= level_mult
 	s.max_speed *= level_mult
 
@@ -160,18 +170,27 @@ func get_save_data() -> Dictionary:
 	for m in installed_modules:
 		if m:
 			module_paths.append(m.resource_path)
-	return {
+	var data := {
 		"uid": uid,
 		"ship_path": ship_stats.resource_path if ship_stats else "",
 		"level": level,
 		"modules": module_paths,
 		"components": component_levels.duplicate(),
 	}
+	# Optional keys are omitted at their defaults, so a purchased hull saves exactly as before.
+	if is_prize:
+		data["is_prize"] = true
+		data["condition"] = condition
+		data["provenance_trait"] = str(provenance_trait)
+	return data
 
 
 static func from_save_data(data: Dictionary) -> OwnedShipData:
 	var o := OwnedShipData.new()
 	o.uid = str(data.get("uid", ""))
+	o.is_prize = bool(data.get("is_prize", false))
+	o.condition = clampf(float(data.get("condition", 1.0)), 0.0, 1.0)
+	o.provenance_trait = StringName(str(data.get("provenance_trait", "")))
 	var path: String = data.get("ship_path", "")
 	if ResourceLoader.exists(path):
 		o.ship_stats = load(path)

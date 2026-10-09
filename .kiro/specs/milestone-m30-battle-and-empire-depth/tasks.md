@@ -187,10 +187,19 @@ fix and watch the test fail.
 - [x] **Checkpoint W1** — passed 2026-10-09 after one review round: the first `checkpoint-reviewer` run FAILED it (serial-run-only test-order failure from leaked notoriety, desktop left-click firing regression from tap-to-mark, no Brace capture, missing placeholder comments); all fixed. Canonical serial run 193 scripts / 1395 tests / 0 failing / 0 SCRIPT ERRORs. Headful captures looked at: wind-up wedge (staged and via a real enemy in test), ribbons, rake cone and colour numbers, briefing, squad, keg (a few pixels wide; readability left to M31), Brace (desktop label and phone context button). NOT verifiable here: camera punch and haptic feel, touch tap-to-mark and desktop middle-click marking on real hardware, on-device frame rate, emoji role-icon rendering. Desktop target marking is middle-click (left stays fire_port).
 
 ### Wave 2 — Boarding: Three Bells + Prize Fleet
-- [ ] 2.1 `BoardingSystem` foundation: `_apply_outcome` extraction, `begin_boarding` routing (Quick, Overwhelm, tactical), target lock, `boarding_outcome` signal, `BoardingData` fields, settings toggle, seeded `LootTableData.roll(rng)`. Files: `BoardingSystem.gd`, `BoardingData.gd`, `LootTableData.gd`, `SettingsManager.gd`, `WorldManager.gd`
+
+**Wave 2 status (2026-10-09):** 2.1-2.11 done serially in the `m30-w2` branch, one commit per task, each with its own tests and a mutation check. Deviations and calls the spec left open (owner may overrule):
+- **2.5:** no `AdManager` API was added for "ads suspended": the game has no automatic ads (rewarded ads are player-started from a UI surface) and the paused modal blocks every surface. Autosave is held through a new `SaveManager.hold_autosave(key, on)`. The overlay is built for the 1688×780 canvas (the first build overflowed it, found only in the headful capture).
+- **2.6:** `EnemyAI` changed in one place only (`order_flee()` plus the `_should_flee()` check). The squad leader is the first hull of a multi-hull composition (meta `squad_leader`).
+- **2.7:** four existing tests that read or injected the position-keyed `active_missions` were updated on purpose (`test_fleet_manager:156`, `test_diplomacy_and_trade_routes:142`, `test_save_manager_offline` ×2). `test_fleet_manager.gd:58` (purchases are idempotent) is unchanged: prizes do not count as owning a hull, so the spec's rewrite was not needed.
+- **2.9 (the spec is one line):** a prize court belongs to the faction that owns the port (`PrizeCourtData.faction_id`); Navy and Spanish courts refuse merchant-guild prizes and hand captives back LOYAL; a pirate haven pays 0.7× and presses captives; your own ports pay 0.85×. The sale is a "Sell Prize" button on the Fleet tab at a port with a court. `CAPTURE_SHIPS` and `SELL_PRIZE` were appended to `ObjectiveData.Condition`.
+- **2.10:** the Brig objective replaces the Hold on Navy ships and the Cabin replaces the Magazine on Spanish ships. An elite squad exists only because a Brig outcome frees one; the Tavern sells Green squads only. The company stands down in a Maelstrom run, and two Maelstrom tests that pin exact modifier numbers run with an empty company.
+- **2.11:** the Infirmary and Training Yard are functions on the existing Tavern and Fortress buildings (`BuildingData.infirmary_heal_bonus` / `training_xp_per_dock`), not new buildings. The Nemesis registry lives in `EmpireManager` (saved only while non-empty). The officers return on the next ship of their faction; they are not spawned as a separate encounter.
+- **Not verifiable here:** the touch feel of the overlay on a phone, whether the 6 s bell timer is comfortable, real icon art, balance (every number is a placeholder for M31). The desktop prompt still reads "Press [F] to Board" for a Take Prize.
+- [x] 2.1 `BoardingSystem` foundation: `_apply_outcome` extraction, `begin_boarding` routing (Quick, Overwhelm, tactical), target lock, `boarding_outcome` signal, `BoardingData` fields, settings toggle, seeded `LootTableData.roll(rng)`. Files: `BoardingSystem.gd`, `BoardingData.gd`, `LootTableData.gd`, `SettingsManager.gd`, `WorldManager.gd`
   - **Verify:** `tests/test_m30_boarding_routing.gd`. `boarding_resolved` fires once on every path. `tests/test_boarding.gd` and `tests/test_m29_boarding_loot_once.gd` pass unmodified.
   - _Requirements: W2.1_
-- [ ] 2.2 `BoardingBattle` pure model (zones, defenders, intents, CP, bells, resolution order, end conditions) plus the data resources. Files: `scripts/combat/boarding/BoardingBattle.gd`, `DefenderData.gd`, `DefenderIntentData.gd`, `BoardingActionData.gd`, `BoardingObjectiveData.gd`
+- [x] 2.2 `BoardingBattle` pure model (zones, defenders, intents, CP, bells, resolution order, end conditions) plus the data resources. Files: `scripts/combat/boarding/BoardingBattle.gd`, `DefenderData.gd`, `DefenderIntentData.gd`, `BoardingActionData.gd`, `BoardingObjectiveData.gd`
   - **Verify:** `tests/test_m30_boarding_battle.gd`
     - The same seed and actions → identical events.
     - Bell count = 2 + round(h × 5), capped at 4.
@@ -198,31 +207,31 @@ fix and watch the test fail.
     - Morale ≤ 30 → strike.
     - Reaching the last bell → cut loose.
   - _Requirements: W2.2_
-- [ ] 2.3 `BoardingDeckBuilder` (gunnery `hit_tags` removals, entry by bearing, faction × class profile, crew fraction) plus the `hit_tags` log. Files: `BoardingDeckBuilder.gd`, `BoardingDeckProfile.gd` + `.tres`, `BoardingSystem.gd`
+- [x] 2.3 `BoardingDeckBuilder` (gunnery `hit_tags` removals, entry by bearing, faction × class profile, crew fraction) plus the `hit_tags` log. Files: `BoardingDeckBuilder.gd`, `BoardingDeckProfile.gd` + `.tres`, `BoardingSystem.gd`
   - **Verify:** `tests/test_m30_boarding_deck.gd`. Grape hits remove Deckhands, a stern-rake wounds the Officer, beam entry lands at the Waist, bow entry at the Forecastle.
   - _Requirements: W2.3_
-- [ ] 2.4 Author the content: 5 defenders, 6 actions, 3 objectives, faction × class profiles. Files: `resources/combat/boarding/**`
+- [x] 2.4 Author the content: 5 defenders, 6 actions, 3 objectives, faction × class profiles. Files: `resources/combat/boarding/**`
   - **Verify:** `test_lint_resource_exports.gd`. A content test ensures every profile references valid defenders and actions.
   - _Requirements: W2.2, W2.3_
-- [ ] 2.5 `BoardingOverlay` UI (tree paused, autosave and ads suspended, glyph-disc art seams), outside threats shown as intents, Brace and Point-Blank CP, preview strip on `EnemyHealthBarWidget`. Files: `BoardingOverlay.gd/.tscn`, `EnemyHealthBarWidget.gd`, `WorldHUD.gd`, `docs/10_ASSET_REQUESTS.md`
+- [x] 2.5 `BoardingOverlay` UI (tree paused, autosave and ads suspended, glyph-disc art seams), outside threats shown as intents, Brace and Point-Blank CP, preview strip on `EnemyHealthBarWidget`. Files: `BoardingOverlay.gd/.tscn`, `EnemyHealthBarWidget.gd`, `WorldHUD.gd`, `docs/10_ASSET_REQUESTS.md`
   - **Verify:** `tests/test_m30_boarding_overlay.gd` (pause flags, no upgrade offer while open), plus a **headful capture** of the overlay and the preview strip.
   - _Requirements: W2.2, W2.3, W2.4_
-- [ ] 2.6 Morale component, Wavering, strike colours, Take Prize verb, Dread/Renown axis (saved, omitted at 0). Files: `MoraleComponent.gd`, `EnemyAI.gd` (FLEE trigger only), `EmpireManager.gd`, `WorldManager.gd`
+- [x] 2.6 Morale component, Wavering, strike colours, Take Prize verb, Dread/Renown axis (saved, omitted at 0). Files: `MoraleComponent.gd`, `EnemyAI.gd` (FLEE trigger only), `EmpireManager.gd`, `WorldManager.gd`
   - **Verify:** `tests/test_m30_morale.gd`. Morale drains as designed. A struck ship stops firing. Take Prize opens Three Bells with Colours weakened. The axis round-trips.
   - _Requirements: W2.5_
-- [ ] 2.7 Fleet uid identity plus a migration off index keys, with a save version bump. Files: `OwnedShipData.gd`, `FleetManager.gd`, `SaveManager.gd`
+- [x] 2.7 Fleet uid identity plus a migration off index keys, with a save version bump. Files: `OwnedShipData.gd`, `FleetManager.gd`, `SaveManager.gd`
   - **Verify:** `tests/test_m30_fleet_uid_migration.gd`. An old save loads with uids; missions and captain pairing are preserved. `test_fleet_manager.gd:58` is rewritten deliberately (purchases stay idempotent, prizes may duplicate), with the justification in the commit.
   - _Requirements: W2.6_
-- [ ] 2.8 Prize capture (captured `_on_died` branch, `add_prize`, condition, provenance trait, `ship_id` resolver), Prize Ledger (Keep, Ransom, Break), Send Home, transit save, recapture roll. Files: `ShipController.gd`, `FleetManager.gd`, `PrizeLedger.gd`, `FactionManager.gd` (`ransom_officers`)
+- [x] 2.8 Prize capture (captured `_on_died` branch, `add_prize`, condition, provenance trait, `ship_id` resolver), Prize Ledger (Keep, Ransom, Break), Send Home, transit save, recapture roll. Files: `ShipController.gd`, `FleetManager.gd`, `PrizeLedger.gd`, `FactionManager.gd` (`ransom_officers`)
   - **Verify:** `tests/test_m30_prize_fleet.gd`. Colours → a prize arrives at the next dock (or is recaptured, seeded). A boss → the destroyed path. Ransom changes gold and reputation. Transit round-trips.
   - _Requirements: W2.6_
-- [ ] 2.9 Prize courts plus captives (pressed or loyal) plus campaign "capture" objective variants (append-only). Files: `PrizeCourtData.gd` + `.tres`, `ObjectiveData.gd`, `CampaignManager.gd`
+- [x] 2.9 Prize courts plus captives (pressed or loyal) plus campaign "capture" objective variants (append-only). Files: `PrizeCourtData.gd` + `.tres`, `ObjectiveData.gd`, `CampaignManager.gd`
   - **Verify:** `tests/test_m30_prize_court.gd`. A Navy court refuses merchant prizes, with a reputation cost. Pirate havens pay 0.7×. `test_campaign_golden_path.gd` passes.
   - _Requirements: W2.6_
-- [ ] 2.10 Ship's Company: `OwnedSquadData`, ranks, wounds, traits, sea stations (`CrewStationApplier`, PERSISTENT layer, stacking cap), Tavern Green squads, elite only from boarding, Brig and Cabin objectives. Files: `OwnedSquadData.gd`, `CrewTraitData.gd`, `CrewRankTable.gd`, `CrewStationApplier.gd`, `FleetManager.gd`, `IslandMenu.gd` (Tavern)
+- [x] 2.10 Ship's Company: `OwnedSquadData`, ranks, wounds, traits, sea stations (`CrewStationApplier`, PERSISTENT layer, stacking cap), Tavern Green squads, elite only from boarding, Brig and Cabin objectives. Files: `OwnedSquadData.gd`, `CrewTraitData.gd`, `CrewRankTable.gd`, `CrewStationApplier.gd`, `FleetManager.gd`, `IslandMenu.gd` (Tavern)
   - **Verify:** `tests/test_m30_ships_company.gd`. Squads round-trip. An old save derives template squads from crew. Station bonuses apply, and are suspended while boarding. The stacking cap holds.
   - _Requirements: W2.7_
-- [ ] 2.11 Captain Orders in `CaptainAbilityData` (Board First hero, No Quarter, +CP); Nemesis officers (`EnemyCaptainData`, wanted poster); Infirmary and Training Yard functions. Files: `CaptainAbilityData.gd`, captain ability `.tres`, `EnemyCaptainData.gd`, building `.tres`
+- [x] 2.11 Captain Orders in `CaptainAbilityData` (Board First hero, No Quarter, +CP); Nemesis officers (`EnemyCaptainData`, wanted poster); Infirmary and Training Yard functions. Files: `CaptainAbilityData.gd`, captain ability `.tres`, `EnemyCaptainData.gd`, building `.tres`
   - **Verify:** `tests/test_m30_captain_orders.gd`. Cutlass enters as a hero. No Quarter disables surrender. An escaped officer reappears promoted.
   - _Requirements: W2.7_
 - [ ] **Checkpoint W2:** full suite; headful capture (overlay, preview strip, Prize Ledger); `checkpoint-reviewer`; docs/05; commit and push.

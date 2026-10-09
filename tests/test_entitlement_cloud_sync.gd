@@ -33,6 +33,15 @@ func before_each():
 	AuthManager._request_override = Callable()
 	EntitlementManager._request_override = Callable()
 	EntitlementManager._did_launch_cloud_check = false
+	# An earlier script (test_auth_manager / test_purchase_flow, whichever shard order puts them
+	# first) can leave a refresh "in flight"; refresh_session() then waits for it forever and the
+	# 401 test sees no refresh attempt at all.
+	AuthManager._refresh_in_flight = false
+	# ...and can leave the player signed in, so "signed out" tests would sync and the 401 test
+	# would see a second refresh. Start every test from a signed-out AuthManager.
+	AuthManager._access_token = ""
+	AuthManager._refresh_token = ""
+	AuthManager._user_id = ""
 
 
 func after_each():

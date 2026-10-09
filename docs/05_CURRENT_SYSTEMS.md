@@ -3986,9 +3986,13 @@ autoloads such as `AudioManager`), so it was not run.
   contain it. Every other side keeps its normal ranking, so a mark that is out of arc never silences
   the guns. The mark is cleared when the hull sinks, leaves the tree or stops being hostile.
 - `WorldManager._handle_tap_to_mark()` runs first in `_unhandled_input`. A touch released within
-  `tap_slop_px`, or a desktop left-click, toggles the mark on the hostile hull drawn nearest the tap
-  (`mark_target_at_screen`, within `mark_pick_radius_px`, both set in `CombatFeedback.tres`). A tap
-  on open water is not consumed. `get_current_target()` (the mark, else the nearest locked hull,
+  `tap_slop_px`, or a desktop middle-click (`MARK_MOUSE_BUTTON`, press and release within the same
+  slop, so a middle-drag camera orbit never marks), toggles the mark on the hostile hull drawn
+  nearest the tap (`mark_target_at_screen`, within `mark_pick_radius_px`, both set in
+  `CombatFeedback.tres`). A tap on open water is not consumed. Left/right click are never read for
+  marking: they are `fire_port`/`fire_starboard`, and a first version that marked on left-click
+  swallowed the port broadside whenever the cursor was near a hull (W1 review). The
+  `test_m30_aim_by_bearing.gd` input tests drive real events through `_unhandled_input`. `get_current_target()` (the mark, else the nearest locked hull,
   else the nearest hostile in range) feeds the rake cone.
 
 ### Powder kegs (1.10) — `PowderKeg.tscn/.gd`, `KegConfigData.gd` + `KegConfig.tres`, `WorldManager.gd`

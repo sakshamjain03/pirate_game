@@ -56,6 +56,12 @@ var _keg_scene: PackedScene = preload("res://scenes/combat/PowderKeg.tscn")
 ## M30 W1 task 1.8 — tap-to-mark tolerances (CombatFeedbackData).
 var _feedback_config: CombatFeedbackData = preload("res://resources/ui/CombatFeedback.tres")
 var _touch_down: Dictionary = {}   # touch index -> press position
+## Desktop mark button. Left/right click are bound to fire_port/fire_starboard,
+## so marking must never use them (a left click near a hull would mark instead
+## of firing). A middle press+release without a drag is otherwise unbound; a
+## middle DRAG still orbits the camera (_handle_camera_drag).
+const MARK_MOUSE_BUTTON: MouseButton = MOUSE_BUTTON_MIDDLE
+var _mouse_mark_down: Variant = null   # press position of MARK_MOUSE_BUTTON
 
 const CAMERA_ROTATE_SPEED: float = 90.0 # degrees/sec while held
 const CAMERA_ZOOM_STEP: float = 3.0 # distance units per wheel tick
@@ -242,11 +248,13 @@ func _handle_camera_drag(event: InputEvent) -> bool:
 	return true
 
 ## M30 W1-1.6 (task 1.8) — tap-to-mark. A touch released within tap_slop_px of
-## where it went down, or a desktop left-click, on (near) a hostile hull marks
-## it as the player's FiringSolver.priority_target; the same tap again clears
-## it. A tap that lands on no hull is not consumed, so a desktop left-click on
-## open water still reaches fire_port. UI Controls see touches first, so HUD
-## buttons never mark.
+## where it went down, or on desktop a middle-click (MARK_MOUSE_BUTTON, press
+## and release within the same slop, so a middle-drag camera orbit never marks),
+## on (near) a hostile hull marks it as the player's FiringSolver.priority_target;
+## the same tap again clears it. A tap that lands on no hull is not consumed.
+## Left/right click are never read here: they are fire_port/fire_starboard and
+## must keep firing even right next to a hull. UI Controls see touches first,
+## so HUD buttons never mark.
 func _handle_tap_to_mark(event: InputEvent) -> bool:
 	if not is_world_loaded or not is_instance_valid(player_ship):
 		return false
@@ -256,14 +264,20 @@ func _handle_tap_to_mark(event: InputEvent) -> bool:
 			return false
 		var down = _touch_down.get(event.index)
 		_touch_down.erase(event.index)
-		if down == null or (event.position - down).length() > _feedback_config.tap_slop_px:
-			return false
-		return mark_target_at_screen(event.position) != null
-	if event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT \
+		return _is_tap(down, event.position) and mark_target_at_screen(event.position) != null
+	if event is InputEventMouseButton and event.button_index == MARK_MOUSE_BUTTON \
 			and event.device != InputEvent.DEVICE_ID_EMULATION:
-		return mark_target_at_screen(event.position) != null
+		if event.pressed:
+			_mouse_mark_down = event.position
+			return false
+		var down = _mouse_mark_down
+		_mouse_mark_down = null
+		return _is_tap(down, event.position) and mark_target_at_screen(event.position) != null
 	return false
+
+
+func _is_tap(down: Variant, up: Vector2) -> bool:
+	return down is Vector2 and up.distance_to(down) <= _feedback_config.tap_slop_px
 
 
 ## Toggles the mark on the hostile hull drawn nearest `screen_pos` (within

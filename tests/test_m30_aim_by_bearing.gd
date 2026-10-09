@@ -163,3 +163,90 @@ func test_world_manager_tap_marks_the_hull_under_the_finger() -> void:
 	assert_eq(_solver.priority_target, enemy, "and leaves the mark alone")
 	wm.mark_target_at_screen(on_screen, cam)
 	assert_null(_solver.priority_target, "a second tap on the hull clears the mark")
+
+
+# --- Desktop input (W1 review): left click is fire_port and must keep firing
+# even right next to a hull; marking uses a middle click (press + release
+# within tap_slop_px), and touch keeps tap-to-mark. Events go through
+# WorldManager._unhandled_input exactly as the engine would deliver them.
+
+class StubPlayerShip extends Node3D:
+	var fired: Array = []
+	func fire_cannons(side: String) -> void:
+		fired.append(side)
+
+
+func _input_rig() -> Dictionary:
+	var ship := StubPlayerShip.new()
+	ship.name = "InputPlayer"
+	ship.add_to_group("player_ship")
+	_scene.add_child(ship)
+	var solver := _make_solver(ship, FiringSolver.PriorityMode.AIM_BY_BEARING)
+	var enemy := _enemy(Vector3(80, 0, 0))
+	enemy.add_to_group("enemy_ship")
+	var cam := Camera3D.new()
+	_scene.add_child(cam)
+	cam.look_at_from_position(Vector3(0, 60, 0.01), Vector3(40, 0, 0))
+	cam.make_current()
+	var wm: Node = load("res://scripts/managers/WorldManager.gd").new()
+	add_child_autofree(wm)
+	wm.set_process(false)
+	wm.set_physics_process(false)
+	wm.player_ship = ship
+	wm.is_world_loaded = true
+	return {"ship": ship, "solver": solver, "enemy": enemy, "wm": wm,
+		"at": cam.unproject_position(enemy.global_position) + Vector2(10, -8)}
+
+
+func _mouse(button: MouseButton, pos: Vector2, pressed: bool) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = button
+	e.pressed = pressed
+	e.position = pos
+	e.global_position = pos
+	e.device = 0
+	return e
+
+
+func _touch(pos: Vector2, pressed: bool) -> InputEventScreenTouch:
+	var e := InputEventScreenTouch.new()
+	e.index = 0
+	e.pressed = pressed
+	e.position = pos
+	return e
+
+
+func test_desktop_left_click_on_a_hull_still_fires_port_and_never_marks() -> void:
+	var r := _input_rig()
+	var click := _mouse(MOUSE_BUTTON_LEFT, r.at, true)
+	assert_true(click.is_action_pressed("fire_port"), "precondition: left click is bound to fire_port")
+	r.wm._unhandled_input(click)
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_LEFT, r.at, false))
+	assert_eq(r.ship.fired, ["port"], "a left click next to a hostile hull must fire the port broadside")
+	assert_null(r.solver.priority_target, "and must not mark the hull")
+
+
+func test_desktop_middle_click_on_a_hull_marks_it_and_fires_nothing() -> void:
+	var r := _input_rig()
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_MIDDLE, r.at, true))
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_MIDDLE, r.at, false))
+	assert_eq(r.solver.priority_target, r.enemy, "a middle click near the hull marks it")
+	assert_eq(r.ship.fired, [], "marking fires nothing")
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_MIDDLE, r.at, true))
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_MIDDLE, r.at, false))
+	assert_null(r.solver.priority_target, "a second middle click clears the mark")
+
+
+func test_a_middle_drag_orbits_without_marking() -> void:
+	var r := _input_rig()
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_MIDDLE, r.at, true))
+	r.wm._unhandled_input(_mouse(MOUSE_BUTTON_MIDDLE, r.at + Vector2(200, 0), false))
+	assert_null(r.solver.priority_target, "a release past tap_slop_px is a camera drag, not a mark")
+
+
+func test_touch_tap_on_a_hull_still_marks_it() -> void:
+	var r := _input_rig()
+	r.wm._unhandled_input(_touch(r.at, true))
+	r.wm._unhandled_input(_touch(r.at, false))
+	assert_eq(r.solver.priority_target, r.enemy, "touch tap-to-mark is unchanged")
+	assert_eq(r.ship.fired, [], "a touch tap fires nothing")

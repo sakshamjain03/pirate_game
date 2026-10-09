@@ -4064,3 +4064,106 @@ autoloads such as `AudioManager`), so it was not run.
 - **Not verified here:** how the punch feels, haptics on a device, and touch tap-to-mark on a real
   phone. In the capture the keg is only a few pixels at default zoom, so its readability needs a
   look in M31.
+
+## M30 Wave 2 — Boarding: Three Bells + Prize Fleet (tasks 2.1-2.11, 2026-10-09)
+
+Boarding is a tactical battle now, and what it takes grows the fleet and the crew. The old instant
+comparison is untouched and still the path for Quick boarding and crushing odds.
+
+### Flow
+`Board` / `Take Prize` (context verb) → `BoardingSystem.begin_boarding()`. Quick boarding
+(`SettingsManager.quick_boarding`, Settings → accessibility, off by default) or
+`attacker strength ≥ BoardingData.overwhelm_ratio × enemy crew` → `attempt_boarding()` unchanged
+(`boarding_routed` fires for the HUD toast). Otherwise it locks the target, builds the deck and a
+seeded `BoardingBattle`, and emits `boarding_started`. A hull with no deck profile falls back to
+the instant path with a `push_error`. Both paths pay out through one `_apply_outcome` (loot, crew
+loss, destroy, `boarding_resolved` exactly once, then `boarding_outcome(id, details)`).
+`BoardingOverlay` closes (unpausing the tree) BEFORE it resolves, so a payout modal (the Prize
+Ledger, an upgrade offer) is never unpaused underneath.
+
+### The model (2.2-2.4) — `scripts/combat/boarding/`
+- `BoardingBattle` is a pure `RefCounted`: zones (`BoardingZone`: Forecastle, Waist, Quarterdeck,
+  Hold; the Hold hangs off the Waist), defenders with a telegraphed intent rotation, 3 CP a bell,
+  `bells = 2 + round(hull × 5)` capped at 4. Order each `ring_bell()`: player orders, defender
+  intents (uid order), outside threats, timed events (jettison at bell 2, officers escape at the
+  last bell), morale check. No dice: flat numbers, the seed only picks each rotation's start. Ends:
+  an objective zone seized, `struck` (morale ≤ 30), `repulsed`, `cut_loose`. Rules live on
+  `BoardingData` (every number is a placeholder).
+- `BoardingDeckBuilder` (static, pure): faction × class `BoardingDeckProfile`; grape/chain hit tags
+  (`BoardingSystem` keeps the player's last 12 hits per target as node meta) remove Deckhands/
+  Riggers, a stern rake wounds the Officer; entry zone from the bow/beam/stern bearing; crew
+  fraction trims the rest; `morale_scale` from the target's `MoraleComponent`.
+- Content (`resources/combat/boarding/**`): 5 defenders, 7 intents, 6 actions (Cutlass, Pistol,
+  Shove, Parry, Brace, Point-Blank), 5 objectives (Colours, Hold, Magazine, Brig, Cabin), 6
+  profiles. A content test plays every profile from every bearing to a known ending.
+- `BoardingOverlay` (`scenes/ui/BoardingOverlay.tscn`): deck on the left, orders on the right,
+  fits the 1688×780 canvas. Tree paused, `SaveManager.hold_autosave(&"boarding")` held. Defender
+  art is a glyph disc; a PNG at `res://assets/ui/boarding/<defender id>.png` replaces it
+  (docs/10_ASSET_REQUESTS.md). Upgrade offers cannot tick while it is open (the manager is frozen
+  with the tree). The target's `EnemyHealthBarWidget` shows a live deck preview line.
+
+### Morale and the prize (2.6, 2.8, 2.9)
+- `MoraleComponent` (added to every enemy hull by `ShipController._ready`): drains from crew lost,
+  the player's bow/stern rakes and the squad leader sinking; WAVERING is telegraphed, then it
+  FLEES (`EnemyAI.order_flee()`, the only EnemyAI change) if the rigging is above
+  `flee_min_sails`, else STRIKES (stops firing, meta `struck`, group `struck_ship`). Bosses never
+  break. A struck ship is takeable at any hull: `can_take_prize()` → the `take_prize` verb.
+- A Colours outcome (`colours`, `struck`) that captures a hull marks it `captured`:
+  `ShipController._on_died` skips the sinking, explosion, loot and notoriety (a boss keeps the
+  destroyed path). `PrizeLedger` (opens on `boarding_outcome`, paused, cannot be dismissed without
+  a choice) offers Keep (a prize crew, `PrizeConfigData.prize_crew_fraction`, sails her to the next
+  dock where a seeded roll may retake her), Ransom the officers (`FactionManager.ransom_officers`:
+  gold + reputation) or Break her up (salvage + Dread). Hulls resolve by `ship_id` through
+  `ResourceLookup` (never a file name); enemy-only hulls (`resources/enemies`) cannot be kept.
+- `FleetManager.add_prize` allows duplicate hulls and sets `uid`, `is_prize`, `condition` (scales
+  the effective hull), `provenance_trait`, `captives`. Prizes do not count as owning a hull, so
+  purchases stay idempotent. `prizes_in_transit` persists (omitted when empty).
+- `PrizeCourtData` (4 courts in `resources/prize_courts/`, found by the faction that owns the
+  port): a Navy or Spanish court refuses merchant-guild prizes (reputation cost), a pirate haven
+  pays 0.7×. `FleetManager.sell_prize` pays condition × class × payout, removes the hull and
+  resolves the captives (PRESSED into the crew up to its berths, or handed back LOYAL). IslandMenu
+  shows "Sell Prize" at a port with a court. `ObjectiveData` appends `CAPTURE_SHIPS`/`SELL_PRIZE`.
+- `EmpireManager.axis` is a signed Dread (+) / Renown (−) axis, saved only while non-zero: sinking a
+  struck ship, breaking a prize and winning under No Quarter are Dread; taking a struck ship is Renown.
+
+### Hull identity (2.7) — save schema 1 → 2
+`OwnedShipData.uid`; `FleetManager.active_missions` and Defend Home are keyed by uid (a mission's
+captain by `captain_id`, the index only as a fallback for an id-less fixture), the active hull is
+restored by uid. `SAVE_SCHEMA_VERSION` is 2: `SaveManager._migrate` runs
+`FleetManager.migrate_fleet_save` (pure, idempotent, deterministic `legacy-<n>` uids), and
+`load_save_data` self-heals a fleet that arrives un-migrated. Four existing tests that read or
+injected the position-keyed dict were rewritten on purpose (the position key is the defect).
+
+### The Ship's Company (2.10) and Captain Orders (2.11)
+- `OwnedSquadData` (role, rank by xp, boarding xp, wounds, trait) over `ShipDamage.crew`, which
+  stays the total; an old save derives template squads from its ship's crew.
+  `CrewRankTable` (`resources/crew/CrewRanks.tres`) holds the ranks, role effects, stacking caps and
+  Tavern prices; the top rank needs boarding xp (never sailing xp, never the Tavern).
+- `CrewStationApplier` (on the player ship) keeps one PERSISTENT `CombatModifiers` layer
+  (`crew_stations`): gunners reload, riggers speed, marines damage taken, surgeons repair, scaled by
+  rank and trait and held under the cap. The boarding roles' stations are empty during a boarding;
+  a Maelstrom run is closed to the company. A boarding wounds/trains the marines, fit marines add
+  boarders, the Brig objective (Navy ships) frees the only elite squad there is, the Cabin
+  objective (Spanish ships) pays the captain. The Tavern sells Green squads; wounds mend at the dock.
+- `CaptainAbilityData` boarding orders: Board First (Cutlass: a hero, more boarders, harder melee),
+  No Quarter (Redbeard: no surrender, a win is Dread), +CP (Mary). Escaped officers
+  (`EnemyCaptainData`, one per faction) are remembered by `EmpireManager.nemeses` and return one title
+  higher, stronger, on a wanted poster; seizing a ship with the officers aboard ends them and pays the
+  bounty. A Tavern is an Infirmary (extra wounds mended per dock) and a Fortress a Training Yard
+  (sailing xp per dock): `BuildingData.infirmary_heal_bonus` / `training_xp_per_dock`.
+
+### Verification
+- Tests: `test_m30_boarding_routing.gd` (15), `_battle` (27), `_deck` (16), `_content` (9),
+  `_overlay` (26), `_hud_wiring` (4), `test_m30_morale.gd` (24), `test_m30_fleet_uid_migration.gd`
+  (20), `test_m30_prize_fleet.gd` (38), `test_m30_prize_court.gd` (24),
+  `test_m30_ships_company.gd` (36), `test_m30_captain_orders.gd` (24). Every task was mutation
+  checked (a deliberate break of the behaviour fails its test).
+- Headful capture: `scenes/debug/BoardingCaptureHarness.tscn` (stage
+  `scripts/debug/BoardingCaptureStage.gd`, `--capture-dir=<abs path>`) writes the deck preview
+  strip, the overlay (open, with orders queued, after a bell, the result) and the Prize Ledger.
+  Looking at those frames drove the layout: the first build overflowed the 1688×780 canvas.
+- Two Maelstrom tests that pin exact `CombatModifiers` numbers on a freshly spawned PlayerShip now
+  run with an empty company (the company makes the modifiers non-neutral in the campaign).
+- **Not verified here:** touch feel of the overlay on a real phone, whether the 6 s bell timer is
+  comfortable, real icon art, and balance (every number is a placeholder for M31). The context
+  button label for Take Prize on the desktop prompt still reads "Press [F] to Board".

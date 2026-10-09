@@ -13,6 +13,10 @@ var _spawner: EnemySpawner = null
 var _player: RigidBody3D = null
 var _file_backup := {}
 var _resources_before: Dictionary
+## M30 2.10: the player ship spawned here (in campaign mode, before MaelstromRun flips the mode) now
+## has a Ship's Company on its CombatModifiers, which would add to the exact modifier numbers these
+## tests pin. They run with an empty company; test_m30_ships_company.gd covers the stations.
+var _saved_squads: Array[OwnedSquadData] = []
 
 
 func before_each() -> void:
@@ -23,6 +27,8 @@ func before_each() -> void:
 			_file_backup[path] = FileAccess.get_file_as_string(path)
 			DirAccess.remove_absolute(path)
 	_resources_before = ResourceManager.current_resources.duplicate()
+	_saved_squads = FleetManager.squads.duplicate()
+	FleetManager.squads.clear()
 
 	_scene = Node3D.new()
 	get_tree().root.add_child(_scene)
@@ -39,6 +45,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	FleetManager.squads = _saved_squads.duplicate()
 	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
 	ResourceManager.current_resources = _resources_before
 	if is_instance_valid(_scene):

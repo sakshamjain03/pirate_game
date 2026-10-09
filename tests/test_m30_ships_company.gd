@@ -46,6 +46,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
 	FleetManager.squads = _saved_squads.duplicate()
 	FleetManager.owned_ships = _saved_ships.duplicate()
 	FleetManager.owned_captains = _saved_captains.duplicate()
@@ -531,6 +532,21 @@ func test_the_applier_keeps_one_persistent_layer_in_step_with_the_company() -> v
 	FleetManager.squads.clear()
 	FleetManager.squads_changed.emit()
 	assert_eq(mods.fire_rate_mult, 1.0)
+
+
+func test_a_maelstrom_run_is_closed_to_the_company() -> void:
+	var rig := _player_rig()
+	var mods: CombatModifiers = rig["mods"]
+	FleetManager.squads.append(_squad(&"gunners", _table.xp_thresholds[2]))
+	FleetManager.squads_changed.emit()
+	assert_gt(mods.fire_rate_mult, 1.0, "precondition: the campaign company works")
+	SceneManager.game_mode = SceneManager.GameMode.MAELSTROM
+	FleetManager.squads_changed.emit()
+	assert_eq(mods.fire_rate_mult, 1.0, "nothing from the campaign carries into a Maelstrom run")
+	assert_false(mods.has_persistent_layer(CrewStationApplier.LAYER))
+	SceneManager.game_mode = SceneManager.GameMode.CAMPAIGN
+	FleetManager.squads_changed.emit()
+	assert_gt(mods.fire_rate_mult, 1.0)
 
 
 func test_the_layer_survives_an_encounter_reset() -> void:

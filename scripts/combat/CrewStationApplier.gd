@@ -18,6 +18,7 @@ const LAYER := &"crew_stations"
 var _modifiers: CombatModifiers = null
 var _system: BoardingSystem = null
 var _suspended: bool = false
+var _in_campaign: bool = true
 
 
 func _ready() -> void:
@@ -37,6 +38,11 @@ func _exit_tree() -> void:
 
 
 func _process(_delta: float) -> void:
+	# The mode can flip after the ship exists (a Maelstrom run starts after its player spawns).
+	var campaign: bool = SceneManager == null or SceneManager.is_campaign()
+	if campaign != _in_campaign:
+		_in_campaign = campaign
+		refresh()
 	if _system == null or not is_instance_valid(_system):
 		return
 	var boarding := _system.is_boarding_active()
@@ -45,9 +51,13 @@ func _process(_delta: float) -> void:
 		refresh()
 
 
-## Rebuilds the layer from the company as it stands.
+## Rebuilds the layer from the company as it stands. A Maelstrom run is its own closed mode (its
+## own upgrades and pickups; nothing from the campaign carries in), so the company stands down there.
 func refresh() -> void:
 	if _modifiers == null or not is_instance_valid(_modifiers):
+		return
+	if SceneManager and not SceneManager.is_campaign():
+		_modifiers.clear_persistent_layer(LAYER)
 		return
 	_modifiers.set_persistent_layer(LAYER,
 			compute_effects(FleetManager.squads, CrewRankTable.get_default(), _suspended))

@@ -25,15 +25,22 @@ const PRE_M26_EFFECTS := {
 }
 
 var _scene: Node3D = null
+## M30 2.10: a freshly spawned PlayerShip now has a Ship's Company working its sea stations, so its
+## CombatModifiers are no longer neutral. These tests pin exact modifier numbers from upgrades alone,
+## so they run with an empty company (the stations themselves are tested in test_m30_ships_company.gd).
+var _saved_squads: Array[OwnedSquadData] = []
 
 
 func before_each() -> void:
+	_saved_squads = FleetManager.squads.duplicate()
+	FleetManager.squads.clear()
 	_scene = Node3D.new()
 	get_tree().root.add_child(_scene)
 	get_tree().current_scene = _scene
 
 
 func after_each() -> void:
+	FleetManager.squads = _saved_squads.duplicate()
 	if is_instance_valid(_scene):
 		if get_tree().current_scene == _scene:
 			get_tree().current_scene = null

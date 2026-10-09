@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/ThreatDecalsData.gd" id="1_threat"]
 
-; M30 W1 task 1.5 — enemy broadside wind-up wedge + screen-rim arrow.
+; M30 W1 task 1.5 — enemy broadside wind-up wedge + screen-rim arrow. Placeholder: tune in M31.
 [resource]
 script = ExtResource("1_threat")
 max_visible = 2

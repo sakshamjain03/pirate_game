@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/world/HeatTierData.gd" id="1_heat"]
 [ext_resource type="Resource" path="res://resources/combat/squads/Squad1_RaiderSupport.tres" id="2_sq1"]
 
+; squad_pool (M30 W1 task 1.7 heat-tier squads) is a placeholder: tune in M31.
 [resource]
 script = ExtResource("1_heat")
 tier = 0

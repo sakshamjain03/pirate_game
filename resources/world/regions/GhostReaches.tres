@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/HarassingSloop.tres" id="ai_1"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/Fireship.tres" id="ai_2"]
 
+; enemy_profile_pool/enemy_profile_weights (M30 W1 task 1.3 role mix) are placeholders: tune in M31.
 [resource]
 script = ExtResource("1_reg")
 id = "ghost_reaches"

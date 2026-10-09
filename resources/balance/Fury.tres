@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/combat/FuryData.gd" id="1_fury"]
 
+; M30 W1 task 1.12 Fury fill rates. Every value is a placeholder: tune in M31.
 [resource]
 script = ExtResource("1_fury")
 fury_per_hit = 0.01

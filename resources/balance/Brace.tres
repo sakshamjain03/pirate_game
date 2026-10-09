@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/combat/BraceData.gd" id="1_brace"]
 
+; M30 W1 task 1.6 Brace. Every value is a placeholder: tune in M31.
 [resource]
 script = ExtResource("1_brace")
 reduction = 0.4

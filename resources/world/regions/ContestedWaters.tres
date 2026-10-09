@@ -11,6 +11,7 @@
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/LongGunner.tres" id="ai_4"]
 [ext_resource type="Resource" path="res://resources/combat/ai_profiles/Fireship.tres" id="ai_5"]
 
+; enemy_profile_pool/enemy_profile_weights (M30 W1 task 1.3 role mix) are placeholders: tune in M31.
 [resource]
 script = ExtResource("1_reg")
 id = "contested_waters"

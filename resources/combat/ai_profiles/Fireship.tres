@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/combat/AIProfileData.gd" id="1_ai_prof"]
 
+; M30 W1 tasks 1.1-1.3 FIRESHIP tactic profile. Every value is a placeholder: tune in M31.
 [resource]
 script = ExtResource("1_ai_prof")
 role = 1

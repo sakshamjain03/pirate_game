@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/combat/AIDifficultyData.gd" id="1_diff"]
 
+; broadside_windup_seconds (M30 W1 task 1.4 enemy wind-up) is a placeholder: tune in M31.
 [resource]
 script = ExtResource("1_diff")
 display_name = "Normal"

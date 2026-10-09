@@ -24,6 +24,10 @@ const PROGRESSION_CONFIG_PATH := "res://resources/ship_components/ShipProgressio
 static var _catalog: ShipProgressionConfig = null
 
 @export var ship_stats: ShipStats
+## M30 W2 (2.7) - this hull's identity. Missions and Defend Home are keyed by it, never by
+## its position in `FleetManager.owned_ships` (which shifts when a hull is dismantled or a
+## prize joins). Empty until FleetManager adds or migrates the hull; saved with the ship.
+@export var uid: String = ""
 @export var level: int = 1
 @export var installed_modules: Array[ShipModuleData] = []
 ## M23 — component id -> level (1..level). A missing id reads as level 1.
@@ -157,6 +161,7 @@ func get_save_data() -> Dictionary:
 		if m:
 			module_paths.append(m.resource_path)
 	return {
+		"uid": uid,
 		"ship_path": ship_stats.resource_path if ship_stats else "",
 		"level": level,
 		"modules": module_paths,
@@ -166,6 +171,7 @@ func get_save_data() -> Dictionary:
 
 static func from_save_data(data: Dictionary) -> OwnedShipData:
 	var o := OwnedShipData.new()
+	o.uid = str(data.get("uid", ""))
 	var path: String = data.get("ship_path", "")
 	if ResourceLoader.exists(path):
 		o.ship_stats = load(path)

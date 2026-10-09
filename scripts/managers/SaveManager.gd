@@ -33,7 +33,7 @@ const MAX_OFFLINE_SECONDS := 4 * 60 * 60
 ## M10 Requirement 9 — a version stamp for M12's full migration/backup pass
 ## to build on. Deliberately inert beyond the field itself: no migration
 ## logic yet, just recording what schema version wrote a given save.
-const SAVE_SCHEMA_VERSION := 1
+const SAVE_SCHEMA_VERSION := 2
 
 ## preload rather than the bare global class name — see the matching note in SettingsMenu.gd;
 ## headless GUT runs don't always have a freshly rebuilt global-script-class cache.
@@ -807,6 +807,11 @@ func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 								"discovered": false,
 							}
 				version = 1
+			1:
+				# M30 W2 (2.7): hulls gained uids; missions and Defend Home moved off position keys.
+				if migrated.get("fleet") is Dictionary:
+					migrated["fleet"] = FleetManager.migrate_fleet_save(migrated["fleet"])
+				version = 2
 			_:
 				push_error("SaveManager: no migration exists from schema version %d." % version)
 				return {}

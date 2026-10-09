@@ -139,4 +139,4 @@ func test_trade_route_region_tier_is_clamped():
 	flm.active_ship_index = -1
 
 	flm.assign_trade_route(0, 0, "Somewhere", 99)
-	assert_eq(flm.active_missions[0]["region_tier"], 3, "region_tier should clamp to the real 1-3 region range")
+	assert_eq(flm.get_mission(0)["region_tier"], 3, "region_tier should clamp to the real 1-3 region range")

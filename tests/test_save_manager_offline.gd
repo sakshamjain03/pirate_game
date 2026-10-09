@@ -111,12 +111,12 @@ func test_offline_catch_up_advances_active_fleet_mission():
 	# empty resource_path and can never round-trip through save/load.
 	FleetManager.owned_captains.append(load("res://resources/captains/Jack.tres"))
 	var captain_index := FleetManager.owned_captains.size() - 1
-	var ship_index := 1 if FleetManager.active_ship_index != 1 else 2
-	FleetManager.active_missions[ship_index] = {
-		"captain_index": captain_index,
-		"mission_type": "trade",
-		"timer": 0.0,
-	}
+	# A hull of its own for the mission (missions are keyed by hull uid since M30 2.7, so the
+	# fixture can no longer inject one at an index that has no ship behind it).
+	var extra_ship := OwnedShipData.new()
+	extra_ship.ship_stats = load("res://resources/ships/Sloop.tres")
+	FleetManager.owned_ships.append(extra_ship)
+	FleetManager.assign_mission(FleetManager.owned_ships.size() - 1, captain_index, "trade")
 
 	var gold_before: int = ResourceManager.get_resource("gold")
 
@@ -156,12 +156,12 @@ func test_offline_catch_up_tracks_the_income_delta_for_the_m17_bonus_surface():
 
 	FleetManager.owned_captains.append(load("res://resources/captains/Jack.tres"))
 	var captain_index := FleetManager.owned_captains.size() - 1
-	var ship_index := 1 if FleetManager.active_ship_index != 1 else 2
-	FleetManager.active_missions[ship_index] = {
-		"captain_index": captain_index,
-		"mission_type": "trade",
-		"timer": 0.0,
-	}
+	# A hull of its own for the mission (missions are keyed by hull uid since M30 2.7, so the
+	# fixture can no longer inject one at an index that has no ship behind it).
+	var extra_ship := OwnedShipData.new()
+	extra_ship.ship_stats = load("res://resources/ships/Sloop.tres")
+	FleetManager.owned_ships.append(extra_ship)
+	FleetManager.assign_mission(FleetManager.owned_ships.size() - 1, captain_index, "trade")
 
 	SaveManager.save_game()
 	var file = FileAccess.open(SaveManager.SAVE_PATH, FileAccess.READ)

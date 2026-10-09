@@ -153,4 +153,4 @@ func test_save_load_round_trip():
 	assert_eq(FleetManager.active_ship_index, 1)
 	assert_eq(FleetManager.active_captain_index, 0)
 	assert_true(FleetManager.is_on_mission(0), "mission assignments must survive save/load")
-	assert_eq(FleetManager.active_missions[0]["mission_type"], "patrol")
+	assert_eq(FleetManager.get_mission(0)["mission_type"], "patrol")

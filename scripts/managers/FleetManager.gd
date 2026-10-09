@@ -21,9 +21,13 @@ var owned_captains: Array[CaptainData] = []
 var _unresolved_captains: Array = []
 var active_ship_index: int = 0
 var active_captain_index: int = 0
-var defend_home_ship_indices: Array = []
+## M30 W2 (2.7) - ship uids (OwnedShipData.uid), not positions: a position shifts the moment a
+## hull is dismantled or a prize is added, silently handing one ship's duty to another.
+var defend_home_ship_uids: Array = []
 
-# Dictionary mapping ship_index (int) -> { "captain_index": int, "mission_type": String, "timer": float }
+## ship uid (String) -> {"captain_id": String, "captain_index": int, "mission_type": String,
+## "timer": float, ...}. `captain_id` pairs by CaptainData.captain_id; `captain_index` is only the
+## fallback for a captain that has no id (test fixtures).
 var active_missions: Dictionary = {}
 
 ## M27 — the ScheduleManager job target for ship construction.
@@ -93,13 +97,73 @@ func _on_job_completed(job: Dictionary) -> void:
 		return
 	add_ship(ship)
 
+## === Hull identity (M30 W2 2.7) ===
+
+## The uid of the hull at `ship_index`, assigning one if it has none yet (a hull appended to
+## `owned_ships` directly, or loaded from a save that predates uids). "" for a bad index.
+func uid_of(ship_index: int) -> String:
+	if ship_index < 0 or ship_index >= owned_ships.size() or owned_ships[ship_index] == null:
+		return ""
+	var owned := owned_ships[ship_index]
+	if owned.uid.is_empty():
+		owned.uid = _new_uid()
+	return owned.uid
+
+
+## The current position of the hull with this uid, or -1.
+func index_of_uid(uid: String) -> int:
+	for i in owned_ships.size():
+		if owned_ships[i] != null and owned_ships[i].uid == uid and not uid.is_empty():
+			return i
+	return -1
+
+
+func get_ship_by_uid(uid: String) -> OwnedShipData:
+	var i := index_of_uid(uid)
+	return owned_ships[i] if i >= 0 else null
+
+
+## The mission of the hull at `ship_index` ({} if none).
+func get_mission(ship_index: int) -> Dictionary:
+	return active_missions.get(uid_of(ship_index), {})
+
+
+func _new_uid() -> String:
+	var taken := {}
+	for o in owned_ships:
+		if o != null and not o.uid.is_empty():
+			taken[o.uid] = true
+	var uid := ""
+	while uid.is_empty() or taken.has(uid):
+		uid = "s%x%x" % [int(Time.get_unix_time_from_system()), randi() % 0xFFFFFF]
+	return uid
+
+
+## A captain's stable key: its authored id, else its resource path.
+static func captain_key(c: CaptainData) -> String:
+	if c == null:
+		return ""
+	return c.captain_id if not c.captain_id.is_empty() else c.resource_path
+
+
+func _captain_for(mission: Dictionary) -> CaptainData:
+	var key := str(mission.get("captain_id", ""))
+	if not key.is_empty():
+		for c in owned_captains:
+			if captain_key(c) == key:
+				return c
+	var idx := int(mission.get("captain_index", -1))
+	if idx >= 0 and idx < owned_captains.size():
+		return owned_captains[idx]
+	return null
+
+
 func on_economy_tick() -> void:
-	for ship_idx in active_missions.keys():
-		var mission = active_missions[ship_idx]
-		var cap_idx = mission["captain_index"]
-		if cap_idx < 0 or cap_idx >= owned_captains.size():
+	for ship_uid in active_missions.keys():
+		var mission = active_missions[ship_uid]
+		var cap = _captain_for(mission)
+		if cap == null:
 			continue
-		var cap = owned_captains[cap_idx]
 
 		# Give XP to captain
 		cap.add_xp(10)
@@ -123,7 +187,11 @@ func on_economy_tick() -> void:
 
 func assign_mission(ship_index: int, captain_index: int, mission_type: String) -> void:
 	if ship_index == active_ship_index: return # Active ship cannot run background missions
-	active_missions[ship_index] = {
+	var uid := uid_of(ship_index)
+	if uid.is_empty():
+		return
+	active_missions[uid] = {
+		"captain_id": captain_key(owned_captains[captain_index]) if captain_index >= 0 and captain_index < owned_captains.size() else "",
 		"captain_index": captain_index,
 		"mission_type": mission_type,
 		"timer": 0.0
@@ -137,7 +205,11 @@ func assign_mission(ship_index: int, captain_index: int, mission_type: String) -
 ## invisible background timer.
 func assign_trade_route(ship_index: int, captain_index: int, route_name: String, region_tier: int) -> void:
 	if ship_index == active_ship_index: return
-	active_missions[ship_index] = {
+	var uid := uid_of(ship_index)
+	if uid.is_empty():
+		return
+	active_missions[uid] = {
+		"captain_id": captain_key(owned_captains[captain_index]) if captain_index >= 0 and captain_index < owned_captains.size() else "",
 		"captain_index": captain_index,
 		"mission_type": "trade_route",
 		"timer": 0.0,
@@ -147,45 +219,51 @@ func assign_trade_route(ship_index: int, captain_index: int, route_name: String,
 	fleet_changed.emit()
 
 func get_mission_display_text(ship_index: int) -> String:
-	if not active_missions.has(ship_index):
+	var mission = get_mission(ship_index)
+	if mission.is_empty():
 		return ""
-	var mission = active_missions[ship_index]
 	if mission["mission_type"] == "trade_route" and mission.get("route_name", "") != "":
 		return mission["route_name"]
 	return String(mission["mission_type"]).capitalize()
 
 func set_defend_home(ship_index: int, defend: bool) -> void:
+	var uid := uid_of(ship_index)
+	if uid.is_empty():
+		return
 	if defend:
-		if not defend_home_ship_indices.has(ship_index):
-			defend_home_ship_indices.append(ship_index)
+		if not defend_home_ship_uids.has(uid):
+			defend_home_ship_uids.append(uid)
 	else:
-		if defend_home_ship_indices.has(ship_index):
-			defend_home_ship_indices.erase(ship_index)
+		if defend_home_ship_uids.has(uid):
+			defend_home_ship_uids.erase(uid)
 	fleet_changed.emit()
 
 func is_defending_home(ship_index: int) -> bool:
-	return defend_home_ship_indices.has(ship_index)
+	return defend_home_ship_uids.has(uid_of(ship_index))
 
 func get_ships_defending_home() -> int:
 	var count = 0
-	for idx in defend_home_ship_indices:
-		if idx != active_ship_index and not is_on_mission(idx):
+	for uid in defend_home_ship_uids:
+		var idx := index_of_uid(uid)
+		if idx >= 0 and idx != active_ship_index and not is_on_mission(idx):
 			count += 1
 	return count
 
 func unassign_mission(ship_index: int) -> void:
-	if active_missions.has(ship_index):
-		active_missions.erase(ship_index)
+	var uid := uid_of(ship_index)
+	if active_missions.has(uid):
+		active_missions.erase(uid)
 		fleet_changed.emit()
 
 func is_on_mission(ship_index: int) -> bool:
-	return active_missions.has(ship_index)
+	return active_missions.has(uid_of(ship_index))
 
 func add_ship(ship: ShipStats) -> void:
 	if owns_ship_stats(ship):
 		return
 	var owned := OwnedShipData.new()
 	owned.ship_stats = ship
+	owned.uid = _new_uid()
 	owned_ships.append(owned)
 	fleet_changed.emit()
 
@@ -316,19 +394,96 @@ func get_save_data() -> Dictionary:
 	# a missing file (content gating, a rename) never deletes the captain.
 	cap_data.append_array(_unresolved_captains)
 
+	# Every hull is saved with a uid, including ones appended without one.
+	for i in owned_ships.size():
+		uid_of(i)
+	ship_data.clear()
+	for o in owned_ships:
+		if o:
+			ship_data.append(o.get_save_data())
+
 	return {
 		"owned_ships": ship_data,
 		"owned_captains": cap_data,
 		"active_ship_index": active_ship_index,
+		"active_ship_uid": uid_of(active_ship_index),
 		"active_captain_index": active_captain_index,
 		"active_missions": active_missions.duplicate(true),
-		"defend_home_ship_indices": defend_home_ship_indices.duplicate()
+		"defend_home_ship_uids": defend_home_ship_uids.duplicate()
 	}
+
+
+## M30 W2 (2.7) - turns a fleet save written before hull uids (schema 1) into the uid form:
+## every ship gets a uid, `active_missions` and Defend Home are re-keyed from position to that
+## uid, and each mission records its captain's id. Pure and idempotent: a fleet that already
+## carries uids (and uid-keyed missions) comes back unchanged. The uid is "legacy-<position>",
+## deterministic so two devices migrating the same save agree.
+static func migrate_fleet_save(fleet: Dictionary) -> Dictionary:
+	var out := fleet.duplicate(true)
+	var ships: Array = out.get("owned_ships", [])
+	var uid_by_index: Array = []
+	for i in ships.size():
+		var entry = ships[i]
+		if entry is Dictionary:
+			if str(entry.get("uid", "")).is_empty():
+				entry["uid"] = "legacy-%d" % i
+			uid_by_index.append(str(entry["uid"]))
+		else:
+			uid_by_index.append("legacy-%d" % i)  # a pre-M8 bare path: the loader gives it the same uid
+	var captains: Array = out.get("owned_captains", [])
+	var missions: Dictionary = {}
+	for key in (out.get("active_missions", {}) as Dictionary).keys():
+		var mission: Dictionary = (out["active_missions"][key] as Dictionary).duplicate(true)
+		var uid := ""
+		if str(key).is_valid_int():
+			var idx := int(str(key))
+			uid = uid_by_index[idx] if idx >= 0 and idx < uid_by_index.size() else ""
+		else:
+			uid = str(key)
+		if uid.is_empty():
+			continue  # a mission on a hull that no longer exists
+		if not mission.has("captain_id"):
+			var cidx := int(mission.get("captain_index", -1))
+			var cap = captains[cidx] if cidx >= 0 and cidx < captains.size() else null
+			var path := ""
+			if cap is Dictionary:
+				path = str(cap.get("path", ""))
+			elif cap is String:
+				path = cap
+			mission["captain_id"] = _captain_id_for_path(path)
+		missions[uid] = mission
+	out["active_missions"] = missions
+	if out.has("defend_home_ship_indices"):
+		var uids: Array = out.get("defend_home_ship_uids", [])
+		for idx in out["defend_home_ship_indices"]:
+			if int(idx) >= 0 and int(idx) < uid_by_index.size() and not uid_by_index[int(idx)].is_empty():
+				if not uids.has(uid_by_index[int(idx)]):
+					uids.append(uid_by_index[int(idx)])
+		out["defend_home_ship_uids"] = uids
+		out.erase("defend_home_ship_indices")
+	if not out.has("active_ship_uid"):
+		var ai := int(out.get("active_ship_index", 0))
+		out["active_ship_uid"] = uid_by_index[ai] if ai >= 0 and ai < uid_by_index.size() else ""
+	return out
+
+
+## The captain_id of the authored captain at `path`, falling back to the path itself.
+static func _captain_id_for_path(path: String) -> String:
+	if path.is_empty():
+		return ""
+	if ResourceLoader.exists(path):
+		var c := load(path) as CaptainData
+		if c and not c.captain_id.is_empty():
+			return c.captain_id
+	return path
 
 func load_save_data(data: Dictionary) -> void:
 	owned_ships.clear()
 	owned_captains.clear()
 	active_missions.clear()
+	# Defence in depth: SaveManager migrates schema-1 saves, but a fleet that arrives some other
+	# way (cloud merge, a hand-built test fixture) still lands on uids. Idempotent.
+	data = migrate_fleet_save(data)
 	
 	if data.has("owned_ships"):
 		for entry in data["owned_ships"]:
@@ -337,6 +492,7 @@ func load_save_data(data: Dictionary) -> void:
 			elif entry is String and ResourceLoader.exists(entry):
 				# Pre-M8 save format: a flat ship path, no level/modules yet.
 				var legacy := OwnedShipData.new()
+				legacy.uid = "legacy-%d" % owned_ships.size()
 				legacy.ship_stats = load(entry)
 				owned_ships.append(legacy)
 				
@@ -369,14 +525,16 @@ func load_save_data(data: Dictionary) -> void:
 
 	active_ship_index = int(data.get("active_ship_index", 0))
 	active_captain_index = int(data.get("active_captain_index", 0))
+	# Resolve the active hull by uid when the save has one, so it survives a reordered fleet.
+	var active_uid := str(data.get("active_ship_uid", ""))
+	if not active_uid.is_empty() and index_of_uid(active_uid) >= 0:
+		active_ship_index = index_of_uid(active_uid)
 	if data.has("active_missions"):
-		# Ensure dict keys are converted to int for ship indices
 		for k in data["active_missions"].keys():
-			active_missions[int(k)] = data["active_missions"][k]
-			
-	defend_home_ship_indices.clear()
-	if data.has("defend_home_ship_indices"):
-		for idx in data["defend_home_ship_indices"]:
-			defend_home_ship_indices.append(int(idx))
-	
+			active_missions[str(k)] = data["active_missions"][k]
+
+	defend_home_ship_uids.clear()
+	for uid in data.get("defend_home_ship_uids", []):
+		defend_home_ship_uids.append(str(uid))
+
 	fleet_changed.emit()

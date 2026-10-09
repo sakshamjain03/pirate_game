@@ -12,9 +12,16 @@ var _saved_auth_override: Callable
 var _saved_entitlement_override: Callable
 var _saved_entitlements: Dictionary
 var _saved_did_launch_check: bool
+var _saved_session_file: Variant = null  # String contents, or null when absent
 
 
 func before_each():
+	# The 401 test's refresh persists user://auth_session.json; left behind, the
+	# next launch restores it and fires a real refresh, so every later run sees
+	# two refreshes where the test expects one. Snapshot it, restore it after.
+	_saved_session_file = null
+	if FileAccess.file_exists("user://auth_session.json"):
+		_saved_session_file = FileAccess.get_file_as_string("user://auth_session.json")
 	_saved_access_token = AuthManager._access_token
 	_saved_refresh_token = AuthManager._refresh_token
 	_saved_user_id = AuthManager._user_id
@@ -29,6 +36,14 @@ func before_each():
 
 
 func after_each():
+	if _saved_session_file == null:
+		if FileAccess.file_exists("user://auth_session.json"):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path("user://auth_session.json"))
+	else:
+		var f := FileAccess.open("user://auth_session.json", FileAccess.WRITE)
+		if f:
+			f.store_string(_saved_session_file)
+			f.close()
 	AuthManager._access_token = _saved_access_token
 	AuthManager._refresh_token = _saved_refresh_token
 	AuthManager._user_id = _saved_user_id

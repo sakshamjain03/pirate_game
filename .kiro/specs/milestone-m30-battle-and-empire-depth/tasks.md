@@ -140,52 +140,51 @@ fix and watch the test fail.
 
 ### Wave 1 — Every fight is a read
 
-> **Status (2026-10-06): in progress.** Implementing in four parallel lanes (workflow `wf_c0be565a-16d`), each on its own branch and each verified by a test run and an adversarial review before merge. A task is ticked here only after it is merged to `main` with a passing test that was mutation-checked.
-> - Lane `ai` → branch `m30-w1-ai`: 1.1, 1.2, 1.3
-> - Lane `gunnery` → branch `m30-w1-gunnery`: 1.4, 1.6, 1.12
-> - Lane `encounters` → branch `m30-w1-encounters`: 1.7, 1.9, 1.13
-> - Lane `feedback` → branch `m30-w1-feedback`: 1.5, 1.8, 1.10, 1.11
+> **Status (2026-10-09): tasks 1.1–1.13 done on `m30-w1-int`; Checkpoint W1 pending review.** Built in four parallel lanes, then re-audited and completed by an Opus pass (a first unpinned pass ran on Haiku and left 1.8/1.9/1.11 unfinished). Sharded full suite 193 scripts / 1391 tests / 0 failing / 0 SCRIPT ERRORs (W0 baseline 1216).
+> - Deviations: Brace uses a PERSISTENT `CombatModifiers` layer, not TIMED (cancellable, separate from captain bursts); Brace is offered only while a hostile wind-up is aimed at the player; the Raker uses station-keeping (`AIProfileData.station_*`) so the hull really settles astern; Tender replaces SupportGalleon in ImperialWaters; the rake colour is green.
+> - Known gaps (recorded in docs/05): `_steer_towards` has no arrival slow-down and degenerates when the goal is exactly astern (shared steering, left alone); not verifiable here: camera punch / haptic feel, touch tap-to-mark, the phone `Chain/Grape` ammo-button width, and the keg is only a few pixels at default zoom (M31).
+> - Suite-hang fix: `test_m30_side_ammo_hud.gd` built a real WorldHUD while `SaveManager._pending_offline_ticks` was left set by an earlier test, which opened a modal offer and paused the whole run; it now pins that state.
 
-- [ ] 1.1 `AIProfileData.tactic`/`preferred_bearing_deg`/`kite_min_distance`/`ammo_rules`; tactic positioning in `_process_attack` (`ideal_position` only, low-pass filtered). Files: `AIProfileData.gd`, `EnemyAI.gd`
+- [x] 1.1 `AIProfileData.tactic`/`preferred_bearing_deg`/`kite_min_distance`/`ammo_rules`; tactic positioning in `_process_attack` (`ideal_position` only, low-pass filtered). Files: `AIProfileData.gd`, `EnemyAI.gd`
   - **Verify:** `tests/test_m30_enemy_tactics.gd`. A Raker settles in the stern quarter (±25°) within 20s. A Long Gunner keeps ≥ `kite_min_distance`. A Ram-Runner telegraphs before the ram. The avoidance diff is empty.
   - _Requirements: W1-1.1_
-- [ ] 1.2 Fireship profile plus contact area damage (extract `_detonate_keg` into a shared static). Files: `MaelstromRun.gd` (extraction), new `AreaDamage.gd`, `resources/combat/ai_profiles/Fireship.tres`
+- [x] 1.2 Fireship profile plus contact area damage (extract `_detonate_keg` into a shared static). Files: `MaelstromRun.gd` (extraction), new `AreaDamage.gd`, `resources/combat/ai_profiles/Fireship.tres`
   - **Verify:** `tests/test_m30_fireship.gd`. Contact → area damage to every hull within radius, and the fireship frees itself. The Maelstrom keg tests pass.
   - _Requirements: W1-1.1_
-- [ ] 1.3 Author the tactic profiles, plus faction role mixes in the region pools. Files: `resources/combat/ai_profiles/*.tres`, `resources/world/regions/*.tres`
+- [x] 1.3 Author the tactic profiles, plus faction role mixes in the region pools. Files: `resources/combat/ai_profiles/*.tres`, `resources/world/regions/*.tres`
   - **Verify:** `tests/test_lint_resource_exports.gd` passes. A profile-pool test asserts each faction's mix.
   - _Requirements: W1-1.1_
-- [ ] 1.4 Broadside wind-up gate in the auto-fire loop, plus the `broadside_windup` signal and `AIDifficultyData.broadside_windup_seconds`. Files: `ShipCombat.gd`, `AIDifficultyData.gd`, difficulty `.tres`
+- [x] 1.4 Broadside wind-up gate in the auto-fire loop, plus the `broadside_windup` signal and `AIDifficultyData.broadside_windup_seconds`. Files: `ShipCombat.gd`, `AIDifficultyData.gd`, difficulty `.tres`
   - **Verify:** `tests/test_m30_windup.gd`. An enemy fires only after the wind-up. A player hull fires immediately. `fire_broadside()` is still synchronous. `test_ship_combat.gd` passes unmodified.
   - _Requirements: W1-1.2_
-- [ ] 1.5 Threat decals (wedge tinted by ammo, rim arrow; at most 2, by priority). Files: `scripts/ui/ThreatDecals.gd`, `WorldHUD.gd`
+- [x] 1.5 Threat decals (wedge tinted by ammo, rim arrow; at most 2, by priority). Files: `scripts/ui/ThreatDecals.gd`, `WorldHUD.gd`
   - **Verify:** `tests/test_m30_threat_decals.gd` (budget and priority), plus a **headful capture** of a wedge.
   - _Requirements: W1-1.2_
-- [ ] 1.6 Brace: `BraceData`, `damage_taken_mult`, perfect window, guns blocked, cooldown, and an arbiter provider. Files: `BraceData.gd` + `.tres`, `CombatModifiers.gd`, `ShipDamage.gd`, `ShipCombat.gd`, `WorldManager.gd`
+- [x] 1.6 Brace: `BraceData`, `damage_taken_mult`, perfect window, guns blocked, cooldown, and an arbiter provider. Files: `BraceData.gd` + `.tres`, `CombatModifiers.gd`, `ShipDamage.gd`, `ShipCombat.gd`, `WorldManager.gd`
   - **Verify:** `tests/test_m30_brace.gd`. Bracing → damage × (1 − reduction). Perfect → the larger reduction plus Fury. Firing while bracing → false. During cooldown → no brace.
   - _Requirements: W1-1.3_
-- [ ] 1.7 Squads (`SquadSlotData`, `SquadTacticData`), the fallback, `_validate`, 6 authored squads, and heat-tier squad pools. Files: `EncounterData.gd`, `EncounterManager.gd`, `HeatTierData.gd`, `resources/combat/squads/*.tres`
+- [x] 1.7 Squads (`SquadSlotData`, `SquadTacticData`), the fallback, `_validate`, 6 authored squads, and heat-tier squad pools. Files: `EncounterData.gd`, `EncounterManager.gd`, `HeatTierData.gd`, `resources/combat/squads/*.tres`
   - **Verify:** `tests/test_m30_squads.gd`. A squad spawns mixed hulls with their profiles set before `_ready`. Hostile count ≤ 4. An empty squad uses the old fields. `test_lint_encounter_data.gd` passes.
   - _Requirements: W1-1.4, W1-1.5_
-- [ ] 1.8 Aim-by-bearing `priority_mode` (player), plus a tap-to-mark `priority_target`. Files: `FiringSolver.gd`, `PlayerShip.tscn`, `WorldManager.gd`
+- [x] 1.8 Aim-by-bearing `priority_mode` (player), plus a tap-to-mark `priority_target`. Files: `FiringSolver.gd`, `PlayerShip.tscn`, `WorldManager.gd`
   - **Verify:** `tests/test_m30_aim_by_bearing.gd`. Of two hulls in the arc, the one nearer the centre line wins for the player and the nearer one wins for the AI. A marked target wins while it's in the arc.
   - _Requirements: W1-1.6_
-- [ ] 1.9 Spyglass Briefing (roster card, opening ammo per side, 3 Preparations, Watchtower intel gate). Files: `scripts/ui/SpyglassBriefing.gd`, `PreparationData.gd` + `.tres`, `EncounterManager.gd`
+- [x] 1.9 Spyglass Briefing (roster card, opening ammo per side, 3 Preparations, Watchtower intel gate). Files: `scripts/ui/SpyglassBriefing.gd`, `PreparationData.gd` + `.tres`, `EncounterManager.gd`
   - **Verify:** `tests/test_m30_spyglass.gd` (intel by Watchtower level, preparation effects applied), plus a **headful capture**.
   - _Requirements: W1-2.1_
-- [ ] 1.10 Powder Kegs (scene, fuse, detonation, stock per sortie, arbiter provider, Raker pathing around kegs through the existing probe). Files: `PowderKeg.tscn/.gd`, `KegConfigData.gd` + `.tres`, `WorldManager.gd`
+- [x] 1.10 Powder Kegs (scene, fuse, detonation, stock per sortie, arbiter provider, Raker pathing around kegs through the existing probe). Files: `PowderKeg.tscn/.gd`, `KegConfigData.gd` + `.tres`, `WorldManager.gd`
   - **Verify:** `tests/test_m30_powder_keg.gd`. Drop is only available with an enemy in the stern cone. Detonation damage is applied. Stock decrements and refills at port.
   - _Requirements: W1-2.2_
-- [ ] 1.11 Feedback pack: rake cone, ribbons (at most 3), colour damage numbers, camera offset punch, haptics, reduced motion. Files: `RibbonStack.gd`, `CameraRig.gd`, `FloatingDamage.gd`, `HapticFeedbackManager.gd`, `WorldHUD.gd`
+- [x] 1.11 Feedback pack: rake cone, ribbons (at most 3), colour damage numbers, camera offset punch, haptics, reduced motion. Files: `RibbonStack.gd`, `CameraRig.gd`, `FloatingDamage.gd`, `HapticFeedbackManager.gd`, `WorldHUD.gd`
   - **Verify:** `tests/test_m30_feedback.gd`. Ribbon cap holds. The punch uses `h/v_offset` and never `time_scale`. Reduced motion → no punch. Plus a **headful capture**.
   - _Requirements: W1-2.3_
-- [ ] 1.12 Fury (fills from `hit_resolved`, rakes, brace, kills; extra fill on the special timer). Files: `ShipCombat.gd`, `FuryData.gd` + `.tres`, `WorldHUD.gd`
+- [x] 1.12 Fury (fills from `hit_resolved`, rakes, brace, kills; extra fill on the special timer). Files: `ShipCombat.gd`, `FuryData.gd` + `.tres`, `WorldHUD.gd`
   - **Verify:** `tests/test_m30_fury.gd`. Rakes fill more than plain hits. At 1.0 the special is ready early. `test_battle_upgrades.gd:206-218` passes unmodified.
   - _Requirements: W1-2.4_
-- [ ] 1.13 Sortie Stars (`StarConditionData`, evaluation on resolve, best per encounter saved, cosmetic totals). Files: `EncounterData.gd`, `EncounterManager.gd`, `CampaignManager.gd`, the results popup
+- [x] 1.13 Sortie Stars (`StarConditionData`, evaluation on resolve, best per encounter saved, cosmetic totals). Files: `EncounterData.gd`, `EncounterManager.gd`, `CampaignManager.gd`, the results popup
   - **Verify:** `tests/test_m30_stars.gd`. Each condition kind evaluates. Best stars persist (omitted when empty). No campaign gate reads stars.
   - _Requirements: W1-2.5_
-- [ ] **Checkpoint W1:** full suite; headful capture (wind-up wedge, brace, squad, keg, ribbons, briefing); `checkpoint-reviewer`; docs/05; commit and push.
+- [x] **Checkpoint W1** — passed 2026-10-09 after one review round: the first `checkpoint-reviewer` run FAILED it (serial-run-only test-order failure from leaked notoriety, desktop left-click firing regression from tap-to-mark, no Brace capture, missing placeholder comments); all fixed. Canonical serial run 193 scripts / 1395 tests / 0 failing / 0 SCRIPT ERRORs. Headful captures looked at: wind-up wedge (staged and via a real enemy in test), ribbons, rake cone and colour numbers, briefing, squad, keg (a few pixels wide; readability left to M31), Brace (desktop label and phone context button). NOT verifiable here: camera punch and haptic feel, touch tap-to-mark and desktop middle-click marking on real hardware, on-device frame rate, emoji role-icon rendering. Desktop target marking is middle-click (left stays fire_port).
 
 ### Wave 2 — Boarding: Three Bells + Prize Fleet
 - [ ] 2.1 `BoardingSystem` foundation: `_apply_outcome` extraction, `begin_boarding` routing (Quick, Overwhelm, tactical), target lock, `boarding_outcome` signal, `BoardingData` fields, settings toggle, seeded `LootTableData.roll(rng)`. Files: `BoardingSystem.gd`, `BoardingData.gd`, `LootTableData.gd`, `SettingsManager.gd`, `WorldManager.gd`

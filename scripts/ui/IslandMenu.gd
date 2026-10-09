@@ -1227,6 +1227,7 @@ func _refresh_captains() -> void:
 		child.queue_free()
 		
 	_create_crew_recruitment_entry()
+	_create_company_section()
 
 	for cap in available_captains:
 		# A captain whose chapter hasn't been reached is excluded entirely, not
@@ -1236,6 +1237,40 @@ func _refresh_captains() -> void:
 			continue
 		_create_captain_entry(cap)
 	PirateThemeBuilder.apply_mobile_control_scaling(captains_container)
+
+## M30 W2 (2.10) - the Ship's Company at the Tavern: who is aboard, and Green squads for hire.
+## Elite squads are not sold here: they only come from boarding.
+func _create_company_section() -> void:
+	var table := CrewRankTable.get_default()
+	var header := Label.new()
+	header.text = tr("Ship's Company (%d / %d squads)") % [FleetManager.squads.size(), table.max_squads]
+	header.add_theme_font_size_override("font_size", 18)
+	captains_container.add_child(header)
+	for s in FleetManager.squads:
+		var row := Label.new()
+		var line := "%s - %s, %s" % [s.squad_name, tr(str(s.role).capitalize()), tr(table.rank_name(s.rank(table)))]
+		var t := s.get_trait(table)
+		if t:
+			line += " - " + tr(t.display_name)
+		if s.wounds > 0:
+			line += " - " + (tr("OUT OF ACTION") if not s.is_fit(table) else tr("wounded %d/%d") % [s.wounds, s.wound_cap(table)])
+		row.text = line
+		row.add_theme_font_size_override("font_size", 12)
+		row.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7) if s.is_fit(table) else Color(0.9, 0.4, 0.3))
+		captains_container.add_child(row)
+	if FleetManager.squads.size() < table.max_squads:
+		var hire_row := HBoxContainer.new()
+		for role in table.roles:
+			var b := Button.new()
+			b.text = tr("Hire %s (%d gold)") % [tr(str(role).capitalize()), table.hire_cost_gold]
+			b.disabled = not ResourceManager.can_afford({"gold": table.hire_cost_gold})
+			b.pressed.connect(func():
+				FleetManager.hire_squad(role)
+				_refresh_captains())
+			hire_row.add_child(b)
+		captains_container.add_child(hire_row)
+	captains_container.add_child(HSeparator.new())
+
 
 func _create_crew_recruitment_entry() -> void:
 	var player = get_tree().get_first_node_in_group("player_ship")

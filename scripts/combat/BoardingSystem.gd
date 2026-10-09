@@ -320,6 +320,10 @@ func _apply_outcome(enemy: Node, success: bool, outcome_id: String, details: Dic
 		"is_boss": is_instance_valid(enemy) and enemy.is_in_group("boss_ship"),
 		"hull_fraction": hull_fraction,
 		"captives": captives,
+		# The Ship's Company (2.10): what FleetManager.apply_boarding_result needs.
+		"grants_elite_squad": bool(details.get("grants_elite_squad", false)),
+		"captain_xp": int(details.get("captain_xp", 0)),
+		"casualty_ratio": float(details.get("casualty_ratio", 0.0)),
 	})
 	_clear_prompt()
 
@@ -376,6 +380,7 @@ func _build_deck(player: Node, enemy: Node, player_dmg: Node, enemy_dmg: Node) -
 		"hull_fraction": enemy_dmg.hull / maxf(max_hp, 1.0),
 		"crew_fraction": enemy_dmg.crew / maxf(stats.max_crew if stats else 1.0, 1.0),
 		"player_crew": player_dmg.crew,
+		"squad_hp": FleetManager.boarding_hp_bonus(),
 		"morale_scale": _morale_scale(enemy),
 		"threats": threats,
 		"roles": roles,

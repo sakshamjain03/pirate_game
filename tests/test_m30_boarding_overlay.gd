@@ -347,7 +347,7 @@ func test_finish_does_nothing_while_the_battle_is_still_running() -> void:
 
 
 func test_every_outcome_has_result_text() -> void:
-	for id in ["colours", "struck", "hold", "magazine", "repulsed", "cut_loose"]:
+	for id in ["colours", "struck", "hold", "magazine", "brig", "cabin", "repulsed", "cut_loose"]:
 		assert_ne(_overlay.result_text({"id": id}), _overlay.result_text({"id": "nonsense"}), id)
 
 

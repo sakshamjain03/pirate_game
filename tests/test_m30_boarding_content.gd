@@ -5,7 +5,7 @@ extends GutTest
 ## that what was authored is actually referenced, valid and playable.
 
 const BOARDING := "res://resources/combat/Boarding.tres"
-const OUTCOMES := ["colours", "hold", "magazine", "struck", "repulsed", "cut_loose"]
+const OUTCOMES := ["colours", "hold", "magazine", "brig", "cabin", "struck", "repulsed", "cut_loose"]
 
 var _rules: BoardingData
 

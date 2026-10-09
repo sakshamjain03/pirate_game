@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CrewRankTable" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/CrewRankTable.gd" id="1_ranks"]
+[ext_resource type="Script" path="res://scripts/combat/CrewTraitData.gd" id="2_trait"]
+[ext_resource type="Resource" path="res://resources/crew/traits/Steady.tres" id="t_steady"]
+[ext_resource type="Resource" path="res://resources/crew/traits/Bloodied.tres" id="t_bloodied"]
+[ext_resource type="Resource" path="res://resources/crew/traits/Tough.tres" id="t_tough"]
+[ext_resource type="Resource" path="res://resources/crew/traits/Keen.tres" id="t_keen"]
+
+; M30 2.10 - every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_ranks")
+traits = Array[ExtResource("2_trait")]([ExtResource("t_steady"), ExtResource("t_bloodied"), ExtResource("t_tough"), ExtResource("t_keen")])

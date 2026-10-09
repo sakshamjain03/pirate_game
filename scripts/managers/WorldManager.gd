@@ -495,6 +495,8 @@ func _on_dock_completed(island_id: String) -> void:
 	on_player_docked(island_id)
 	# M30 W2 (2.8) - prizes sailing home under a prize crew are settled at the next dock.
 	FleetManager.resolve_prizes_on_dock()
+	# M30 W2 (2.10) - the Ship's Company mends a little every time the ship reaches port.
+	FleetManager.heal_squads(CrewRankTable.get_default().dock_heal)
 	if EventManager.has_method("handle_docking_event"):
 		EventManager.handle_docking_event(island_id)
 	_update_lying_low(island_id)

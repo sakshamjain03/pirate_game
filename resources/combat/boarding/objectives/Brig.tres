@@ -5,11 +5,11 @@
 ; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
 [resource]
 script = ExtResource("1_o")
-id = &"colours"
-display_name = "Strike the Colours"
-zone = 2
-outcome_id = &"colours"
-loot_mult = 1.0
-captures_ship = true
-grants_elite_squad = false
+id = &"brig"
+display_name = "Break Open the Brig"
+zone = 3
+outcome_id = &"brig"
+loot_mult = 0.5
+captures_ship = false
+grants_elite_squad = true
 captain_xp = 0

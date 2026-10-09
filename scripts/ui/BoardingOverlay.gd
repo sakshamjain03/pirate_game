@@ -215,7 +215,9 @@ func finish() -> void:
 		loss += _rules.cut_loose_crew_loss_fraction
 	var details := {"rng": battle.rng, "loot_mult": float(outcome.get("loot_mult", 1.0)),
 			"crew_loss_fraction": loss, "captures_ship": bool(outcome.get("captures_ship", false)),
-			"officers_escaped": bool(outcome.get("officers_escaped", false))}
+			"officers_escaped": bool(outcome.get("officers_escaped", false)),
+			"grants_elite_squad": bool(outcome.get("grants_elite_squad", false)),
+			"captain_xp": int(outcome.get("captain_xp", 0)), "casualty_ratio": ratio}
 	var system := _system
 	_close()
 	closed.emit(outcome)
@@ -275,6 +277,10 @@ func result_text(outcome: Dictionary) -> String:
 			return tr("They strike their colours!")
 		"hold":
 			return tr("The hold is yours. Cargo seized.")
+		"brig":
+			return tr("The brig is broken open. The prisoners swear to you.")
+		"cabin":
+			return tr("The great cabin is yours. The officers' papers, and the strongbox.")
 		"magazine":
 			return tr("The magazine goes up. Nothing left to take.")
 		"repulsed":

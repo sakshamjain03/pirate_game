@@ -396,16 +396,20 @@ func _check_seize(events: Array[Dictionary]) -> bool:
 			var mult := obj.loot_mult
 			if hold_jettisoned and obj.outcome_id == &"hold":
 				mult *= 0.5
-			_end(str(obj.outcome_id), true, mult, obj.captures_ship, events)
+			_end(str(obj.outcome_id), true, mult, obj.captures_ship, events,
+					{"grants_elite_squad": obj.grants_elite_squad, "captain_xp": obj.captain_xp})
 			return true
 	return false
 
 
-func _end(id: String, success: bool, loot_mult: float, captures: bool, events: Array[Dictionary]) -> void:
+func _end(id: String, success: bool, loot_mult: float, captures: bool, events: Array[Dictionary],
+		extras: Dictionary = {}) -> void:
 	outcome = {
 		"id": id, "success": success, "loot_mult": loot_mult, "captures_ship": captures,
 		"officers_escaped": officers_escaped, "hold_intact": not hold_jettisoned,
 		"bell": bell, "casualties": player_hp_start - maxi(player_hp, 0),
+		"grants_elite_squad": bool(extras.get("grants_elite_squad", false)),
+		"captain_xp": int(extras.get("captain_xp", 0)),
 	}
 	events.append(_ev("battle_over", {"outcome": id}))
 

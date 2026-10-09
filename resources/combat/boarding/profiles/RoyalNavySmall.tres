@@ -8,7 +8,7 @@
 [ext_resource type="Resource" path="res://resources/combat/boarding/defenders/Gunner.tres" id="d_Gunner"]
 [ext_resource type="Resource" path="res://resources/combat/boarding/defenders/Officer.tres" id="d_Officer"]
 [ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Colours.tres" id="o_Colours"]
-[ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Hold.tres" id="o_Hold"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Brig.tres" id="o_Brig"]
 [ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Magazine.tres" id="o_Magazine"]
 
 ; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
@@ -22,4 +22,4 @@ defender_zones = PackedInt32Array(1, 1, 1, 1, 2, 2)
 morale = 70
 min_defenders = 3
 timed_events = Array[Dictionary]([{"bell": -1, "kind": "officers_escape"}])
-objectives = Array[ExtResource("3_o")]([ExtResource("o_Colours"), ExtResource("o_Hold"), ExtResource("o_Magazine")])
+objectives = Array[ExtResource("3_o")]([ExtResource("o_Colours"), ExtResource("o_Brig"), ExtResource("o_Magazine")])

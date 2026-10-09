@@ -11,3 +11,5 @@ zone = 3
 outcome_id = &"hold"
 loot_mult = 2.0
 captures_ship = false
+grants_elite_squad = false
+captain_xp = 0

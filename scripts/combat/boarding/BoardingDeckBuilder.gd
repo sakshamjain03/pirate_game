@@ -70,6 +70,7 @@ static func entry_zone_for(facing: StringName) -> int:
 ##   facing: StringName                   &"bow"/&"beam"/&"stern" the player closed on
 ##   hull_fraction: float, crew_fraction: float     the target's, 0..1
 ##   player_crew: float                   the player's current crew
+##   squad_hp: int                        extra boarders from the Ship's Company (optional)
 ##   morale_scale: float                  the target's morale / start (0..1); omit or pass < 0 to ignore
 ##   threats: Array[Dictionary]           [{"id": StringName, "name": String}] hostile hulls nearby
 ##   roles: Array[StringName]             roles the party can field (optional)
@@ -136,8 +137,9 @@ static func build(profile: BoardingDeckProfile, rules: BoardingData, ctx: Dictio
 	deck.defenders = entries
 
 	# The party: a fraction of the player's own crew, within bounds.
+	# plus what the fit boarding squads of the Ship's Company bring (2.10).
 	deck.player_hp = clampi(int(round(float(ctx.get("player_crew", 0.0)) * rules.boarder_fraction)),
-			rules.boarder_min, rules.boarder_max)
+			rules.boarder_min, rules.boarder_max) + maxi(0, int(ctx.get("squad_hp", 0)))
 
 	# Escorts still firing from outside the grapple.
 	var threats: Array = ctx.get("threats", [])

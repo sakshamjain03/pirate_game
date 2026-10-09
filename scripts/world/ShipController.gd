@@ -88,6 +88,12 @@ func _ready() -> void:
 		handler.name = "ShipCollisionHandler"
 		add_child(handler)
 
+	# M30 W2 (2.10) - the player's Ship's Company works its sea stations.
+	if is_in_group("player_ship") and not get_node_or_null("CrewStationApplier"):
+		var stations := CrewStationApplier.new()
+		stations.name = "CrewStationApplier"
+		add_child(stations)
+
 	# M30 W2 (2.6) — an enemy crew has nerve; the player's does not (yet).
 	if not is_in_group("player_ship") and not get_node_or_null("MoraleComponent"):
 		var morale := MoraleComponent.new()

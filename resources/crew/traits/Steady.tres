@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CrewTraitData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/CrewTraitData.gd" id="1_trait"]
+
+; M30 2.10 - every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_trait")
+trait_id = &"steady"
+display_name = "Steady Hands"
+description = "Cool under fire: their station works harder."
+roles = Array[StringName]([])
+station_mult_bonus = 0.25
+boarding_hp_bonus = 0
+wound_cap_bonus = 0

@@ -17,3 +17,7 @@ class_name BoardingObjectiveData extends Resource
 @export var loot_mult: float = 1.0  # placeholder: tune in M31
 ## False for the outcomes that leave a wreck instead of a taken ship (the magazine).
 @export var captures_ship: bool = true
+## M30 2.10 - the Brig: seizing it frees prisoners who join as an ELITE squad (the only way one
+## is ever made). The Cabin: the officers' papers pay the captain this much xp.
+@export var grants_elite_squad: bool = false
+@export var captain_xp: int = 0  # placeholder: tune in M31

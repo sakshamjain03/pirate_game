@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CrewTraitData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/CrewTraitData.gd" id="1_trait"]
+
+; M30 2.10 - every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_trait")
+trait_id = &"bloodied"
+display_name = "Bloodied"
+description = "Seen a boarding or three: they bring more to the deck."
+roles = Array[StringName]([&"marines"])
+station_mult_bonus = 0.0
+boarding_hp_bonus = 2
+wound_cap_bonus = 0

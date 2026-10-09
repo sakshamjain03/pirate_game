@@ -17,6 +17,8 @@ signal prize_recaptured(record: Dictionary)
 signal prize_sold(info: Dictionary)
 ## M30 W2 (2.9) - a court refused the prize (she was taken from a faction it protects).
 signal prize_refused(info: Dictionary)
+## M30 W2 (2.10) - the Ship's Company changed (hired, wounded, healed, promoted, a new squad).
+signal squads_changed()
 signal active_ship_changed(ship_stats: ShipStats, captain: CaptainData)
 signal captain_recruited(captain: CaptainData)
 
@@ -37,6 +39,11 @@ var defend_home_ship_uids: Array = []
 ## provenance_trait, condition, seed}. They persist across a save/load and are settled the next
 ## time the player docks (`resolve_prizes_on_dock`). Saved only while non-empty.
 var prizes_in_transit: Array[Dictionary] = []
+
+## M30 W2 (2.10) - the Ship's Company: named squads with a role, rank, xp, wounds and trait.
+## `ShipDamage.crew` stays the crew TOTAL; squads are a layer over it (so an old save loads and gets
+## template squads derived from its ship's crew). The rules are CrewRankTable's.
+var squads: Array[OwnedSquadData] = []
 
 ## ship uid (String) -> {"captain_id": String, "captain_index": int, "mission_type": String,
 ## "timer": float, ...}. `captain_id` pairs by CaptainData.captain_id; `captain_index` is only the
@@ -67,6 +74,7 @@ func _ready() -> void:
 		ResourceManager.global_economy_tick.connect(on_economy_tick)
 
 	ScheduleManager.job_completed.connect(_on_job_completed)
+	ensure_squads()
 
 ## M27 — a new hull takes time at the Shipyard: pays now (ResourceManager.pay(),
 ## which can cover a shortfall with Eights), and add_ship() runs when the job
@@ -378,6 +386,166 @@ func _remove_ship_at(idx: int) -> void:
 	fleet_changed.emit()
 
 
+## === The Ship's Company (M30 W2 2.10) ===
+
+func _new_squad_uid() -> String:
+	var taken := {}
+	for s in squads:
+		taken[s.uid] = true
+	var n := squads.size() + 1
+	var uid := "sq%d" % n
+	while taken.has(uid):
+		n += 1
+		uid = "sq%d" % n
+	return uid
+
+
+func _next_squad_name() -> String:
+	var table := CrewRankTable.get_default()
+	var used := {}
+	for s in squads:
+		used[s.squad_name] = true
+	for n in table.squad_names:
+		if not used.has(n):
+			return n
+	return "Squad %d" % (squads.size() + 1)
+
+
+func get_squad_by_uid(uid: String) -> OwnedSquadData:
+	for s in squads:
+		if s.uid == uid:
+			return s
+	return null
+
+
+## A company is never empty: a new game, an old save and a save with no squads all get one squad
+## per template role, sharing out the active ship's crew.
+func ensure_squads() -> void:
+	if not squads.is_empty():
+		return
+	var table := CrewRankTable.get_default()
+	var ship := get_active_ship()
+	var crew: int = int(ship.max_crew) if ship else table.squad_headcount * table.template_roles.size()
+	var each := maxi(1, crew / maxi(table.template_roles.size(), 1))
+	for role in table.template_roles:
+		var s := OwnedSquadData.new()
+		s.uid = _new_squad_uid()
+		s.squad_name = _next_squad_name()
+		s.role = role
+		s.headcount = each
+		squads.append(s)
+	squads_changed.emit()
+
+
+## The Tavern: a Green squad of `role`, for gold. Refused (null) at the squad cap, for an unknown
+## role, or if the gold is not there. Hired squads are always Green; higher ranks come with xp, and
+## the top rank only from boarding.
+func hire_squad(role: StringName) -> OwnedSquadData:
+	var table := CrewRankTable.get_default()
+	if not role in table.roles or squads.size() >= table.max_squads:
+		return null
+	if not ResourceManager.pay({"gold": table.hire_cost_gold}):
+		return null
+	var s := OwnedSquadData.new()
+	s.uid = _new_squad_uid()
+	s.squad_name = _next_squad_name()
+	s.role = role
+	s.headcount = table.squad_headcount
+	squads.append(s)
+	squads_changed.emit()
+	return s
+
+
+## An ELITE squad. Only a boarding outcome calls this (FleetManager.apply_boarding_result); the
+## Tavern cannot sell one. Null at the squad cap.
+func grant_elite_squad(role: StringName, squad_name: String = "") -> OwnedSquadData:
+	var table := CrewRankTable.get_default()
+	if squads.size() >= table.max_squads or not role in table.roles:
+		return null
+	var s := OwnedSquadData.new()
+	s.uid = _new_squad_uid()
+	s.squad_name = squad_name if not squad_name.is_empty() else _next_squad_name()
+	s.role = role
+	s.headcount = table.squad_headcount
+	var top := table.xp_thresholds[table.xp_thresholds.size() - 1]
+	s.xp = top
+	s.boarding_xp = top
+	_deal_trait(s)
+	squads.append(s)
+	squads_changed.emit()
+	return s
+
+
+## Gives `squad` xp (`boarding` = won boarding). A new rank deals a trait if it has none.
+func award_squad_xp(squad: OwnedSquadData, amount: int, boarding: bool = false) -> void:
+	if squad == null or amount <= 0:
+		return
+	var table := CrewRankTable.get_default()
+	var before := squad.rank(table)
+	squad.xp += amount
+	if boarding:
+		squad.boarding_xp += amount
+	if squad.rank(table) > before:
+		_deal_trait(squad)
+	squads_changed.emit()
+
+
+## Deterministic (the same squad always draws the same trait), and only one that suits the role.
+func _deal_trait(squad: OwnedSquadData) -> void:
+	if squad.trait_id != &"":
+		return
+	var options := CrewRankTable.get_default().traits_for_role(squad.role)
+	if options.is_empty():
+		return
+	squad.trait_id = options[absi(hash(squad.uid)) % options.size()].trait_id
+
+
+## Heals `amount` wounds off every squad (a dock visit; later the Infirmary).
+func heal_squads(amount: int) -> void:
+	var changed := false
+	for s in squads:
+		if s.wounds > 0 and amount > 0:
+			s.wounds = maxi(0, s.wounds - amount)
+			changed = true
+	if changed:
+		squads_changed.emit()
+
+
+## Boarding hit points the company's FIT boarding-role squads add to the party.
+func boarding_hp_bonus() -> int:
+	var table := CrewRankTable.get_default()
+	var total := 0
+	for s in squads:
+		if s.role in table.boarding_roles:
+			total += s.boarding_hp(table)
+	return total
+
+
+## What a boarding does to the company, from the `boarding_outcome` details: the boarding squads
+## earn xp (boarding xp: more for a win) and are wounded in proportion to the casualties the party
+## took; a Brig outcome frees an ELITE squad; a Cabin outcome pays the captain. Elite squads exist
+## ONLY because of this function.
+func apply_boarding_result(details: Dictionary) -> void:
+	var table := CrewRankTable.get_default()
+	var won := bool(details.get("success", false))
+	var casualty_ratio := clampf(float(details.get("casualty_ratio", 0.0)), 0.0, 1.0)
+	var wounds := int(ceil(casualty_ratio * float(table.boarding_wounds_max)))
+	var xp := table.boarding_xp_win if won else table.boarding_xp_loss
+	for s in squads.duplicate():
+		if not s.role in table.boarding_roles or not s.is_fit(table):
+			continue
+		s.wounds += wounds
+		award_squad_xp(s, xp, true)
+	if won and bool(details.get("grants_elite_squad", false)):
+		grant_elite_squad(&"marines", "Freed Prisoners")
+	var captain_xp := int(details.get("captain_xp", 0))
+	if won and captain_xp > 0:
+		var cap := get_active_captain()
+		if cap:
+			cap.add_xp(captain_xp)
+	squads_changed.emit()
+
+
 ## The chance a prize in transit is retaken, given the player's notoriety.
 func recapture_chance_now() -> float:
 	var cfg := PrizeConfigData.get_default()
@@ -549,6 +717,10 @@ func get_save_data() -> Dictionary:
 	# An optional save section is omitted entirely when empty (CLAUDE.md).
 	if not prizes_in_transit.is_empty():
 		out["prizes_in_transit"] = prizes_in_transit.duplicate(true)
+	var squad_data: Array = []
+	for s in squads:
+		squad_data.append(s.get_save_data())
+	out["squads"] = squad_data
 	return out
 
 
@@ -680,5 +852,16 @@ func load_save_data(data: Dictionary) -> void:
 	for record in data.get("prizes_in_transit", []):
 		if record is Dictionary:
 			prizes_in_transit.append((record as Dictionary).duplicate(true))
+
+	squads.clear()
+	for entry in data.get("squads", []):
+		if entry is Dictionary:
+			var squad := OwnedSquadData.from_save_data(entry)
+			if squad.uid.is_empty():
+				squad.uid = _new_squad_uid()
+			squads.append(squad)
+	# An old save (no squads) gets template squads derived from its ship's crew.
+	ensure_squads()
+	squads_changed.emit()
 
 	fleet_changed.emit()

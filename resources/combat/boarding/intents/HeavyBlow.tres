@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="DefenderIntentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/boarding/DefenderIntentData.gd" id="1_i"]
+
+; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_i")
+id = &"heavy_blow"
+display_name = "Heavy Blow"
+kind = 0
+power = 2
+glyph = "H"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="DefenderData" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/boarding/DefenderData.gd" id="1_d"]
+[ext_resource type="Script" path="res://scripts/combat/boarding/DefenderIntentData.gd" id="2_i"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/intents/TakeAim.tres" id="i_0"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/intents/Shoot.tres" id="i_1"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/intents/Shoot.tres" id="i_2"]
+
+; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_d")
+id = &"gunner"
+display_name = "Gunner"
+hp = 3
+attack = 2
+morale_value = 5
+removed_by_tags = Array[StringName]([])
+wounded_by_tags = Array[StringName]([])
+intents = Array[ExtResource("2_i")]([ExtResource("i_0"), ExtResource("i_1"), ExtResource("i_2")])
+is_officer = false
+glyph = "G"

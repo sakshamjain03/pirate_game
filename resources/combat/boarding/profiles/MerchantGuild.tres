@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BoardingDeckProfile" load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingDeckProfile.gd" id="1_p"]
+[ext_resource type="Script" path="res://scripts/combat/boarding/DefenderData.gd" id="2_d"]
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingObjectiveData.gd" id="3_o"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/defenders/Deckhand.tres" id="d_Deckhand"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/defenders/Rigger.tres" id="d_Rigger"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/defenders/Officer.tres" id="d_Officer"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Colours.tres" id="o_Colours"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Hold.tres" id="o_Hold"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/objectives/Magazine.tres" id="o_Magazine"]
+
+; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_p")
+faction_id = "merchant_guild"
+ship_class_min = 1
+ship_class_max = 5
+defenders = Array[ExtResource("2_d")]([ExtResource("d_Deckhand"), ExtResource("d_Deckhand"), ExtResource("d_Deckhand"), ExtResource("d_Rigger"), ExtResource("d_Rigger"), ExtResource("d_Officer")])
+defender_zones = PackedInt32Array(1, 1, 3, 0, 0, 2)
+morale = 40
+min_defenders = 2
+timed_events = Array[Dictionary]([{"bell": 2, "kind": "jettison"}, {"bell": -1, "kind": "officers_escape"}])
+objectives = Array[ExtResource("3_o")]([ExtResource("o_Colours"), ExtResource("o_Hold"), ExtResource("o_Magazine")])

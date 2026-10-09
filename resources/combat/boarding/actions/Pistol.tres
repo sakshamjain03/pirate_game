@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BoardingActionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingActionData.gd" id="1_a"]
+
+; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_a")
+id = &"pistol"
+display_name = "Pistol Volley"
+cp_cost = 1
+target_rule = 1
+damage = 2
+push = 0
+cancels_intent = false
+outside_guard = 0
+glyph = "!"

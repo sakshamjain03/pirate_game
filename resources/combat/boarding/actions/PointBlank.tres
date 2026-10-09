@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BoardingActionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingActionData.gd" id="1_a"]
+
+; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_a")
+id = &"point_blank"
+display_name = "Point-Blank"
+cp_cost = 2
+target_rule = 2
+damage = 3
+push = 0
+cancels_intent = false
+outside_guard = 0
+glyph = "*"

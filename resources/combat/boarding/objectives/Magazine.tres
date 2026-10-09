@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoardingObjectiveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingObjectiveData.gd" id="1_o"]
+
+; M30 2.4 boarding content. Every number is a placeholder: tune in M31.
+[resource]
+script = ExtResource("1_o")
+id = &"magazine"
+display_name = "Fire the Magazine"
+zone = 0
+outcome_id = &"magazine"
+loot_mult = 0.5
+captures_ship = false

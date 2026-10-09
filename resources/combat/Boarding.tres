@@ -1,6 +1,23 @@
-[gd_resource type="Resource" script_class="BoardingData" format=3]
+[gd_resource type="Resource" script_class="BoardingData" load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/BoardingData.gd" id="1_hh50k"]
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingDeckProfile.gd" id="2_p"]
+[ext_resource type="Script" path="res://scripts/combat/boarding/BoardingActionData.gd" id="3_a"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/profiles/Default.tres" id="p_Default"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/profiles/RoyalNavySmall.tres" id="p_RoyalNavySmall"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/profiles/RoyalNavyLarge.tres" id="p_RoyalNavyLarge"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/profiles/PirateClans.tres" id="p_PirateClans"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/profiles/MerchantGuild.tres" id="p_MerchantGuild"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/profiles/SpanishEmpire.tres" id="p_SpanishEmpire"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/actions/Cutlass.tres" id="a_Cutlass"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/actions/Pistol.tres" id="a_Pistol"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/actions/Shove.tres" id="a_Shove"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/actions/Parry.tres" id="a_Parry"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/actions/Brace.tres" id="a_Brace"]
+[ext_resource type="Resource" path="res://resources/combat/boarding/actions/PointBlank.tres" id="a_PointBlank"]
 
 [resource]
 script = ExtResource("1_hh50k")
+deck_profiles = Array[ExtResource("2_p")]([ExtResource("p_RoyalNavySmall"), ExtResource("p_RoyalNavyLarge"), ExtResource("p_PirateClans"), ExtResource("p_MerchantGuild"), ExtResource("p_SpanishEmpire")])
+default_profile = ExtResource("p_Default")
+actions = Array[ExtResource("3_a")]([ExtResource("a_Cutlass"), ExtResource("a_Pistol"), ExtResource("a_Shove"), ExtResource("a_Parry"), ExtResource("a_Brace"), ExtResource("a_PointBlank")])

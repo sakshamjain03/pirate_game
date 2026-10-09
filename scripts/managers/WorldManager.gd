@@ -314,12 +314,22 @@ func mark_target_at_screen(screen_pos: Vector2, cam: Camera3D = null) -> Node3D:
 func _register_wave0_context_verbs() -> void:
 	_context_arbiter.register_provider(&"board",
 		func(): return _boarding_system != null and _boarding_system.get("_eligible_enemy") != null,
-		func(): return _boarding_system.has_method("attempt_boarding") and bool(_boarding_system.attempt_boarding()),
+		func(): return _board_enemy(),
 		"Board Enemy", "board")
 	_context_arbiter.register_provider(&"dock",
 		_can_toggle_docking,
 		func(): _toggle_docking(); return true,
 		"Dock", "dock")
+
+
+## M30 W2 (2.1) — the Board verb begins a Three Bells battle, or resolves
+## instantly for Quick boarding / an overwhelming crew (BoardingSystem decides).
+func _board_enemy() -> bool:
+	if _boarding_system == null:
+		return false
+	if _boarding_system.has_method("begin_boarding"):
+		return bool(_boarding_system.begin_boarding())
+	return _boarding_system.has_method("attempt_boarding") and bool(_boarding_system.attempt_boarding())
 
 
 ## M30 W1 (1.6) — Brace on the context button (priority above Board/Dock).

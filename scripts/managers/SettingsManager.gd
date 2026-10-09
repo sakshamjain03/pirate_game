@@ -85,6 +85,10 @@ const DEFAULT_AI_DIFFICULTY: int = 1
 ## restores the pre-M25 behaviour exactly (ShipCombat's auto-fire block is
 ## unchanged, only its default). Off by default.
 const DEFAULT_AUTO_FIRE: bool = false
+## M30 W2 (2.1): Quick boarding skips the Three Bells battle and resolves every
+## boarding with the old instant crew comparison. An accessibility/pace option
+## that must stay available, so it is a setting, not an unlock. Off by default.
+const DEFAULT_QUICK_BOARDING: bool = false
 const AI_DIFFICULTY_PATHS: Array[String] = [
 	"res://resources/combat/ai_difficulty/Relaxed.tres",
 	"res://resources/combat/ai_difficulty/Normal.tres",
@@ -139,6 +143,7 @@ var reduce_motion: bool = DEFAULT_REDUCE_MOTION
 var text_size: int = DEFAULT_TEXT_SIZE
 var mute_in_background: bool = DEFAULT_MUTE_IN_BACKGROUND
 var notify_raids: bool = DEFAULT_NOTIFY_RAIDS
+var quick_boarding: bool = DEFAULT_QUICK_BOARDING
 var auto_fire: bool = DEFAULT_AUTO_FIRE:
 	set(value):
 		auto_fire = value
@@ -302,6 +307,7 @@ func load_settings() -> void:
 	ai_difficulty = _ai_difficulty if typeof(_ai_difficulty) == TYPE_INT else DEFAULT_AI_DIFFICULTY
 	var _auto_fire = config.get_value("gameplay", "auto_fire", DEFAULT_AUTO_FIRE)
 	auto_fire = _auto_fire if typeof(_auto_fire) == TYPE_BOOL else DEFAULT_AUTO_FIRE
+	quick_boarding = _read_bool(config, "gameplay", "quick_boarding", DEFAULT_QUICK_BOARDING)
 
 	if apply_input_bindings_on_load:
 		load_input_bindings(config)
@@ -327,6 +333,7 @@ func save_settings() -> void:
 	config.set_value("display", "ui_font", ui_font)
 	config.set_value("gameplay", "ai_difficulty", ai_difficulty)
 	config.set_value("gameplay", "auto_fire", auto_fire)
+	config.set_value("gameplay", "quick_boarding", quick_boarding)
 	config.set_value("display", "hud_detail", hud_detail)
 	config.set_value("display", "show_fps", show_fps)
 	config.set_value("display", "max_fps", max_fps)
@@ -468,6 +475,7 @@ func _apply_defaults() -> void:
 	text_size = DEFAULT_TEXT_SIZE
 	mute_in_background = DEFAULT_MUTE_IN_BACKGROUND
 	notify_raids = DEFAULT_NOTIFY_RAIDS
+	quick_boarding = DEFAULT_QUICK_BOARDING
 
 
 func _read_int(config: ConfigFile, section: String, key: String, fallback: int) -> int:

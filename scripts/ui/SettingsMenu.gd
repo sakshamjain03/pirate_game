@@ -671,6 +671,12 @@ func _build_display_tab() -> void:
 		tr("Guns fire themselves whenever a broadside lines up"),
 		bool(_setting("auto_fire", false)),
 		func(on: bool): _commit_setting("auto_fire", on))
+	# M30 W2 — boarding is a three-bell battle by default; this keeps the old
+	# instant crew comparison for anyone who wants the plunder without the fight.
+	_add_toggle_row(access_card, tr("Quick boarding"),
+		tr("Skip the boarding battle and resolve it instantly"),
+		bool(_setting("quick_boarding", false)),
+		func(on: bool): _commit_setting("quick_boarding", on))
 
 	_add_section_header(display_vbox, tr("Sound & Alerts"))
 	var alert_card := _add_section_card(display_vbox)

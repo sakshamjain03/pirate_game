@@ -18,6 +18,8 @@ const GRAPE := "res://resources/combat/ammo/GrapeShot.tres"
 
 var _scene: Node3D = null
 var _prev_scene: Node = null
+var _prev_ad_state: int = 0
+var _prev_offline_ticks: int = 0
 var _mgr: EncounterManager = null
 var _ship: ShipController = null
 var _combat: ShipCombat = null
@@ -26,6 +28,19 @@ var _hud: Node = null
 
 
 func before_each() -> void:
+	# WorldHUD instances AgeGate/ConsentPanel, which pause the whole tree while
+	# the global AdManager is in a *_PENDING state — and earlier scripts leave it
+	# there. Pin a neutral state so a HUD built here can never pause the run.
+	_prev_ad_state = AdManager.state
+	AdManager.state = AdManager.State.UNKNOWN
+	# A real WorldHUD turns SaveManager's leftover offline ticks into a modal
+	# "while you were away" offer that pauses the tree — and test_save_manager_
+	# offline leaves them set. Neutralise it, and drop player_ship stragglers
+	# earlier scripts leaked (a mock parent made MobileControls error here).
+	_prev_offline_ticks = SaveManager._pending_offline_ticks
+	SaveManager._pending_offline_ticks = 0
+	for stale in get_tree().get_nodes_in_group("player_ship"):
+		stale.remove_from_group("player_ship")
 	_prev_scene = get_tree().current_scene
 	_scene = Node3D.new()
 	_scene.name = "SideAmmoWorld"
@@ -79,6 +94,9 @@ func after_each() -> void:
 	_hud = null
 	_viewport = null
 	_prev_scene = null
+	AdManager.state = _prev_ad_state as AdManager.State
+	SaveManager._pending_offline_ticks = _prev_offline_ticks
+	get_tree().paused = false
 
 
 func _ammo_button() -> Button:
